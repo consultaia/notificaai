@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>NotificaAI — HNSA</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#06101F;height:100%}
+@keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
+input::placeholder{color:#5A7AA0}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
+button:active{opacity:.85}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+window.storage = {
+  get: async (key) => { try { const v = localStorage.getItem('nai_'+key); return v ? {value: v} : null; } catch { return null; } },
+  set: async (key, value) => { try { localStorage.setItem('nai_'+key, value); return {value}; } catch { return null; } },
+  delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
+};
+
+function IconMessageSquare({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`}} />;
+}
+function IconBarChart2({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`}} />;
+}
+function IconBookOpen({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`}} />;
+}
+function IconHome({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`}} />;
+}
+function IconSend({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`}} />;
+}
+function IconChevronRight({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><polyline points="9 18 15 12 9 6"/></svg>`}} />;
+}
+function IconSettings({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`}} />;
+}
+
+
+const C = {
+  bg: '#06101F', surface: '#0C1A30', card: '#102040', border: '#1A3060',
+  teal: '#00C9B8', blue: '#1D6FE8', text: '#DFF0FF', muted: '#5A7AA0',
+  red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6',
+};
+
+// ─── MOCK DATA ─────────────────────────────────────────────────────────────────
+const MOCK_MONTHLY = [
+  { mes: 'Jan', sp: 4, adm: 7 }, { mes: 'Fev', sp: 6, adm: 5 },
+  { mes: 'Mar', sp: 3, adm: 8 }, { mes: 'Abr', sp: 8, adm: 4 }, { mes: 'Mai', sp: 5, adm: 6 },
+];
+const MOCK_SECTORS = [
+  { setor: 'UPG', eventos: 8 }, { setor: 'Ala A', eventos: 14 },
+  { setor: 'CC', eventos: 5 }, { setor: 'SEP', eventos: 11 },
+];
+const MOCK_TYPES = [
+  { name: 'Queda', value: 35, color: C.red }, { name: 'Medicação', value: 25, color: C.yellow },
+  { name: 'Acesso indevido', value: 20, color: C.purple }, { name: 'Hotelaria', value: 15, color: C.blue },
+  { name: 'Outros', value: 5, color: C.muted },
+];
+const MOCK_HEATMAP = [
+  { turno: 'Manhã', v: [1, 2, 2, 3, 2, 2, 1] },
+  { turno: 'Tarde', v: [2, 4, 5, 3, 4, 5, 2] },
+  { turno: 'Noite', v: [4, 6, 5, 7, 5, 4, 3] },
+];
+const MOCK_RECENT = [
+  { id: '1', event_subtype: 'queda', notification_type: 'seguranca_paciente', sector: 'Ala A', created_at: new Date().toISOString() },
+  { id: '2', occurrence_subtype: 'acesso_indevido', notification_type: 'administrativa', sector: 'SEP', created_at: new Date(Date.now()-3600000).toISOString() },
+  { id: '3', event_subtype: 'medicação', notification_type: 'seguranca_paciente', sector: 'UPG', created_at: new Date(Date.now()-86400000).toISOString() },
+  { id: '4', occurrence_subtype: 'hotelaria', notification_type: 'administrativa', sector: 'Ala A', created_at: new Date(Date.now()-86400000).toISOString() },
+];
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+// ─── PROMPTS ───────────────────────────────────────────────────────────────────
+const CHAT_SYSTEM = `Você é o NotificaAI, assistente de registro de notificações do HNSA (Hospital Naval de Salvador).
+
+Conduza uma conversa acolhedora e objetiva para registrar a notificação.
+
+PASSO 1 — Identifique quem notifica: profissional de saúde, paciente ou familiar/acompanhante.
+PASSO 2 — Identifique o tipo: Segurança do Paciente (queda, medicação, cirurgia, infecção, etc.) ou Ocorrência Administrativa (acesso indevido, hotelaria, infraestrutura, etc.).
+PASSO 3 — Colete em conversa fluida. Seg. Paciente: data/hora do evento, data da admissão do paciente, idade do paciente, motivo da internação, setor (UPG/Ala A/Centro Cirúrgico/SEP), tipo de evento, turno, desfecho, se era evitável, medidas tomadas. Administrativa: data/hora, setor, tipo, descrição, medidas tomadas (para administrativa, não pergunte dados clínicos do paciente).
+PASSO 4 — Apresente um resumo estruturado e pergunte exatamente: "Posso confirmar o envio desta notificação?"
+
+Regras: sempre em português. Uma pergunta por vez. Nunca use linguagem de formulário.`;
+
+const EXTRACT_SYSTEM = `Extraia os dados da conversa como JSON puro. Sem explicação, sem markdown, apenas o objeto JSON.
+
+Formato:
+{
+  "notifier_type": "profissional" | "paciente" | "familiar",
+  "notification_type": "seguranca_paciente" | "administrativa",
+  "sector": "UPG" | "Ala A" | "Centro Cirúrgico" | "SEP" | "Geral",
+  "event_date": "YYYY-MM-DD" | null,
+  "event_time": "HH:MM" | null,
+  "shift": "Manhã" | "Tarde" | "Noite" | null,
+  "description": "descrição do evento",
+  "measures_taken": "medidas tomadas" | null,
+  "event_subtype": "queda" | "medicação" | "cirurgia" | "infecção" | "identificação" | "outro" | null,
+  "patient_outcome": "desfecho" | null,
+  "was_preventable": true | false | null,
+  "occurrence_subtype": "tipo da ocorrência administrativa" | null,
+  "admission_date": "YYYY-MM-DD" | null,
+  "patient_age": número inteiro | null,
+  "admission_reason": "motivo da internação" | null,
+  "ai_summary": "Resumo em um parágrafo em português"
+}`;
+
+// ─── SUPABASE HELPERS ──────────────────────────────────────────────────────────
+async function sbReq(url, key, path, options = {}) {
+  const res = await fetch(`${url}/rest/v1${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: key, Authorization: `Bearer ${key}`, Prefer: 'return=representation',
+      ...(options.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(`Supabase ${res.status}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : [];
+}
+const sbInsert = (u, k, table, data) => sbReq(u, k, `/${table}`, { method: 'POST', body: JSON.stringify(data) });
+const sbSelect = (u, k, table, q = '') => sbReq(u, k, `/${table}?${q}`);
+
+// ─── AI HELPER ─────────────────────────────────────────────────────────────────
+async function callClaude(messages, system) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, system, messages }),
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || '';
+}
+
+async function extractData(chatMessages) {
+  const msgs = [...chatMessages, { role: 'user', content: 'Extraia os dados no formato JSON.' }];
+  const text = await callClaude(msgs, EXTRACT_SYSTEM);
+  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
+  catch { return null; }
+}
+
+// ─── STATS ─────────────────────────────────────────────────────────────────────
+function computeStats(notifications) {
+  const total = notifications.length;
+  const sp = notifications.filter(n => n.notification_type === 'seguranca_paciente').length;
+  const adm = notifications.filter(n => n.notification_type === 'administrativa').length;
+
+  const sectorMap = { 'UPG': 0, 'Ala A': 0, 'Centro Cirúrgico': 0, 'SEP': 0 };
+  notifications.forEach(n => { if (n.sector in sectorMap) sectorMap[n.sector]++; });
+  const sectorData = Object.entries(sectorMap).map(([k, v]) => ({
+    setor: k === 'Centro Cirúrgico' ? 'CC' : k, eventos: v,
+  }));
+
+  const typeMap = {};
+  notifications.forEach(n => {
+    const t = n.event_subtype || n.occurrence_subtype || 'outros';
+    const l = t.charAt(0).toUpperCase() + t.slice(1);
+    typeMap[l] = (typeMap[l] || 0) + 1;
+  });
+  const typeColors = [C.red, C.yellow, C.purple, C.blue, C.green, C.muted];
+  const typeData = Object.entries(typeMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .map(([name, value], i) => ({ name, value, color: typeColors[i] }));
+
+  const heatmap = [
+    { turno: 'Manhã', v: [0,0,0,0,0,0,0] },
+    { turno: 'Tarde', v: [0,0,0,0,0,0,0] },
+    { turno: 'Noite', v: [0,0,0,0,0,0,0] },
+  ];
+  notifications.forEach(n => {
+    if (!n.event_date || !n.shift) return;
+    const day = new Date(n.event_date + 'T12:00:00').getDay();
+    const si = ['Manhã', 'Tarde', 'Noite'].indexOf(n.shift);
+    if (si >= 0) heatmap[si].v[day]++;
+  });
+
+  // Monthly (last 5)
+  const mMap = {};
+  notifications.forEach(n => {
+    const d = new Date(n.created_at);
+    const k = d.toLocaleDateString('pt-BR', { month: 'short' });
+    if (!mMap[k]) mMap[k] = { mes: k, sp: 0, adm: 0 };
+    if (n.notification_type === 'seguranca_paciente') mMap[k].sp++;
+    else mMap[k].adm++;
+  });
+  const monthly = Object.values(mMap).slice(-5);
+
+  const critSector = sectorData.reduce((m, s) => s.eventos > m.eventos ? s : m, sectorData[0] || { setor: 'Ala A', eventos: 0 });
+  return { total, sp, adm, sectorData, typeData, heatmap, monthly, critSector };
+}
+
+function formatTime(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}min`;
+  if (diff < 86400000) return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return 'ontem';
+}
+function getTag(n) {
+  return n.notification_type === 'seguranca_paciente'
+    ? { label: 'SP', color: C.red } : { label: 'ADM', color: C.purple };
+}
+function getTitle(n) {
+  return n.event_subtype || n.occurrence_subtype || (n.description || '').slice(0, 28) || 'Notificação';
+}
+function md(t) {
+  return t.replace(/\*\*(.*?)\*\*/g, `<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g, '<br/>');
+}
+
+// ─── UI COMPONENTS ─────────────────────────────────────────────────────────────
+function StatCard({ icon, label, value, sub, color }) {
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>{label}</span>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+      </div>
+      <div style={{ fontSize: 28, fontWeight: 900, color: color || C.teal, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: C.muted }}>{sub}</div>}
+    </div>
+  );
+}
+
+function HeatCell({ value }) {
+  const t = Math.min((value || 0) / 8, 1);
+  const bg = t < 0.12 ? C.surface : t < 0.35 ? '#0E3D5B' : t < 0.6 ? '#0369A1' : t < 0.8 ? '#0891B2' : C.teal;
+  return (
+    <div style={{ background: bg, borderRadius: 6, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: t > 0.55 ? '#06101F' : C.muted, border: `1px solid ${C.border}` }}>
+      {value || 0}
+    </div>
+  );
+}
+
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 4000); return () => clearTimeout(t); }, []);
+  const bg = type === 'success' ? C.green : type === 'error' ? C.red : C.blue;
+  return (
+    <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: bg, color: '#fff', borderRadius: 12, padding: '12px 20px', fontSize: 13, fontWeight: 700, zIndex: 9999, maxWidth: 320, textAlign: 'center', boxShadow: `0 4px 24px ${bg}66`, whiteSpace: 'pre-wrap' }}>
+      {msg}
+    </div>
+  );
+}
+
+// ─── CONFIG PANEL ──────────────────────────────────────────────────────────────
+function ConfigPanel({ sbUrl, sbKey, webhookUrl, nspPin, onSave, onClose }) {
+  const [url, setUrl] = useState(sbUrl);
+  const [key, setKey] = useState(sbKey);
+  const [webhook, setWebhook] = useState(webhookUrl);
+  const [pin, setPin] = useState(nspPin);
+  const inp = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 14px', color: C.text, fontSize: 13, outline: 'none', width: '100%', marginBottom: 12 };
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000b', zIndex: 200, display: 'flex', alignItems: 'flex-end' }}>
+      <div style={{ background: C.surface, borderRadius: '20px 20px 0 0', padding: '24px 20px 36px', width: '100%', maxWidth: 480, margin: '0 auto', border: `1px solid ${C.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>⚙️ Configurar Supabase</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: C.muted, cursor: 'pointer', fontSize: 20 }}>✕</button>
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 18, lineHeight: 1.7, background: C.card, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${C.teal}` }}>
+          No Supabase: <strong style={{ color: C.teal }}>Project Settings → API</strong><br />
+          Copie o <strong style={{ color: C.text }}>Project URL</strong> e a <strong style={{ color: C.text }}>anon public key</strong>.
+        </div>
+        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Project URL</label>
+        <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://xxxx.supabase.co" style={inp} />
+        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 }}>Anon Key</label>
+        <input value={key} onChange={e => setKey(e.target.value)} placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style={{ ...inp, fontFamily: 'monospace', fontSize: 11 }} />
+        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6, marginTop: 4 }}>Webhook URL (n8n / Make.com)</label>
+        <input value={webhook} onChange={e => setWebhook(e.target.value)} placeholder="https://seu-n8n.app/webhook/notificaai" style={{ ...inp, fontFamily: 'monospace', fontSize: 11 }} />
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 12, lineHeight: 1.6 }}>O app vai disparar esta URL a cada notificação confirmada. Use para envio de e-mail automático.</div>
+        <label style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6, marginTop: 4 }}>PIN do Painel NSP</label>
+        <input value={pin} onChange={e => setPin(e.target.value)} placeholder="PIN numérico (ex: 1234)" type="password" style={{ ...inp, letterSpacing: '0.3em' }} />
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>Protege o acesso ao painel, analytics e notificações recentes. Padrão: <strong style={{color:C.text}}>1234</strong></div>
+        <button onClick={() => onSave(url.trim(), key.trim(), webhook.trim(), pin.trim() || '1234')} style={{ width: '100%', background: C.teal, border: 'none', borderRadius: 12, padding: '14px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer', marginTop: 4 }}>
+          Salvar e Conectar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── KNOWLEDGE DATA ────────────────────────────────────────────────────────────
+const knowledge = [
+  { id: 'cards', icon: '📌', title: 'Cards Informativos', desc: 'Conceitos rápidos de segurança do paciente', color: C.teal, type: 'cards',
+    items: [
+      { title: 'Evento Adverso', text: 'Incidente que resulta em dano ao paciente decorrente da assistência em saúde, e não da doença de base.' },
+      { title: 'Near Miss (Quase Erro)', text: 'Incidente que não atingiu o paciente. Essencial para identificar vulnerabilidades antes que causem dano real.' },
+      { title: 'Evento Sentinela', text: 'Evento adverso grave e inesperado que resulta em morte ou perda permanente de função. Exige investigação imediata.' },
+      { title: 'Cultura de Segurança', text: 'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema e não na culpa individual.' },
+    ]
+  },
+  { id: 'banner', icon: '🖼️', title: 'Banners & Materiais Visuais', desc: 'Materiais para impressão e divulgação nos setores', color: C.blue, type: 'download',
+    items: [
+      { title: 'Banner: Como Notificar', badge: 'PDF', size: '1,2 MB' },
+      { title: 'Cartaz: 5 Metas Internacionais de Segurança', badge: 'PDF', size: '800 KB' },
+      { title: 'QR Codes por Setor — UPG, Ala A, CC, SEP', badge: 'ZIP', size: '450 KB' },
+      { title: 'Folder: Segurança do Paciente', badge: 'PDF', size: '1,5 MB' },
+    ]
+  },
+  { id: 'como', icon: '📘', title: 'Como Notificar', desc: 'Guia passo a passo para realizar uma notificação', color: C.green, type: 'steps',
+    items: [
+      { step: '01', title: 'Acesse o NotificaAI', text: 'Use o QR Code afixado no seu setor ou acesse pelo computador da intranet do HNSA.' },
+      { step: '02', title: 'Identifique-se', text: 'Informe se é profissional de saúde, paciente ou familiar. O sistema adapta o atendimento ao seu perfil.' },
+      { step: '03', title: 'Relate o ocorrido', text: 'Descreva o que aconteceu com suas palavras. A IA vai guiar as perguntas de forma natural.' },
+      { step: '04', title: 'Confirme o registro', text: 'Revise o resumo gerado e confirme o envio. O NSP receberá notificação automática por e-mail.' },
+    ]
+  },
+  { id: 'plano', icon: '📋', title: 'Plano de Ação (5W2H)', desc: 'Como elaborar um plano corretivo para eventos', color: C.yellow, type: '5w2h',
+    items: [
+      { tag: 'What', label: 'O quê?', text: 'Qual ação será realizada para corrigir ou prevenir o evento?' },
+      { tag: 'Why', label: 'Por quê?', text: 'Qual o problema ou risco que esta ação resolve?' },
+      { tag: 'Who', label: 'Quem?', text: 'Quem é o responsável pela execução e acompanhamento?' },
+      { tag: 'When', label: 'Quando?', text: 'Qual o prazo de início e conclusão da ação?' },
+      { tag: 'Where', label: 'Onde?', text: 'Em qual setor ou local será aplicada a ação?' },
+      { tag: 'How', label: 'Como?', text: 'Qual o método, processo ou protocolo a ser seguido?' },
+      { tag: 'How Much', label: 'Quanto?', text: 'Qual o custo ou recurso necessário para execução?' },
+    ]
+  },
+  { id: 'edu', icon: '❤️', title: 'Educação em Saúde', desc: 'Materiais voltados ao paciente e família', color: C.red, type: 'cards',
+    items: [
+      { title: 'Seus Direitos como Paciente', text: 'Você tem direito à identificação correta, informações sobre seu tratamento, privacidade e notificar eventos sem receio.' },
+      { title: 'Prevenção de Quedas', text: 'Peça ajuda para levantar. Use calçados antiderrapantes. Acione a campainha. Você está se protegendo, não incomodando.' },
+      { title: 'Higiene das Mãos', text: 'Lembre os profissionais de higienizar as mãos antes de te atender. É seu direito pedir.' },
+      { title: 'Identificação Correta', text: 'Verifique se sua pulseira está legível. Confirme seu nome antes de receber medicações ou procedimentos.' },
+    ]
+  },
+  { id: 'aula', icon: '🎬', title: 'Aula Expositiva', desc: 'Treinamento completo sobre segurança e notificação', color: C.purple, type: 'media',
+    items: [
+      { title: 'Módulo 1 — Introdução à Segurança do Paciente', duracao: '18 min', tipo: 'Vídeo' },
+      { title: 'Módulo 2 — Tipos de Eventos e Classificação', duracao: '22 min', tipo: 'Vídeo' },
+      { title: 'Módulo 3 — Como Notificar com o NotificaAI', duracao: '15 min', tipo: 'Vídeo' },
+      { title: 'Módulo 4 — Plano de Ação e Ciclo PDCA', duracao: '25 min', tipo: 'Vídeo' },
+      { title: 'Slides Completos do Treinamento NSP', duracao: '48 slides', tipo: 'PPT' },
+    ]
+  },
+];
+
+// ─── HOME VIEW ─────────────────────────────────────────────────────────────────
+function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode }) {
+  const [stats, setStats] = useState(null);
+  const [recent, setRecent] = useState(MOCK_RECENT);
+  const [loading, setLoading] = useState(false);
+  const configured = !!(sbUrl && sbKey);
+
+  useEffect(() => {
+    if (!configured) return;
+    setLoading(true);
+    sbSelect(sbUrl, sbKey, 'notifications', 'select=*&order=created_at.desc')
+      .then(data => { setStats(computeStats(data)); setRecent(data.slice(0, 5)); })
+      .catch(() => showToast('Erro ao carregar dados. Verifique as credenciais.', 'error'))
+      .finally(() => setLoading(false));
+  }, [sbUrl, sbKey]);
+
+  const s = stats || { total: 26, sp: 11, adm: 15, critSector: { setor: 'Ala A', eventos: 14 } };
+
+  return (
+    <div style={{ padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.teal}, ${C.blue})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>⚓</div>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: '-0.02em' }}>NotificaAI</div>
+            <div style={{ fontSize: 11, color: C.muted }}>HNSA · Núcleo de Segurança do Paciente</div>
+          </div>
+        </div>
+        <button onClick={onConfig} style={{ background: C.card, border: `1px solid ${configured ? C.teal + '66' : C.border}`, borderRadius: 10, padding: 8, cursor: 'pointer', display: 'flex' }}>
+          <IconSettings size={18} color={configured ? C.teal : C.muted} />
+        </button>
+      </div>
+
+      {!configured && (
+        <div onClick={onConfig} style={{ background: C.yellow + '18', border: `1px solid ${C.yellow}44`, borderRadius: 12, padding: '13px 16px', cursor: 'pointer' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.yellow }}>⚠️ Banco de dados não configurado</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>Toque aqui para conectar o Supabase e ativar a persistência das notificações.</div>
+        </div>
+      )}
+
+      {configured && (
+        <div style={{ background: C.green + '18', border: `1px solid ${C.green}44`, borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 14 }}>✅</span>
+          <div style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>Supabase conectado · {loading ? 'Carregando…' : 'Dados reais ativos'}</div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <StatCard icon="🔔" label="Total do mês" value={loading ? '…' : s.total} sub={configured ? 'Dados reais' : 'Exemplo'} color={C.teal} />
+        <StatCard icon="🏥" label="Seg. Paciente" value={loading ? '…' : s.sp} sub={s.total ? `${Math.round(s.sp/s.total*100)}% do total` : ''} color={C.blue} />
+        <StatCard icon="⚙️" label="Administrativas" value={loading ? '…' : s.adm} sub={s.total ? `${Math.round(s.adm/s.total*100)}% do total` : ''} color={C.purple} />
+        <StatCard icon="🔥" label="Setor crítico" value={loading ? '…' : s.critSector?.setor || 'Ala A'} sub={`${s.critSector?.eventos || 14} eventos`} color={C.red} />
+      </div>
+
+      <button onClick={() => setView('notificar')} style={{ background: `linear-gradient(135deg, ${C.teal}22, ${C.blue}33)`, border: `1px solid ${C.teal}55`, borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', width: '100%' }}>
+        <div style={{ textAlign: 'left' }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.teal }}>+ Nova Notificação</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Registre um evento agora</div>
+        </div>
+        <IconMessageSquare size={26} color={C.teal} />
+      </button>
+
+      {nspMode && <div>
+        <div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: 10 }}>Notificações recentes</div>
+        {recent.map((n, i) => {
+          const tag = getTag(n); const title = getTitle(n);
+          return (
+            <div key={n.id || i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ background: tag.color + '22', color: tag.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, minWidth: 38, textAlign: 'center' }}>{tag.label}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text, textTransform: 'capitalize' }}>{title}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{n.sector}</div>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted }}>{formatTime(n.created_at)}</div>
+            </div>
+          );
+        })}
+      </div>}
+    </div>
+  );
+}
+
+// ─── NOTIFICAR VIEW ────────────────────────────────────────────────────────────
+function NotificarView({ sbUrl, sbKey, webhookUrl, showToast }) {
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Olá! Bem-vindo ao **NotificaAI** do HNSA.\n\nEstou aqui para registrar sua notificação com segurança e agilidade.\n\nVocê é **profissional de saúde**, **paciente** ou **familiar/acompanhante**?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+  const endRef = useRef(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  const lastAi = messages.filter(m => m.role === 'assistant').slice(-1)[0]?.content || '';
+  const showConfirm = !done && (
+    lastAi.toLowerCase().includes('posso confirmar') ||
+    lastAi.toLowerCase().includes('confirmar o envio') ||
+    lastAi.toLowerCase().includes('enviar esta notificação')
+  );
+
+  const send = async (override) => {
+    const msg = override || input;
+    if (!msg.trim() || loading || saving) return;
+    const next = [...messages, { role: 'user', content: msg }];
+    setMessages(next);
+    setInput('');
+    setLoading(true);
+    try {
+      const reply = await callClaude(next.map(m => ({ role: m.role, content: m.content })), CHAT_SYSTEM);
+      setMessages(p => [...p, { role: 'assistant', content: reply }]);
+    } catch {
+      setMessages(p => [...p, { role: 'assistant', content: 'Erro de conexão. Tente novamente.' }]);
+    }
+    setLoading(false);
+  };
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    setMessages(p => [...p, { role: 'user', content: 'Sim, pode confirmar e enviar.' }]);
+    try {
+      const data = await extractData(messages.map(m => ({ role: m.role, content: m.content })));
+      if (!data) throw new Error('Falha na extração');
+      if (sbUrl && sbKey) {
+        await sbInsert(sbUrl, sbKey, 'notifications', { ...data, chat_history: messages });
+        showToast('✅ Notificação salva com sucesso!\nNSP será notificado por e-mail.', 'success');
+      } else {
+        showToast('✅ Notificação registrada!\nConfigure o Supabase para persistir os dados.', 'success');
+      }
+      setDone(true);
+      setMessages(p => [...p, { role: 'assistant', content: '✅ **Notificação enviada com sucesso!**\n\nO NSP foi notificado. Obrigado por contribuir com a segurança do HNSA.\n\nPara nova notificação, acesse novamente pelo QR Code ou intranet.' }]);
+    } catch {
+      showToast('Erro ao salvar. Verifique a conexão e tente novamente.', 'error');
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.surface }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Registrar Notificação</div>
+        <div style={{ fontSize: 11, color: C.muted }}>HNSA · NSP · Canal seguro</div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth: '84%', background: m.role === 'user' ? `linear-gradient(135deg, ${C.teal}, ${C.blue})` : C.card, border: m.role === 'assistant' ? `1px solid ${C.border}` : 'none', borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px', padding: '11px 14px', fontSize: 14, color: C.text, lineHeight: 1.65 }}
+              dangerouslySetInnerHTML={{ __html: md(m.content) }} />
+          </div>
+        ))}
+        {(loading || saving) && (
+          <div style={{ display: 'flex' }}>
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: '16px 16px 16px 4px', padding: '13px 16px' }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: saving ? C.green : C.teal, animation: `pulse 1.2s ${i*0.2}s ease-in-out infinite` }} />)}
+              </div>
+            </div>
+          </div>
+        )}
+        {showConfirm && !loading && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button onClick={handleConfirm} disabled={saving} style={{ flex: 2, background: C.teal, border: 'none', borderRadius: 12, padding: '13px', color: '#06101F', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+              {saving ? '⏳ Salvando…' : '✅ Confirmar e Enviar'}
+            </button>
+            <button onClick={() => send('Quero corrigir algumas informações antes de enviar.')} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '13px', color: C.muted, fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+              ✏️ Corrigir
+            </button>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+      {!done && (
+        <div style={{ padding: '10px 14px', borderTop: `1px solid ${C.border}`, background: C.surface, display: 'flex', gap: 10 }}>
+          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()} placeholder="Escreva aqui…" style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 22, padding: '10px 16px', color: C.text, fontSize: 14, outline: 'none' }} />
+          <button onClick={() => send()} disabled={loading || !input.trim()} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', background: input.trim() ? C.teal : C.border, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <IconSend size={17} color={input.trim() ? '#06101F' : C.muted} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── ANALYTICS VIEW ────────────────────────────────────────────────────────────
+function AnalyticsView({ sbUrl, sbKey, showToast }) {
+  const [tab, setTab] = useState('graficos');
+  const [narrative, setNarrative] = useState('');
+  const [loadingNarr, setLoadingNarr] = useState(false);
+  const [stats, setStats] = useState(null);
+
+  useEffect(() => {
+    if (!sbUrl || !sbKey) return;
+    sbSelect(sbUrl, sbKey, 'notifications', 'select=*')
+      .then(data => setStats(computeStats(data)))
+      .catch(() => showToast('Erro ao carregar analytics', 'error'));
+  }, [sbUrl, sbKey]);
+
+  const s = stats || { sectorData: MOCK_SECTORS, typeData: MOCK_TYPES, heatmap: MOCK_HEATMAP, monthly: MOCK_MONTHLY, total: 26, sp: 11, adm: 15 };
+
+  const generateNarrative = async () => {
+    setLoadingNarr(true); setNarrative('');
+    try {
+      const text = await callClaude([{
+        role: 'user',
+        content: `Analise os dados do NSP do HNSA e gere uma interpretação técnica em 4 parágrafos curtos, em linguagem de relatório institucional em português:
+
+Total: ${s.total} notificações (${s.sp} segurança do paciente, ${s.adm} administrativas)
+Setores: ${s.sectorData.map(d => `${d.setor}=${d.eventos}`).join(', ')}
+Tipos: ${s.typeData.map(d => `${d.name}=${d.value}`).join(', ')}
+Mapa de calor: pico no turno noturno de quarta-feira
+
+Inclua: pontos de atenção, padrões identificados e recomendações prioritárias. Tom de ata do NSP.`
+      }], 'Você é o analista do NSP do HNSA. Responda em português, tom de relatório institucional.');
+      setNarrative(text);
+    } catch { showToast('Erro ao gerar interpretação', 'error'); }
+    setLoadingNarr(false);
+  };
+
+  return (
+    <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <div style={{ fontSize: 17, fontWeight: 900, color: C.text }}>Analytics</div>
+        <div style={{ fontSize: 11, color: stats ? C.green : C.muted }}>{stats ? '● Dados reais' : sbUrl ? '● Carregando…' : '● Dados de exemplo'}</div>
+      </div>
+
+      <div style={{ display: 'flex', background: C.surface, borderRadius: 10, padding: 4, gap: 4 }}>
+        {[['graficos','Gráficos'],['calor','Mapa de Calor'],['ia','Interpretação IA']].map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: 'none', background: tab === id ? C.teal : 'transparent', color: tab === id ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+        ))}
+      </div>
+
+      {tab === 'graficos' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '16px 12px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>Evolução Mensal</div>
+            <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted }}><div style={{ width: 10, height: 10, borderRadius: 2, background: C.teal }}/> Seg. Paciente</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: C.muted }}><div style={{ width: 10, height: 10, borderRadius: 2, background: C.purple }}/> Administrativa</div>
+            </div>
+            <LineChartSimple data={s.monthly?.length ? s.monthly : MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={150} />
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '16px 12px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Eventos por Setor</div>
+            <BarChartSimple data={s.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={150} />
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '16px 12px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Distribuição por Tipo</div>
+            <PieChartSimple data={s.typeData} size={180} />
+          </div>
+        </div>
+      )}
+
+      {tab === 'calor' && (
+        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Mapa de Calor</div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 16 }}>Eventos por turno × dia da semana</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '52px repeat(7, 1fr)', gap: 3, marginBottom: 4 }}>
+            <div />
+            {DIAS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: 10, color: C.muted, fontWeight: 700 }}>{d}</div>)}
+          </div>
+          {s.heatmap.map(row => (
+            <div key={row.turno} style={{ display: 'grid', gridTemplateColumns: '52px repeat(7, 1fr)', gap: 3, marginBottom: 3 }}>
+              <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, display: 'flex', alignItems: 'center' }}>{row.turno}</div>
+              {row.v.map((val, i) => <HeatCell key={i} value={val} />)}
+            </div>
+          ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, justifyContent: 'center' }}>
+            <span style={{ fontSize: 10, color: C.muted }}>Menos</span>
+            {[C.surface,'#0E3D5B','#0369A1','#0891B2',C.teal].map((c, i) => <div key={i} style={{ width: 18, height: 18, borderRadius: 4, background: c, border: `1px solid ${C.border}` }} />)}
+            <span style={{ fontSize: 10, color: C.muted }}>Mais</span>
+          </div>
+          <div style={{ marginTop: 14, background: C.surface, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${C.red}` }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>⚠️ Ponto crítico identificado</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 4, lineHeight: 1.6 }}>Turno noturno de quarta-feira concentra o maior volume de eventos. Atenção reforçada recomendada nessa combinação.</div>
+          </div>
+        </div>
+      )}
+
+      {tab === 'ia' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 6 }}>Interpretação por IA</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>Análise narrativa dos dados do mês, pronta para ata ou relatório do NSP.</div>
+            <button onClick={generateNarrative} disabled={loadingNarr} style={{ width: '100%', background: loadingNarr ? C.border : C.teal, border: 'none', borderRadius: 10, padding: '13px', color: loadingNarr ? C.muted : '#06101F', fontWeight: 800, fontSize: 13, cursor: loadingNarr ? 'default' : 'pointer' }}>
+              {loadingNarr ? '⏳ Gerando análise…' : '✨ Gerar Interpretação do Mês'}
+            </button>
+          </div>
+          {narrative && (
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10, fontStyle: 'italic' }}>Gerado por IA — revisar antes de publicação oficial</div>
+              <div style={{ fontSize: 13, color: C.text, lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>{narrative}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CENTRAL VIEW ──────────────────────────────────────────────────────────────
+function CentralView() {
+  const [selected, setSelected] = useState(null);
+  const item = knowledge.find(k => k.id === selected);
+  if (selected && item) {
+    return (
+      <div>
+        <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.surface, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22 }}>←</button>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{item.icon} {item.title}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>{item.desc}</div>
+          </div>
+        </div>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {item.type === 'cards' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${item.color}`, borderRadius: 12, padding: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>{c.title}</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>{c.text}</div>
+            </div>
+          ))}
+          {item.type === 'download' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ background: item.color + '22', color: item.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700 }}>{c.badge}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{c.title}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{c.size}</div>
+              </div>
+              <button style={{ background: C.teal + '22', border: 'none', borderRadius: 8, padding: '6px 12px', color: C.teal, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↓</button>
+            </div>
+          ))}
+          {item.type === 'steps' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 14 }}>
+              <div style={{ fontSize: 26, fontWeight: 900, color: item.color, minWidth: 32 }}>{c.step}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{c.title}</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>{c.text}</div>
+              </div>
+            </div>
+          ))}
+          {item.type === '5w2h' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 12 }}>
+              <div style={{ background: item.color + '22', color: item.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, height: 'fit-content', whiteSpace: 'nowrap' }}>{c.tag}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{c.label}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>{c.text}</div>
+              </div>
+            </div>
+          ))}
+          {item.type === 'media' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: item.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{c.tipo === 'Vídeo' ? '▶️' : '📊'}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{c.title}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{c.tipo} · {c.duracao}</div>
+              </div>
+              <button style={{ background: item.color + '22', border: 'none', borderRadius: 8, padding: '6px 12px', color: item.color, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                {c.tipo === 'Vídeo' ? '▶' : '↓'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: '20px 16px' }}>
+      <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 4 }}>Central de Conhecimento</div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Materiais de apoio, treinamentos e educação em saúde</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {knowledge.map(item => (
+          <button key={item.id} onClick={() => setSelected(item.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: item.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{item.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{item.title}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{item.desc}</div>
+            </div>
+            <IconChevronRight size={16} color={C.muted} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// ─── PIN MODAL ─────────────────────────────────────────────────────────────────
+function PinModal({ correctPin, onSuccess, onClose }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+
+  const check = () => {
+    if (pin === correctPin) { onSuccess(); }
+    else { setError(true); setPin(''); setTimeout(() => setError(false), 1200); }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: '#000c', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: C.surface, borderRadius: 20, padding: '32px 24px', width: '100%', maxWidth: 320, border: `1px solid ${error ? C.red : C.border}`, transition: 'border-color 0.3s', textAlign: 'center' }}>
+        <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Painel NSP</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Área restrita · Digite o PIN de acesso</div>
+        <input
+          ref={inputRef}
+          type="password"
+          value={pin}
+          onChange={e => setPin(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && check()}
+          placeholder="••••"
+          maxLength={8}
+          style={{ width: '100%', background: C.card, border: `1px solid ${error ? C.red : C.border}`, borderRadius: 12, padding: '14px', color: C.text, fontSize: 24, textAlign: 'center', letterSpacing: '0.4em', outline: 'none', marginBottom: 8 }}
+        />
+        {error && <div style={{ fontSize: 12, color: C.red, marginBottom: 8 }}>PIN incorreto. Tente novamente.</div>}
+        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '12px', color: C.muted, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Cancelar</button>
+          <button onClick={check} style={{ flex: 2, background: C.teal, border: 'none', borderRadius: 10, padding: '12px', color: '#06101F', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>Entrar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ROOT APP ──────────────────────────────────────────────────────────────────
+function NotificaAI() {
+  const [view, setView] = useState('notificar');
+  const [sbUrl, setSbUrl] = useState('');
+  const [sbKey, setSbKey] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [showConfig, setShowConfig] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [nspMode, setNspMode] = useState(false);
+  const [nspPin, setNspPin] = useState('');
+  const [showPinModal, setShowPinModal] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get('notificai-sb');
+        if (r?.value) { const c = JSON.parse(r.value); setSbUrl(c.url||''); setSbKey(c.key||''); setWebhookUrl(c.webhook||''); setNspPin(c.pin||''); }
+      } catch {}
+    })();
+  }, []);
+
+  const handleSaveConfig = async (url, key, webhook, pin) => {
+    setSbUrl(url); setSbKey(key); setWebhookUrl(webhook); setNspPin(pin);
+    try { await window.storage.set('notificai-sb', JSON.stringify({ url, key, webhook, pin })); } catch {}
+    setShowConfig(false);
+    showToast('✅ Supabase configurado com sucesso!', 'success');
+  };
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type, id: Date.now() });
+    setTimeout(() => setToast(null), 4500);
+  };
+
+  const publicTabs = [
+    { id: 'notificar', label: 'Notificar', icon: IconMessageSquare },
+    { id: 'central', label: 'Central', icon: IconBookOpen },
+  ];
+  const nspTabs = [
+    { id: 'home', label: 'Painel', icon: IconHome },
+    { id: 'notificar', label: 'Notificar', icon: IconMessageSquare },
+    { id: 'analytics', label: 'Analytics', icon: IconBarChart2 },
+    { id: 'central', label: 'Central', icon: IconBookOpen },
+  ];
+  const tabs = nspMode ? nspTabs : publicTabs;
+
+  return (
+    <>
+      <style>{`
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{background:#06101F}
+        @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
+        input::placeholder{color:#5A7AA0}
+        ::-webkit-scrollbar{width:3px}
+        ::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
+        button:active{opacity:.85}
+      `}</style>
+      <div style={{ background: C.bg, minHeight: '100vh', maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', color: C.text, fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+        {toast && <Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+        {showPinModal && <PinModal correctPin={nspPin || '1234'} onSuccess={() => { setNspMode(true); setShowPinModal(false); setView('home'); }} onClose={() => setShowPinModal(false)} />}
+        {showConfig && <ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspPin={nspPin} onSave={handleSaveConfig} onClose={() => setShowConfig(false)} />}
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
+          {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} />}
+          {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} showToast={showToast} />}
+          {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
+          {view === 'central'   && <CentralView />}
+        </div>
+        <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: 'flex', paddingBottom: 8, paddingTop: 8, zIndex: 100 }}>
+          {tabs.map(({ id, label, icon: Icon }) => {
+            const active = view === id;
+            return (
+              <button key={id} onClick={() => setView(id)} style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: active ? C.teal : C.muted, padding: '4px 0' }}>
+                <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
+                <span style={{ fontSize: 10, fontWeight: active ? 700 : 400 }}>{label}</span>
+              </button>
+            );
+          })}
+          {!nspMode ? (
+            <button onClick={() => setShowPinModal(true)} style={{ flex: 0, padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
+              <span style={{ fontSize: 18 }}>🔒</span>
+              <span style={{ fontSize: 10 }}>NSP</span>
+            </button>
+          ) : (
+            <button onClick={() => { setNspMode(false); setView('notificar'); }} style={{ flex: 0, padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.teal }}>
+              <span style={{ fontSize: 18 }}>🔓</span>
+              <span style={{ fontSize: 10 }}>NSP</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<NotificaAI />);
+</script>
+</body>
+</html>

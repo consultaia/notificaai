@@ -138,7 +138,7 @@ const sbSelect = (u, k, table, q = '') => sbReq(u, k, `/${table}?${q}`);
 
 // ─── AI HELPER ─────────────────────────────────────────────────────────────────
 async function callClaude(messages, system) {
-  const GEMINI_KEY = 'AIzaSyCIjfgW1MjD3Kr-MaFg1q_IZj9Q5W-NH5g';
+  const GEMINI_KEY = 'AIzaSyDXbNhp66Wsy3Ywzu7Uex3b_asW797zKsw';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
   
   const contents = messages.map(m => ({

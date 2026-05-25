@@ -138,8 +138,7 @@ const sbSelect = (u, k, table, q = '') => sbReq(u, k, `/${table}?${q}`);
 
 // ─── AI HELPER ─────────────────────────────────────────────────────────────────
 async function callClaude(messages, system) {
-  const GEMINI_KEY = 'AIzaSyCsU__6I3QG6sDgU1XrqUJr7dTDCxgTUIk';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`;
+  const WORKER_URL = 'https://notificaai-proxy.janan-almeida.workers.dev';
   
   const contents = messages.map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -156,7 +155,7 @@ async function callClaude(messages, system) {
   }
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -165,7 +164,7 @@ async function callClaude(messages, system) {
     if (data.error) throw new Error(data.error.message);
     return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao processar. Tente novamente.';
   } catch(e) {
-    console.error('Gemini error:', e);
+    console.error('Worker error:', e);
     return 'Erro ao processar. Tente novamente.';
   }
 }

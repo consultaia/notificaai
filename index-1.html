@@ -47,6 +47,25 @@ function IconSend({size=24, strokeWidth=2, color="currentColor"}) {
 function IconChevronRight({size=24, strokeWidth=2, color="currentColor"}) {
   return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><polyline points="9 18 15 12 9 6"/></svg>`}} />;
 }
+function IconTrash({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>`}} />;
+}
+function IconShield({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`}} />;
+}
+function IconAlertCircle({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`}} />;
+}
+function IconCheck({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><polyline points="20 6 9 17 4 12"/></svg>`}} />;
+}
+function IconMail({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`}} />;
+}
+function IconDownload({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`}} />;
+}
+
 function IconSettings({size=24, strokeWidth=2, color="currentColor"}) {
   return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`}} />;
 }
@@ -86,36 +105,51 @@ const MOCK_RECENT = [
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 // ─── PROMPTS ───────────────────────────────────────────────────────────────────
-const CHAT_SYSTEM = `Você é o NotificaAI, assistente de registro de notificações do HNSA (Hospital Naval de Salvador).
+const CHAT_SYSTEM = `Você é o NotificaAI, assistente de notificações do HNSA. Seja direto, humano e eficiente.
 
-Conduza uma conversa acolhedora e objetiva para registrar a notificação.
+REGRAS ABSOLUTAS:
+- Uma pergunta por vez. Respostas curtas (máximo 2 linhas).
+- NUNCA pergunte o que já foi respondido. Se o usuário disse "dia 10 às 21h", o turno é Noite — não pergunte.
+- Deduza o que puder: horário 19h-07h = Noite, 07h-13h = Manhã, 13h-19h = Tarde.
+- Se o usuário mencionar o setor no relato, não pergunte o setor.
+- Vá direto ao ponto. Sem introduções, sem agradecimentos excessivos.
 
-PASSO 1 — Identifique quem notifica: profissional de saúde, paciente ou familiar/acompanhante.
-PASSO 2 — Identifique o tipo: Segurança do Paciente (queda, medicação, cirurgia, infecção, etc.) ou Ocorrência Administrativa (acesso indevido, hotelaria, infraestrutura, etc.).
-PASSO 3 — Colete em conversa fluida. Seg. Paciente: data/hora do evento, data da admissão do paciente, idade do paciente, motivo da internação, setor (UPG/Ala A/Centro Cirúrgico/SEP), tipo de evento, turno, desfecho, se era evitável, medidas tomadas. Administrativa: data/hora, setor, tipo, descrição, medidas tomadas (para administrativa, não pergunte dados clínicos do paciente).
-PASSO 4 — Apresente um resumo estruturado e pergunte exatamente: "Posso confirmar o envio desta notificação?"
+FLUXO:
+1. Quem está notificando? (profissional / paciente / familiar)
+2. Qual setor? (UPG / Ala A / Centro Cirúrgico / SEP) — só se não foi mencionado
+3. O que aconteceu? Colete data, hora e descrição em poucas trocas
+4. Desfecho e medidas tomadas (para Seg. Paciente: era evitável?)
+5. Para CCIH: topografia, procedimento invasivo, micro-organismo se identificado
+6. Apresente resumo CURTO e pergunte: "Posso confirmar o envio desta notificação?"
 
-Regras: sempre em português. Uma pergunta por vez. Nunca use linguagem de formulário.`;
+TIPOS: Segurança do Paciente (queda, medicação, cirurgia, identificação, infecção) | CCIH (IRAS, ITU, PAV, ISC) | Administrativa (acesso, hotelaria, infraestrutura)
+Adapte linguagem: técnica para profissional, simples para paciente/familiar.
+Sempre em português.`;
 
 const EXTRACT_SYSTEM = `Extraia os dados da conversa como JSON puro. Sem explicação, sem markdown, apenas o objeto JSON.
 
 Formato:
 {
   "notifier_type": "profissional" | "paciente" | "familiar",
-  "notification_type": "seguranca_paciente" | "administrativa",
+  "notification_type": "seguranca_paciente" | "ccih" | "administrativa",
   "sector": "UPG" | "Ala A" | "Centro Cirúrgico" | "SEP" | "Geral",
   "event_date": "YYYY-MM-DD" | null,
   "event_time": "HH:MM" | null,
   "shift": "Manhã" | "Tarde" | "Noite" | null,
   "description": "descrição do evento",
   "measures_taken": "medidas tomadas" | null,
-  "event_subtype": "queda" | "medicação" | "cirurgia" | "infecção" | "identificação" | "outro" | null,
+  "event_subtype": "queda" | "medicação" | "cirurgia" | "identificação" | "outro" | null,
   "patient_outcome": "desfecho" | null,
   "was_preventable": true | false | null,
   "occurrence_subtype": "tipo da ocorrência administrativa" | null,
   "admission_date": "YYYY-MM-DD" | null,
   "patient_age": número inteiro | null,
   "admission_reason": "motivo da internação" | null,
+  "infection_topography": "topografia da infecção" | null,
+  "infection_diagnosis": "clínico" | "laboratorial" | "ambos" | null,
+  "invasive_procedure": "procedimento invasivo relacionado" | null,
+  "microorganism": "micro-organismo identificado" | null,
+  "is_test": false,
   "ai_summary": "Resumo em um parágrafo em português"
 }`;
 
@@ -184,6 +218,7 @@ async function extractData(chatMessages) {
 function computeStats(notifications) {
   const total = notifications.length;
   const sp = notifications.filter(n => n.notification_type === 'seguranca_paciente').length;
+  const ccih = notifications.filter(n => n.notification_type === 'ccih').length;
   const adm = notifications.filter(n => n.notification_type === 'administrativa').length;
 
   const sectorMap = { 'UPG': 0, 'Ala A': 0, 'Centro Cirúrgico': 0, 'SEP': 0 };
@@ -226,7 +261,7 @@ function computeStats(notifications) {
   const monthly = Object.values(mMap).slice(-5);
 
   const critSector = sectorData.reduce((m, s) => s.eventos > m.eventos ? s : m, sectorData[0] || { setor: 'Ala A', eventos: 0 });
-  return { total, sp, adm, sectorData, typeData, heatmap, monthly, critSector };
+  return { total, sp, ccih, adm, sectorData, typeData, heatmap, monthly, critSector };
 }
 
 function formatTime(iso) {
@@ -236,11 +271,12 @@ function formatTime(iso) {
   return 'ontem';
 }
 function getTag(n) {
-  return n.notification_type === 'seguranca_paciente'
-    ? { label: 'SP', color: C.red } : { label: 'ADM', color: C.purple };
+  if (n.notification_type === 'seguranca_paciente') return { label: 'SP', color: C.red };
+  if (n.notification_type === 'ccih') return { label: 'CCIH', color: C.yellow };
+  return { label: 'ADM', color: C.purple };
 }
 function getTitle(n) {
-  return n.event_subtype || n.occurrence_subtype || (n.description || '').slice(0, 28) || 'Notificação';
+  return n.event_subtype || n.occurrence_subtype || n.infection_topography || (n.description || '').slice(0, 28) || 'Notificação';
 }
 function md(t) {
   return t.replace(/\*\*(.*?)\*\*/g, `<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g, '<br/>');
@@ -318,62 +354,93 @@ function ConfigPanel({ sbUrl, sbKey, webhookUrl, nspPin, onSave, onClose }) {
 
 // ─── KNOWLEDGE DATA ────────────────────────────────────────────────────────────
 const knowledge = [
-  { id: 'cards', icon: '📌', title: 'Cards Informativos', desc: 'Conceitos rápidos de segurança do paciente', color: C.teal, type: 'cards',
+  { id: 'cards', icon: '📌', title: 'Conceitos Essenciais', desc: 'Definições-chave de segurança do paciente', color: C.teal, type: 'cards',
     items: [
-      { title: 'Evento Adverso', text: 'Incidente que resulta em dano ao paciente decorrente da assistência em saúde, e não da doença de base.' },
-      { title: 'Near Miss (Quase Erro)', text: 'Incidente que não atingiu o paciente. Essencial para identificar vulnerabilidades antes que causem dano real.' },
-      { title: 'Evento Sentinela', text: 'Evento adverso grave e inesperado que resulta em morte ou perda permanente de função. Exige investigação imediata.' },
-      { title: 'Cultura de Segurança', text: 'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema e não na culpa individual.' },
+      { title: 'Evento Adverso', text: 'Incidente que resulta em dano ao paciente decorrente da assistência em saúde, e não da doença de base. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.' },
+      { title: 'Near Miss (Quase Erro)', text: 'Incidente que NÃO atingiu o paciente, mas poderia ter atingido. Essencial para identificar vulnerabilidades antes que causem dano real. Notificar near miss é cultura proativa de segurança.' },
+      { title: 'Evento Sentinela', text: 'Evento adverso grave, inesperado, que resulta em morte, perda permanente de função ou risco grave. Exige investigação imediata por meio de Análise de Causa Raiz (ACR).' },
+      { title: 'IRAS', text: 'Infecção Relacionada à Assistência à Saúde — infecção adquirida durante a internação ou procedimento de saúde, manifestada durante a internação ou após a alta. Foco principal da CCIH.' },
+      { title: 'Cultura Justa', text: 'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema. Diferencia erro humano (acolher), comportamento de risco (orientar) e imprudência (responsabilizar).' },
+      { title: 'Análise de Causa Raiz', text: 'Método estruturado para investigar eventos adversos identificando fatores contribuintes do sistema, não apenas a falha individual. Pergunte "por quê?" 5 vezes para chegar à causa raiz.' },
     ]
   },
-  { id: 'banner', icon: '🖼️', title: 'Banners & Materiais Visuais', desc: 'Materiais para impressão e divulgação nos setores', color: C.blue, type: 'download',
+  { id: 'metas', icon: '🎯', title: '6 Metas Internacionais', desc: 'As 6 metas da segurança do paciente (OMS/Joint Commission)', color: C.blue, type: 'metas',
     items: [
-      { title: 'Banner: Como Notificar', badge: 'PDF', size: '1,2 MB' },
-      { title: 'Cartaz: 5 Metas Internacionais de Segurança', badge: 'PDF', size: '800 KB' },
-      { title: 'QR Codes por Setor — UPG, Ala A, CC, SEP', badge: 'ZIP', size: '450 KB' },
-      { title: 'Folder: Segurança do Paciente', badge: 'PDF', size: '1,5 MB' },
+      { num: '1', title: 'Identificar corretamente o paciente', text: 'Usar pelo menos 2 identificadores (nome completo + data de nascimento). Verificar pulseira antes de qualquer procedimento, medicação ou coleta.' },
+      { num: '2', title: 'Melhorar a comunicação efetiva', text: 'Usar técnicas como SBAR (Situação, Background, Avaliação, Recomendação) na passagem de plantão e ler de volta prescrições verbais.' },
+      { num: '3', title: 'Melhorar segurança de medicações de alta vigilância', text: 'Identificar, padronizar armazenagem e dupla checagem de medicamentos de alta vigilância (potássio, insulina, opioides, anticoagulantes).' },
+      { num: '4', title: 'Cirurgia segura', text: 'Checklist de cirurgia segura (Sign In, Time Out, Sign Out). Confirmar paciente, procedimento, lado correto, marcação do sítio cirúrgico.' },
+      { num: '5', title: 'Reduzir risco de infecções', text: 'Higienização das mãos nos 5 momentos da OMS. Precauções padrão e específicas. Bundle de IRAS para cateteres, sondas e VM.' },
+      { num: '6', title: 'Reduzir risco de quedas', text: 'Avaliar risco de queda (Morse, Humpty Dumpty). Sinalização visual. Grades de proteção, calçados antiderrapantes, iluminação adequada.' },
     ]
   },
-  { id: 'como', icon: '📘', title: 'Como Notificar', desc: 'Guia passo a passo para realizar uma notificação', color: C.green, type: 'steps',
+  { id: 'como', icon: '📘', title: 'Como Notificar', desc: 'Guia passo a passo da notificação no NotificaAI', color: C.green, type: 'steps',
     items: [
-      { step: '01', title: 'Acesse o NotificaAI', text: 'Use o QR Code afixado no seu setor ou acesse pelo computador da intranet do HNSA.' },
-      { step: '02', title: 'Identifique-se', text: 'Informe se é profissional de saúde, paciente ou familiar. O sistema adapta o atendimento ao seu perfil.' },
-      { step: '03', title: 'Relate o ocorrido', text: 'Descreva o que aconteceu com suas palavras. A IA vai guiar as perguntas de forma natural.' },
-      { step: '04', title: 'Confirme o registro', text: 'Revise o resumo gerado e confirme o envio. O NSP receberá notificação automática por e-mail.' },
+      { step: '01', title: 'Acesse o NotificaAI', text: 'Use o QR Code afixado no seu setor, leia com a câmera do celular ou acesse pelo computador da intranet do HNSA.' },
+      { step: '02', title: 'Identifique-se', text: 'Informe se é profissional de saúde, paciente ou familiar/acompanhante. O sistema adapta a linguagem ao seu perfil.' },
+      { step: '03', title: 'Escolha o tipo de notificação', text: 'Segurança do Paciente, Infecção Hospitalar (CCIH) ou Ocorrência Administrativa. Em dúvida? Apenas relate — a IA classifica.' },
+      { step: '04', title: 'Relate o ocorrido com suas palavras', text: 'Descreva o que aconteceu de forma natural. A IA vai conduzir as perguntas necessárias sem que você precise se preocupar com formulários.' },
+      { step: '05', title: 'Confirme o resumo', text: 'Revise o resumo gerado pela IA. Toque em "Confirmar e Enviar" se estiver correto, ou em "Corrigir" para ajustar antes.' },
+      { step: '06', title: 'Pronto!', text: 'O NSP recebe a notificação por e-mail automaticamente. Você pode notificar outra vez quando precisar — não há limite.' },
     ]
   },
-  { id: 'plano', icon: '📋', title: 'Plano de Ação (5W2H)', desc: 'Como elaborar um plano corretivo para eventos', color: C.yellow, type: '5w2h',
+  { id: 'plano', icon: '📋', title: 'Plano de Ação (5W2H)', desc: 'Como elaborar plano corretivo para eventos adversos', color: C.yellow, type: '5w2h',
     items: [
-      { tag: 'What', label: 'O quê?', text: 'Qual ação será realizada para corrigir ou prevenir o evento?' },
-      { tag: 'Why', label: 'Por quê?', text: 'Qual o problema ou risco que esta ação resolve?' },
-      { tag: 'Who', label: 'Quem?', text: 'Quem é o responsável pela execução e acompanhamento?' },
-      { tag: 'When', label: 'Quando?', text: 'Qual o prazo de início e conclusão da ação?' },
-      { tag: 'Where', label: 'Onde?', text: 'Em qual setor ou local será aplicada a ação?' },
-      { tag: 'How', label: 'Como?', text: 'Qual o método, processo ou protocolo a ser seguido?' },
-      { tag: 'How Much', label: 'Quanto?', text: 'Qual o custo ou recurso necessário para execução?' },
+      { tag: 'What', label: 'O quê?', text: 'Qual ação será realizada? Seja específico e objetivo. Ex: "Implementar dupla checagem de medicamentos de alta vigilância na UPG".' },
+      { tag: 'Why', label: 'Por quê?', text: 'Qual problema esta ação resolve? Ex: "Reduzir erros de medicação após 3 eventos notificados no último trimestre".' },
+      { tag: 'Who', label: 'Quem?', text: 'Quem é o responsável pela execução e quem dá apoio? Defina um único responsável principal.' },
+      { tag: 'When', label: 'Quando?', text: 'Qual o prazo de início, conclusão e checkpoints intermediários? Use datas concretas.' },
+      { tag: 'Where', label: 'Onde?', text: 'Em qual setor ou local será aplicada a ação? Pode ser focal ou hospital-wide.' },
+      { tag: 'How', label: 'Como?', text: 'Qual o método, processo ou protocolo? Detalhe os passos. Ex: "Treinamento + POP + auditoria mensal".' },
+      { tag: 'How Much', label: 'Quanto?', text: 'Qual o custo (material, tempo, treinamento)? Estime para apresentar à gestão.' },
     ]
   },
-  { id: 'edu', icon: '❤️', title: 'Educação em Saúde', desc: 'Materiais voltados ao paciente e família', color: C.red, type: 'cards',
+  { id: 'edu', icon: '❤️', title: 'Educação para o Paciente', desc: 'Materiais para o paciente e família participarem da segurança', color: C.red, type: 'cards',
     items: [
-      { title: 'Seus Direitos como Paciente', text: 'Você tem direito à identificação correta, informações sobre seu tratamento, privacidade e notificar eventos sem receio.' },
-      { title: 'Prevenção de Quedas', text: 'Peça ajuda para levantar. Use calçados antiderrapantes. Acione a campainha. Você está se protegendo, não incomodando.' },
-      { title: 'Higiene das Mãos', text: 'Lembre os profissionais de higienizar as mãos antes de te atender. É seu direito pedir.' },
-      { title: 'Identificação Correta', text: 'Verifique se sua pulseira está legível. Confirme seu nome antes de receber medicações ou procedimentos.' },
+      { title: 'Você é parte da sua segurança', text: 'Pacientes informados e participativos são mais seguros. Não tenha receio de perguntar, questionar ou notificar algo que pareça errado. Sua voz importa.' },
+      { title: 'Confirme sua identificação', text: 'Antes de qualquer medicação ou procedimento, confirme se foi chamado pelo seu nome completo. Verifique se a pulseira está legível e correta.' },
+      { title: 'Prevenção de quedas', text: 'Peça ajuda para levantar, especialmente após cirurgia, sedação ou se sentir tontura. Use calçados antiderrapantes. Acione a campainha — você não está incomodando.' },
+      { title: 'Higiene das mãos é direito seu', text: 'Você pode e deve pedir que os profissionais higienizem as mãos antes de te tocar. É uma das principais formas de prevenir infecções.' },
+      { title: 'Conheça seus medicamentos', text: 'Pergunte: qual o nome, para que serve, e os efeitos. Avise se for alérgico. Se reconhecer um medicamento diferente, questione antes de tomar.' },
+      { title: 'Use o NotificaAI', text: 'Se algo der errado durante seu cuidado, ou quase deu errado, notifique. Sua notificação é confidencial e ajuda a tornar o hospital mais seguro para todos.' },
     ]
   },
-  { id: 'aula', icon: '🎬', title: 'Aula Expositiva', desc: 'Treinamento completo sobre segurança e notificação', color: C.purple, type: 'media',
+  { id: 'ccih', icon: '🦠', title: 'CCIH — Controle de Infecção', desc: 'Conceitos e protocolos essenciais para CCIH', color: C.purple, type: 'cards',
+    items: [
+      { title: '5 Momentos da Higienização das Mãos (OMS)', text: '1) Antes de tocar o paciente. 2) Antes de procedimento asséptico. 3) Após risco de exposição a fluidos. 4) Após tocar o paciente. 5) Após tocar superfícies próximas ao paciente.' },
+      { title: 'Bundle de Cateter Venoso Central', text: 'Higiene das mãos · Paramentação estéril completa · Antissepsia da pele com clorexidina · Sítio preferencial subclávia · Avaliação diária da necessidade de manutenção.' },
+      { title: 'Bundle de PAV (Pneumonia por Ventilação)', text: 'Cabeceira 30-45° · Higiene oral com clorexidina · Despertar diário e avaliação de extubação · Profilaxia de TVP · Profilaxia de úlcera de estresse.' },
+      { title: 'Bundle de ITU por Sonda Vesical', text: 'Indicação criteriosa · Inserção asséptica · Sistema fechado · Avaliação diária da necessidade · Higiene íntima diária com água e sabão.' },
+      { title: 'Precauções Padrão', text: 'Aplicar a TODOS os pacientes: higiene das mãos, EPI conforme exposição esperada, descarte adequado de perfurocortantes, manejo seguro de resíduos.' },
+      { title: 'Precauções de Contato/Gotículas/Aerossóis', text: 'Contato (KPC, C. difficile): luvas + avental. Gotículas (Influenza, meningite): máscara cirúrgica. Aerossóis (TB, varicela): máscara N95 + quarto privativo.' },
+    ]
+  },
+  { id: 'banner', icon: '🖼️', title: 'Materiais para Imprimir', desc: 'Banners e cartazes para fixar nos setores', color: C.blue, type: 'download',
+    items: [
+      { title: 'Cartaz: Como Notificar no NotificaAI', badge: 'PDF', size: 'A3' },
+      { title: 'Cartaz: 6 Metas Internacionais de Segurança', badge: 'PDF', size: 'A2' },
+      { title: 'QR Codes por Setor — UPG, Ala A, CC, SEP', badge: 'ZIP', size: 'PNG 600dpi' },
+      { title: 'Folder: Segurança do Paciente (para pacientes)', badge: 'PDF', size: 'tríptico' },
+      { title: 'Cartaz: 5 Momentos da Higiene das Mãos', badge: 'PDF', size: 'A3' },
+      { title: 'Bundles CCIH (Cateter, PAV, ITU)', badge: 'PDF', size: 'A4 colorido' },
+    ]
+  },
+  { id: 'aula', icon: '🎬', title: 'Treinamentos', desc: 'Aulas e materiais de capacitação NSP', color: C.purple, type: 'media',
     items: [
       { title: 'Módulo 1 — Introdução à Segurança do Paciente', duracao: '18 min', tipo: 'Vídeo' },
       { title: 'Módulo 2 — Tipos de Eventos e Classificação', duracao: '22 min', tipo: 'Vídeo' },
       { title: 'Módulo 3 — Como Notificar com o NotificaAI', duracao: '15 min', tipo: 'Vídeo' },
-      { title: 'Módulo 4 — Plano de Ação e Ciclo PDCA', duracao: '25 min', tipo: 'Vídeo' },
-      { title: 'Slides Completos do Treinamento NSP', duracao: '48 slides', tipo: 'PPT' },
+      { title: 'Módulo 4 — Cultura Justa e Análise de Causa Raiz', duracao: '25 min', tipo: 'Vídeo' },
+      { title: 'Módulo 5 — Plano de Ação 5W2H e Ciclo PDCA', duracao: '20 min', tipo: 'Vídeo' },
+      { title: 'Módulo 6 — CCIH para toda a equipe', duracao: '30 min', tipo: 'Vídeo' },
+      { title: 'Slides Completos do Treinamento NSP', duracao: '52 slides', tipo: 'PPT' },
+      { title: 'Manual do Notificador (PDF)', duracao: '24 páginas', tipo: 'PPT' },
     ]
   },
 ];
 
 // ─── HOME VIEW ─────────────────────────────────────────────────────────────────
-function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode }) {
+function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMode }) {
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState(MOCK_RECENT);
   const [loading, setLoading] = useState(false);
@@ -419,11 +486,18 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode }) {
         </div>
       )}
 
+      {nspMode && testMode && (
+        <div style={{ background: C.yellow + '18', border: `1px solid ${C.yellow}44`, borderRadius: 12, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 14 }}>🧪</span>
+          <div style={{ fontSize: 12, color: C.yellow, fontWeight: 600 }}>Modo TESTE — novas notificações marcadas como teste</div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <StatCard icon="🔔" label="Total do mês" value={loading ? '…' : s.total} sub={configured ? 'Dados reais' : 'Exemplo'} color={C.teal} />
         <StatCard icon="🏥" label="Seg. Paciente" value={loading ? '…' : s.sp} sub={s.total ? `${Math.round(s.sp/s.total*100)}% do total` : ''} color={C.blue} />
+        <StatCard icon="🦠" label="CCIH / Infecção" value={loading ? '…' : (s.ccih || 0)} sub={s.total ? `${Math.round((s.ccih||0)/s.total*100)}% do total` : ''} color={C.yellow} />
         <StatCard icon="⚙️" label="Administrativas" value={loading ? '…' : s.adm} sub={s.total ? `${Math.round(s.adm/s.total*100)}% do total` : ''} color={C.purple} />
-        <StatCard icon="🔥" label="Setor crítico" value={loading ? '…' : s.critSector?.setor || 'Ala A'} sub={`${s.critSector?.eventos || 14} eventos`} color={C.red} />
       </div>
 
       <button onClick={() => setView('notificar')} style={{ background: `linear-gradient(135deg, ${C.teal}22, ${C.blue}33)`, border: `1px solid ${C.teal}55`, borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', width: '100%' }}>
@@ -455,7 +529,7 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode }) {
 }
 
 // ─── NOTIFICAR VIEW ────────────────────────────────────────────────────────────
-function NotificarView({ sbUrl, sbKey, webhookUrl, showToast }) {
+function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Olá! Bem-vindo ao **NotificaAI** do HNSA.\n\nEstou aqui para registrar sua notificação com segurança e agilidade.\n\nVocê é **profissional de saúde**, **paciente** ou **familiar/acompanhante**?' }
   ]);
@@ -712,6 +786,15 @@ function CentralView() {
               </div>
             </div>
           ))}
+          {item.type === 'metas' && item.items.map((c, i) => (
+            <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 14 }}>
+              <div style={{ minWidth: 36, height: 36, borderRadius: 18, background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: '#06101F' }}>{c.num}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{c.title}</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>{c.text}</div>
+              </div>
+            </div>
+          ))}
           {item.type === '5w2h' && item.items.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 12 }}>
               <div style={{ background: item.color + '22', color: item.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, height: 'fit-content', whiteSpace: 'nowrap' }}>{c.tag}</div>
@@ -757,6 +840,159 @@ function CentralView() {
   );
 }
 
+
+
+// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+function AdminPanel({ sbUrl, sbKey, nspEmail, testMode, webhookUrl, onSaveEmail, onToggleTestMode, onSaveWebhook, showToast }) {
+  const [email, setEmail] = useState(nspEmail);
+  const [webhook, setWebhook] = useState(webhookUrl);
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [filterTest, setFilterTest] = useState('all');
+
+  const loadNotifications = async () => {
+    if (!sbUrl || !sbKey) return;
+    setLoading(true);
+    try {
+      const data = await sbSelect(sbUrl, sbKey, 'notifications', 'select=*&order=created_at.desc');
+      setNotifications(data);
+    } catch { showToast('Erro ao carregar notificações', 'error'); }
+    setLoading(false);
+  };
+
+  useEffect(() => { loadNotifications(); }, [sbUrl, sbKey]);
+
+  const handleDelete = async (id) => {
+    if (!confirm('Excluir esta notificação? Esta ação não pode ser desfeita.')) return;
+    setDeleting(id);
+    try {
+      await sbReq(sbUrl, sbKey, `/notifications?id=eq.${id}`, { method: 'DELETE' });
+      setNotifications(notifications.filter(n => n.id !== id));
+      showToast('✅ Notificação excluída', 'success');
+    } catch { showToast('Erro ao excluir', 'error'); }
+    setDeleting(null);
+  };
+
+  const handleClearTests = async () => {
+    if (!confirmClear) { setConfirmClear(true); setTimeout(() => setConfirmClear(false), 3000); return; }
+    try {
+      await sbReq(sbUrl, sbKey, `/notifications?is_test=eq.true`, { method: 'DELETE' });
+      setNotifications(notifications.filter(n => !n.is_test));
+      showToast('✅ Todas as notificações de teste foram excluídas', 'success');
+      setConfirmClear(false);
+    } catch { showToast('Erro ao limpar testes', 'error'); }
+  };
+
+  const filtered = notifications.filter(n => {
+    if (filterTest === 'test') return n.is_test;
+    if (filterTest === 'prod') return !n.is_test;
+    return true;
+  });
+
+  const testCount = notifications.filter(n => n.is_test).length;
+
+  const inp = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 14px', color: C.text, fontSize: 13, outline: 'none', width: '100%' };
+  const lbl = { fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 };
+
+  return (
+    <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+      <div>
+        <div style={{ fontSize: 17, fontWeight: 900, color: C.text }}>Administração NSP</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Painel exclusivo do gestor</div>
+      </div>
+
+      {/* MODO TESTE / PRODUÇÃO */}
+      <div style={{ background: testMode ? C.yellow + '18' : C.green + '18', border: `1px solid ${testMode ? C.yellow + '55' : C.green + '55'}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: testMode ? C.yellow : C.green }}>
+              {testMode ? '🧪 MODO TESTE ativado' : '✅ MODO PRODUÇÃO ativado'}
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
+              {testMode 
+                ? 'Notificações estão sendo marcadas como teste. Você pode excluí-las em lote depois.'
+                : 'Notificações são tratadas como reais. E-mails serão enviados ao destino configurado.'}
+            </div>
+          </div>
+          <button onClick={onToggleTestMode} style={{ background: testMode ? C.yellow : C.green, border: 'none', borderRadius: 999, padding: '8px 14px', color: '#06101F', fontWeight: 800, fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            {testMode ? 'Ativar Produção' : 'Ativar Teste'}
+          </button>
+        </div>
+      </div>
+
+      {/* E-MAIL DESTINO */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>📧 E-mail de destino</div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>Todas as notificações confirmadas serão enviadas para este e-mail.</div>
+        <label style={lbl}>E-mail do NSP</label>
+        <input value={email} onChange={e => setEmail(e.target.value)} placeholder="hnsa.nsp@marinha.mil.br" style={{ ...inp, marginBottom: 10 }} />
+        <button onClick={() => { onSaveEmail(email.trim()); showToast('✅ E-mail atualizado', 'success'); }} style={{ width: '100%', background: C.teal, border: 'none', borderRadius: 10, padding: '11px', color: '#06101F', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+          Salvar e-mail
+        </button>
+      </div>
+
+      {/* WEBHOOK */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>🔗 Webhook (n8n / Make)</div>
+        <div style={{ fontSize: 11, color: C.muted, marginBottom: 12 }}>URL que receberá os dados da notificação para envio do e-mail.</div>
+        <label style={lbl}>Webhook URL</label>
+        <input value={webhook} onChange={e => setWebhook(e.target.value)} placeholder="https://seu-n8n.app/webhook/notificaai" style={{ ...inp, marginBottom: 10, fontFamily: 'monospace', fontSize: 11 }} />
+        <button onClick={() => { onSaveWebhook(webhook.trim()); showToast('✅ Webhook atualizado', 'success'); }} style={{ width: '100%', background: C.teal, border: 'none', borderRadius: 10, padding: '11px', color: '#06101F', fontWeight: 800, fontSize: 13, cursor: 'pointer' }}>
+          Salvar webhook
+        </button>
+      </div>
+
+      {/* GERENCIAR NOTIFICAÇÕES */}
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>📋 Gerenciar notificações</div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{notifications.length} total · {testCount} de teste</div>
+          </div>
+          <button onClick={loadNotifications} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '5px 10px', color: C.teal, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>↻</button>
+        </div>
+
+        {/* Filtros */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+          {[['all','Todas',notifications.length],['test','Teste',testCount],['prod','Produção',notifications.length-testCount]].map(([id, label, count]) => (
+            <button key={id} onClick={() => setFilterTest(id)} style={{ flex: 1, padding: '6px 8px', borderRadius: 8, border: 'none', background: filterTest === id ? C.teal : C.surface, color: filterTest === id ? '#06101F' : C.muted, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+              {label} ({count})
+            </button>
+          ))}
+        </div>
+
+        {/* Botão Limpar Testes */}
+        {testCount > 0 && (
+          <button onClick={handleClearTests} style={{ width: '100%', background: confirmClear ? C.red : C.red + '22', border: `1px solid ${C.red}55`, borderRadius: 10, padding: '10px', color: confirmClear ? '#fff' : C.red, fontWeight: 700, fontSize: 12, cursor: 'pointer', marginBottom: 12 }}>
+            {confirmClear ? '⚠️ CLIQUE NOVAMENTE para confirmar exclusão de todas as ' + testCount + ' notificações de teste' : `🗑️ Limpar todas as ${testCount} notificações de teste`}
+          </button>
+        )}
+
+        {/* Lista */}
+        {loading && <div style={{ textAlign: 'center', color: C.muted, fontSize: 12, padding: 20 }}>Carregando…</div>}
+        {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', color: C.muted, fontSize: 12, padding: 20 }}>Nenhuma notificação</div>}
+        {filtered.map(n => {
+          const tag = getTag(n); const title = getTitle(n);
+          return (
+            <div key={n.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ background: tag.color + '22', color: tag.color, borderRadius: 5, padding: '2px 6px', fontSize: 9, fontWeight: 700, minWidth: 38, textAlign: 'center' }}>{tag.label}</div>
+              {n.is_test && <div style={{ background: C.yellow + '22', color: C.yellow, borderRadius: 5, padding: '2px 6px', fontSize: 9, fontWeight: 700 }}>TESTE</div>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
+                <div style={{ fontSize: 10, color: C.muted }}>{n.sector} · {formatTime(n.created_at)}</div>
+              </div>
+              <button onClick={() => handleDelete(n.id)} disabled={deleting === n.id} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, display: 'flex' }}>
+                <IconTrash size={14} color={deleting === n.id ? C.muted : C.red} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ─── PIN MODAL ─────────────────────────────────────────────────────────────────
 function PinModal({ correctPin, onSuccess, onClose }) {
@@ -808,22 +1044,46 @@ function NotificaAI() {
   const [nspMode, setNspMode] = useState(false);
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
+  const [nspEmail, setNspEmail] = useState('');
+  const [testMode, setTestMode] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
         const r = await window.storage.get('notificai-sb');
-        if (r?.value) { const c = JSON.parse(r.value); setSbUrl(c.url||''); setSbKey(c.key||''); setWebhookUrl(c.webhook||''); setNspPin(c.pin||''); }
+        if (r?.value) { 
+          const c = JSON.parse(r.value); 
+          setSbUrl(c.url||''); 
+          setSbKey(c.key||''); 
+          setWebhookUrl(c.webhook||''); 
+          setNspPin(c.pin||''); 
+          setNspEmail(c.email||'');
+          setTestMode(c.testMode !== undefined ? c.testMode : true);
+        }
       } catch {}
     })();
   }, []);
 
   const handleSaveConfig = async (url, key, webhook, pin) => {
     setSbUrl(url); setSbKey(key); setWebhookUrl(webhook); setNspPin(pin);
-    try { await window.storage.set('notificai-sb', JSON.stringify({ url, key, webhook, pin })); } catch {}
+    try { await window.storage.set('notificai-sb', JSON.stringify({ url, key, webhook, pin, email: nspEmail, testMode })); } catch {}
     setShowConfig(false);
     showToast('✅ Supabase configurado com sucesso!', 'success');
   };
+
+  const saveAll = async (overrides = {}) => {
+    const data = { url: sbUrl, key: sbKey, webhook: webhookUrl, pin: nspPin, email: nspEmail, testMode, ...overrides };
+    try { await window.storage.set('notificai-sb', JSON.stringify(data)); } catch {}
+  };
+
+  const handleSaveEmail = (email) => { setNspEmail(email); saveAll({ email }); };
+  const handleToggleTestMode = () => { 
+    const nv = !testMode; 
+    setTestMode(nv); 
+    saveAll({ testMode: nv });
+    showToast(nv ? '🧪 Modo TESTE ativado' : '✅ Modo PRODUÇÃO ativado', 'success');
+  };
+  const handleSaveWebhook = (webhook) => { setWebhookUrl(webhook); saveAll({ webhook }); };
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type, id: Date.now() });
@@ -836,8 +1096,8 @@ function NotificaAI() {
   ];
   const nspTabs = [
     { id: 'home', label: 'Painel', icon: IconHome },
-    { id: 'notificar', label: 'Notificar', icon: IconMessageSquare },
     { id: 'analytics', label: 'Analytics', icon: IconBarChart2 },
+    { id: 'admin', label: 'Admin', icon: IconShield },
     { id: 'central', label: 'Central', icon: IconBookOpen },
   ];
   const tabs = nspMode ? nspTabs : publicTabs;
@@ -858,9 +1118,10 @@ function NotificaAI() {
         {showPinModal && <PinModal correctPin={nspPin || '1234'} onSuccess={() => { setNspMode(true); setShowPinModal(false); setView('home'); }} onClose={() => setShowPinModal(false)} />}
         {showConfig && <ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspPin={nspPin} onSave={handleSaveConfig} onClose={() => setShowConfig(false)} />}
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
-          {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} />}
-          {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} showToast={showToast} />}
+          {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} />}
+          {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} />}
           {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
+          {view === 'admin'     && <AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} />}
           {view === 'central'   && <CentralView />}
         </div>
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: 'flex', paddingBottom: 8, paddingTop: 8, zIndex: 100 }}>

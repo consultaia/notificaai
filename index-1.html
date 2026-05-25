@@ -139,30 +139,34 @@ const sbSelect = (u, k, table, q = '') => sbReq(u, k, `/${table}?${q}`);
 // ─── AI HELPER ─────────────────────────────────────────────────────────────────
 async function callClaude(messages, system) {
   const WORKER_URL = 'https://notificaai-proxy.janan-almeida.workers.dev';
-  
-  const contents = messages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }]
+
+  // Convert to OpenAI format — skip leading assistant messages (Groq requires user first)
+  const converted = messages.map(m => ({
+    role: m.role === 'assistant' ? 'assistant' : 'user',
+    content: m.content
   }));
 
-  const body = {
-    contents,
-    generationConfig: { maxOutputTokens: 1000, temperature: 0.7 }
-  };
+  // Find first user message index
+  const firstUser = converted.findIndex(m => m.role === 'user');
+  const filtered = firstUser >= 0 ? converted.slice(firstUser) : converted;
 
-  if (system) {
-    body.systemInstruction = { parts: [{ text: system }] };
+  const msgs = [];
+  if (system) msgs.push({ role: 'system', content: system });
+  filtered.forEach(m => msgs.push(m));
+
+  if (msgs.length === 0 || (msgs.length === 1 && msgs[0].role === 'system')) {
+    return 'Olá! Como posso ajudá-lo?';
   }
 
   try {
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ messages: msgs }),
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Erro ao processar. Tente novamente.';
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    return data.choices?.[0]?.message?.content || 'Erro ao processar. Tente novamente.';
   } catch(e) {
     console.error('Worker error:', e);
     return 'Erro ao processar. Tente novamente.';

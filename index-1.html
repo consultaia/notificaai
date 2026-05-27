@@ -25,8 +25,61 @@ const { useState, useRef, useEffect } = React;
 
 window.storage = {
   get: async (key) => { try { const v = localStorage.getItem('nai_'+key); return v ? {value: v} : null; } catch { return null; } },
-  set: async (key, value) => { try { localStorage.setItem('nai_'+key, value); return {value}; } catch { return null; } },
+  set: async (key, value) => { try { localStorage.setItem('nai_'+key, value); return {value};
+
+// ─── HOSPITAL CONTEXT ──────────────────────────────────────────────────────
+function getHospitalIdFromUrl() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('h') || p.get('hospital') || null;
+}
+
+const DEFAULT_HOSPITAL = {
+  id: 'hnsa',
+  name: 'Hospital Naval de Salvador',
+  short_name: 'HNSA',
+  logo: '⚓',
+  sectors: ['UPG', 'Ala A', 'Centro Cirúrgico', 'SEP'],
+  nsp_label: 'NSP',
+};
+
+async function loadHospital(sbUrl, sbKey, hospitalId) {
+  if (!hospitalId || !sbUrl || !sbKey) return DEFAULT_HOSPITAL;
+  try {
+    const data = await sbSelect(sbUrl, sbKey, 'hospitals', `select=*&id=eq.${hospitalId}&limit=1`);
+    if (data && data.length > 0) {
+      const h = data[0];
+      return {
+        id: h.id,
+        name: h.name,
+        short_name: h.short_name || h.name,
+        logo: h.logo || '🏥',
+        sectors: h.sectors || ['Setor 1', 'Setor 2'],
+        nsp_label: h.nsp_label || 'NSP',
+        nsp_email: h.nsp_email || '',
+        nsp_pin: h.nsp_pin || '1234',
+        webhook_url: h.webhook_url || '',
+        sesab_code: h.sesab_code || '',
+      };
+    }
+  } catch {}
+  return DEFAULT_HOSPITAL;
+} } catch { return null; } },
   delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
+};
+
+// ─── HOSPITAL CONTEXT ──────────────────────────────────────────────────────
+function getHospitalIdFromUrl() {
+  const p = new URLSearchParams(window.location.search);
+  return p.get('h') || p.get('hospital') || null;
+}
+
+const DEFAULT_HOSPITAL = {
+  id: 'hnsa',
+  name: 'Hospital Naval de Salvador',
+  short_name: 'HNSA',
+  logo: '⚓',
+  sectors: ['UPG', 'Ala A', 'Centro Cirúrgico', 'SEP'],
+  nsp_label: 'NSP',
 };
 
 function IconMessageSquare({size=24, strokeWidth=2, color="currentColor"}) {
@@ -105,7 +158,10 @@ const MOCK_RECENT = [
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 // ─── PROMPTS ───────────────────────────────────────────────────────────────────
-const CHAT_SYSTEM = `Você é o NotificaAI, assistente de notificações do HNSA. Seja direto, humano e eficiente.
+function buildChatSystem(hospital) {
+  const h = hospital || DEFAULT_HOSPITAL;
+  const setores = h.sectors.join(' / ');
+  return `Você é o NotificaAI, assistente de notificações do ${h.short_name}. Seja direto, humano e eficiente.
 
 REGRAS ABSOLUTAS:
 - Uma pergunta por vez. Respostas curtas (máximo 2 linhas).
@@ -116,7 +172,7 @@ REGRAS ABSOLUTAS:
 
 FLUXO:
 1. Quem está notificando? (profissional / paciente / familiar)
-2. Qual setor? (UPG / Ala A / Centro Cirúrgico / SEP) — só se não foi mencionado
+2. Qual setor? (${setores}) — só se não foi mencionado
 3. O que aconteceu? Colete data, hora e descrição em poucas trocas
 4. Desfecho e medidas tomadas (para Seg. Paciente: era evitável?)
 5. Para CCIH: topografia, procedimento invasivo, micro-organismo se identificado
@@ -125,6 +181,8 @@ FLUXO:
 TIPOS: Segurança do Paciente (queda, medicação, cirurgia, identificação, infecção) | CCIH (IRAS, ITU, PAV, ISC) | Administrativa (acesso, hotelaria, infraestrutura)
 Adapte linguagem: técnica para profissional, simples para paciente/familiar.
 Sempre em português.`;
+}
+const CHAT_SYSTEM = buildChatSystem(DEFAULT_HOSPITAL);
 
 const EXTRACT_SYSTEM = `Extraia os dados da conversa como JSON puro. Sem explicação, sem markdown, apenas o objeto JSON.
 
@@ -207,10 +265,14 @@ async function callClaude(messages, system) {
   }
 }
 
-async function extractData(chatMessages) {
+async function extractData(chatMessages, hospital) {
   const msgs = [...chatMessages, { role: 'user', content: 'Extraia os dados no formato JSON.' }];
   const text = await callClaude(msgs, EXTRACT_SYSTEM);
-  try { return JSON.parse(text.replace(/```json|```/g, '').trim()); }
+  try { 
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); 
+    if (hospital) parsed.hospital_id = hospital.id;
+    return parsed;
+  }
   catch { return null; }
 }
 
@@ -440,7 +502,7 @@ const knowledge = [
 ];
 
 // ─── HOME VIEW ─────────────────────────────────────────────────────────────────
-function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMode }) {
+function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMode, hospital }) {
   const [stats, setStats] = useState(null);
   const [recent, setRecent] = useState(MOCK_RECENT);
   const [loading, setLoading] = useState(false);
@@ -461,10 +523,10 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
     <div style={{ padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.teal}, ${C.blue})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>⚓</div>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: `linear-gradient(135deg, ${C.teal}, ${C.blue})`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{hospital?.logo || '🏥'}</div>
           <div>
             <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: '-0.02em' }}>NotificaAI</div>
-            <div style={{ fontSize: 11, color: C.muted }}>HNSA · Núcleo de Segurança do Paciente</div>
+            <div style={{ fontSize: 11, color: C.muted }}>{hospital?.short_name || 'HNSA'} · Núcleo de Segurança do Paciente</div>
           </div>
         </div>
         <button onClick={onConfig} style={{ background: C.card, border: `1px solid ${configured ? C.teal + '66' : C.border}`, borderRadius: 10, padding: 8, cursor: 'pointer', display: 'flex' }}>
@@ -529,7 +591,7 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
 }
 
 // ─── NOTIFICAR VIEW ────────────────────────────────────────────────────────────
-function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast }) {
+function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast, hospital }) {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Olá! Bem-vindo ao **NotificaAI** do HNSA.\n\nEstou aqui para registrar sua notificação com segurança e agilidade.\n\nVocê é **profissional de saúde**, **paciente** ou **familiar/acompanhante**?' }
   ]);
@@ -556,7 +618,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     setInput('');
     setLoading(true);
     try {
-      const reply = await callClaude(next.map(m => ({ role: m.role, content: m.content })), CHAT_SYSTEM);
+      const reply = await callClaude(next.map(m => ({ role: m.role, content: m.content })), buildChatSystem(hospital));
       setMessages(p => [...p, { role: 'assistant', content: reply }]);
     } catch {
       setMessages(p => [...p, { role: 'assistant', content: 'Erro de conexão. Tente novamente.' }]);
@@ -568,7 +630,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     setSaving(true);
     setMessages(p => [...p, { role: 'user', content: 'Sim, pode confirmar e enviar.' }]);
     try {
-      const data = await extractData(messages.map(m => ({ role: m.role, content: m.content })));
+      const data = await extractData(messages.map(m => ({ role: m.role, content: m.content })), hospital);
       if (!data) throw new Error('Falha na extração');
       if (sbUrl && sbKey) {
         await sbInsert(sbUrl, sbKey, 'notifications', { ...data, chat_history: messages });
@@ -842,6 +904,142 @@ function CentralView() {
 
 
 
+
+// ─── SESAB PANEL ──────────────────────────────────────────────────────────────
+function SesabPanel({ sbUrl, sbKey, showToast, onClose }) {
+  const [hospitals, setHospitals] = useState([]);
+  const [allNotifs, setAllNotifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selHospital, setSelHospital] = useState('all');
+
+  useEffect(() => {
+    if (!sbUrl || !sbKey) return;
+    setLoading(true);
+    Promise.all([
+      sbSelect(sbUrl, sbKey, 'hospitals', 'select=*&order=name.asc'),
+      sbSelect(sbUrl, sbKey, 'notifications', 'select=*&order=created_at.desc&limit=500'),
+    ]).then(([hosp, notifs]) => {
+      setHospitals(hosp || []);
+      setAllNotifs(notifs || []);
+    }).catch(() => showToast('Erro ao carregar dados SESAB', 'error'))
+    .finally(() => setLoading(false));
+  }, [sbUrl, sbKey]);
+
+  const filtered = selHospital === 'all' ? allNotifs : allNotifs.filter(n => n.hospital_id === selHospital);
+  const prodNotifs = filtered.filter(n => !n.is_test);
+
+  // Stats by hospital
+  const byHospital = hospitals.map(h => {
+    const hn = prodNotifs.filter(n => n.hospital_id === h.id);
+    return {
+      ...h,
+      total: hn.length,
+      sp: hn.filter(n => n.notification_type === 'seguranca_paciente').length,
+      ccih: hn.filter(n => n.notification_type === 'ccih').length,
+      adm: hn.filter(n => n.notification_type === 'administrativa').length,
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  const totalGeral = prodNotifs.length;
+  const spGeral = prodNotifs.filter(n => n.notification_type === 'seguranca_paciente').length;
+  const ccihGeral = prodNotifs.filter(n => n.notification_type === 'ccih').length;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: C.bg, zIndex: 400, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg, ${C.navy||'#06101F'}, ${C.blue})`, padding: '20px 16px 16px', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>SESAB · Painel Estadual</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>NotificaAI — Bahia</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 10, padding: '8px 14px', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12 }}>✕ Fechar</button>
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 16px 80px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {loading && <div style={{ textAlign: 'center', color: C.muted, padding: 40 }}>Carregando dados estaduais…</div>}
+
+        {!loading && (
+          <>
+            {/* Totalizadores estaduais */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              {[
+                { label: 'Total', value: totalGeral, color: C.teal, icon: '🔔' },
+                { label: 'Seg. Paciente', value: spGeral, color: C.red, icon: '🏥' },
+                { label: 'CCIH', value: ccihGeral, color: C.yellow, icon: '🦠' },
+              ].map(s => (
+                <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '12px 10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16 }}>{s.icon}</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filtro por hospital */}
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+              <button onClick={() => setSelHospital('all')} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', background: selHospital === 'all' ? C.teal : C.card, color: selHospital === 'all' ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                Todos ({hospitals.length})
+              </button>
+              {hospitals.map(h => (
+                <button key={h.id} onClick={() => setSelHospital(h.id)} style={{ flexShrink: 0, padding: '6px 14px', borderRadius: 20, border: 'none', background: selHospital === h.id ? C.blue : C.card, color: selHospital === h.id ? '#fff' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                  {h.short_name || h.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Ranking de hospitais */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>🏆 Ranking — Notificações por Unidade</div>
+              {byHospital.length === 0 && <div style={{ color: C.muted, fontSize: 12, textAlign: 'center', padding: 20 }}>Nenhuma unidade cadastrada ainda.</div>}
+              {byHospital.map((h, i) => {
+                const pct = totalGeral > 0 ? Math.round(h.total / totalGeral * 100) : 0;
+                return (
+                  <div key={h.id} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: 6, background: i === 0 ? C.yellow : C.border, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: i === 0 ? '#06101F' : C.muted }}>{i+1}</div>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{h.short_name || h.name}</div>
+                          <div style={{ fontSize: 10, color: C.muted }}>{h.sesab_code || h.id} · {h.sp} SP · {h.ccih} CCIH · {h.adm} Adm</div>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: C.teal }}>{h.total}</div>
+                    </div>
+                    <div style={{ height: 6, background: C.surface, borderRadius: 3, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: `linear-gradient(90deg, ${C.teal}, ${C.blue})`, borderRadius: 3, transition: 'width 0.5s' }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Notificações recentes do estado */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>📋 Últimas notificações {selHospital !== 'all' ? `— ${hospitals.find(h=>h.id===selHospital)?.short_name||selHospital}` : 'do estado'}</div>
+              {filtered.slice(0, 10).map((n, i) => {
+                const tag = getTag(n);
+                const hosp = hospitals.find(h => h.id === n.hospital_id);
+                return (
+                  <div key={n.id || i} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ background: tag.color + '22', color: tag.color, borderRadius: 5, padding: '2px 6px', fontSize: 9, fontWeight: 700, minWidth: 38, textAlign: 'center' }}>{tag.label}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textTransform: 'capitalize' }}>{getTitle(n)}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>{hosp?.short_name || n.hospital_id || 'HNSA'} · {n.sector} · {formatTime(n.created_at)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && <div style={{ color: C.muted, fontSize: 12, textAlign: 'center', padding: 16 }}>Nenhuma notificação.</div>}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function AdminPanel({ sbUrl, sbKey, nspEmail, testMode, webhookUrl, onSaveEmail, onToggleTestMode, onSaveWebhook, showToast }) {
   const [email, setEmail] = useState(nspEmail);
@@ -1044,8 +1242,14 @@ function NotificaAI() {
   const [nspMode, setNspMode] = useState(false);
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
+  const [showSesabPin, setShowSesabPin] = useState(false);
+  const [showSesabPanel, setShowSesabPanel] = useState(false);
   const [nspEmail, setNspEmail] = useState('');
   const [testMode, setTestMode] = useState(true);
+  const [hospital, setHospital] = useState(DEFAULT_HOSPITAL);
+  const [sesabMode, setSesabMode] = useState(false);
+  const [sesabData, setSesabData] = useState(null);
+  const hospitalId = getHospitalIdFromUrl();
 
   useEffect(() => {
     (async () => {
@@ -1059,6 +1263,10 @@ function NotificaAI() {
           setNspPin(c.pin||''); 
           setNspEmail(c.email||'');
           setTestMode(c.testMode !== undefined ? c.testMode : true);
+          // Load hospital from URL param or stored config
+          const hId = getHospitalIdFromUrl() || c.defaultHospital || 'hnsa';
+          const h = await loadHospital(c.url||'', c.key||'', hId);
+          setHospital(h);
         }
       } catch {}
     })();
@@ -1117,9 +1325,11 @@ function NotificaAI() {
         {toast && <Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
         {showPinModal && <PinModal correctPin={nspPin || '1234'} onSuccess={() => { setNspMode(true); setShowPinModal(false); setView('home'); }} onClose={() => setShowPinModal(false)} />}
         {showConfig && <ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspPin={nspPin} onSave={handleSaveConfig} onClose={() => setShowConfig(false)} />}
+        {showSesabPin && <PinModal correctPin="9999" onSuccess={() => { setSesabMode(true); setShowSesabPin(false); setShowSesabPanel(true); }} onClose={() => setShowSesabPin(false)} />}
+        {showSesabPanel && <SesabPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={() => { setShowSesabPanel(false); setSesabMode(false); }} />}
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
-          {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} />}
-          {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} />}
+          {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} hospital={hospital} />}
+          {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} hospital={hospital} />}
           {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
           {view === 'admin'     && <AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} />}
           {view === 'central'   && <CentralView />}
@@ -1135,16 +1345,20 @@ function NotificaAI() {
             );
           })}
           {!nspMode ? (
-            <button onClick={() => setShowPinModal(true)} style={{ flex: 0, padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
+            <button onClick={() => setShowPinModal(true)} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
               <span style={{ fontSize: 18 }}>🔒</span>
               <span style={{ fontSize: 10 }}>NSP</span>
             </button>
           ) : (
-            <button onClick={() => { setNspMode(false); setView('notificar'); }} style={{ flex: 0, padding: '4px 12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.teal }}>
+            <button onClick={() => { setNspMode(false); setView('notificar'); }} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.teal }}>
               <span style={{ fontSize: 18 }}>🔓</span>
               <span style={{ fontSize: 10 }}>NSP</span>
             </button>
           )}
+          <button onClick={() => setShowSesabPin(true)} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
+            <span style={{ fontSize: 18 }}>🏛️</span>
+            <span style={{ fontSize: 10 }}>SESAB</span>
+          </button>
         </div>
       </div>
     </>

@@ -112,6 +112,15 @@ function IconAlertCircle({size=24, strokeWidth=2, color="currentColor"}) {
 function IconCheck({size=24, strokeWidth=2, color="currentColor"}) {
   return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><polyline points="20 6 9 17 4 12"/></svg>`}} />;
 }
+function IconTool({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`}} />;
+}
+function IconAmbulance({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/><path d="M8 7h4M10 5v4"/></svg>`}} />;
+}
+function IconClipboard({size=24, strokeWidth=2, color="currentColor"}) {
+  return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>`}} />;
+}
 function IconMail({size=24, strokeWidth=2, color="currentColor"}) {
   return <span style={{display:'inline-flex',alignItems:'center',color}} dangerouslySetInnerHTML={{__html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${strokeWidth}" width="${size}" height="${size}"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`}} />;
 }
@@ -1158,6 +1167,290 @@ function SesabPanel({ sbUrl, sbKey, showToast, onClose }) {
   );
 }
 
+
+// ─── TICKETS VIEW ─────────────────────────────────────────────────────────────
+const TICKET_TYPES = [
+  { id: 'manutencao', label: 'Manutenção / DSG', icon: '🔧', color: '#F59E0B', dest: 'DSG', desc: 'Equipamento, infraestrutura, elétrica, hidráulica' },
+  { id: 'ambulancia', label: 'Saída por Ambulância', icon: '🚑', color: '#EF4444', dest: 'SAME', desc: 'Transporte de paciente para outra unidade' },
+  { id: 'leito', label: 'Solicitação de Leito', icon: '🛏️', color: '#1D6FE8', dest: 'Enfermagem', desc: 'Transferência interna entre setores' },
+  { id: 'material', label: 'Solicitação de Material', icon: '📦', color: '#10B981', dest: 'Almoxarifado', desc: 'Equipamentos, insumos, materiais médicos' },
+  { id: 'dieta', label: 'Dieta Especial', icon: '🍽️', color: '#8B5CF6', dest: 'Nutrição', desc: 'Mudança ou solicitação de dieta especial' },
+  { id: 'outro', label: 'Outro Chamado', icon: '📋', color: '#5A7AA0', dest: 'Gestão', desc: 'Outros chamados administrativos' },
+];
+
+const TICKET_STATUS = {
+  aberto: { label: 'Aberto', color: '#F59E0B', bg: '#F59E0B22' },
+  em_andamento: { label: 'Em andamento', color: '#1D6FE8', bg: '#1D6FE822' },
+  concluido: { label: 'Concluído', color: '#10B981', bg: '#10B98122' },
+  pendente: { label: 'Pendente', color: '#EF4444', bg: '#EF444422' },
+};
+
+function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
+  const [step, setStep] = useState('type'); // type | form | done
+  const [type, setType] = useState(null);
+  const [form, setForm] = useState({ sector: '', description: '', priority: 'normal', patient_name: '', destination: '', scheduled_at: '' });
+  const [saving, setSaving] = useState(false);
+  const h = hospital || DEFAULT_HOSPITAL;
+
+  const selectedType = TICKET_TYPES.find(t => t.id === type);
+
+  const handleSubmit = async () => {
+    if (!form.description.trim()) { showToast('Descreva o chamado', 'error'); return; }
+    setSaving(true);
+    try {
+      const payload = {
+        hospital_id: h.id,
+        ticket_type: type,
+        origin_sector: form.sector,
+        description: form.description,
+        priority: form.priority,
+        patient_name: form.patient_name || null,
+        destination_sector: selectedType?.dest || null,
+        scheduled_at: form.scheduled_at || null,
+        status: 'aberto',
+        opened_at: new Date().toISOString(),
+      };
+      if (sbUrl && sbKey) {
+        await sbInsert(sbUrl, sbKey, 'tickets', payload);
+        showToast('✅ Chamado aberto! ' + (selectedType?.dest || '') + ' foi notificado.', 'success');
+      } else {
+        showToast('✅ Chamado registrado (sem banco configurado)', 'success');
+      }
+      setStep('done');
+    } catch (e) {
+      showToast('Erro ao abrir chamado: ' + e.message, 'error');
+    }
+    setSaving(false);
+  };
+
+  const inp = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 14px', color: C.text, fontSize: 13, outline: 'none', width: '100%', marginBottom: 12 };
+  const lbl = { fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 6 };
+
+  if (step === 'done') return (
+    <div style={{ padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
+      <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Chamado aberto!</div>
+      <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>{selectedType?.dest} foi notificado e receberá o chamado.</div>
+      <button onClick={onBack} style={{ background: C.teal, border: 'none', borderRadius: 12, padding: '12px 28px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Ver chamados</button>
+    </div>
+  );
+
+  if (step === 'type') return (
+    <div style={{ padding: '20px 16px' }}>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22, marginBottom: 16 }}>←</button>
+      <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 4 }}>Novo Chamado</div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Qual o tipo de chamado?</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {TICKET_TYPES.map(t => (
+          <button key={t.id} onClick={() => { setType(t.id); setStep('form'); }} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: t.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{t.icon}</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{t.label}</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>→ {t.dest} · {t.desc}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ padding: '20px 16px' }}>
+      <button onClick={() => setStep('type')} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22, marginBottom: 8 }}>←</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: selectedType?.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{selectedType?.icon}</div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: C.text }}>{selectedType?.label}</div>
+          <div style={{ fontSize: 11, color: C.muted }}>→ {selectedType?.dest}</div>
+        </div>
+      </div>
+
+      <label style={lbl}>Setor de origem</label>
+      <select value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} style={{ ...inp, appearance: 'none' }}>
+        <option value="">Selecione o setor</option>
+        {h.sectors.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+
+      {type === 'ambulancia' && <>
+        <label style={lbl}>Nome do paciente (opcional)</label>
+        <input value={form.patient_name} onChange={e => setForm({...form, patient_name: e.target.value})} placeholder="Nome completo" style={inp} />
+        <label style={lbl}>Destino / Unidade de referência</label>
+        <input value={form.destination} onChange={e => setForm({...form, destination: e.target.value})} placeholder="Ex: Hospital Roberto Santos" style={inp} />
+        <label style={lbl}>Horário previsto</label>
+        <input type="datetime-local" value={form.scheduled_at} onChange={e => setForm({...form, scheduled_at: e.target.value})} style={inp} />
+      </>}
+
+      <label style={lbl}>Descrição do chamado</label>
+      <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder={type === 'manutencao' ? 'Ex: Ar-condicionado da UPG não funciona desde ontem...' : type === 'ambulancia' ? 'Ex: Paciente estável, necessita transferência para neurocirurgia...' : 'Descreva o chamado...'} style={{ ...inp, height: 90, resize: 'none', fontFamily: 'inherit' }} />
+
+      <label style={lbl}>Prioridade</label>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {[['normal','Normal','#5A7AA0'],['urgente','Urgente','#F59E0B'],['critico','Crítico','#EF4444']].map(([id, label, color]) => (
+          <button key={id} onClick={() => setForm({...form, priority: id})} style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1px solid ${form.priority === id ? color : C.border}`, background: form.priority === id ? color + '22' : C.card, color: form.priority === id ? color : C.muted, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>{label}</button>
+        ))}
+      </div>
+
+      <button onClick={handleSubmit} disabled={saving || !form.description.trim()} style={{ width: '100%', background: selectedType?.color || C.teal, border: 'none', borderRadius: 12, padding: '14px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+        {saving ? '⏳ Enviando…' : `${selectedType?.icon} Abrir Chamado para ${selectedType?.dest}`}
+      </button>
+    </div>
+  );
+}
+
+function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('todos');
+  const [responding, setResponding] = useState(null);
+  const [responseText, setResponseText] = useState('');
+  const h = hospital || DEFAULT_HOSPITAL;
+
+  const load = async () => {
+    if (!sbUrl || !sbKey) return;
+    setLoading(true);
+    try {
+      const data = await sbSelect(sbUrl, sbKey, 'tickets', `select=*&hospital_id=eq.${h.id}&order=opened_at.desc`);
+      setTickets(data || []);
+    } catch { showToast('Erro ao carregar chamados', 'error'); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [sbUrl, sbKey]);
+
+  const handleRespond = async (ticket, status) => {
+    try {
+      await sbReq(sbUrl, sbKey, `/tickets?id=eq.${ticket.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, response_notes: responseText, responded_at: new Date().toISOString(), closed_at: status === 'concluido' ? new Date().toISOString() : null }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      setTickets(tickets.map(t => t.id === ticket.id ? { ...t, status, response_notes: responseText } : t));
+      setResponding(null);
+      setResponseText('');
+      showToast(status === 'concluido' ? '✅ Chamado concluído!' : '⏳ Chamado marcado como pendente', 'success');
+    } catch { showToast('Erro ao responder', 'error'); }
+  };
+
+  const filtered = filter === 'todos' ? tickets : tickets.filter(t => t.status === filter);
+  const counts = { aberto: tickets.filter(t => t.status === 'aberto').length, em_andamento: tickets.filter(t => t.status === 'em_andamento').length, pendente: tickets.filter(t => t.status === 'pendente').length };
+
+  const getResponseTime = (t) => {
+    if (!t.responded_at || !t.opened_at) return null;
+    const diff = new Date(t.responded_at) - new Date(t.opened_at);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}min`;
+    return `${Math.floor(mins/60)}h${mins%60>0?` ${mins%60}min`:''}`;
+  };
+
+  return (
+    <div style={{ padding: '16px 16px 80px' }}>
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+        {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes',C.red]].map(([id, label, color]) => (
+          <div key={id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color }}>{counts[id] || 0}</div>
+            <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 4 }}>
+        {[['todos','Todos'],['aberto','Aberto'],['em_andamento','Andamento'],['concluido','Concluído'],['pendente','Pendente']].map(([id, label]) => (
+          <button key={id} onClick={() => setFilter(id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 16, border: 'none', background: filter === id ? C.teal : C.card, color: filter === id ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+        ))}
+        <button onClick={load} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 16, border: `1px solid ${C.border}`, background: 'transparent', color: C.teal, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>↻</button>
+      </div>
+
+      {loading && <div style={{ textAlign: 'center', color: C.muted, padding: 32 }}>Carregando…</div>}
+      {!loading && filtered.length === 0 && <div style={{ textAlign: 'center', color: C.muted, padding: 32 }}>Nenhum chamado{filter !== 'todos' ? ' com este filtro' : ''}.</div>}
+
+      {filtered.map(ticket => {
+        const tt = TICKET_TYPES.find(t => t.id === ticket.ticket_type) || TICKET_TYPES[5];
+        const st = TICKET_STATUS[ticket.status] || TICKET_STATUS.aberto;
+        const rt = getResponseTime(ticket);
+        const isResponding = responding === ticket.id;
+
+        return (
+          <div key={ticket.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: tt.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{tt.icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{tt.label}</div>
+                  <div style={{ background: st.bg, color: st.color, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{st.label}</div>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{ticket.origin_sector} → {tt.dest} · {formatTime(ticket.opened_at)}</div>
+                {ticket.priority === 'critico' && <div style={{ display: 'inline-block', background: C.red + '22', color: C.red, borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginTop: 3 }}>🔴 CRÍTICO</div>}
+                {ticket.priority === 'urgente' && <div style={{ display: 'inline-block', background: C.yellow + '22', color: C.yellow, borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginTop: 3 }}>🟡 URGENTE</div>}
+              </div>
+            </div>
+
+            <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5, marginBottom: 8 }}>{ticket.description}</div>
+
+            {ticket.patient_name && <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>👤 Paciente: {ticket.patient_name}</div>}
+            {ticket.destination_sector && ticket.ticket_type === 'ambulancia' && <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>🏥 Destino: {ticket.destination_sector}</div>}
+            {rt && <div style={{ fontSize: 11, color: C.green, marginBottom: 4 }}>⏱ Tempo de resposta: {rt}</div>}
+
+            {ticket.response_notes && (
+              <div style={{ background: C.surface, borderRadius: 8, padding: '8px 10px', marginBottom: 8, borderLeft: `3px solid ${C.green}` }}>
+                <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 2 }}>RESPOSTA:</div>
+                <div style={{ fontSize: 12, color: C.text }}>{ticket.response_notes}</div>
+              </div>
+            )}
+
+            {/* Responder — disponível para NSP */}
+            {nspMode && ticket.status !== 'concluido' && (
+              <div>
+                {!isResponding ? (
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => setResponding(ticket.id)} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>💬 Responder</button>
+                    <button onClick={() => handleRespond(ticket, 'em_andamento')} style={{ flex: 1, background: C.blue + '22', border: `1px solid ${C.blue}44`, borderRadius: 8, padding: '8px', color: C.blue, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>▶ Em andamento</button>
+                    <button onClick={() => handleRespond(ticket, 'concluido')} style={{ flex: 1, background: C.green + '22', border: `1px solid ${C.green}44`, borderRadius: 8, padding: '8px', color: C.green, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Concluído</button>
+                  </div>
+                ) : (
+                  <div>
+                    <textarea value={responseText} onChange={e => setResponseText(e.target.value)} placeholder="Descreva a resposta ou ação tomada…" style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', height: 70, fontFamily: 'inherit', marginBottom: 8 }} />
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => { setResponding(null); setResponseText(''); }} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+                      <button onClick={() => handleRespond(ticket, 'pendente')} style={{ flex: 1, background: C.yellow + '22', border: `1px solid ${C.yellow}44`, borderRadius: 8, padding: '8px', color: C.yellow, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠ Pendente</button>
+                      <button onClick={() => handleRespond(ticket, 'concluido')} style={{ flex: 2, background: C.green, border: 'none', borderRadius: 8, padding: '8px', color: '#06101F', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>✓ Concluído</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TicketsView({ sbUrl, sbKey, hospital, showToast, nspMode }) {
+  const [subview, setSubview] = useState('list');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.surface, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Chamados Operacionais</div>
+          <div style={{ fontSize: 11, color: C.muted }}>DSG · SAME · Almoxarifado · Nutrição</div>
+        </div>
+        {subview === 'list' && (
+          <button onClick={() => setSubview('new')} style={{ background: C.teal, border: 'none', borderRadius: 10, padding: '8px 14px', color: '#06101F', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>+ Novo</button>
+        )}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {subview === 'list'
+          ? <TicketsList sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} nspMode={nspMode} />
+          : <TicketForm sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onBack={() => setSubview('list')} />
+        }
+      </div>
+    </div>
+  );
+}
+
 // ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 function AdminPanel({ sbUrl, sbKey, nspEmail, testMode, webhookUrl, onSaveEmail, onToggleTestMode, onSaveWebhook, showToast }) {
   const [email, setEmail] = useState(nspEmail);
@@ -1415,10 +1708,12 @@ function NotificaAI() {
 
   const publicTabs = [
     { id: 'notificar', label: 'Notificar', icon: IconMessageSquare },
+    { id: 'chamados', label: 'Chamados', icon: IconTool },
     { id: 'central', label: 'Central', icon: IconBookOpen },
   ];
   const nspTabs = [
     { id: 'home', label: 'Painel', icon: IconHome },
+    { id: 'chamados', label: 'Chamados', icon: IconTool },
     { id: 'analytics', label: 'Analytics', icon: IconBarChart2 },
     { id: 'admin', label: 'Admin', icon: IconShield },
     { id: 'central', label: 'Central', icon: IconBookOpen },
@@ -1444,6 +1739,7 @@ function NotificaAI() {
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
           {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} hospital={hospital} />}
           {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} hospital={hospital} />}
+          {view === 'chamados'  && <TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} nspMode={nspMode} />}
           {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
           {view === 'admin'     && <AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} />}
           {view === 'central'   && <CentralView />}

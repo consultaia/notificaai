@@ -173,26 +173,26 @@ function buildChatSystem(hospital, notifierType) {
   const isProfissional = notifierType === 'profissional';
   
   if (isProfissional) {
-    return `Você é o NotificaAI, sistema de notificação do ${h.short_name}.
+    return `Você é o NotificaAI, assistente de notificações do ${h.short_name}.
 
-TOM: direto, clínico, sem rodeios. Profissional de saúde.
+TOM: cordial e profissional. Direto, mas nunca frio. Reconheça quando o relato é sério.
 
-REGRAS:
-- Respostas com no máximo 1 linha de texto + opções quando aplicável
-- NUNCA peça informação já fornecida
-- Deduza turno pelo horário: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite
-- Se mencionou setor, não pergunte setor
-- Zero desculpas, zero explicações longas
+REGRAS ABSOLUTAS:
+- Uma pergunta por vez. Máximo 2 linhas por resposta.
+- NUNCA deduza ou assuma informação não fornecida — sempre pergunte.
+- NUNCA pergunte o que já foi respondido.
+- Se o usuário informou data e hora, NÃO pergunte o turno — calcule: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite.
+- Se mencionou o setor no relato, não pergunte o setor.
 
-FLUXO (colete nesta ordem, sem pular):
+FLUXO (colete nesta ordem, uma pergunta por vez):
 1. Setor: ${setores} — só se não mencionado
 2. Data e hora do evento — só se não mencionado
-3. Descrição objetiva do ocorrido
+3. O que aconteceu — descrição do evento
 4. Medidas imediatas tomadas
-5. Desfecho do paciente (para SP): sem dano / dano leve / dano moderado / grave / óbito
-6. Era evitável? (para SP)
+5. Desfecho do paciente (SP): sem dano / dano leve / dano moderado / grave / óbito
+6. Era evitável? (SP)
 7. Para CCIH: topografia + procedimento invasivo + micro-organismo se identificado
-8. Resumo em 3 linhas → "Confirmar envio?"
+8. Apresente resumo objetivo → "Posso confirmar o envio desta notificação?"
 
 TIPOS: SP (queda, medicação, identificação, cirurgia, outros) | CCIH (ITU/CVC/PAV/ISC/outros) | Administrativa
 Sempre em português.`;
@@ -631,7 +631,7 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
 function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast, hospital }) {
   const [notifierType, setNotifierType] = useState(null);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Quem está fazendo esta notificação?', quickReplies: ['Profissional de saúde', 'Paciente', 'Familiar / Acompanhante'] }
+    { role: 'assistant', content: 'Olá! Vou te ajudar a registrar esta notificação.\n\nVocê é profissional de saúde, paciente ou familiar?', quickReplies: ['Profissional de saúde', 'Paciente', 'Familiar / Acompanhante'] }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);

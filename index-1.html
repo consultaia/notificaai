@@ -183,6 +183,7 @@ REGRAS:
 - NUNCA repita pergunta já respondida.
 - Se informou data e hora, calcule o turno: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite. Não pergunte.
 - Se mencionou setor, não pergunte setor.
+- Se o usuário disser "todos", "todos os setores", "todo o hospital", "hospital todo" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
 - Registre as palavras do usuário, não a sua interpretação delas.
 
 FLUXO OBRIGATÓRIO (nesta ordem):
@@ -206,6 +207,7 @@ REGRAS:
 - Uma pergunta por vez. Linguagem simples, sem termos técnicos.
 - NUNCA deduza informação não fornecida — sempre pergunte.
 - NUNCA repita pergunta já respondida.
+- Se o usuário disser "todos", "todos os setores", "todo o hospital" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
 
 FLUXO:
 1. O que aconteceu? (deixe falar livremente)
@@ -226,7 +228,7 @@ Formato:
 {
   "notifier_type": "profissional" | "paciente" | "familiar",
   "notification_type": "seguranca_paciente" | "ccih" | "administrativa",
-  "sector": "UPG" | "Ala A" | "Centro Cirúrgico" | "SEP" | "Geral",
+  "sector": "UPG" | "Ala A" | "Centro Cirúrgico" | "SEP" | "Geral" — use "Geral" quando o usuário disse "todos", "todo o hospital", "todos os setores" ou similar,
   "event_date": "YYYY-MM-DD" | null,
   "event_time": "HH:MM" | null,
   "shift": "Manhã" | "Tarde" | "Noite" | null,

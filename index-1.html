@@ -12,6 +12,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:#06101F;height:100%}
 @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
+@keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splashFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes splashLogoAnim{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.splash-in{animation:splashFadeIn .45s ease forwards}
+.splash-out{animation:splashFadeOut .4s ease forwards}
 input::placeholder{color:#5A7AA0}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
@@ -181,6 +186,8 @@ REGRAS:
 - Uma pergunta por vez.
 - NUNCA deduza, interprete ou infira informação não declarada explicitamente. Se o usuário disse "comuniquei ao SOE", isso NÃO significa que o SOE foi acionado — anote exatamente o que foi dito e pergunte o resultado se necessário.
 - NUNCA repita pergunta já respondida.
+- NUNCA repita ou parafraseie o que o usuário acabou de dizer antes de fazer a próxima pergunta. Vá direto ao ponto.
+- NUNCA pergunte quem causou o evento, quem é o responsável ou quem estava de plantão. Foco apenas nos fatos: o que, quando, onde, o que foi feito. Sem investigação de culpa.
 - Se informou data e hora, calcule o turno: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite. Não pergunte.
 - Se mencionou setor, não pergunte setor.
 - Se o usuário disser "todos", "todos os setores", "todo o hospital", "hospital todo" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
@@ -207,6 +214,8 @@ REGRAS:
 - Uma pergunta por vez. Linguagem simples, sem termos técnicos.
 - NUNCA deduza informação não fornecida — sempre pergunte.
 - NUNCA repita pergunta já respondida.
+- NUNCA repita ou parafraseie o que o usuário acabou de dizer antes de fazer a próxima pergunta. Vá direto ao ponto.
+- NUNCA pergunte quem causou o evento ou quem é o responsável. Apenas o que aconteceu, quando e onde.
 - Se o usuário disser "todos", "todos os setores", "todo o hospital" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
 
 FLUXO:
@@ -1644,8 +1653,64 @@ function PinModal({ correctPin, onSuccess, onClose }) {
 }
 
 // ─── ROOT APP ──────────────────────────────────────────────────────────────────
+function SplashScreen({ leaving }) {
+  return (
+    <div className={leaving ? 'splash-out' : 'splash-in'} style={{
+      position: 'fixed', inset: 0, background: '#06101F',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      zIndex: 9999, gap: 0,
+    }}>
+      {/* Logo animado */}
+      <div style={{
+        fontSize: 72, lineHeight: 1,
+        animation: 'splashLogoAnim 1.2s ease-in-out infinite',
+        marginBottom: 24,
+        filter: 'drop-shadow(0 0 18px #00C9B140)',
+      }}>⚓</div>
+
+      {/* Nome */}
+      <div style={{
+        fontSize: 28, fontWeight: 800, letterSpacing: 1,
+        color: '#FFFFFF',
+        fontFamily: 'system-ui, sans-serif',
+      }}>NotificaAI</div>
+
+      {/* Tagline */}
+      <div style={{
+        fontSize: 13, color: '#5A7AA0',
+        marginTop: 6, letterSpacing: 0.5,
+        fontFamily: 'system-ui, sans-serif',
+      }}>Notificação hospitalar inteligente</div>
+
+      {/* Barra de loading */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height: 3, background: '#0D1F3C',
+      }}>
+        <div style={{
+          height: '100%',
+          background: 'linear-gradient(90deg, #00C9B1, #1D6FE8)',
+          animation: 'splashBar 1.4s ease-in-out forwards',
+          width: '0%',
+        }}/>
+      </div>
+
+      <style>{`
+        @keyframes splashBar {
+          0%   { width: 0% }
+          60%  { width: 75% }
+          100% { width: 100% }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function NotificaAI() {
   const [view, setView] = useState('notificar');
+  const [splash, setSplash] = useState(true);
+  const [splashLeaving, setSplashLeaving] = useState(false);
   const [sbUrl, setSbUrl] = useState('');
   const [sbKey, setSbKey] = useState('');
   const [webhookUrl, setWebhookUrl] = useState('');
@@ -1661,6 +1726,11 @@ function NotificaAI() {
   const hospitalId = getHospitalIdFromUrl();
 
   useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setSplashLeaving(true);
+      setTimeout(() => setSplash(false), 420);
+    }, 1500);
+
     (async () => {
       try {
         const r = await window.storage.get('notificai-sb');
@@ -1672,13 +1742,14 @@ function NotificaAI() {
           setNspPin(c.pin||''); 
           setNspEmail(c.email||'');
           setTestMode(c.testMode !== undefined ? c.testMode : true);
-          // Load hospital from URL param or stored config
           const hId = getHospitalIdFromUrl() || c.defaultHospital || 'hnsa';
           const h = await loadHospital(c.url||'', c.key||'', hId);
           setHospital(h);
         }
       } catch {}
     })();
+
+    return () => clearTimeout(splashTimer);
   }, []);
 
   const handleSaveConfig = async (url, key, webhook, pin) => {
@@ -1723,6 +1794,7 @@ function NotificaAI() {
 
   return (
     <>
+      {splash && <SplashScreen leaving={splashLeaving} />}
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
         body{background:#06101F}

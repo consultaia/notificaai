@@ -1189,16 +1189,27 @@ const TICKET_TYPES = [
 ];
 
 const TICKET_STATUS = {
-  aberto: { label: 'Aberto', color: '#F59E0B', bg: '#F59E0B22' },
-  em_andamento: { label: 'Em andamento', color: '#1D6FE8', bg: '#1D6FE822' },
-  concluido: { label: 'Concluído', color: '#10B981', bg: '#10B98122' },
-  pendente: { label: 'Pendente', color: '#EF4444', bg: '#EF444422' },
+  aberto:      { label: 'Aberto',       color: '#F59E0B', bg: '#F59E0B22' },
+  visualizado: { label: 'Visualizado',  color: '#8B5CF6', bg: '#8B5CF622' },
+  recebido:    { label: 'Recebido',     color: '#1D6FE8', bg: '#1D6FE822' },
+  em_andamento:{ label: 'Em andamento', color: '#00C9B1', bg: '#00C9B122' },
+  concluido:   { label: 'Concluído',    color: '#10B981', bg: '#10B98122' },
+  pendente:    { label: 'Pendente',     color: '#EF4444', bg: '#EF444422' },
+};
+
+// Perfis de acesso — PINs e filtros
+const PROFILES = {
+  nsp:        { pin: '1234',  label: 'NSP',       icon: '🔒', color: '#00C9B1', ticketFilter: null,          readOnly: false },
+  dsg:        { pin: '1111',  label: 'DSG',        icon: '🔧', color: '#F59E0B', ticketFilter: 'manutencao', readOnly: false },
+  motorista:  { pin: '2222',  label: 'Motorista',  icon: '🚑', color: '#EF4444', ticketFilter: 'ambulancia', readOnly: false },
+  enfermeiro: { pin: '3333',  label: 'Enfermeiro', icon: '🩺', color: '#1D6FE8', ticketFilter: 'ambulancia', readOnly: true  },
+  gestor:     { pin: '12345', label: 'Gestor',     icon: '📊', color: '#8B5CF6', ticketFilter: null,          readOnly: false },
 };
 
 function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
   const [step, setStep] = useState('type'); // type | form | done
   const [type, setType] = useState(null);
-  const [form, setForm] = useState({ sector: '', description: '', priority: 'normal', patient_name: '', destination: '', scheduled_at: '' });
+  const [form, setForm] = useState({ sector: '', description: '', priority: 'normal', patient_name: '', destination: '', scheduled_at: '', requester_name: '' });
   const [saving, setSaving] = useState(false);
   const h = hospital || DEFAULT_HOSPITAL;
 
@@ -1215,6 +1226,7 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
         description: form.description,
         priority: form.priority,
         patient_name: form.patient_name || null,
+        requester_name: form.requester_name || null,
         destination_sector: selectedType?.dest || null,
         scheduled_at: form.scheduled_at || null,
         status: 'aberto',
@@ -1281,6 +1293,9 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
         {h.sectors.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
 
+      <label style={lbl}>Solicitante (opcional)</label>
+      <input value={form.requester_name} onChange={e => setForm({...form, requester_name: e.target.value})} placeholder="Nome de quem está solicitando" style={inp} />
+
       {type === 'ambulancia' && <>
         <label style={lbl}>Nome do paciente (opcional)</label>
         <input value={form.patient_name} onChange={e => setForm({...form, patient_name: e.target.value})} placeholder="Nome completo" style={inp} />
@@ -1307,42 +1322,82 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
   );
 }
 
-function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
+function TicketsList({ sbUrl, sbKey, hospital, showToast, profileMode }) {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState('todos');
-  const [responding, setResponding] = useState(null);
-  const [responseText, setResponseText] = useState('');
+  const [commenting, setCommenting] = useState(null);
+  const [commentText, setCommentText] = useState('');
   const h = hospital || DEFAULT_HOSPITAL;
+  const profile = PROFILES[profileMode] || null;
+  const isNsp = profileMode === 'nsp';
+  const isGestor = profileMode === 'gestor';
+  const isDsg = profileMode === 'dsg';
+  const isMotorista = profileMode === 'motorista';
+  const isEnfermeiro = profileMode === 'enfermeiro';
+  const canAct = isDsg || isMotorista || isNsp || isGestor;
 
   const load = async () => {
     if (!sbUrl || !sbKey) return;
     setLoading(true);
     try {
-      const data = await sbSelect(sbUrl, sbKey, 'tickets', `select=*&hospital_id=eq.${h.id}&order=opened_at.desc`);
-      setTickets(data || []);
+      let query = `select=*&hospital_id=eq.${h.id}&order=opened_at.desc`;
+      const data = await sbSelect(sbUrl, sbKey, 'tickets', query);
+      let result = data || [];
+      // Filter by profile
+      if (isDsg)               result = result.filter(t => t.ticket_type === 'manutencao');
+      if (isMotorista)         result = result.filter(t => t.ticket_type === 'ambulancia');
+      if (isEnfermeiro)        result = result.filter(t => t.ticket_type === 'ambulancia');
+      setTickets(result);
     } catch { showToast('Erro ao carregar chamados', 'error'); }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [sbUrl, sbKey]);
+  useEffect(() => { load(); }, [sbUrl, sbKey, profileMode]);
 
-  const handleRespond = async (ticket, status) => {
+  // Auto-marcar como visualizado ao abrir o painel (DSG / Motorista)
+  useEffect(() => {
+    if (!sbUrl || !sbKey || (!isDsg && !isMotorista) || tickets.length === 0) return;
+    const toMark = tickets.filter(t => t.status === 'aberto');
+    toMark.forEach(async t => {
+      try {
+        await sbReq(sbUrl, sbKey, `/tickets?id=eq.${t.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'visualizado', viewed_at: new Date().toISOString(), viewed_by: profileMode }),
+          headers: { 'Content-Type': 'application/json' }
+        });
+      } catch {}
+    });
+    if (toMark.length > 0) {
+      setTickets(prev => prev.map(t => t.status === 'aberto' ? { ...t, status: 'visualizado', viewed_at: new Date().toISOString() } : t));
+    }
+  }, [tickets.length, isDsg, isMotorista]);
+
+  const updateStatus = async (ticket, newStatus, notes) => {
     try {
+      const patch = {
+        status: newStatus,
+        responded_at: new Date().toISOString(),
+        ...(notes !== undefined ? { response_notes: notes } : {}),
+        ...(newStatus === 'concluido' ? { closed_at: new Date().toISOString() } : {}),
+      };
       await sbReq(sbUrl, sbKey, `/tickets?id=eq.${ticket.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, response_notes: responseText, responded_at: new Date().toISOString(), closed_at: status === 'concluido' ? new Date().toISOString() : null }),
+        method: 'PATCH', body: JSON.stringify(patch),
         headers: { 'Content-Type': 'application/json' }
       });
-      setTickets(tickets.map(t => t.id === ticket.id ? { ...t, status, response_notes: responseText } : t));
-      setResponding(null);
-      setResponseText('');
-      showToast(status === 'concluido' ? '✅ Chamado concluído!' : '⏳ Chamado marcado como pendente', 'success');
-    } catch { showToast('Erro ao responder', 'error'); }
+      setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, ...patch } : t));
+      setCommenting(null); setCommentText('');
+      const labels = { recebido: '📬 Pedido recebido!', em_andamento: '⏳ Em andamento!', concluido: '✅ Concluído!', pendente: '⚠ Pendente' };
+      showToast(labels[newStatus] || 'Atualizado!', 'success');
+    } catch { showToast('Erro ao atualizar chamado', 'error'); }
   };
 
   const filtered = filter === 'todos' ? tickets : tickets.filter(t => t.status === filter);
-  const counts = { aberto: tickets.filter(t => t.status === 'aberto').length, em_andamento: tickets.filter(t => t.status === 'em_andamento').length, pendente: tickets.filter(t => t.status === 'pendente').length };
+  const counts = {
+    aberto: tickets.filter(t => t.status === 'aberto').length,
+    em_andamento: tickets.filter(t => t.status === 'em_andamento').length,
+    pendente: tickets.filter(t => ['pendente','visualizado','recebido'].includes(t.status)).length,
+  };
 
   const getResponseTime = (t) => {
     if (!t.responded_at || !t.opened_at) return null;
@@ -1352,11 +1407,90 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
     return `${Math.floor(mins/60)}h${mins%60>0?` ${mins%60}min`:''}`;
   };
 
+  // Botões de ação por perfil
+  const renderActions = (ticket) => {
+    if (!canAct || ticket.status === 'concluido') return null;
+    const isCommenting = commenting === ticket.id;
+    const st = ticket.status;
+
+    // DSG — fluxo completo com comentário
+    if (isDsg || (isGestor && ticket.ticket_type === 'manutencao') || (isNsp && ticket.ticket_type === 'manutencao')) {
+      return (
+        <div style={{ marginTop: 8 }}>
+          {isCommenting ? (
+            <div>
+              <textarea value={commentText} onChange={e => setCommentText(e.target.value)}
+                placeholder="Comentário ou observação (opcional)…"
+                style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', height: 70, fontFamily: 'inherit', marginBottom: 8 }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => { setCommenting(null); setCommentText(''); }} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={() => updateStatus(ticket, ticket.status, commentText)} style={{ flex: 2, background: C.teal, border: 'none', borderRadius: 8, padding: '8px', color: '#06101F', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>💬 Salvar comentário</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button onClick={() => setCommenting(ticket.id)} style={{ flex: 1, minWidth: 80, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>💬 Comentar</button>
+              {(st === 'visualizado') && <button onClick={() => updateStatus(ticket, 'recebido')} style={{ flex: 1, minWidth: 80, background: '#1D6FE822', border: '1px solid #1D6FE844', borderRadius: 8, padding: '8px', color: C.blue, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>📬 Recebido</button>}
+              {(st === 'recebido') && <button onClick={() => updateStatus(ticket, 'em_andamento')} style={{ flex: 1, minWidth: 80, background: '#00C9B122', border: '1px solid #00C9B144', borderRadius: 8, padding: '8px', color: C.teal, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>▶ Em andamento</button>}
+              {(st === 'em_andamento' || st === 'recebido') && <button onClick={() => updateStatus(ticket, 'concluido')} style={{ flex: 1, minWidth: 80, background: '#10B98122', border: '1px solid #10B98144', borderRadius: 8, padding: '8px', color: C.green, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Concluído</button>}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Motorista — visualizado → recebido + comentário livre
+    if (isMotorista || (isGestor && ticket.ticket_type === 'ambulancia') || (isNsp && ticket.ticket_type === 'ambulancia')) {
+      return (
+        <div style={{ marginTop: 8 }}>
+          {isCommenting ? (
+            <div>
+              <textarea value={commentText} onChange={e => setCommentText(e.target.value)}
+                placeholder="Ex: Saindo em 5 min, ambulância em manutenção…"
+                style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', height: 70, fontFamily: 'inherit', marginBottom: 8 }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => { setCommenting(null); setCommentText(''); }} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={() => updateStatus(ticket, st === 'visualizado' ? 'recebido' : st, commentText)} style={{ flex: 2, background: '#EF444422', border: '1px solid #EF444444', borderRadius: 8, padding: '8px', color: '#EF4444', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>🚑 Confirmar + Enviar</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 6 }}>
+              {st === 'visualizado' && <button onClick={() => updateStatus(ticket, 'recebido')} style={{ flex: 1, background: '#EF444422', border: '1px solid #EF444444', borderRadius: 8, padding: '8px', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>🚑 Disponível / Recebido</button>}
+              <button onClick={() => setCommenting(ticket.id)} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>💬 Comentar</button>
+              {st === 'recebido' && <button onClick={() => updateStatus(ticket, 'concluido')} style={{ flex: 1, background: '#10B98122', border: '1px solid #10B98144', borderRadius: 8, padding: '8px', color: C.green, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Concluído</button>}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // NSP/Gestor — outros tipos
+    if (isNsp || isGestor) {
+      return (
+        <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+          <button onClick={() => updateStatus(ticket, 'em_andamento')} style={{ flex: 1, background: '#00C9B122', border: '1px solid #00C9B144', borderRadius: 8, padding: '8px', color: C.teal, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>▶ Em andamento</button>
+          <button onClick={() => updateStatus(ticket, 'concluido')} style={{ flex: 1, background: '#10B98122', border: '1px solid #10B98144', borderRadius: 8, padding: '8px', color: C.green, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Concluído</button>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div style={{ padding: '16px 16px 80px' }}>
+      {/* Cabeçalho de perfil ativo */}
+      {profile && (
+        <div style={{ background: profile.color + '15', border: `1px solid ${profile.color}33`, borderRadius: 10, padding: '8px 12px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 16 }}>{profile.icon}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: profile.color }}>Painel {profile.label}</span>
+          {profile.ticketFilter && <span style={{ fontSize: 11, color: C.muted }}>· apenas {profile.ticketFilter === 'manutencao' ? 'manutenção' : 'ambulância'}</span>}
+          {isEnfermeiro && <span style={{ fontSize: 11, color: C.muted }}>· visualização</span>}
+        </div>
+      )}
+
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
-        {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes',C.red]].map(([id, label, color]) => (
+        {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes/Vis.',C.red]].map(([id, label, color]) => (
           <div key={id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
             <div style={{ fontSize: 22, fontWeight: 900, color }}>{counts[id] || 0}</div>
             <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
@@ -1366,7 +1500,7 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 14, paddingBottom: 4 }}>
-        {[['todos','Todos'],['aberto','Aberto'],['em_andamento','Andamento'],['concluido','Concluído'],['pendente','Pendente']].map(([id, label]) => (
+        {[['todos','Todos'],['aberto','Aberto'],['visualizado','Visualizado'],['recebido','Recebido'],['em_andamento','Andamento'],['concluido','Concluído']].map(([id, label]) => (
           <button key={id} onClick={() => setFilter(id)} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 16, border: 'none', background: filter === id ? C.teal : C.card, color: filter === id ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
         ))}
         <button onClick={load} style={{ flexShrink: 0, padding: '6px 12px', borderRadius: 16, border: `1px solid ${C.border}`, background: 'transparent', color: C.teal, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>↻</button>
@@ -1379,11 +1513,10 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
         const tt = TICKET_TYPES.find(t => t.id === ticket.ticket_type) || TICKET_TYPES[5];
         const st = TICKET_STATUS[ticket.status] || TICKET_STATUS.aberto;
         const rt = getResponseTime(ticket);
-        const isResponding = responding === ticket.id;
 
         return (
-          <div key={ticket.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+          <div key={ticket.id} style={{ background: C.card, border: `1px solid ${ticket.status === 'aberto' ? '#F59E0B55' : C.border}`, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 8 }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: tt.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{tt.icon}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
@@ -1391,6 +1524,7 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
                   <div style={{ background: st.bg, color: st.color, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{st.label}</div>
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{ticket.origin_sector} → {tt.dest} · {formatTime(ticket.opened_at)}</div>
+                {ticket.requester_name && <div style={{ fontSize: 11, color: C.teal, marginTop: 2 }}>👤 {ticket.requester_name}</div>}
                 {ticket.priority === 'critico' && <div style={{ display: 'inline-block', background: C.red + '22', color: C.red, borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginTop: 3 }}>🔴 CRÍTICO</div>}
                 {ticket.priority === 'urgente' && <div style={{ display: 'inline-block', background: C.yellow + '22', color: C.yellow, borderRadius: 4, padding: '1px 6px', fontSize: 9, fontWeight: 700, marginTop: 3 }}>🟡 URGENTE</div>}
               </div>
@@ -1398,38 +1532,19 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
 
             <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5, marginBottom: 8 }}>{ticket.description}</div>
 
-            {ticket.patient_name && <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>👤 Paciente: {ticket.patient_name}</div>}
+            {ticket.patient_name && <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>🧑‍⚕️ Paciente: {ticket.patient_name}</div>}
             {ticket.destination_sector && ticket.ticket_type === 'ambulancia' && <div style={{ fontSize: 11, color: C.muted, marginBottom: 4 }}>🏥 Destino: {ticket.destination_sector}</div>}
+            {ticket.viewed_at && <div style={{ fontSize: 10, color: '#8B5CF6', marginBottom: 4 }}>👁 Visualizado {formatTime(ticket.viewed_at)}</div>}
             {rt && <div style={{ fontSize: 11, color: C.green, marginBottom: 4 }}>⏱ Tempo de resposta: {rt}</div>}
 
             {ticket.response_notes && (
-              <div style={{ background: C.surface, borderRadius: 8, padding: '8px 10px', marginBottom: 8, borderLeft: `3px solid ${C.green}` }}>
-                <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 2 }}>RESPOSTA:</div>
+              <div style={{ background: C.surface, borderRadius: 8, padding: '8px 10px', marginBottom: 8, borderLeft: `3px solid ${ticket.ticket_type === 'ambulancia' ? '#EF4444' : C.green}` }}>
+                <div style={{ fontSize: 10, color: C.muted, fontWeight: 700, marginBottom: 2 }}>{ticket.ticket_type === 'ambulancia' ? '🚑 MOTORISTA:' : '🔧 DSG:'}</div>
                 <div style={{ fontSize: 12, color: C.text }}>{ticket.response_notes}</div>
               </div>
             )}
 
-            {/* Responder — disponível para NSP */}
-            {nspMode && ticket.status !== 'concluido' && (
-              <div>
-                {!isResponding ? (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => setResponding(ticket.id)} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>💬 Responder</button>
-                    <button onClick={() => handleRespond(ticket, 'em_andamento')} style={{ flex: 1, background: C.blue + '22', border: `1px solid ${C.blue}44`, borderRadius: 8, padding: '8px', color: C.blue, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>▶ Em andamento</button>
-                    <button onClick={() => handleRespond(ticket, 'concluido')} style={{ flex: 1, background: C.green + '22', border: `1px solid ${C.green}44`, borderRadius: 8, padding: '8px', color: C.green, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>✓ Concluído</button>
-                  </div>
-                ) : (
-                  <div>
-                    <textarea value={responseText} onChange={e => setResponseText(e.target.value)} placeholder="Descreva a resposta ou ação tomada…" style={{ width: '100%', background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px', color: C.text, fontSize: 12, outline: 'none', resize: 'none', height: 70, fontFamily: 'inherit', marginBottom: 8 }} />
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => { setResponding(null); setResponseText(''); }} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px', color: C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
-                      <button onClick={() => handleRespond(ticket, 'pendente')} style={{ flex: 1, background: C.yellow + '22', border: `1px solid ${C.yellow}44`, borderRadius: 8, padding: '8px', color: C.yellow, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>⚠ Pendente</button>
-                      <button onClick={() => handleRespond(ticket, 'concluido')} style={{ flex: 2, background: C.green, border: 'none', borderRadius: 8, padding: '8px', color: '#06101F', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>✓ Concluído</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {renderActions(ticket)}
           </div>
         );
       })}
@@ -1437,8 +1552,10 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, nspMode }) {
   );
 }
 
-function TicketsView({ sbUrl, sbKey, hospital, showToast, nspMode }) {
+function TicketsView({ sbUrl, sbKey, hospital, showToast, profileMode }) {
   const [subview, setSubview] = useState('list');
+  const profile = PROFILES[profileMode];
+  const isReadOnly = profile?.readOnly;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
@@ -1447,13 +1564,13 @@ function TicketsView({ sbUrl, sbKey, hospital, showToast, nspMode }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Chamados Operacionais</div>
           <div style={{ fontSize: 11, color: C.muted }}>DSG · SAME · Almoxarifado · Nutrição</div>
         </div>
-        {subview === 'list' && (
+        {subview === 'list' && !isReadOnly && (
           <button onClick={() => setSubview('new')} style={{ background: C.teal, border: 'none', borderRadius: 10, padding: '8px 14px', color: '#06101F', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>+ Novo</button>
         )}
       </div>
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {subview === 'list'
-          ? <TicketsList sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} nspMode={nspMode} />
+          ? <TicketsList sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode} />
           : <TicketForm sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onBack={() => setSubview('list')} />
         }
       </div>
@@ -1614,7 +1731,7 @@ function AdminPanel({ sbUrl, sbKey, nspEmail, testMode, webhookUrl, onSaveEmail,
 }
 
 // ─── PIN MODAL ─────────────────────────────────────────────────────────────────
-function PinModal({ correctPin, onSuccess, onClose }) {
+function PinModal({ onSuccess, onClose }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const inputRef = useRef(null);
@@ -1622,16 +1739,26 @@ function PinModal({ correctPin, onSuccess, onClose }) {
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
 
   const check = () => {
-    if (pin === correctPin) { onSuccess(); }
-    else { setError(true); setPin(''); setTimeout(() => setError(false), 1200); }
+    const matched = Object.entries(PROFILES).find(([, p]) => p.pin === pin);
+    if (matched) {
+      onSuccess(matched[0]); // passa a chave do perfil ex: 'dsg', 'nsp'
+    } else {
+      setError(true); setPin(''); setTimeout(() => setError(false), 1200);
+    }
   };
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000c', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ background: C.surface, borderRadius: 20, padding: '32px 24px', width: '100%', maxWidth: 320, border: `1px solid ${error ? C.red : C.border}`, transition: 'border-color 0.3s', textAlign: 'center' }}>
         <div style={{ fontSize: 36, marginBottom: 12 }}>🔐</div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Painel NSP</div>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 24 }}>Área restrita · Digite o PIN de acesso</div>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.text, marginBottom: 6 }}>Área Restrita</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>NSP · DSG · Motorista · Enfermeiro · Gestor</div>
+        {/* Hint dos perfis */}
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+          {Object.entries(PROFILES).map(([key, p]) => (
+            <div key={key} style={{ background: p.color + '15', border: `1px solid ${p.color}33`, borderRadius: 6, padding: '3px 8px', fontSize: 10, color: p.color, fontWeight: 700 }}>{p.icon} {p.label}</div>
+          ))}
+        </div>
         <input
           ref={inputRef}
           type="password"
@@ -1717,6 +1844,7 @@ function NotificaAI() {
   const [showConfig, setShowConfig] = useState(false);
   const [toast, setToast] = useState(null);
   const [nspMode, setNspMode] = useState(false);
+  const [profileMode, setProfileMode] = useState(null); // null | 'nsp' | 'dsg' | 'motorista' | 'enfermeiro' | 'gestor'
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
 
@@ -1806,13 +1934,13 @@ function NotificaAI() {
       `}</style>
       <div style={{ background: C.bg, minHeight: '100vh', maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', color: C.text, fontFamily: 'system-ui,-apple-system,sans-serif' }}>
         {toast && <Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
-        {showPinModal && <PinModal correctPin={nspPin || '1234'} onSuccess={() => { setNspMode(true); setShowPinModal(false); setView('home'); }} onClose={() => setShowPinModal(false)} />}
+        {showPinModal && <PinModal onSuccess={(role) => { setProfileMode(role); setNspMode(role === 'nsp' || role === 'gestor'); setShowPinModal(false); setView(role === 'dsg' || role === 'motorista' || role === 'enfermeiro' ? 'chamados' : 'home'); }} onClose={() => setShowPinModal(false)} />}
         {showConfig && <ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspPin={nspPin} onSave={handleSaveConfig} onClose={() => setShowConfig(false)} />}
 
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
           {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} hospital={hospital} />}
           {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} hospital={hospital} />}
-          {view === 'chamados'  && <TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} nspMode={nspMode} />}
+          {view === 'chamados'  && <TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode} />}
           {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
           {view === 'admin'     && <AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} />}
           {view === 'central'   && <CentralView />}
@@ -1827,15 +1955,15 @@ function NotificaAI() {
               </button>
             );
           })}
-          {!nspMode ? (
+          {!profileMode ? (
             <button onClick={() => setShowPinModal(true)} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
               <span style={{ fontSize: 18 }}>🔒</span>
-              <span style={{ fontSize: 10 }}>NSP</span>
+              <span style={{ fontSize: 10 }}>Login</span>
             </button>
           ) : (
-            <button onClick={() => { setNspMode(false); setView('notificar'); }} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.teal }}>
-              <span style={{ fontSize: 18 }}>🔓</span>
-              <span style={{ fontSize: 10 }}>NSP</span>
+            <button onClick={() => { setProfileMode(null); setNspMode(false); setView('notificar'); }} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: PROFILES[profileMode]?.color || C.teal }}>
+              <span style={{ fontSize: 18 }}>{PROFILES[profileMode]?.icon || '🔓'}</span>
+              <span style={{ fontSize: 10, fontWeight: 700 }}>{PROFILES[profileMode]?.label || 'Sair'}</span>
             </button>
           )}
 

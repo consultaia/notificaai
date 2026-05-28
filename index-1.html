@@ -158,31 +158,59 @@ const MOCK_RECENT = [
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 // ─── PROMPTS ───────────────────────────────────────────────────────────────────
-function buildChatSystem(hospital) {
+function buildChatSystem(hospital, notifierType) {
   const h = hospital || DEFAULT_HOSPITAL;
   const setores = h.sectors.join(' / ');
-  return `Você é o NotificaAI, assistente de notificações do ${h.short_name}. Seja direto, humano e eficiente.
+  const isProfissional = notifierType === 'profissional';
+  
+  if (isProfissional) {
+    return `Você é o NotificaAI, sistema de notificação do ${h.short_name}.
 
-REGRAS ABSOLUTAS:
-- Uma pergunta por vez. Respostas curtas (máximo 2 linhas).
-- NUNCA pergunte o que já foi respondido. Se o usuário disse "dia 10 às 21h", o turno é Noite — não pergunte.
-- Deduza o que puder: horário 19h-07h = Noite, 07h-13h = Manhã, 13h-19h = Tarde.
-- Se o usuário mencionar o setor no relato, não pergunte o setor.
-- Vá direto ao ponto. Sem introduções, sem agradecimentos excessivos.
+TOM: direto, clínico, sem rodeios. Profissional de saúde.
+
+REGRAS:
+- Respostas com no máximo 1 linha de texto + opções quando aplicável
+- NUNCA peça informação já fornecida
+- Deduza turno pelo horário: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite
+- Se mencionou setor, não pergunte setor
+- Zero desculpas, zero explicações longas
+
+FLUXO (colete nesta ordem, sem pular):
+1. Setor: ${setores} — só se não mencionado
+2. Data e hora do evento — só se não mencionado
+3. Descrição objetiva do ocorrido
+4. Medidas imediatas tomadas
+5. Desfecho do paciente (para SP): sem dano / dano leve / dano moderado / grave / óbito
+6. Era evitável? (para SP)
+7. Para CCIH: topografia + procedimento invasivo + micro-organismo se identificado
+8. Resumo em 3 linhas → "Confirmar envio?"
+
+TIPOS: SP (queda, medicação, identificação, cirurgia, outros) | CCIH (ITU/CVC/PAV/ISC/outros) | Administrativa
+Sempre em português.`;
+  } else {
+    return `Você é o NotificaAI, assistente do ${h.short_name}.
+
+TOM: acolhedor, simples, humano. Paciente ou familiar.
+
+REGRAS:
+- Linguagem simples, sem termos técnicos
+- Máximo 2 linhas por resposta
+- Demonstre empatia genuína, sem ser excessivo
+- Uma pergunta por vez
+- Deduza turno pelo horário se informado
 
 FLUXO:
-1. Quem está notificando? (profissional / paciente / familiar)
-2. Qual setor? (${setores}) — só se não foi mencionado
-3. O que aconteceu? Colete data, hora e descrição em poucas trocas
-4. Desfecho e medidas tomadas (para Seg. Paciente: era evitável?)
-5. Para CCIH: topografia, procedimento invasivo, micro-organismo se identificado
-6. Apresente resumo CURTO e pergunte: "Posso confirmar o envio desta notificação?"
+1. O que aconteceu? (deixe falar livremente primeiro)
+2. Quando foi? (data e hora aproximada)
+3. Em qual setor/área estava?
+4. O que foi feito a respeito?
+5. Resumo simples → "Posso registrar esta notificação?"
 
-TIPOS: Segurança do Paciente (queda, medicação, cirurgia, identificação, infecção) | CCIH (IRAS, ITU, PAV, ISC) | Administrativa (acesso, hotelaria, infraestrutura)
-Adapte linguagem: técnica para profissional, simples para paciente/familiar.
 Sempre em português.`;
+  }
 }
-const CHAT_SYSTEM = buildChatSystem(DEFAULT_HOSPITAL);
+const CHAT_SYSTEM = buildChatSystem(DEFAULT_HOSPITAL, null);
+
 
 const EXTRACT_SYSTEM = `Extraia os dados da conversa como JSON puro. Sem explicação, sem markdown, apenas o objeto JSON.
 
@@ -592,13 +620,15 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
 
 // ─── NOTIFICAR VIEW ────────────────────────────────────────────────────────────
 function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast, hospital }) {
+  const [notifierType, setNotifierType] = useState(null);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Olá! Bem-vindo ao **NotificaAI** do HNSA.\n\nEstou aqui para registrar sua notificação com segurança e agilidade.\n\nVocê é **profissional de saúde**, **paciente** ou **familiar/acompanhante**?' }
+    { role: 'assistant', content: 'Quem está fazendo esta notificação?', quickReplies: ['Profissional de saúde', 'Paciente', 'Familiar / Acompanhante'] }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
+  const [quickReplies, setQuickReplies] = useState([]);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -613,18 +643,75 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
   const send = async (override) => {
     const msg = override || input;
     if (!msg.trim() || loading || saving) return;
+
+    // Detect notifier type from first user message
+    let currentType = notifierType;
+    if (!currentType) {
+      const lower = msg.toLowerCase();
+      if (lower.includes('profissional') || lower.includes('saúde') || lower.includes('enfermeiro') || lower.includes('médico') || lower.includes('técnico')) {
+        currentType = 'profissional';
+      } else if (lower.includes('paciente')) {
+        currentType = 'paciente';
+      } else if (lower.includes('familiar') || lower.includes('acompanhante')) {
+        currentType = 'familiar';
+      }
+      if (currentType) setNotifierType(currentType);
+    }
+
     const next = [...messages, { role: 'user', content: msg }];
     setMessages(next);
     setInput('');
+    setQuickReplies([]);
     setLoading(true);
     try {
-      const reply = await callClaude(next.map(m => ({ role: m.role, content: m.content })), buildChatSystem(hospital));
-      setMessages(p => [...p, { role: 'assistant', content: reply }]);
+      const cleanMsgs = next.map(m => ({ role: m.role, content: m.content }));
+      const reply = await callClaude(cleanMsgs, buildChatSystem(hospital, currentType));
+
+      // Parse quick replies from reply if it contains options
+      const qr = parseQuickReplies(reply, next.length, hospital, currentType);
+      const cleanReply = reply.replace(/\[opcoes:.*?\]/g, '').trim();
+      setMessages(p => [...p, { role: 'assistant', content: cleanReply }]);
+      setQuickReplies(qr);
     } catch {
       setMessages(p => [...p, { role: 'assistant', content: 'Erro de conexão. Tente novamente.' }]);
     }
     setLoading(false);
   };
+
+  function parseQuickReplies(reply, msgCount, hospital, notifierType) {
+    const r = reply.toLowerCase();
+    const h = hospital || DEFAULT_HOSPITAL;
+    // Setor
+    if (r.includes('setor') || r.includes('ala') || r.includes('upg') || r.includes('unidade')) {
+      return h.sectors;
+    }
+    // Turno
+    if (r.includes('turno') && !r.includes('noite') && !r.includes('manhã')) {
+      return ['Manhã (07h–13h)', 'Tarde (13h–19h)', 'Noite (19h–07h)'];
+    }
+    // Tipo de evento SP
+    if ((r.includes('tipo') || r.includes('evento') || r.includes('ocorr')) && notifierType === 'profissional') {
+      if (r.includes('segurança') || r.includes('sp') || r.includes('paciente')) {
+        return ['Queda', 'Erro de medicação', 'Identificação incorreta', 'Evento cirúrgico', 'Lesão por pressão', 'Outro'];
+      }
+      if (r.includes('ccih') || r.includes('infecção')) {
+        return ['ITU (sonda vesical)', 'IPCS (cateter)', 'PAV (ventilação)', 'ISC (cirurgia)', 'Outro'];
+      }
+    }
+    // Desfecho
+    if (r.includes('desfecho') || r.includes('resultado') || r.includes('como ficou')) {
+      return ['Sem dano', 'Dano leve', 'Dano moderado', 'Dano grave', 'Óbito'];
+    }
+    // Evitável
+    if (r.includes('evitável') || r.includes('evitado') || r.includes('prevenível')) {
+      return ['Sim, era evitável', 'Não era evitável', 'Não sei avaliar'];
+    }
+    // Confirmação
+    if (r.includes('confirmar') || r.includes('envio') || r.includes('registrar')) {
+      return [];
+    }
+    return [];
+  }
 
   const handleConfirm = async () => {
     setSaving(true);
@@ -681,11 +768,23 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
         <div ref={endRef} />
       </div>
       {!done && (
-        <div style={{ padding: '10px 14px', borderTop: `1px solid ${C.border}`, background: C.surface, display: 'flex', gap: 10 }}>
-          <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()} placeholder="Escreva aqui…" style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 22, padding: '10px 16px', color: C.text, fontSize: 14, outline: 'none' }} />
-          <button onClick={() => send()} disabled={loading || !input.trim()} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', background: input.trim() ? C.teal : C.border, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <IconSend size={17} color={input.trim() ? '#06101F' : C.muted} />
-          </button>
+        <div style={{ borderTop: `1px solid ${C.border}`, background: C.surface }}>
+          {/* Quick reply chips */}
+          {quickReplies.length > 0 && !loading && (
+            <div style={{ padding: '10px 14px 4px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {quickReplies.map((r, i) => (
+                <button key={i} onClick={() => { send(r); }} style={{ background: C.card, border: `1px solid ${C.teal}55`, borderRadius: 20, padding: '7px 14px', color: C.teal, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  {r}
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ padding: '8px 14px 12px', display: 'flex', gap: 10 }}>
+            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()} placeholder={quickReplies.length > 0 ? 'Ou escreva…' : 'Escreva aqui…'} style={{ flex: 1, background: C.card, border: `1px solid ${C.border}`, borderRadius: 22, padding: '10px 16px', color: C.text, fontSize: 14, outline: 'none' }} />
+            <button onClick={() => send()} disabled={loading || !input.trim()} style={{ width: 44, height: 44, borderRadius: '50%', border: 'none', background: input.trim() ? C.teal : C.border, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <IconSend size={17} color={input.trim() ? '#06101F' : C.muted} />
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -823,6 +922,25 @@ function CentralView() {
           </div>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {item.type === 'edu_tabs' && (() => {
+            const [activeTab, setActiveTab] = React.useState(item.tabs[0].id);
+            const tab = item.tabs.find(t => t.id === activeTab);
+            return (
+              <div>
+                <div style={{ display: 'flex', background: C.surface, borderRadius: 10, padding: 4, gap: 4, marginBottom: 14 }}>
+                  {item.tabs.map(t => (
+                    <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: 'none', background: activeTab === t.id ? item.color : 'transparent', color: activeTab === t.id ? '#06101F' : C.muted, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{t.label}</button>
+                  ))}
+                </div>
+                {tab.items.map((c, i) => (
+                  <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${item.color}`, borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>{c.title}</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>{c.text}</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           {item.type === 'cards' && item.items.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${item.color}`, borderRadius: 12, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>{c.title}</div>
@@ -1242,13 +1360,10 @@ function NotificaAI() {
   const [nspMode, setNspMode] = useState(false);
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
-  const [showSesabPin, setShowSesabPin] = useState(false);
-  const [showSesabPanel, setShowSesabPanel] = useState(false);
+
   const [nspEmail, setNspEmail] = useState('');
   const [testMode, setTestMode] = useState(true);
   const [hospital, setHospital] = useState(DEFAULT_HOSPITAL);
-  const [sesabMode, setSesabMode] = useState(false);
-  const [sesabData, setSesabData] = useState(null);
   const hospitalId = getHospitalIdFromUrl();
 
   useEffect(() => {
@@ -1325,8 +1440,7 @@ function NotificaAI() {
         {toast && <Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
         {showPinModal && <PinModal correctPin={nspPin || '1234'} onSuccess={() => { setNspMode(true); setShowPinModal(false); setView('home'); }} onClose={() => setShowPinModal(false)} />}
         {showConfig && <ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspPin={nspPin} onSave={handleSaveConfig} onClose={() => setShowConfig(false)} />}
-        {showSesabPin && <PinModal correctPin="9999" onSuccess={() => { setSesabMode(true); setShowSesabPin(false); setShowSesabPanel(true); }} onClose={() => setShowSesabPin(false)} />}
-        {showSesabPanel && <SesabPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={() => { setShowSesabPanel(false); setSesabMode(false); }} />}
+
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 68 }}>
           {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} hospital={hospital} />}
           {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} hospital={hospital} />}
@@ -1355,10 +1469,7 @@ function NotificaAI() {
               <span style={{ fontSize: 10 }}>NSP</span>
             </button>
           )}
-          <button onClick={() => setShowSesabPin(true)} style={{ flex: 0, padding: '4px 10px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
-            <span style={{ fontSize: 18 }}>🏛️</span>
-            <span style={{ fontSize: 10 }}>SESAB</span>
-          </button>
+
         </div>
       </div>
     </>

@@ -1755,11 +1755,11 @@ const TICKET_STATUS = {
 
 // Perfis de acesso — PINs e filtros
 const PROFILES = {
-  nsp:        { pin: '1234',  label: 'NSP',       icon: '🔒', color: '#00C9B1', ticketFilter: null,          readOnly: false },
-  dsg:        { pin: '1111',  label: 'DSG',        icon: '🔧', color: '#F59E0B', ticketFilter: 'manutencao', readOnly: false },
-  motorista:  { pin: '2222',  label: 'Motorista',  icon: '🚑', color: '#EF4444', ticketFilter: 'ambulancia', readOnly: false },
-  enfermeiro: { pin: '3333',  label: 'Enfermeiro', icon: '🩺', color: '#1D6FE8', ticketFilter: 'ambulancia', readOnly: true  },
-  gestor:     { pin: '12345', label: 'Gestor',     icon: '📊', color: '#8B5CF6', ticketFilter: null,          readOnly: false },
+  nsp:        { pin: '1234',  label: 'NSP',       icon: '🔒', color: '#00C9B1', ticketFilter: null,          readOnly: false, canCreate: true  },
+  dsg:        { pin: '1111',  label: 'DSG',        icon: '🔧', color: '#F59E0B', ticketFilter: 'manutencao', readOnly: false, canCreate: false },
+  motorista:  { pin: '2222',  label: 'Motorista',  icon: '🚑', color: '#EF4444', ticketFilter: 'ambulancia', readOnly: false, canCreate: false },
+  enfermeiro: { pin: '3333',  label: 'Enfermeiro', icon: '🩺', color: '#1D6FE8', ticketFilter: null, readOnly: false, canCreate: true  },
+  gestor:     { pin: '12345', label: 'Gestor',     icon: '📊', color: '#8B5CF6', ticketFilter: null,          readOnly: false, canCreate: true  },
 };
 
 function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack, publicMode }) {
@@ -2112,7 +2112,7 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, profileMode }) {
 function TicketsView({ sbUrl, sbKey, hospital, showToast, profileMode }) {
   const [subview, setSubview] = useState(profileMode ? 'list' : 'new');
   const profile = PROFILES[profileMode];
-  const isReadOnly = profile?.readOnly;
+  const canCreate = profile?.canCreate ?? false;
 
   // Sem login → bloqueia acesso
   if (!profileMode) return (
@@ -2131,7 +2131,7 @@ function TicketsView({ sbUrl, sbKey, hospital, showToast, profileMode }) {
           <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Chamados Operacionais</div>
           <div style={{ fontSize: 11, color: C.muted }}>DSG · SAME · Almoxarifado · Nutrição</div>
         </div>
-        {subview === 'list' && !isReadOnly && (
+        {subview === 'list' && canCreate && (
           <button onClick={() => setSubview('new')} style={{ background: C.teal, border: 'none', borderRadius: 10, padding: '8px 14px', color: '#06101F', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>+ Novo</button>
         )}
       </div>

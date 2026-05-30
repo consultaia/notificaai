@@ -699,7 +699,7 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
 function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast, hospital }) {
   const [notifierType, setNotifierType] = useState(null);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Olá! Pode me contar o que aconteceu?', quickReplies: ['Sou profissional de saúde', 'Sou paciente', 'Sou familiar / acompanhante'] }
+    { role: 'assistant', content: 'Olá! Pode me contar o que aconteceu?', quickReplies: ['Sou paciente', 'Sou familiar / acompanhante'] }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -725,12 +725,14 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     let currentType = notifierType;
     if (!currentType) {
       const lower = msg.toLowerCase();
-      if (lower.includes('profissional') || lower.includes('saúde') || lower.includes('enfermeiro') || lower.includes('médico') || lower.includes('técnico')) {
-        currentType = 'profissional';
-      } else if (lower.includes('paciente')) {
-        currentType = 'paciente';
-      } else if (lower.includes('familiar') || lower.includes('acompanhante')) {
+      if (lower.includes('familiar') || lower.includes('acompanhante')) {
         currentType = 'familiar';
+      } else if (lower.includes('sou paciente') || lower.includes('como paciente')) {
+        currentType = 'paciente';
+      } else {
+        // Contexto hospitalar — default profissional
+        // Detecta explicitamente ou assume profissional se relata evento clínico
+        currentType = 'profissional';
       }
       if (currentType) setNotifierType(currentType);
     }
@@ -760,7 +762,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     const h = hospital || DEFAULT_HOSPITAL;
     // Setor
     if (r.includes('setor') || r.includes('ala') || r.includes('upg') || r.includes('unidade')) {
-      return h.sectors.map(s => SECTOR_LABELS[s] || s);
+      return h.sectors;
     }
     // Turno
     if (r.includes('turno') && !r.includes('noite') && !r.includes('manhã')) {
@@ -1854,7 +1856,7 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack, publicMode }) {
       <label style={lbl}>Setor de origem</label>
       <select value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} style={{ ...inp, appearance: 'none' }}>
         <option value="">Selecione o setor</option>
-        {h.sectors.map(s => <option key={s} value={s}>{SECTOR_LABELS[s] || s}</option>)}
+        {h.sectors.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
 
       <label style={lbl}>Solicitante (opcional)</label>

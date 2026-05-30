@@ -144,14 +144,6 @@ const C = {
   red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6',
 };
 
-// Mapa de labels completos dos setores para exibição
-const SECTOR_LABELS = {
-  'UPG': 'UPG — Unidade de Paciente Grave',
-  'Ala A': 'Ala A',
-  'Centro Cirúrgico': 'Centro Cirúrgico',
-  'SEP': 'SEP — Serviço de Estabilização do Paciente',
-  'Geral': 'Todos os setores',
-};
 const MOCK_MONTHLY = [
   { mes: 'Jan', sp: 4, adm: 7 }, { mes: 'Fev', sp: 6, adm: 5 },
   { mes: 'Mar', sp: 3, adm: 8 }, { mes: 'Abr', sp: 8, adm: 4 }, { mes: 'Mai', sp: 5, adm: 6 },
@@ -187,7 +179,7 @@ function buildChatSystem(hospital, notifierType) {
   if (isProfissional) {
     return `Você é o NotificaAI, assistente de notificações do ${h.short_name}.
 
-TOM: humano e profissional. Respostas curtas — máximo 2 linhas.
+TOM: direto, neutro, profissional. Respostas curtas — máximo 2 linhas. SEM "que pena", "sinto muito", "entendo" ou expressões de empatia — é um sistema de registro técnico.
 
 REGRA DE OURO: Na primeira mensagem do usuário, extraia TUDO que já foi informado — tipo de evento, setor, data, hora, perfil, descrição — antes de fazer qualquer pergunta. Só pergunte o que ainda falta.
 
@@ -327,8 +319,14 @@ async function callClaude(messages, system) {
 }
 
 async function extractData(chatMessages, hospital) {
+  const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const ontemISO = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+
+  const extractSystemWithDate = EXTRACT_SYSTEM + `\n\nDATA ATUAL: ${hoje} (${hojeISO}). Converta datas relativas: "hoje" = ${hojeISO}, "ontem" = ${ontemISO}, "esta manhã/tarde/noite" = ${hojeISO}. NUNCA deixe "hoje", "ontem" ou expressões relativas no campo event_date — converta sempre para YYYY-MM-DD.`;
+
   const msgs = [...chatMessages, { role: 'user', content: 'Extraia os dados no formato JSON.' }];
-  const text = await callClaude(msgs, EXTRACT_SYSTEM);
+  const text = await callClaude(msgs, extractSystemWithDate);
   try { 
     const parsed = JSON.parse(text.replace(/```json|```/g, '').trim()); 
     if (hospital) parsed.hospital_id = hospital.id;
@@ -743,8 +741,13 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     setQuickReplies([]);
     setLoading(true);
     try {
+      const hojeISO = new Date().toISOString().slice(0, 10);
+      const hojeStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const systemComData = buildChatSystem(hospital, currentType) +
+        `\n\nDATA E HORA ATUAL: ${hojeStr} às ${horaAtual} (ISO: ${hojeISO}). Quando o usuário disser "hoje", "agora", "esta noite", "esta manhã", "hoje à noite" — a data é ${hojeISO}. Calcule o turno pela hora mencionada ou pela hora atual se não informada.`;
       const cleanMsgs = next.map(m => ({ role: m.role, content: m.content }));
-      const reply = await callClaude(cleanMsgs, buildChatSystem(hospital, currentType));
+      const reply = await callClaude(cleanMsgs, systemComData);
 
       // Parse quick replies from reply if it contains options
       const qr = parseQuickReplies(reply, next.length, hospital, currentType);

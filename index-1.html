@@ -183,6 +183,8 @@ TOM: direto, neutro, profissional. Respostas curtas — máximo 2 linhas. SEM "q
 
 REGRA DE OURO: Na primeira mensagem do usuário, extraia TUDO que já foi informado — tipo de evento, setor, data, hora, perfil, descrição — antes de fazer qualquer pergunta. Só pergunte o que ainda falta.
 
+REGRA DE EFICIÊNCIA: Se faltam setor E data/hora ao mesmo tempo, pergunte os dois juntos em uma única mensagem: "Em qual setor e quando aconteceu?" — nunca em mensagens separadas.
+
 REGRAS:
 - Uma pergunta por vez.
 - NUNCA deduza informação não declarada. Registre as palavras exatas do usuário.
@@ -211,27 +213,27 @@ Ao ter tudo: faça um resumo curto e pergunte "Posso confirmar o envio desta not
 
 Sempre em português.`;
   } else {
-    return `Você é o NotificaAI, assistente do ${h.short_name}.
+    return `Você é o NotificaAI, canal de ouvidoria do ${h.short_name}.
 
-TOM: acolhedor, simples, empático. Máximo 2 linhas por resposta.
+TOM: acolhedor, empático, humano — como um profissional de ouvidoria recebendo alguém que passou por algo difícil. Use linguagem simples e gentil. Máximo 2-3 linhas por resposta.
 
-REGRA DE OURO: Na primeira mensagem, extraia TUDO que já foi informado antes de fazer qualquer pergunta. Só pergunte o que realmente falta.
+REGRA DE OURO: Na primeira mensagem, extraia TUDO que já foi informado antes de perguntar. Só pergunte o que realmente falta. Se faltam setor E data, pergunte os dois juntos em uma mensagem só.
 
-REGRAS:
-- Uma pergunta por vez. Linguagem simples, sem termos técnicos.
-- NUNCA deduza informação não fornecida.
-- NUNCA repita pergunta já respondida.
-- NUNCA repita o que o usuário disse antes de perguntar. Vá direto.
-- NUNCA pergunte quem causou o evento.
+REGRAS DE CONDUTA:
+- Sempre acolha antes de perguntar. Ex: "Entendo, obrigado por nos contar." / "Sinto muito pelo que aconteceu."
+- Se perceber angústia, sofrimento ou indignação — reconheça antes de continuar: "Isso deve ter sido muito difícil para vocês."
+- Uma pergunta por vez. Sem termos técnicos.
+- NUNCA repita o que o usuário disse antes de perguntar.
+- NUNCA pergunte quem causou o evento ou quem é culpado.
 - Se o usuário disser "todos", "todo o hospital" → setor = "Todos os setores".
 
 INFORMAÇÕES A COLETAR (só o que ainda falta):
-1. O que aconteceu?
+1. O que aconteceu? (deixe falar livremente)
 2. Quando? (data e hora aproximada)
-3. Em qual setor/área?
-4. O que foi feito a respeito?
+3. Em qual setor ou área?
+4. O que foi feito a respeito na ocasião?
 
-Ao ter tudo: resumo simples → "Posso registrar esta notificação?"
+Ao ter tudo: faça um resumo breve com empatia → "Registrei tudo com atenção. Posso confirmar o envio para que nossa equipe responsável possa analisar e dar o devido retorno?"
 
 Sempre em português.`;
   }
@@ -732,7 +734,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
       } else {
         // Verifica se relato é técnico/clínico (profissional) ou pessoal (paciente/familiar)
         const PROF_WORDS = ['paciente','queda','medicação','medicamento','infecção','cateter','sonda','cirurgia','setor','plantão','prescrição','avp','flebite','infiltração','notificar','ocorrência','evento adverso'];
-        const PESSOAL = ['fui ','me ','minha ','meu ','sofri','recebi','tomei','fui agredid','me bater','me agredi','me empurr','me machuc','estava internada','estava internado'];
+        const PESSOAL = ['fui ','me ','minha ','meu ','sofri','recebi','tomei','fui agredid','me bater','me agredi','me empurr','me machuc','estava internada','estava internado','meu pai','minha mãe','meu filho','minha filha','meu tio','minha tia','meu avô','minha avó','meu marido','minha esposa','meu irmão','minha irmã','meu familiar','minha familiar'];
         const isPessoal = PESSOAL.some(w => lower.includes(w)) && !PROF_WORDS.some(w => lower.includes(w));
         if (!isPessoal) currentType = 'profissional';
         // isPessoal → currentType fica null → IA vai perguntar quem é
@@ -791,7 +793,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     try {
       const systemComData = buildChatSystem(hospital, currentType) +
         `\n\nDATA E HORA ATUAL: ${hojeStr} às ${horaAtual} (ISO: ${hojeISO}).` +
-        (!currentType ? `\n\nO usuário ainda não se identificou. Antes de continuar, pergunte de forma acolhedora: é paciente, familiar ou profissional de saúde?` : '') +
+        (!currentType ? `\n\nO usuário ainda não se identificou. Acolha o relato com empatia e pergunte gentilmente se é paciente, familiar/acompanhante ou profissional de saúde — isso ajuda a oferecer o melhor atendimento.` : '') +
         (contextoResolvido.length > 0 ? `\n\nINFORMAÇÕES JÁ EXTRAÍDAS DA CONVERSA — NÃO PERGUNTE NOVAMENTE:\n${contextoResolvido.join('\n')}` : '');
       const cleanMsgs = next.map(m => ({ role: m.role, content: m.content }));
       const reply = await callClaude(cleanMsgs, systemComData);

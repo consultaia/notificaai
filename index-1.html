@@ -182,27 +182,31 @@ function buildChatSystem(hospital, notifierType) {
 
 TOM: humano e profissional. Respostas curtas — máximo 2 linhas.
 
+REGRA DE OURO: Na primeira mensagem do usuário, extraia TUDO que já foi informado — tipo de evento, setor, data, hora, perfil, descrição — antes de fazer qualquer pergunta. Só pergunte o que ainda falta.
+
 REGRAS:
 - Uma pergunta por vez.
-- NUNCA deduza, interprete ou infira informação não declarada explicitamente. Se o usuário disse "comuniquei ao SOE", isso NÃO significa que o SOE foi acionado — anote exatamente o que foi dito e pergunte o resultado se necessário.
+- NUNCA deduza informação não declarada. Registre as palavras exatas do usuário.
 - NUNCA repita pergunta já respondida.
-- NUNCA repita ou parafraseie o que o usuário acabou de dizer antes de fazer a próxima pergunta. Vá direto ao ponto.
-- NUNCA pergunte quem causou o evento, quem é o responsável ou quem estava de plantão. Foco apenas nos fatos: o que, quando, onde, o que foi feito. Sem investigação de culpa.
+- NUNCA repita ou parafraseie o que o usuário disse antes de perguntar. Vá direto ao ponto.
+- NUNCA pergunte quem causou o evento ou quem é responsável. Foco nos fatos: o quê, quando, onde, o que foi feito.
 - Se informou data e hora, calcule o turno: 07-13h=Manhã, 13-19h=Tarde, 19-07h=Noite. Não pergunte.
 - Se mencionou setor, não pergunte setor.
-- Se o usuário disser "todos", "todos os setores", "todo o hospital", "hospital todo" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
-- Registre as palavras do usuário, não a sua interpretação delas.
+- Se mencionou "queda", "medicação", "infecção", etc. — já classificou. Não pergunte o tipo de novo.
+- Se o usuário disser "todos", "todo o hospital" ou similar → setor = "Todos os setores".
+- Se o usuário se identificou como profissional de saúde, enfermeiro, médico, técnico — registre e não pergunte de novo.
 
-FLUXO OBRIGATÓRIO (nesta ordem):
-1. Identificar o TIPO: Segurança do Paciente (queda, medicação, cirurgia, identificação, infecção) | CCIH (IRAS, ITU, PAV, ISC) | Administrativa (hotelaria, acesso, infraestrutura)
-2. Setor: ${setores} — só se não mencionado
-3. Data e hora do evento
-4. Descrição do ocorrido
-5. Medidas tomadas
-6. Desfecho (SP): sem dano / leve / moderado / grave / óbito
-7. Era evitável? (SP)
-8. CCIH: topografia, procedimento invasivo, micro-organismo se identificado
-9. Resumo curto → "Posso confirmar o envio desta notificação?"
+INFORMAÇÕES A COLETAR (só o que ainda falta):
+- Tipo: Segurança do Paciente / CCIH / Administrativa
+- Setor: ${setores}
+- Data e hora do evento
+- Descrição do ocorrido
+- Medidas tomadas
+- Desfecho (SP): sem dano / leve / moderado / grave / óbito
+- Era evitável? (SP)
+- CCIH: topografia, procedimento invasivo, micro-organismo se identificado
+
+Ao ter tudo: faça um resumo curto e pergunte "Posso confirmar o envio desta notificação?"
 
 Sempre em português.`;
   } else {
@@ -210,20 +214,23 @@ Sempre em português.`;
 
 TOM: acolhedor, simples, empático. Máximo 2 linhas por resposta.
 
+REGRA DE OURO: Na primeira mensagem, extraia TUDO que já foi informado antes de fazer qualquer pergunta. Só pergunte o que realmente falta.
+
 REGRAS:
 - Uma pergunta por vez. Linguagem simples, sem termos técnicos.
-- NUNCA deduza informação não fornecida — sempre pergunte.
+- NUNCA deduza informação não fornecida.
 - NUNCA repita pergunta já respondida.
-- NUNCA repita ou parafraseie o que o usuário acabou de dizer antes de fazer a próxima pergunta. Vá direto ao ponto.
-- NUNCA pergunte quem causou o evento ou quem é o responsável. Apenas o que aconteceu, quando e onde.
-- Se o usuário disser "todos", "todos os setores", "todo o hospital" ou similar → o setor é "Todos os setores". NUNCA substitua por um setor específico.
+- NUNCA repita o que o usuário disse antes de perguntar. Vá direto.
+- NUNCA pergunte quem causou o evento.
+- Se o usuário disser "todos", "todo o hospital" → setor = "Todos os setores".
 
-FLUXO:
-1. O que aconteceu? (deixe falar livremente)
-2. Quando foi? (data e hora aproximada)
+INFORMAÇÕES A COLETAR (só o que ainda falta):
+1. O que aconteceu?
+2. Quando? (data e hora aproximada)
 3. Em qual setor/área?
 4. O que foi feito a respeito?
-5. Resumo simples → "Posso registrar esta notificação?"
+
+Ao ter tudo: resumo simples → "Posso registrar esta notificação?"
 
 Sempre em português.`;
   }
@@ -325,16 +332,31 @@ async function extractData(chatMessages, hospital) {
 
 // ─── STATS ─────────────────────────────────────────────────────────────────────
 function computeStats(notifications) {
-  const total = notifications.length;
-  const sp = notifications.filter(n => n.notification_type === 'seguranca_paciente').length;
-  const ccih = notifications.filter(n => n.notification_type === 'ccih').length;
-  const adm = notifications.filter(n => n.notification_type === 'administrativa').length;
+  const now = new Date();
+  const thisMonth = now.getMonth();
+  const thisYear = now.getFullYear();
+  const prevMonth = thisMonth === 0 ? 11 : thisMonth - 1;
+  const prevYear = thisMonth === 0 ? thisYear - 1 : thisYear;
 
-  const sectorMap = { 'UPG': 0, 'Ala A': 0, 'Centro Cirúrgico': 0, 'SEP': 0 };
-  notifications.forEach(n => { if (n.sector in sectorMap) sectorMap[n.sector]++; });
-  const sectorData = Object.entries(sectorMap).map(([k, v]) => ({
-    setor: k === 'Centro Cirúrgico' ? 'CC' : k, eventos: v,
-  }));
+  const isThisMonth = n => { const d = new Date(n.created_at); return d.getMonth() === thisMonth && d.getFullYear() === thisYear; };
+  const isPrevMonth = n => { const d = new Date(n.created_at); return d.getMonth() === prevMonth && d.getFullYear() === prevYear; };
+
+  const thisM = notifications.filter(isThisMonth);
+  const prevM = notifications.filter(isPrevMonth);
+
+  const total = thisM.length;
+  const totalAll = notifications.length;
+  const totalPrev = prevM.length;
+  const sp = thisM.filter(n => n.notification_type === 'seguranca_paciente').length;
+  const ccih = thisM.filter(n => n.notification_type === 'ccih').length;
+  const adm = thisM.filter(n => n.notification_type === 'administrativa').length;
+  const spPrev = prevM.filter(n => n.notification_type === 'seguranca_paciente').length;
+  const admPrev = prevM.filter(n => n.notification_type === 'administrativa').length;
+
+  const sectorMap = {};
+  notifications.forEach(n => { if (n.sector) sectorMap[n.sector] = (sectorMap[n.sector] || 0) + 1; });
+  const sectorData = Object.entries(sectorMap).sort((a,b) => b[1]-a[1]).slice(0,6)
+    .map(([k, v]) => ({ setor: k === 'Centro Cirúrgico' ? 'CC' : k, eventos: v }));
 
   const typeMap = {};
   notifications.forEach(n => {
@@ -346,31 +368,41 @@ function computeStats(notifications) {
   const typeData = Object.entries(typeMap).sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([name, value], i) => ({ name, value, color: typeColors[i] }));
 
-  const heatmap = [
-    { turno: 'Manhã', v: [0,0,0,0,0,0,0] },
-    { turno: 'Tarde', v: [0,0,0,0,0,0,0] },
-    { turno: 'Noite', v: [0,0,0,0,0,0,0] },
-  ];
+  const TURNOS = ['Manhã', 'Tarde', 'Noite'];
+  const DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const heatmap = TURNOS.map(turno => ({ turno, v: [0,0,0,0,0,0,0] }));
   notifications.forEach(n => {
     if (!n.event_date || !n.shift) return;
     const day = new Date(n.event_date + 'T12:00:00').getDay();
-    const si = ['Manhã', 'Tarde', 'Noite'].indexOf(n.shift);
+    const si = TURNOS.indexOf(n.shift);
     if (si >= 0) heatmap[si].v[day]++;
   });
 
-  // Monthly (last 5)
+  // Calcular pico real do heatmap
+  let peakVal = 0, peakTurno = '', peakDia = '';
+  heatmap.forEach(row => {
+    row.v.forEach((val, di) => {
+      if (val > peakVal) { peakVal = val; peakTurno = row.turno; peakDia = DIAS[di]; }
+    });
+  });
+  const heatmapPeak = peakVal > 0
+    ? { turno: peakTurno, dia: peakDia, val: peakVal }
+    : null;
+
   const mMap = {};
   notifications.forEach(n => {
     const d = new Date(n.created_at);
-    const k = d.toLocaleDateString('pt-BR', { month: 'short' });
-    if (!mMap[k]) mMap[k] = { mes: k, sp: 0, adm: 0 };
+    const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label = d.toLocaleDateString('pt-BR', { month: 'short' });
+    if (!mMap[k]) mMap[k] = { mes: label, sp: 0, adm: 0, ccih: 0 };
     if (n.notification_type === 'seguranca_paciente') mMap[k].sp++;
+    else if (n.notification_type === 'ccih') mMap[k].ccih++;
     else mMap[k].adm++;
   });
-  const monthly = Object.values(mMap).slice(-5);
+  const monthly = Object.entries(mMap).sort(([a],[b]) => a.localeCompare(b)).slice(-6).map(([,v]) => v);
 
   const critSector = sectorData.reduce((m, s) => s.eventos > m.eventos ? s : m, sectorData[0] || { setor: 'Ala A', eventos: 0 });
-  return { total, sp, ccih, adm, sectorData, typeData, heatmap, monthly, critSector };
+  return { total, totalAll, totalPrev, sp, ccih, adm, spPrev, admPrev, sectorData, typeData, heatmap, heatmapPeak, monthly, critSector };
 }
 
 function formatTime(iso) {
@@ -524,27 +556,42 @@ const knowledge = [
       { title: 'Precauções de Contato/Gotículas/Aerossóis', text: 'Contato (KPC, C. difficile): luvas + avental. Gotículas (Influenza, meningite): máscara cirúrgica. Aerossóis (TB, varicela): máscara N95 + quarto privativo.' },
     ]
   },
-  { id: 'banner', icon: '🖼️', title: 'Materiais para Imprimir', desc: 'Banners e cartazes para fixar nos setores', color: C.blue, type: 'download',
-    items: [
-      { title: 'Cartaz: Como Notificar no NotificaAI', badge: 'PDF', size: 'A3' },
-      { title: 'Cartaz: 6 Metas Internacionais de Segurança', badge: 'PDF', size: 'A2' },
-      { title: 'QR Codes por Setor — UPG, Ala A, CC, SEP', badge: 'ZIP', size: 'PNG 600dpi' },
-      { title: 'Folder: Segurança do Paciente (para pacientes)', badge: 'PDF', size: 'tríptico' },
-      { title: 'Cartaz: 5 Momentos da Higiene das Mãos', badge: 'PDF', size: 'A3' },
-      { title: 'Bundles CCIH (Cateter, PAV, ITU)', badge: 'PDF', size: 'A4 colorido' },
-    ]
+
+  // ── VÍDEOS REAIS (YouTube) ──────────────────────────────────────────────────
+  { id: 'vid_maos', icon: '🎬', title: 'Vídeo: Higienização das Mãos', desc: 'Técnica correta conforme protocolo ANVISA — passo a passo', color: C.teal, type: 'video',
+    url: 'https://www.youtube.com/watch?v=RVdDGkt-76U'
   },
-  { id: 'aula', icon: '🎬', title: 'Treinamentos', desc: 'Aulas e materiais de capacitação NSP', color: C.purple, type: 'media',
-    items: [
-      { title: 'Módulo 1 — Introdução à Segurança do Paciente', duracao: '18 min', tipo: 'Vídeo' },
-      { title: 'Módulo 2 — Tipos de Eventos e Classificação', duracao: '22 min', tipo: 'Vídeo' },
-      { title: 'Módulo 3 — Como Notificar com o NotificaAI', duracao: '15 min', tipo: 'Vídeo' },
-      { title: 'Módulo 4 — Cultura Justa e Análise de Causa Raiz', duracao: '25 min', tipo: 'Vídeo' },
-      { title: 'Módulo 5 — Plano de Ação 5W2H e Ciclo PDCA', duracao: '20 min', tipo: 'Vídeo' },
-      { title: 'Módulo 6 — CCIH para toda a equipe', duracao: '30 min', tipo: 'Vídeo' },
-      { title: 'Slides Completos do Treinamento NSP', duracao: '52 slides', tipo: 'PPT' },
-      { title: 'Manual do Notificador (PDF)', duracao: '24 páginas', tipo: 'PPT' },
-    ]
+  { id: 'vid_paciente', icon: '🎬', title: 'Vídeo: Dicas de Segurança para o Paciente', desc: 'Animações do Projeto Paciente Seguro — MS/Hospital Moinhos de Vento', color: C.blue, type: 'video',
+    url: 'https://www.youtube.com/watch?v=pKDiDWZC-qM'
+  },
+  { id: 'vid_quedas', icon: '🎬', title: 'Vídeo: Prevenção de Quedas', desc: 'Webinar Proqualis/Fiocruz — Prevenção de quedas na Rede de Atenção à Saúde', color: C.yellow, type: 'video',
+    url: 'https://www.youtube.com/watch?v=ieD1o-zIhm0'
+  },
+
+  // ── DOCUMENTOS OFICIAIS (PDFs ANVISA/MS) ───────────────────────────────────
+  { id: 'pdf_caderno1', icon: '📄', title: 'Caderno 1 — Assistência Segura', desc: 'ANVISA · Reflexão teórica aplicada à prática · Base para NSP', color: C.green, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-1-assistencia-segura-uma-reflexao-teorica-aplicada-a-pratica.pdf'
+  },
+  { id: 'pdf_caderno4', icon: '📄', title: 'Caderno 4 — Prevenção de IRAS', desc: 'ANVISA · Medidas de Prevenção de Infecção Relacionada à Assistência à Saúde', color: C.purple, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'
+  },
+  { id: 'pdf_caderno5', icon: '📄', title: 'Caderno 5 — Investigação de Eventos Adversos', desc: 'ANVISA · Metodologia de investigação em serviços de saúde', color: C.red, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-5-investigacao-de-eventos-adversos-em-servicos-de-saude.pdf'
+  },
+  { id: 'pdf_caderno6', icon: '📄', title: 'Caderno 6 — Implantação do NSP', desc: 'ANVISA · Guia completo para implantação do Núcleo de Segurança do Paciente', color: C.teal, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'
+  },
+  { id: 'pdf_caderno7', icon: '📄', title: 'Caderno 7 — Gestão de Riscos', desc: 'ANVISA · Investigação de eventos adversos e gestão de riscos', color: C.yellow, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'
+  },
+  { id: 'pdf_quedas', icon: '📄', title: 'Protocolo — Prevenção de Quedas', desc: 'MS/ANVISA · Protocolo Básico de Segurança do Paciente', color: C.blue, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/protocolo-de-prevencao-de-quedas'
+  },
+  { id: 'pdf_maos_cartaz', icon: '📄', title: 'Cartaz — 5 Momentos da Higienização das Mãos', desc: 'OMS/UNESP · Cartaz A3 oficial para fixar nos setores', color: C.teal, type: 'pdf',
+    url: 'https://hcfmb.unesp.br/wp-content/uploads/2018/03/hm_5momentos_A3.pdf'
+  },
+  { id: 'pdf_cartilha_sp', icon: '📄', title: 'Cartilha — Segurança do Paciente', desc: 'AGEVISA/PB · Versão atualizada 2022 para pacientes e familiares', color: C.green, type: 'pdf',
+    url: 'https://agevisa.pb.gov.br/documentos-pdf/seguranca-do-paciente/cartilha-seguranca-do-paciente-versao-revisada-e-atualizada-14-09-2022.pdf'
   },
 ];
 
@@ -564,7 +611,11 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
       .finally(() => setLoading(false));
   }, [sbUrl, sbKey]);
 
-  const s = stats || { total: 26, sp: 11, adm: 15, critSector: { setor: 'Ala A', eventos: 14 } };
+  const s = stats || { total: 26, totalPrev: 18, sp: 11, ccih: 3, adm: 12, spPrev: 8, admPrev: 10, critSector: { setor: 'Ala A', eventos: 14 } };
+  const diff = s.total - (s.totalPrev || 0);
+  const diffLabel = diff > 0 ? `+${diff} vs mês anterior` : diff < 0 ? `${diff} vs mês anterior` : `= igual ao mês anterior`;
+  const diffColor = diff > 0 ? C.red : diff < 0 ? C.green : C.muted;
+  const mesAtual = new Date().toLocaleDateString('pt-BR', { month: 'long' });
 
   return (
     <div style={{ padding: '24px 16px 16px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -603,10 +654,10 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
       )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <StatCard icon="🔔" label="Total do mês" value={loading ? '…' : s.total} sub={configured ? 'Dados reais' : 'Exemplo'} color={C.teal} />
-        <StatCard icon="🏥" label="Seg. Paciente" value={loading ? '…' : s.sp} sub={s.total ? `${Math.round(s.sp/s.total*100)}% do total` : ''} color={C.blue} />
-        <StatCard icon="🦠" label="CCIH / Infecção" value={loading ? '…' : (s.ccih || 0)} sub={s.total ? `${Math.round((s.ccih||0)/s.total*100)}% do total` : ''} color={C.yellow} />
-        <StatCard icon="⚙️" label="Administrativas" value={loading ? '…' : s.adm} sub={s.total ? `${Math.round(s.adm/s.total*100)}% do total` : ''} color={C.purple} />
+        <StatCard icon="🔔" label={`${mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)}`} value={loading ? '…' : s.total} sub={loading ? '' : diffLabel} color={diffColor} />
+        <StatCard icon="🏥" label="Seg. Paciente" value={loading ? '…' : s.sp} sub={s.total ? `${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês` : ''} color={C.blue} />
+        <StatCard icon="🦠" label="CCIH / Infecção" value={loading ? '…' : (s.ccih || 0)} sub={s.total ? `${Math.round((s.ccih||0)/Math.max(s.total,1)*100)}% do mês` : ''} color={C.yellow} />
+        <StatCard icon="⚙️" label="Administrativas" value={loading ? '…' : s.adm} sub={s.total ? `${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês` : ''} color={C.purple} />
       </div>
 
       <button onClick={() => setView('notificar')} style={{ background: `linear-gradient(135deg, ${C.teal}22, ${C.blue}33)`, border: `1px solid ${C.teal}55`, borderRadius: 16, padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', width: '100%' }}>
@@ -641,7 +692,7 @@ function HomeView({ setView, sbUrl, sbKey, onConfig, showToast, nspMode, testMod
 function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast, hospital }) {
   const [notifierType, setNotifierType] = useState(null);
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Olá! Vou te ajudar a registrar esta notificação.\n\nVocê é profissional de saúde, paciente ou familiar?', quickReplies: ['Profissional de saúde', 'Paciente', 'Familiar / Acompanhante'] }
+    { role: 'assistant', content: 'Olá! Pode me contar o que aconteceu?', quickReplies: ['Sou profissional de saúde', 'Sou paciente', 'Sou familiar / acompanhante'] }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -738,14 +789,17 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     try {
       const data = await extractData(messages.map(m => ({ role: m.role, content: m.content })), hospital);
       if (!data) throw new Error('Falha na extração');
+      let protocolo = '';
       if (sbUrl && sbKey) {
-        await sbInsert(sbUrl, sbKey, 'notifications', { ...data, chat_history: messages });
-        showToast('✅ Notificação salva com sucesso!\nNSP será notificado por e-mail.', 'success');
+        const res = await sbInsert(sbUrl, sbKey, 'notifications', { ...data, chat_history: messages });
+        protocolo = res?.[0]?.id ? res[0].id.slice(0,8).toUpperCase() : Math.random().toString(36).slice(2,10).toUpperCase();
+        showToast('✅ Notificação salva! NSP será notificado.', 'success');
       } else {
-        showToast('✅ Notificação registrada!\nConfigure o Supabase para persistir os dados.', 'success');
+        protocolo = Math.random().toString(36).slice(2,10).toUpperCase();
+        showToast('✅ Notificação registrada! Configure o Supabase para persistir.', 'success');
       }
       setDone(true);
-      setMessages(p => [...p, { role: 'assistant', content: '✅ **Notificação enviada com sucesso!**\n\nO NSP foi notificado. Obrigado por contribuir com a segurança do HNSA.\n\nPara nova notificação, acesse novamente pelo QR Code ou intranet.' }]);
+      setMessages(p => [...p, { role: 'assistant', content: `✅ **Notificação enviada com sucesso!**\n\n📋 **Protocolo: ${protocolo}**\n\nGuarde este número caso precise referenciar este registro. O NSP foi notificado.\n\nObrigado por contribuir com a segurança do HNSA.` }]);
     } catch {
       showToast('Erro ao salvar. Verifique a conexão e tente novamente.', 'error');
     }
@@ -811,18 +865,31 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
 }
 
 // ─── ANALYTICS VIEW ────────────────────────────────────────────────────────────
-function AnalyticsView({ sbUrl, sbKey, showToast }) {
+function AnalyticsView({ sbUrl, sbKey, showToast, profileMode, hospital }) {
   const [tab, setTab] = useState('graficos');
   const [narrative, setNarrative] = useState('');
   const [loadingNarr, setLoadingNarr] = useState(false);
   const [stats, setStats] = useState(null);
+  const [rawData, setRawData] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [filterMonth, setFilterMonth] = useState(0);
+  const [opNarrative, setOpNarrative] = useState('');
+  const [loadingOp, setLoadingOp] = useState(false);
+  const isGestor = profileMode === 'gestor';
+  const h = hospital || DEFAULT_HOSPITAL;
 
   useEffect(() => {
     if (!sbUrl || !sbKey) return;
-    sbSelect(sbUrl, sbKey, 'notifications', 'select=*')
-      .then(data => setStats(computeStats(data)))
+    sbSelect(sbUrl, sbKey, 'notifications', 'select=*&order=created_at.desc')
+      .then(data => { setStats(computeStats(data)); setRawData(data || []); })
       .catch(() => showToast('Erro ao carregar analytics', 'error'));
-  }, [sbUrl, sbKey]);
+    if (isGestor) {
+      sbSelect(sbUrl, sbKey, 'tickets', `select=*&hospital_id=eq.${h.id}&order=opened_at.desc`)
+        .then(data => setTickets(data || []))
+        .catch(() => {});
+    }
+  }, [sbUrl, sbKey, isGestor]);
 
   const s = stats || { sectorData: MOCK_SECTORS, typeData: MOCK_TYPES, heatmap: MOCK_HEATMAP, monthly: MOCK_MONTHLY, total: 26, sp: 11, adm: 15 };
 
@@ -853,8 +920,9 @@ Inclua: pontos de atenção, padrões identificados e recomendações prioritár
       </div>
 
       <div style={{ display: 'flex', background: C.surface, borderRadius: 10, padding: 4, gap: 4 }}>
-        {[['graficos','Gráficos'],['calor','Mapa de Calor'],['ia','Interpretação IA']].map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: 'none', background: tab === id ? C.teal : 'transparent', color: tab === id ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+        {[['graficos','Gráficos'],['calor','Mapa de Calor'],['ia','Interp. IA'],['relatorio','Relatório'],...(isGestor?[['operacional','Operacional']]:[])]
+          .map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)} style={{ flex: 1, padding: '8px 4px', borderRadius: 7, border: 'none', background: tab === id ? C.teal : 'transparent', color: tab === id ? '#06101F' : C.muted, fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
         ))}
       </div>
 
@@ -898,9 +966,13 @@ Inclua: pontos de atenção, padrões identificados e recomendações prioritár
             {[C.surface,'#0E3D5B','#0369A1','#0891B2',C.teal].map((c, i) => <div key={i} style={{ width: 18, height: 18, borderRadius: 4, background: c, border: `1px solid ${C.border}` }} />)}
             <span style={{ fontSize: 10, color: C.muted }}>Mais</span>
           </div>
-          <div style={{ marginTop: 14, background: C.surface, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${C.red}` }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>⚠️ Ponto crítico identificado</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 4, lineHeight: 1.6 }}>Turno noturno de quarta-feira concentra o maior volume de eventos. Atenção reforçada recomendada nessa combinação.</div>
+          <div style={{ marginTop: 14, background: C.surface, borderRadius: 10, padding: '12px 14px', borderLeft: `3px solid ${s.heatmapPeak ? C.red : C.muted}` }}>
+            {s.heatmapPeak
+              ? <><div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>⚠️ Ponto crítico identificado</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 4, lineHeight: 1.6 }}>Turno da {s.heatmapPeak.turno} de {s.heatmapPeak.dia} concentra o maior volume — {s.heatmapPeak.val} evento{s.heatmapPeak.val>1?'s':''}. Atenção reforçada recomendada nessa combinação.</div></>
+              : <><div style={{ fontSize: 12, fontWeight: 700, color: C.muted }}>Sem dados suficientes</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Notifique eventos com data e turno para gerar o mapa de calor real.</div></>
+            }
           </div>
         </div>
       )}
@@ -922,25 +994,432 @@ Inclua: pontos de atenção, padrões identificados e recomendações prioritár
           )}
         </div>
       )}
+
+      {tab === 'relatorio' && (() => {
+        const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+        const anos = [...new Set(rawData.map(n => new Date(n.created_at).getFullYear()))].sort((a,b) => b-a);
+        if (!anos.includes(filterYear) && anos.length > 0) anos.unshift(filterYear);
+
+        // Totais por mês do ano selecionado
+        const byMonth = Array.from({length:12}, (_,i) => {
+          const items = rawData.filter(n => {
+            const d = new Date(n.created_at);
+            return d.getFullYear() === filterYear && d.getMonth() === i;
+          });
+          return { mes: MESES[i], total: items.length, sp: items.filter(n=>n.notification_type==='seguranca_paciente').length, ccih: items.filter(n=>n.notification_type==='ccih').length, adm: items.filter(n=>n.notification_type==='administrativa').length };
+        });
+        const totalAno = byMonth.reduce((acc,m) => acc + m.total, 0);
+
+        // Dados filtrados para a listagem
+        const filtered = rawData.filter(n => {
+          const d = new Date(n.created_at);
+          if (d.getFullYear() !== filterYear) return false;
+          if (filterMonth !== 0 && d.getMonth() !== filterMonth - 1) return false;
+          return true;
+        });
+
+        // Exportar CSV
+        const exportCSV = () => {
+          const header = ['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','Prevenível','Resumo IA'];
+          const rows = filtered.map(n => [
+            n.id?.slice(0,8) || '',
+            n.event_date || new Date(n.created_at).toLocaleDateString('pt-BR'),
+            n.event_time || '',
+            n.notification_type || '',
+            n.event_subtype || '',
+            n.sector || '',
+            n.shift || '',
+            (n.description || '').replace(/"/g,'""'),
+            (n.measures_taken || '').replace(/"/g,'""'),
+            n.patient_outcome || '',
+            n.was_preventable || '',
+            (n.ai_summary || '').replace(/"/g,'""'),
+          ]);
+          const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+          const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `notificacoes_hnsa_${filterYear}${filterMonth>0?'_'+String(filterMonth).padStart(2,'0'):''}.csv`;
+          a.click(); URL.revokeObjectURL(url);
+        };
+
+        const TYPE_LABEL = { seguranca_paciente:'Seg. Paciente', ccih:'CCIH', administrativa:'Administrativa' };
+        const TYPE_COLOR = { seguranca_paciente: C.red, ccih: C.purple, administrativa: C.blue };
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Filtros */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <select value={filterYear} onChange={e => { setFilterYear(Number(e.target.value)); setFilterMonth(0); }}
+                style={{ flex: 1, minWidth: 80, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', color: C.text, fontSize: 12, outline: 'none' }}>
+                {(anos.length ? anos : [new Date().getFullYear()]).map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+              <select value={filterMonth} onChange={e => setFilterMonth(Number(e.target.value))}
+                style={{ flex: 2, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 10px', color: C.text, fontSize: 12, outline: 'none' }}>
+                <option value={0}>Todos os meses</option>
+                {MESES.map((m,i) => <option key={i} value={i+1}>{m}</option>)}
+              </select>
+              <button onClick={exportCSV} disabled={filtered.length === 0}
+                style={{ flexShrink: 0, background: C.green, border: 'none', borderRadius: 8, padding: '8px 14px', color: '#06101F', fontSize: 12, fontWeight: 800, cursor: filtered.length>0?'pointer':'default', opacity: filtered.length>0?1:0.5 }}>
+                ↓ CSV
+              </button>
+            </div>
+
+            {/* Totais do ano */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Total {filterYear} — {totalAno} notificações</div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      {['Mês','Total','SP','CCIH','Adm'].map(h => (
+                        <th key={h} style={{ padding: '6px 8px', textAlign: 'center', color: C.muted, fontWeight: 700, borderBottom: `1px solid ${C.border}`, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {byMonth.map((m, i) => (
+                      <tr key={i} onClick={() => setFilterMonth(filterMonth === i+1 ? 0 : i+1)}
+                        style={{ cursor: 'pointer', background: filterMonth === i+1 ? C.teal + '15' : 'transparent', transition: 'background 0.2s' }}>
+                        <td style={{ padding: '6px 8px', color: C.text, fontWeight: 600, borderBottom: `1px solid ${C.border}22` }}>{m.mes}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 900, color: m.total > 0 ? C.text : C.muted, borderBottom: `1px solid ${C.border}22` }}>{m.total || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: m.sp > 0 ? C.red : C.muted, borderBottom: `1px solid ${C.border}22` }}>{m.sp || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: m.ccih > 0 ? C.purple : C.muted, borderBottom: `1px solid ${C.border}22` }}>{m.ccih || '—'}</td>
+                        <td style={{ padding: '6px 8px', textAlign: 'center', color: m.adm > 0 ? C.blue : C.muted, borderBottom: `1px solid ${C.border}22` }}>{m.adm || '—'}</td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: C.surface }}>
+                      <td style={{ padding: '8px 8px', color: C.teal, fontWeight: 900, fontSize: 12 }}>Total</td>
+                      <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 900, color: C.teal, fontSize: 12 }}>{totalAno}</td>
+                      <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700, color: C.red, fontSize: 11 }}>{byMonth.reduce((a,m)=>a+m.sp,0)}</td>
+                      <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700, color: C.purple, fontSize: 11 }}>{byMonth.reduce((a,m)=>a+m.ccih,0)}</td>
+                      <td style={{ padding: '8px 8px', textAlign: 'center', fontWeight: 700, color: C.blue, fontSize: 11 }}>{byMonth.reduce((a,m)=>a+m.adm,0)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: 10, color: C.muted, marginTop: 8 }}>Toque em um mês para filtrar a listagem abaixo</div>
+            </div>
+
+            {/* Listagem */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                  {filtered.length} notificação{filtered.length !== 1 ? 'ões' : ''} {filterMonth > 0 ? `— ${MESES[filterMonth-1]}/${filterYear}` : `— ${filterYear}`}
+                </div>
+              </div>
+              {filtered.length === 0 && <div style={{ textAlign: 'center', color: C.muted, padding: 24, fontSize: 13 }}>Nenhuma notificação neste período.</div>}
+              {filtered.map((n, i) => {
+                const typeColor = TYPE_COLOR[n.notification_type] || C.muted;
+                const typeLabel = TYPE_LABEL[n.notification_type] || n.notification_type || '—';
+                return (
+                  <div key={n.id || i} style={{ borderBottom: `1px solid ${C.border}22`, paddingBottom: 12, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+                      <div style={{ background: typeColor + '22', color: typeColor, borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{typeLabel}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>{n.event_date || new Date(n.created_at).toLocaleDateString('pt-BR')} {n.event_time || ''}</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: C.text, lineHeight: 1.5, marginBottom: 3 }}>{n.description || '—'}</div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      {n.sector && <span style={{ fontSize: 10, color: C.muted }}>📍 {n.sector}</span>}
+                      {n.shift && <span style={{ fontSize: 10, color: C.muted }}>⏱ {n.shift}</span>}
+                      {n.event_subtype && <span style={{ fontSize: 10, color: C.muted }}>🏷 {n.event_subtype}</span>}
+                      {n.is_test && <span style={{ fontSize: 10, color: C.yellow }}>⚙ Teste</span>}
+                    </div>
+                    {n.ai_summary && <div style={{ marginTop: 6, background: C.surface, borderRadius: 6, padding: '6px 10px', fontSize: 11, color: C.muted, lineHeight: 1.5, borderLeft: `2px solid ${C.teal}` }}>🤖 {n.ai_summary}</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+          </div>
+        );
+      })()}
+
+      {tab === 'operacional' && isGestor && (() => {
+        // Métricas DSG
+        const dsg = tickets.filter(t => t.ticket_type === 'manutencao');
+        const amb = tickets.filter(t => t.ticket_type === 'ambulancia');
+
+        const calcMetrics = (list) => {
+          const total = list.length;
+          const abertos = list.filter(t => t.status === 'aberto').length;
+          const visualizados = list.filter(t => t.status === 'visualizado').length;
+          const recebidos = list.filter(t => t.status === 'recebido').length;
+          const andamento = list.filter(t => t.status === 'em_andamento').length;
+          const concluidos = list.filter(t => t.status === 'concluido').length;
+          const pendentes = abertos + visualizados + recebidos + andamento;
+          const criticos = list.filter(t => t.priority === 'critico' && t.status !== 'concluido').length;
+          const urgentes = list.filter(t => t.priority === 'urgente' && t.status !== 'concluido').length;
+
+          // Tempo médio de resposta (aberto → responded_at)
+          const comResposta = list.filter(t => t.responded_at && t.opened_at);
+          const tempoMedio = comResposta.length > 0
+            ? comResposta.reduce((acc, t) => acc + (new Date(t.responded_at) - new Date(t.opened_at)), 0) / comResposta.length / 60000
+            : null;
+
+          // Chamados vencidos por prioridade: crítico=30min, urgente=60min, normal=120min
+          const agora = Date.now();
+          const vencidos = list.filter(t => {
+            if (t.status === 'concluido') return false;
+            const abertoHa = (agora - new Date(t.opened_at)) / 60000;
+            if (t.responded_at) return false;
+            const threshold = t.priority === 'critico' ? 30 : t.priority === 'urgente' ? 60 : 120;
+            return abertoHa > threshold;
+          });
+
+          return { total, abertos, visualizados, recebidos, andamento, concluidos, pendentes, criticos, urgentes, tempoMedio, vencidos };
+        };
+
+        const dsgM = calcMetrics(dsg);
+        const ambM = calcMetrics(amb);
+
+        const fmtTempo = (mins) => {
+          if (mins === null) return '—';
+          if (mins < 60) return `${Math.round(mins)}min`;
+          return `${Math.floor(mins/60)}h${Math.round(mins%60)>0?` ${Math.round(mins%60)}min`:''}`;
+        };
+
+        const generateOpNarrative = async () => {
+          setLoadingOp(true); setOpNarrative('');
+          try {
+            const text = await callClaude([{ role: 'user', content:
+              `Analise o desempenho operacional do hospital com base nos dados abaixo e gere uma interpretação de gestão em 3 parágrafos curtos, em português, tom de relatório gerencial:
+
+DSG/Manutenção: ${dsgM.total} chamados total | ${dsgM.pendentes} pendentes | ${dsgM.concluidos} concluídos | ${dsgM.criticos} críticos abertos | tempo médio resposta: ${fmtTempo(dsgM.tempoMedio)} | ${dsgM.vencidos.length} sem resposta há mais de 2h
+
+Ambulância: ${ambM.total} chamados total | ${ambM.pendentes} pendentes | ${ambM.concluidos} concluídos | ${ambM.criticos} críticos abertos | tempo médio resposta: ${fmtTempo(ambM.tempoMedio)} | ${ambM.vencidos.length} sem resposta há mais de 2h
+
+Inclua: pontos críticos, padrões de atraso, recomendações de gestão prioritárias.`
+            }], 'Você é o analista de gestão hospitalar. Responda em português, tom gerencial objetivo.');
+            setOpNarrative(text);
+          } catch { showToast('Erro ao gerar análise', 'error'); }
+          setLoadingOp(false);
+        };
+
+        const MetricCard = ({ label, value, color, sub }) => (
+          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 8px', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color: color || C.text }}>{value}</div>
+            <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>{label}</div>
+            {sub && <div style={{ fontSize: 9, color: color, marginTop: 1 }}>{sub}</div>}
+          </div>
+        );
+
+        const SectionBlock = ({ title, icon, color, m, list }) => (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span style={{ fontSize: 20 }}>{icon}</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{title}</div>
+                <div style={{ fontSize: 11, color: C.muted }}>{m.total} chamados registrados</div>
+              </div>
+            </div>
+
+            {/* KPIs */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 14 }}>
+              <MetricCard label="Pendentes" value={m.pendentes} color={m.pendentes > 0 ? C.yellow : C.green} />
+              <MetricCard label="Concluídos" value={m.concluidos} color={C.green} />
+              <MetricCard label="T. Médio" value={fmtTempo(m.tempoMedio)} color={C.blue} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: m.vencidos.length > 0 ? 14 : 0 }}>
+              <MetricCard label="Críticos" value={m.criticos} color={m.criticos > 0 ? C.red : C.muted} />
+              <MetricCard label="Urgentes" value={m.urgentes} color={m.urgentes > 0 ? C.yellow : C.muted} />
+              <MetricCard label="Fora do prazo" value={m.vencidos.length} color={m.vencidos.length > 0 ? C.red : C.muted} sub={m.vencidos.length > 0 ? 'crítico>30m / urgente>1h / normal>2h' : ''} />
+            </div>
+
+            {/* Vencidos */}
+            {m.vencidos.length > 0 && (
+              <div style={{ background: C.red + '12', border: `1px solid ${C.red}33`, borderRadius: 10, padding: '10px 12px', marginBottom: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: C.red, marginBottom: 8 }}>⚠️ Sem resposta há mais de 2h</div>
+                {m.vencidos.map((t, i) => (
+                  <div key={i} style={{ fontSize: 11, color: C.text, marginBottom: 4, paddingBottom: 4, borderBottom: i < m.vencidos.length-1 ? `1px solid ${C.red}22` : 'none' }}>
+                    <span style={{ color: C.muted }}>{new Date(t.opened_at).toLocaleDateString('pt-BR')} {new Date(t.opened_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})} · {t.origin_sector || '—'}</span><br/>
+                    {t.description?.slice(0, 80)}{t.description?.length > 80 ? '…' : ''}
+                    {t.requester_name && <span style={{ color: C.teal }}> · {t.requester_name}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Status bar */}
+            {m.total > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ fontSize: 10, color: C.muted, marginBottom: 6 }}>Distribuição de status</div>
+                <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
+                  {[
+                    { v: m.abertos, c: C.yellow },
+                    { v: m.visualizados, c: '#8B5CF6' },
+                    { v: m.recebidos, c: C.blue },
+                    { v: m.andamento, c: C.teal },
+                    { v: m.concluidos, c: C.green },
+                  ].filter(s => s.v > 0).map((s, i) => (
+                    <div key={i} style={{ flex: s.v, background: s.c, minWidth: 3 }} />
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+                  {[['Aberto',m.abertos,C.yellow],['Visualizado',m.visualizados,'#8B5CF6'],['Recebido',m.recebidos,C.blue],['Andamento',m.andamento,C.teal],['Concluído',m.concluidos,C.green]]
+                    .filter(([,v]) => v > 0).map(([l,v,c]) => (
+                    <div key={l} style={{ display:'flex', alignItems:'center', gap:3, fontSize:9 }}>
+                      <div style={{ width:8, height:8, borderRadius:2, background:c }}/>
+                      <span style={{ color:C.muted }}>{l}: {v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+
+        const exportTicketsCSV = (list, label) => {
+          const header = ['ID','Tipo','Abertura','Solicitante','Setor Origem','Prioridade','Status','Descrição','Resposta','Tempo Resposta'];
+          const rows = list.map(t => [
+            t.id?.slice(0,8)||'', t.ticket_type||'',
+            t.opened_at ? new Date(t.opened_at).toLocaleString('pt-BR') : '',
+            t.requester_name||'', t.origin_sector||'', t.priority||'', t.status||'',
+            (t.description||'').replace(/"/g,'""'), (t.response_notes||'').replace(/"/g,'""'),
+            t.responded_at&&t.opened_at ? `${Math.round((new Date(t.responded_at)-new Date(t.opened_at))/60000)}min` : '',
+          ]);
+          const csv = [header,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+          const blob = new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href=url; a.download=`chamados_${label}_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`;
+          a.click(); URL.revokeObjectURL(url);
+        };
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+
+            {/* Botões de export */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button onClick={() => exportTicketsCSV(dsg, 'dsg')} disabled={dsg.length===0}
+                style={{ flex: 1, background: C.yellow+'22', border:`1px solid ${C.yellow}44`, borderRadius:8, padding:'8px', color:C.yellow, fontSize:11, fontWeight:700, cursor:'pointer', opacity:dsg.length>0?1:0.5 }}>
+                ↓ CSV DSG ({dsg.length})
+              </button>
+              <button onClick={() => exportTicketsCSV(amb, 'ambulancia')} disabled={amb.length===0}
+                style={{ flex: 1, background: C.red+'22', border:`1px solid ${C.red}44`, borderRadius:8, padding:'8px', color:C.red, fontSize:11, fontWeight:700, cursor:'pointer', opacity:amb.length>0?1:0.5 }}>
+                ↓ CSV Ambulância ({amb.length})
+              </button>
+            </div>
+
+            <SectionBlock title="DSG / Manutenção" icon="🔧" color={C.yellow} m={dsgM} list={dsg} />
+            <SectionBlock title="Ambulância / SAME" icon="🚑" color={C.red} m={ambM} list={amb} />
+
+            {/* Análise de gestão por IA */}
+            <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 6 }}>Interpretação Gerencial por IA</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>Análise do desempenho operacional com pontos críticos e recomendações prioritárias.</div>
+              <button onClick={generateOpNarrative} disabled={loadingOp || tickets.length === 0}
+                style={{ width: '100%', background: loadingOp ? C.border : '#8B5CF6', border: 'none', borderRadius: 10, padding: '13px', color: loadingOp ? C.muted : '#fff', fontWeight: 800, fontSize: 13, cursor: loadingOp ? 'default' : 'pointer' }}>
+                {loadingOp ? '⏳ Gerando análise…' : tickets.length === 0 ? 'Nenhum dado disponível' : '✨ Gerar Análise Gerencial'}
+              </button>
+              {opNarrative && (
+                <div style={{ marginTop: 14, background: C.surface, borderRadius: 10, padding: '14px', borderLeft: `3px solid #8B5CF6` }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginBottom: 8, fontStyle: 'italic' }}>Gerado por IA — revisar antes de publicação oficial</div>
+                  <div style={{ fontSize: 13, color: C.text, lineHeight: 1.85, whiteSpace: 'pre-wrap' }}>{opNarrative}</div>
+                </div>
+              )}
+            </div>
+
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
 // ─── CENTRAL VIEW ──────────────────────────────────────────────────────────────
-function CentralView() {
+function CentralView({ sbUrl, sbKey, hospital, profileMode }) {
   const [selected, setSelected] = useState(null);
-  const item = knowledge.find(k => k.id === selected);
+  const [items, setItems] = useState(knowledge); // começa com conteúdo estático
+  const [loading, setLoading] = useState(false);
+  const [gestorMode, setGestorMode] = useState(false); // edição de conteúdo
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ title: '', desc: '', icon: '📄', color: '#00C9B1', type: 'video', url: '' });
+  const h = hospital || DEFAULT_HOSPITAL;
+  const isGestor = profileMode === 'gestor' || profileMode === 'nsp';
+
+  // Carrega conteúdo dinâmico do Supabase (sobrepõe o estático se houver)
+  const loadDynamic = async () => {
+    if (!sbUrl || !sbKey) return;
+    setLoading(true);
+    try {
+      const data = await sbSelect(sbUrl, sbKey, 'knowledge_items', `select=*&hospital_id=eq.${h.id}&order=created_at.asc`);
+      if (data && data.length > 0) setItems([...knowledge, ...data.map(d => ({ ...d, dynamic: true }))]);
+    } catch {}
+    setLoading(false);
+  };
+
+  useEffect(() => { loadDynamic(); }, [sbUrl, sbKey]);
+
+  const handleAdd = async () => {
+    if (!form.title.trim() || !form.url.trim()) return;
+    setSaving(true);
+    try {
+      const payload = { hospital_id: h.id, title: form.title, description: form.desc, icon: form.icon, color: form.color, type: form.type, url: form.url };
+      const res = await sbInsert(sbUrl, sbKey, 'knowledge_items', payload);
+      setItems(prev => [...prev, { ...payload, id: res?.[0]?.id || Date.now(), dynamic: true }]);
+      setForm({ title: '', desc: '', icon: '📄', color: '#00C9B1', type: 'video', url: '' });
+      setShowAddForm(false);
+    } catch (e) { alert('Erro ao salvar: ' + e.message); }
+    setSaving(false);
+  };
+
+  const handleDelete = async (item) => {
+    if (!item.dynamic) return; // não apaga conteúdo estático
+    setDeleting(item.id);
+    try {
+      await sbReq(sbUrl, sbKey, `/knowledge_items?id=eq.${item.id}`, { method: 'DELETE' });
+      setItems(prev => prev.filter(i => i.id !== item.id));
+    } catch {}
+    setDeleting(null);
+  };
+
+  // Extrai ID do YouTube de vários formatos de URL
+  const getYouTubeId = (url) => {
+    const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  };
+
+  // Tela de detalhe do item
+  const item = items.find(k => k.id === selected);
   if (selected && item) {
+    const ytId = item.type === 'video' ? getYouTubeId(item.url || '') : null;
     return (
       <div>
         <div style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, background: C.surface, display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22 }}>←</button>
-          <div>
+          <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{item.icon} {item.title}</div>
-            <div style={{ fontSize: 11, color: C.muted }}>{item.desc}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>{item.desc || item.description}</div>
           </div>
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* Player YouTube */}
+          {item.type === 'video' && ytId && (
+            <div style={{ borderRadius: 12, overflow: 'hidden', background: '#000', aspectRatio: '16/9' }}>
+              <iframe
+                width="100%" height="100%"
+                src={`https://www.youtube.com/embed/${ytId}`}
+                frameBorder="0" allowFullScreen
+                style={{ display: 'block', aspectRatio: '16/9' }}
+              />
+            </div>
+          )}
+          {/* Link externo para PDF/Drive ou vídeo sem ID válido */}
+          {item.type === 'video' && !ytId && item.url && (
+            <a href={item.url} target="_blank" rel="noreferrer" style={{ display: 'block', background: '#EF444422', border: '1px solid #EF444444', borderRadius: 12, padding: 16, textAlign: 'center', color: '#EF4444', fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+              ▶ Abrir vídeo
+            </a>
+          )}
+          {item.type === 'pdf' && item.url && (
+            <a href={item.url} target="_blank" rel="noreferrer" style={{ display: 'block', background: C.teal + '22', border: `1px solid ${C.teal}44`, borderRadius: 12, padding: 16, textAlign: 'center', color: C.teal, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+              📄 Abrir documento
+            </a>
+          )}
+          {/* Conteúdo estático existente */}
           {item.type === 'edu_tabs' && (() => {
             const [activeTab, setActiveTab] = React.useState(item.tabs[0].id);
             const tab = item.tabs.find(t => t.id === activeTab);
@@ -960,13 +1439,13 @@ function CentralView() {
               </div>
             );
           })()}
-          {item.type === 'cards' && item.items.map((c, i) => (
+          {item.type === 'cards' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderLeft: `3px solid ${item.color}`, borderRadius: 12, padding: 14 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 6 }}>{c.title}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.65 }}>{c.text}</div>
             </div>
           ))}
-          {item.type === 'download' && item.items.map((c, i) => (
+          {item.type === 'download' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ background: item.color + '22', color: item.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700 }}>{c.badge}</div>
               <div style={{ flex: 1 }}>
@@ -976,7 +1455,7 @@ function CentralView() {
               <button style={{ background: C.teal + '22', border: 'none', borderRadius: 8, padding: '6px 12px', color: C.teal, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>↓</button>
             </div>
           ))}
-          {item.type === 'steps' && item.items.map((c, i) => (
+          {item.type === 'steps' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 14 }}>
               <div style={{ fontSize: 26, fontWeight: 900, color: item.color, minWidth: 32 }}>{c.step}</div>
               <div>
@@ -985,7 +1464,7 @@ function CentralView() {
               </div>
             </div>
           ))}
-          {item.type === 'metas' && item.items.map((c, i) => (
+          {item.type === 'metas' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 14 }}>
               <div style={{ minWidth: 36, height: 36, borderRadius: 18, background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 900, color: '#06101F' }}>{c.num}</div>
               <div>
@@ -994,7 +1473,7 @@ function CentralView() {
               </div>
             </div>
           ))}
-          {item.type === '5w2h' && item.items.map((c, i) => (
+          {item.type === '5w2h' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', gap: 12 }}>
               <div style={{ background: item.color + '22', color: item.color, borderRadius: 6, padding: '3px 8px', fontSize: 10, fontWeight: 700, height: 'fit-content', whiteSpace: 'nowrap' }}>{c.tag}</div>
               <div>
@@ -1003,7 +1482,7 @@ function CentralView() {
               </div>
             </div>
           ))}
-          {item.type === 'media' && item.items.map((c, i) => (
+          {item.type === 'media' && item.items?.map((c, i) => (
             <div key={i} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: item.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{c.tipo === 'Vídeo' ? '▶️' : '📊'}</div>
               <div style={{ flex: 1 }}>
@@ -1019,20 +1498,97 @@ function CentralView() {
       </div>
     );
   }
+
+  const inp = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 14px', color: C.text, fontSize: 13, outline: 'none', width: '100%', marginBottom: 10 };
+  const lbl = { fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 5 };
+  const ICONS = ['📄','▶️','🎥','📊','📋','📚','🧠','🏥','⚕️','🩺','💊','🛡️','📢','🔬'];
+  const COLORS = ['#00C9B1','#1D6FE8','#EF4444','#F59E0B','#10B981','#8B5CF6','#EC4899'];
+
   return (
-    <div style={{ padding: '20px 16px' }}>
-      <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 4 }}>Central de Conhecimento</div>
-      <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Materiais de apoio, treinamentos e educação em saúde</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {knowledge.map(item => (
-          <button key={item.id} onClick={() => setSelected(item.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', textAlign: 'left', width: '100%' }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: item.color + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{item.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{item.title}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{item.desc}</div>
-            </div>
-            <IconChevronRight size={16} color={C.muted} />
+    <div style={{ padding: '20px 16px 80px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 4 }}>Central de Conhecimento</div>
+          <div style={{ fontSize: 12, color: C.muted }}>Materiais de apoio, treinamentos e educação em saúde</div>
+        </div>
+        {isGestor && (
+          <button onClick={() => setGestorMode(!gestorMode)} style={{ background: gestorMode ? C.teal : C.card, border: `1px solid ${gestorMode ? C.teal : C.border}`, borderRadius: 8, padding: '6px 12px', color: gestorMode ? '#06101F' : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
+            {gestorMode ? '✓ Editar' : '✏️ Editar'}
           </button>
+        )}
+      </div>
+
+      {/* Formulário de adição */}
+      {gestorMode && showAddForm && (
+        <div style={{ background: C.card, border: `1px solid ${C.teal}44`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>Novo item</div>
+
+          <label style={lbl}>Tipo</label>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+            {[['video','▶️ Vídeo'],['pdf','📄 PDF/Doc']].map(([id, label]) => (
+              <button key={id} onClick={() => setForm({...form, type: id})} style={{ flex: 1, padding: '8px', borderRadius: 8, border: `1px solid ${form.type === id ? C.teal : C.border}`, background: form.type === id ? C.teal + '22' : C.surface, color: form.type === id ? C.teal : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>{label}</button>
+            ))}
+          </div>
+
+          <label style={lbl}>Título</label>
+          <input value={form.title} onChange={e => setForm({...form, title: e.target.value})} placeholder="Ex: Higienização das Mãos" style={inp} />
+
+          <label style={lbl}>Descrição curta</label>
+          <input value={form.desc} onChange={e => setForm({...form, desc: e.target.value})} placeholder="Ex: Técnica correta e momentos da higienização" style={inp} />
+
+          <label style={lbl}>Link {form.type === 'video' ? '(YouTube)' : '(Google Drive / URL)'}</label>
+          <input value={form.url} onChange={e => setForm({...form, url: e.target.value})} placeholder={form.type === 'video' ? 'https://youtube.com/watch?v=...' : 'https://drive.google.com/...'} style={inp} />
+
+          <label style={lbl}>Ícone</label>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {ICONS.map(ic => (
+              <button key={ic} onClick={() => setForm({...form, icon: ic})} style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${form.icon === ic ? C.teal : C.border}`, background: form.icon === ic ? C.teal + '22' : C.surface, fontSize: 18, cursor: 'pointer' }}>{ic}</button>
+            ))}
+          </div>
+
+          <label style={lbl}>Cor</label>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+            {COLORS.map(cor => (
+              <button key={cor} onClick={() => setForm({...form, color: cor})} style={{ width: 28, height: 28, borderRadius: '50%', background: cor, border: `2px solid ${form.color === cor ? '#fff' : 'transparent'}`, cursor: 'pointer' }} />
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setShowAddForm(false)} style={{ flex: 1, background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px', color: C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={handleAdd} disabled={saving || !form.title.trim() || !form.url.trim()} style={{ flex: 2, background: C.teal, border: 'none', borderRadius: 10, padding: '10px', color: '#06101F', fontSize: 12, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+              {saving ? '⏳ Salvando…' : '✓ Adicionar'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {gestorMode && !showAddForm && (
+        <button onClick={() => setShowAddForm(true)} style={{ width: '100%', background: C.teal + '15', border: `1px dashed ${C.teal}`, borderRadius: 12, padding: '12px', color: C.teal, fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 16 }}>
+          + Adicionar vídeo ou documento
+        </button>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {items.map(item => (
+          <div key={item.id} style={{ position: 'relative' }}>
+            <button onClick={() => !gestorMode && setSelected(item.id)} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: gestorMode ? 'default' : 'pointer', textAlign: 'left', width: '100%', opacity: gestorMode && !item.dynamic ? 0.5 : 1 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 14, background: (item.color || C.teal) + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{item.icon}</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{item.title}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{item.desc || item.description}</div>
+                {item.dynamic && <div style={{ fontSize: 10, color: C.teal, marginTop: 2 }}>{item.type === 'video' ? '▶ Vídeo' : '📄 Documento'}</div>}
+              </div>
+              {!gestorMode && <IconChevronRight size={16} color={C.muted} />}
+            </button>
+            {gestorMode && item.dynamic && (
+              <button onClick={() => handleDelete(item)} disabled={deleting === item.id} style={{ position: 'absolute', top: 10, right: 10, background: '#EF444422', border: '1px solid #EF444444', borderRadius: 8, padding: '4px 10px', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                {deleting === item.id ? '…' : '🗑 Remover'}
+              </button>
+            )}
+            {gestorMode && !item.dynamic && (
+              <div style={{ position: 'absolute', top: 10, right: 10, background: C.surface, borderRadius: 6, padding: '3px 8px', fontSize: 9, color: C.muted, fontWeight: 700 }}>FIXO</div>
+            )}
+          </div>
         ))}
       </div>
     </div>
@@ -1206,7 +1762,7 @@ const PROFILES = {
   gestor:     { pin: '12345', label: 'Gestor',     icon: '📊', color: '#8B5CF6', ticketFilter: null,          readOnly: false },
 };
 
-function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
+function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack, publicMode }) {
   const [step, setStep] = useState('type'); // type | form | done
   const [type, setType] = useState(null);
   const [form, setForm] = useState({ sector: '', description: '', priority: 'normal', patient_name: '', destination: '', scheduled_at: '', requester_name: '' });
@@ -1253,13 +1809,14 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack }) {
       <div style={{ fontSize: 56, marginBottom: 16 }}>✅</div>
       <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Chamado aberto!</div>
       <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>{selectedType?.dest} foi notificado e receberá o chamado.</div>
-      <button onClick={onBack} style={{ background: C.teal, border: 'none', borderRadius: 12, padding: '12px 28px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Ver chamados</button>
+      {onBack && <button onClick={onBack} style={{ background: C.teal, border: 'none', borderRadius: 12, padding: '12px 28px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Ver chamados</button>}
+      {!onBack && <button onClick={() => setStep('type')} style={{ background: C.teal, border: 'none', borderRadius: 12, padding: '12px 28px', color: '#06101F', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Novo chamado</button>}
     </div>
   );
 
   if (step === 'type') return (
     <div style={{ padding: '20px 16px' }}>
-      <button onClick={onBack} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22, marginBottom: 16 }}>←</button>
+      {onBack && <button onClick={onBack} style={{ background: 'none', border: 'none', color: C.teal, cursor: 'pointer', fontSize: 22, marginBottom: 16 }}>←</button>}
       <div style={{ fontSize: 17, fontWeight: 900, color: C.text, marginBottom: 4 }}>Novo Chamado</div>
       <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Qual o tipo de chamado?</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1553,9 +2110,19 @@ function TicketsList({ sbUrl, sbKey, hospital, showToast, profileMode }) {
 }
 
 function TicketsView({ sbUrl, sbKey, hospital, showToast, profileMode }) {
-  const [subview, setSubview] = useState('list');
+  const [subview, setSubview] = useState(profileMode ? 'list' : 'new');
   const profile = PROFILES[profileMode];
   const isReadOnly = profile?.readOnly;
+
+  // Sem login → bloqueia acesso
+  if (!profileMode) return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 64px)', padding: 32, textAlign: 'center' }}>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
+      <div style={{ fontSize: 17, fontWeight: 800, color: C.text, marginBottom: 8 }}>Acesso restrito</div>
+      <div style={{ fontSize: 13, color: C.muted, marginBottom: 24, maxWidth: 260 }}>Faça login para abrir ou visualizar chamados operacionais.</div>
+      <div style={{ fontSize: 11, color: C.muted }}>Use o botão Login no menu abaixo</div>
+    </div>
+  );
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
@@ -1918,7 +2485,14 @@ function NotificaAI() {
     { id: 'admin', label: 'Admin', icon: IconShield },
     { id: 'central', label: 'Central', icon: IconBookOpen },
   ];
-  const tabs = nspMode ? nspTabs : publicTabs;
+  const gestorTabs = [
+    { id: 'home', label: 'Painel', icon: IconHome },
+    { id: 'chamados', label: 'Chamados', icon: IconTool },
+    { id: 'analytics', label: 'Analytics', icon: IconBarChart2 },
+    { id: 'admin', label: 'Admin', icon: IconShield },
+    { id: 'central', label: 'Central', icon: IconBookOpen },
+  ];
+  const tabs = profileMode === 'gestor' ? gestorTabs : nspMode ? nspTabs : publicTabs;
 
   return (
     <>
@@ -1941,9 +2515,9 @@ function NotificaAI() {
           {view === 'home'      && <HomeView      setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={() => setShowConfig(true)} showToast={showToast} nspMode={nspMode} testMode={testMode} hospital={hospital} />}
           {view === 'notificar' && <NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} nspEmail={nspEmail} testMode={testMode} showToast={showToast} hospital={hospital} />}
           {view === 'chamados'  && <TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode} />}
-          {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} />}
+          {view === 'analytics' && <AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital} />}
           {view === 'admin'     && <AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} />}
-          {view === 'central'   && <CentralView />}
+          {view === 'central'   && <CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode} />}
         </div>
         <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: C.surface, borderTop: `1px solid ${C.border}`, display: 'flex', paddingBottom: 8, paddingTop: 8, zIndex: 100 }}>
           {tabs.map(({ id, label, icon: Icon }) => {

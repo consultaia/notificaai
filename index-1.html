@@ -144,7 +144,14 @@ const C = {
   red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6',
 };
 
-// ─── MOCK DATA ─────────────────────────────────────────────────────────────────
+// Mapa de labels completos dos setores para exibição
+const SECTOR_LABELS = {
+  'UPG': 'UPG — Unidade de Paciente Grave',
+  'Ala A': 'Ala A',
+  'Centro Cirúrgico': 'Centro Cirúrgico',
+  'SEP': 'SEP — Serviço de Estabilização do Paciente',
+  'Geral': 'Todos os setores',
+};
 const MOCK_MONTHLY = [
   { mes: 'Jan', sp: 4, adm: 7 }, { mes: 'Fev', sp: 6, adm: 5 },
   { mes: 'Mar', sp: 3, adm: 8 }, { mes: 'Abr', sp: 8, adm: 4 }, { mes: 'Mai', sp: 5, adm: 6 },
@@ -753,7 +760,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     const h = hospital || DEFAULT_HOSPITAL;
     // Setor
     if (r.includes('setor') || r.includes('ala') || r.includes('upg') || r.includes('unidade')) {
-      return h.sectors;
+      return h.sectors.map(s => SECTOR_LABELS[s] || s);
     }
     // Turno
     if (r.includes('turno') && !r.includes('noite') && !r.includes('manhã')) {
@@ -1847,7 +1854,7 @@ function TicketForm({ sbUrl, sbKey, hospital, showToast, onBack, publicMode }) {
       <label style={lbl}>Setor de origem</label>
       <select value={form.sector} onChange={e => setForm({...form, sector: e.target.value})} style={{ ...inp, appearance: 'none' }}>
         <option value="">Selecione o setor</option>
-        {h.sectors.map(s => <option key={s} value={s}>{s}</option>)}
+        {h.sectors.map(s => <option key={s} value={s}>{SECTOR_LABELS[s] || s}</option>)}
       </select>
 
       <label style={lbl}>Solicitante (opcional)</label>

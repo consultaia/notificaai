@@ -203,6 +203,8 @@ INFORMAÇÕES A COLETAR (só o que ainda falta):
 - Medidas tomadas
 - Desfecho (SP): sem dano / leve / moderado / grave / óbito
 - Era evitável? (SP)
+- Idade do paciente (SP) — pergunte se não informada
+- Motivo da internação (SP) — pergunte se não informado
 - CCIH: topografia, procedimento invasivo, micro-organismo se identificado
 
 Ao ter tudo: faça um resumo curto e pergunte "Posso confirmar o envio desta notificação?"
@@ -728,12 +730,53 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
       } else if (lower.includes('sou paciente') || lower.includes('como paciente')) {
         currentType = 'paciente';
       } else {
-        // Contexto hospitalar — default profissional
-        // Detecta explicitamente ou assume profissional se relata evento clínico
         currentType = 'profissional';
       }
       if (currentType) setNotifierType(currentType);
     }
+
+    // ── Pré-classificação local — resolve o óbvio sem depender da IA ──────────
+    const allText = [...messages.map(m => m.content), msg].join(' ').toLowerCase();
+
+    // Tipo de notificação
+    const SP_WORDS = ['queda','caiu','escorregou','medicação','medicamento','remédio','cirurgia','cirúrgico','identificação','pulseira','lesão por pressão','úlcera','erro','evento adverso','near miss','quase erro','avp','acesso venoso','flebite','infiltração','perda de acesso'];
+    const CCIH_WORDS = ['infecção','iras','itu','pav','isc','ipcs','cateter','sonda','ventilação','pneumonia','sepse','sepsis','micro-organismo','bactéria','fungo','cultura','antibiograma'];
+    const ADM_WORDS = ['infraestrutura','água','energia','luz','ar-condicionado','manutenção','hotelaria','limpeza','roupa','dieta','alimentação','acesso indevido','segurança patrimonial','administrativa'];
+
+    const isSP = SP_WORDS.some(w => allText.includes(w));
+    const isCCIH = CCIH_WORDS.some(w => allText.includes(w));
+    const isAdm = ADM_WORDS.some(w => allText.includes(w));
+
+    // Setor
+    const h = hospital || DEFAULT_HOSPITAL;
+    const detectedSector = h.sectors.find(s => allText.includes(s.toLowerCase())) || null;
+
+    // Data relativa
+    const hojeISO = new Date().toISOString().slice(0, 10);
+    const ontemISO = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const hojeStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const horaNum = parseInt(horaAtual.split(':')[0]);
+    const turnoAtual = horaNum >= 7 && horaNum < 13 ? 'Manhã' : horaNum >= 13 && horaNum < 19 ? 'Tarde' : 'Noite';
+
+    const temHoje = allText.includes('hoje') || allText.includes('agora') || allText.includes('esta manhã') || allText.includes('esta tarde') || allText.includes('esta noite') || allText.includes('hoje à noite') || allText.includes('hoje a noite');
+    const temOntem = allText.includes('ontem');
+    const dataResolvida = temHoje ? hojeISO : temOntem ? ontemISO : null;
+
+    // Turno
+    const temManha = allText.includes('manhã') || allText.includes('manha');
+    const temTarde = allText.includes('tarde');
+    const temNoite = allText.includes('noite');
+    const turnoResolvido = temManha ? 'Manhã' : temTarde ? 'Tarde' : temNoite ? 'Noite' : dataResolvida ? turnoAtual : null;
+
+    // Monta contexto resolvido para injetar no prompt
+    const contextoResolvido = [];
+    if (isSP && !isCCIH) contextoResolvido.push('TIPO JÁ IDENTIFICADO: seguranca_paciente — NÃO pergunte o tipo.');
+    if (isCCIH) contextoResolvido.push('TIPO JÁ IDENTIFICADO: ccih — NÃO pergunte o tipo.');
+    if (isAdm && !isSP && !isCCIH) contextoResolvido.push('TIPO JÁ IDENTIFICADO: administrativa — NÃO pergunte o tipo.');
+    if (detectedSector) contextoResolvido.push(`SETOR JÁ IDENTIFICADO: ${detectedSector} — NÃO pergunte o setor.`);
+    if (dataResolvida) contextoResolvido.push(`DATA JÁ IDENTIFICADA: ${dataResolvida} — NÃO pergunte a data.`);
+    if (turnoResolvido) contextoResolvido.push(`TURNO JÁ IDENTIFICADO: ${turnoResolvido} — NÃO pergunte o turno.`);
 
     const next = [...messages, { role: 'user', content: msg }];
     setMessages(next);
@@ -741,11 +784,9 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     setQuickReplies([]);
     setLoading(true);
     try {
-      const hojeISO = new Date().toISOString().slice(0, 10);
-      const hojeStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
       const systemComData = buildChatSystem(hospital, currentType) +
-        `\n\nDATA E HORA ATUAL: ${hojeStr} às ${horaAtual} (ISO: ${hojeISO}). Quando o usuário disser "hoje", "agora", "esta noite", "esta manhã", "hoje à noite" — a data é ${hojeISO}. Calcule o turno pela hora mencionada ou pela hora atual se não informada.`;
+        `\n\nDATA E HORA ATUAL: ${hojeStr} às ${horaAtual} (ISO: ${hojeISO}).` +
+        (contextoResolvido.length > 0 ? `\n\nINFORMAÇÕES JÁ EXTRAÍDAS DA CONVERSA — NÃO PERGUNTE NOVAMENTE:\n${contextoResolvido.join('\n')}` : '');
       const cleanMsgs = next.map(m => ({ role: m.role, content: m.content }));
       const reply = await callClaude(cleanMsgs, systemComData);
 
@@ -763,29 +804,42 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
   function parseQuickReplies(reply, msgCount, hospital, notifierType) {
     const r = reply.toLowerCase();
     const h = hospital || DEFAULT_HOSPITAL;
-    // Setor
-    if (r.includes('setor') || r.includes('ala') || r.includes('upg') || r.includes('unidade')) {
+
+    // Setor — só quando a IA está PERGUNTANDO o setor, não quando apenas menciona
+    if ((r.includes('qual') || r.includes('em qual') || r.includes('em que')) &&
+        (r.includes('setor') || r.includes('área') || r.includes('unidade')) &&
+        !r.includes('falta') && !r.includes('resumo') && !r.includes('confirmar')) {
       return h.sectors;
     }
-    // Turno
-    if (r.includes('turno') && !r.includes('noite') && !r.includes('manhã')) {
+    // Turno — só quando pergunta
+    if ((r.includes('qual') || r.includes('que turno') || r.includes('turno foi')) &&
+        r.includes('turno') && !r.includes('turno:') && !r.includes('turno noite')) {
       return ['Manhã (07h–13h)', 'Tarde (13h–19h)', 'Noite (19h–07h)'];
     }
     // Tipo de evento SP
-    if ((r.includes('tipo') || r.includes('evento') || r.includes('ocorr')) && notifierType === 'profissional') {
+    if ((r.includes('tipo') || r.includes('que tipo') || r.includes('qual tipo')) &&
+        (r.includes('evento') || r.includes('notificação') || r.includes('ocorrência')) &&
+        notifierType === 'profissional') {
       if (r.includes('segurança') || r.includes('sp') || r.includes('paciente')) {
-        return ['Queda', 'Erro de medicação', 'Identificação incorreta', 'Evento cirúrgico', 'Lesão por pressão', 'Outro'];
+        return ['Queda', 'Erro de medicação', 'Identificação incorreta', 'Evento cirúrgico', 'Lesão por pressão', 'Perda de AVP', 'Outro'];
       }
       if (r.includes('ccih') || r.includes('infecção')) {
         return ['ITU (sonda vesical)', 'IPCS (cateter)', 'PAV (ventilação)', 'ISC (cirurgia)', 'Outro'];
       }
     }
+    // Causa de perda de AVP
+    if (r.includes('avp') || r.includes('acesso venoso') || r.includes('flebite') || r.includes('infiltração')) {
+      if (r.includes('causa') || r.includes('como') || r.includes('motivo') || r.includes('ocorreu')) {
+        return ['Flebite', 'Infiltração', 'Perda acidental', 'Tração pelo paciente', 'Obstrução', 'Outro'];
+      }
+    }
     // Desfecho
-    if (r.includes('desfecho') || r.includes('resultado') || r.includes('como ficou')) {
+    if ((r.includes('desfecho') || r.includes('como ficou') || r.includes('resultado')) &&
+        (r.includes('?') || r.includes('qual'))) {
       return ['Sem dano', 'Dano leve', 'Dano moderado', 'Dano grave', 'Óbito'];
     }
     // Evitável
-    if (r.includes('evitável') || r.includes('evitado') || r.includes('prevenível')) {
+    if (r.includes('evitável') || r.includes('prevenível')) {
       return ['Sim, era evitável', 'Não era evitável', 'Não sei avaliar'];
     }
     // Confirmação

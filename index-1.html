@@ -730,7 +730,12 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
       } else if (lower.includes('sou paciente') || lower.includes('como paciente')) {
         currentType = 'paciente';
       } else {
-        currentType = 'profissional';
+        // Verifica se relato é técnico/clínico (profissional) ou pessoal (paciente/familiar)
+        const PROF_WORDS = ['paciente','queda','medicação','medicamento','infecção','cateter','sonda','cirurgia','setor','plantão','prescrição','avp','flebite','infiltração','notificar','ocorrência','evento adverso'];
+        const PESSOAL = ['fui ','me ','minha ','meu ','sofri','recebi','tomei','fui agredid','me bater','me agredi','me empurr','me machuc','estava internada','estava internado'];
+        const isPessoal = PESSOAL.some(w => lower.includes(w)) && !PROF_WORDS.some(w => lower.includes(w));
+        if (!isPessoal) currentType = 'profissional';
+        // isPessoal → currentType fica null → IA vai perguntar quem é
       }
       if (currentType) setNotifierType(currentType);
     }
@@ -786,6 +791,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     try {
       const systemComData = buildChatSystem(hospital, currentType) +
         `\n\nDATA E HORA ATUAL: ${hojeStr} às ${horaAtual} (ISO: ${hojeISO}).` +
+        (!currentType ? `\n\nO usuário ainda não se identificou. Antes de continuar, pergunte de forma acolhedora: é paciente, familiar ou profissional de saúde?` : '') +
         (contextoResolvido.length > 0 ? `\n\nINFORMAÇÕES JÁ EXTRAÍDAS DA CONVERSA — NÃO PERGUNTE NOVAMENTE:\n${contextoResolvido.join('\n')}` : '');
       const cleanMsgs = next.map(m => ({ role: m.role, content: m.content }));
       const reply = await callClaude(cleanMsgs, systemComData);
@@ -805,6 +811,11 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
     const r = reply.toLowerCase();
     const h = hospital || DEFAULT_HOSPITAL;
 
+    // Perfil — quem é você
+    if (r.includes('você é') || r.includes('voce é') || r.includes('quem é') ||
+        (r.includes('profissional') && r.includes('paciente') && r.includes('familiar'))) {
+      return ['Sou paciente', 'Sou familiar / acompanhante', 'Sou profissional de saúde'];
+    }
     // Setor — só quando a IA está PERGUNTANDO o setor, não quando apenas menciona
     if ((r.includes('qual') || r.includes('em qual') || r.includes('em que')) &&
         (r.includes('setor') || r.includes('área') || r.includes('unidade')) &&

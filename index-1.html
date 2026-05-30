@@ -1303,7 +1303,7 @@ Inclua: pontos críticos, padrões de atraso, recomendações de gestão priorit
             </div>
 
             <SectionBlock title="DSG / Manutenção" icon="🔧" color={C.yellow} m={dsgM} list={dsg} />
-            <SectionBlock title="Ambulância / SAME" icon="🚑" color={C.red} m={ambM} list={amb} />
+            <SectionBlock title="Ambulância / Garagem" icon="🚑" color={C.red} m={ambM} list={amb} />
 
             {/* Análise de gestão por IA */}
             <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 16 }}>
@@ -1737,7 +1737,7 @@ function SesabPanel({ sbUrl, sbKey, showToast, onClose }) {
 // ─── TICKETS VIEW ─────────────────────────────────────────────────────────────
 const TICKET_TYPES = [
   { id: 'manutencao', label: 'Manutenção / DSG', icon: '🔧', color: '#F59E0B', dest: 'DSG', desc: 'Equipamento, infraestrutura, elétrica, hidráulica' },
-  { id: 'ambulancia', label: 'Saída por Ambulância', icon: '🚑', color: '#EF4444', dest: 'SAME', desc: 'Transporte de paciente para outra unidade' },
+  { id: 'ambulancia', label: 'Saída por Ambulância', icon: '🚑', color: '#EF4444', dest: 'Garagem', desc: 'Transporte de paciente para outra unidade' },
   { id: 'leito', label: 'Solicitação de Leito', icon: '🛏️', color: '#1D6FE8', dest: 'Enfermagem', desc: 'Transferência interna entre setores' },
   { id: 'material', label: 'Solicitação de Material', icon: '📦', color: '#10B981', dest: 'Almoxarifado', desc: 'Equipamentos, insumos, materiais médicos' },
   { id: 'dieta', label: 'Dieta Especial', icon: '🍽️', color: '#8B5CF6', dest: 'Nutrição', desc: 'Mudança ou solicitação de dieta especial' },

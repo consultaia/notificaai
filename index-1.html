@@ -141,7 +141,7 @@ function IconSettings({size=24, strokeWidth=2, color="currentColor"}) {
 const C = {
   bg: '#06101F', surface: '#0C1A30', card: '#102040', border: '#1A3060',
   teal: '#00C9B8', blue: '#1D6FE8', text: '#DFF0FF', muted: '#5A7AA0',
-  red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6',
+  red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6', orange: '#F97316',
 };
 
 const MOCK_MONTHLY = [
@@ -569,40 +569,49 @@ const knowledge = [
   },
 
   // ── VÍDEOS REAIS (YouTube) ──────────────────────────────────────────────────
-  { id: 'vid_maos', icon: '🎬', title: 'Vídeo: Higienização das Mãos', desc: 'Técnica correta conforme protocolo ANVISA — passo a passo', color: C.teal, type: 'video',
-    url: 'https://www.youtube.com/watch?v=RVdDGkt-76U'
+  { id: 'vid_maos', icon: '🎬', title: 'Vídeo: Higienização das Mãos', desc: 'Técnica correta nos 5 momentos — protocolo OMS/ANVISA', color: C.teal, type: 'video',
+    url: 'https://www.youtube.com/watch?v=IisgnbMfKvI'
   },
-  { id: 'vid_paciente', icon: '🎬', title: 'Vídeo: Dicas de Segurança para o Paciente', desc: 'Animações do Projeto Paciente Seguro — MS/Hospital Moinhos de Vento', color: C.blue, type: 'video',
-    url: 'https://www.youtube.com/watch?v=pKDiDWZC-qM'
-  },
-  { id: 'vid_quedas', icon: '🎬', title: 'Vídeo: Prevenção de Quedas', desc: 'Webinar Proqualis/Fiocruz — Prevenção de quedas na Rede de Atenção à Saúde', color: C.yellow, type: 'video',
+  { id: 'vid_quedas', icon: '🎬', title: 'Vídeo: Prevenção de Quedas', desc: 'Estratégias de prevenção de quedas em ambiente hospitalar', color: C.yellow, type: 'video',
     url: 'https://www.youtube.com/watch?v=ieD1o-zIhm0'
   },
+  { id: 'vid_paciente', icon: '🎬', title: 'Vídeo: Segurança do Paciente', desc: 'Projeto Paciente Seguro — MS/Hospital Moinhos de Vento', color: C.blue, type: 'video',
+    url: 'https://www.youtube.com/watch?v=pKDiDWZC-qM'
+  },
 
-  // ── DOCUMENTOS OFICIAIS (PDFs ANVISA/MS) ───────────────────────────────────
-  { id: 'pdf_caderno1', icon: '📄', title: 'Caderno 1 — Assistência Segura', desc: 'ANVISA · Reflexão teórica aplicada à prática · Base para NSP', color: C.green, type: 'pdf',
+  // ── DOCUMENTOS OFICIAIS ATUALIZADOS ────────────────────────────────────────
+  { id: 'pdf_caderno1', icon: '📄', title: 'Caderno 1 — Assistência Segura', desc: 'ANVISA · Base teórica para implantação de NSP · Atualizado 2025', color: C.green, type: 'pdf',
     url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-1-assistencia-segura-uma-reflexao-teorica-aplicada-a-pratica.pdf'
   },
-  { id: 'pdf_caderno4', icon: '📄', title: 'Caderno 4 — Prevenção de IRAS', desc: 'ANVISA · Medidas de Prevenção de Infecção Relacionada à Assistência à Saúde', color: C.purple, type: 'pdf',
+  { id: 'pdf_caderno2', icon: '📄', title: 'Caderno 2 — Critérios Diagnósticos de IRAS', desc: 'ANVISA · Critérios nacionais para diagnóstico de infecções · 2025', color: C.purple, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-2-criterios-diagnosticos-de-infeccao-relacionada-a-assistencia-a-saude.pdf'
+  },
+  { id: 'pdf_caderno4', icon: '📄', title: 'Caderno 4 — Prevenção de IRAS', desc: 'ANVISA · Medidas de prevenção — bundles, higiene, precauções · 2025', color: C.teal, type: 'pdf',
     url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'
   },
-  { id: 'pdf_caderno5', icon: '📄', title: 'Caderno 5 — Investigação de Eventos Adversos', desc: 'ANVISA · Metodologia de investigação em serviços de saúde', color: C.red, type: 'pdf',
-    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-5-investigacao-de-eventos-adversos-em-servicos-de-saude.pdf'
-  },
-  { id: 'pdf_caderno6', icon: '📄', title: 'Caderno 6 — Implantação do NSP', desc: 'ANVISA · Guia completo para implantação do Núcleo de Segurança do Paciente', color: C.teal, type: 'pdf',
+  { id: 'pdf_caderno6', icon: '📄', title: 'Caderno 6 — Implantação do NSP', desc: 'ANVISA · Guia completo para estruturação e funcionamento do NSP · 2025', color: C.blue, type: 'pdf',
     url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'
   },
-  { id: 'pdf_caderno7', icon: '📄', title: 'Caderno 7 — Gestão de Riscos', desc: 'ANVISA · Investigação de eventos adversos e gestão de riscos', color: C.yellow, type: 'pdf',
+  { id: 'pdf_caderno7', icon: '📄', title: 'Caderno 7 — Gestão de Riscos', desc: 'ANVISA · Investigação de eventos adversos e gestão de riscos · 2025', color: C.yellow, type: 'pdf',
     url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'
   },
-  { id: 'pdf_quedas', icon: '📄', title: 'Protocolo — Prevenção de Quedas', desc: 'MS/ANVISA · Protocolo Básico de Segurança do Paciente', color: C.blue, type: 'pdf',
-    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/protocolo-de-prevencao-de-quedas'
+  { id: 'pdf_prot_quedas', icon: '📄', title: 'Protocolo — Prevenção de Quedas', desc: 'SES-DF/ANVISA · Escala de Morse, medidas universais, sinalização · 2024', color: C.red, type: 'pdf',
+    url: 'https://www.saude.df.gov.br/documents/37101/0/Seguran%C3%A7a+do+Paciente+%E2%80%93+Preven%C3%A7%C3%A3o+de+Quedas.pdf/9e0ca155-59da-5c84-7194-8fa0cad5ed4a'
   },
-  { id: 'pdf_maos_cartaz', icon: '📄', title: 'Cartaz — 5 Momentos da Higienização das Mãos', desc: 'OMS/UNESP · Cartaz A3 oficial para fixar nos setores', color: C.teal, type: 'pdf',
-    url: 'https://hcfmb.unesp.br/wp-content/uploads/2018/03/hm_5momentos_A3.pdf'
+  { id: 'pdf_prot_lp', icon: '📄', title: 'Protocolo — Prevenção de Lesão por Pressão', desc: 'SES-DF/ANVISA · Escala de Braden, estadiamento, prevenção · 2022', color: C.orange, type: 'pdf',
+    url: 'https://www.saude.df.gov.br/documents/37101/87400/Seguran%C3%A7a+do+Paciente+%E2%80%93+Preven%C3%A7%C3%A3o+de+Les%C3%A3o+por+Press%C3%A3o.pdf'
   },
-  { id: 'pdf_cartilha_sp', icon: '📄', title: 'Cartilha — Segurança do Paciente', desc: 'AGEVISA/PB · Versão atualizada 2022 para pacientes e familiares', color: C.green, type: 'pdf',
-    url: 'https://agevisa.pb.gov.br/documentos-pdf/seguranca-do-paciente/cartilha-seguranca-do-paciente-versao-revisada-e-atualizada-14-09-2022.pdf'
+  { id: 'pdf_prot_cirurgia', icon: '📄', title: 'Protocolo — Cirurgia Segura', desc: 'SES-DF/OMS · Checklist Sign In / Time Out / Sign Out · 2022', color: C.purple, type: 'pdf',
+    url: 'https://www.saude.df.gov.br/documents/37101/0/Protocolo+de+Seguran%C3%A7a+do+Paciente_Cirurgia+Segura.pdf'
+  },
+  { id: 'pdf_antimicro', icon: '📄', title: 'Diretriz — Uso de Antimicrobianos', desc: 'ANVISA GVIMS/GGTES · Gerenciamento do uso de antimicrobianos · Atualização 2023', color: C.green, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/notas-tecnicas/diretriz-nacional-para-elaboracao-de-programa-de-gerenciamento-do-uso-de-antimicrobianos-em-servicos-de-saude.pdf'
+  },
+  { id: 'pdf_maos_nt', icon: '📄', title: 'Nota Técnica — Higiene das Mãos', desc: 'ANVISA GVIMS/GGTES Nº 01/2018 · Orientações gerais para serviços de saúde', color: C.teal, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/notas-tecnicas/nota-tecnica-gvims-ggtes-no-01-2018.pdf'
+  },
+  { id: 'pdf_notivisa', icon: '📄', title: 'Comunicado Notivisa 2024', desc: 'ANVISA · Alterações no módulo de notificação do Notivisa · 2024', color: C.blue, type: 'pdf',
+    url: 'https://www.gov.br/anvisa/pt-br/assuntos/servicosdesaude/seguranca-do-paciente'
   },
 ];
 
@@ -972,7 +981,12 @@ function AnalyticsView({ sbUrl, sbKey, showToast, profileMode, hospital }) {
     }
   }, [sbUrl, sbKey, isGestor]);
 
-  const s = stats || { sectorData: MOCK_SECTORS, typeData: MOCK_TYPES, heatmap: MOCK_HEATMAP, monthly: MOCK_MONTHLY, total: 26, sp: 11, adm: 15 };
+  const s = stats || {
+    sectorData: MOCK_SECTORS, typeData: MOCK_TYPES, heatmap: MOCK_HEATMAP,
+    monthly: MOCK_MONTHLY, total: 0, totalAll: 0, totalPrev: 0,
+    sp: 0, ccih: 0, adm: 0, spPrev: 0, admPrev: 0,
+    heatmapPeak: null, critSector: { setor: 'Ala A', eventos: 0 }
+  };
 
   const generateNarrative = async () => {
     setLoadingNarr(true); setNarrative('');

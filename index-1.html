@@ -138,11 +138,19 @@ function IconSettings({size=24, strokeWidth=2, color="currentColor"}) {
 }
 
 
-const C = {
-  bg: '#06101F', surface: '#0C1A30', card: '#102040', border: '#1A3060',
-  teal: '#00C9B8', blue: '#1D6FE8', text: '#DFF0FF', muted: '#5A7AA0',
-  red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6', orange: '#F97316',
+const THEMES = {
+  dark: {
+    bg: '#06101F', surface: '#0C1A30', card: '#102040', border: '#1A3060',
+    teal: '#00C9B8', blue: '#1D6FE8', text: '#DFF0FF', muted: '#5A7AA0',
+    red: '#EF4444', yellow: '#F59E0B', green: '#10B981', purple: '#8B5CF6', orange: '#F97316',
+  },
+  light: {
+    bg: '#F0F4F8', surface: '#FFFFFF', card: '#FFFFFF', border: '#CBD5E1',
+    teal: '#0097A7', blue: '#1565C0', text: '#0F172A', muted: '#64748B',
+    red: '#DC2626', yellow: '#D97706', green: '#059669', purple: '#7C3AED', orange: '#EA580C',
+  },
 };
+let C = THEMES.dark;
 
 const MOCK_MONTHLY = [
   { mes: 'Jan', sp: 4, adm: 7 }, { mes: 'Fev', sp: 6, adm: 5 },
@@ -2598,7 +2606,18 @@ function NotificaAI() {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [showConfig, setShowConfig] = useState(false);
   const [toast, setToast] = useState(null);
-  const [nspMode, setNspMode] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    try { return localStorage.getItem('nai_theme') || 'dark'; } catch { return 'dark'; }
+  });
+
+  // Sincroniza o objeto C global com o tema ativo
+  C = THEMES[theme] || THEMES.dark;
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    try { localStorage.setItem('nai_theme', next); } catch {}
+  };
   const [profileMode, setProfileMode] = useState(null); // null | 'nsp' | 'dsg' | 'motorista' | 'enfermeiro' | 'gestor'
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
@@ -2687,12 +2706,13 @@ function NotificaAI() {
       {splash && <SplashScreen leaving={splashLeaving} />}
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
-        body{background:#06101F}
+        body{background:${C.bg}}
         @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
-        input::placeholder{color:#5A7AA0}
+        input::placeholder{color:${C.muted}}
         ::-webkit-scrollbar{width:3px}
-        ::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
+        ::-webkit-scrollbar-thumb{background:${C.border};border-radius:2px}
         button:active{opacity:.85}
+        select option{background:${C.card};color:${C.text}}
       `}</style>
       <div style={{ background: C.bg, minHeight: '100vh', maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', color: C.text, fontFamily: 'system-ui,-apple-system,sans-serif' }}>
         {toast && <Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
@@ -2728,6 +2748,10 @@ function NotificaAI() {
               <span style={{ fontSize: 10, fontWeight: 700 }}>{PROFILES[profileMode]?.label || 'Sair'}</span>
             </button>
           )}
+          <button onClick={toggleTheme} style={{ flex: 0, padding: '4px 8px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, color: C.muted }}>
+            <span style={{ fontSize: 16 }}>{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span style={{ fontSize: 9 }}>{theme === 'dark' ? 'Claro' : 'Escuro'}</span>
+          </button>
 
         </div>
       </div>

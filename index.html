@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NotificaAI — Notificação Hospitalar Inteligente</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --navy: #06101F;
+    --navy2: #0C1A30;
+    --navy3: #102040;
+    --teal: #00C9B8;
+    --teal2: #00A896;
+    --blue: #1D6FE8;
+    --text: #DFF0FF;
+    --muted: #5A7AA0;
+    --border: #1A3060;
+    --red: #EF4444;
+    --green: #10B981;
+    --yellow: #F59E0B;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--navy);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    background: rgba(6,16,31,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(26,48,96,0.5);
+  }
+  .nav-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 18px; font-weight: 500;
+    color: var(--teal);
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { font-size: 22px; }
+  .nav-links { display: flex; align-items: center; gap: 32px; }
+  .nav-links a {
+    color: var(--muted); text-decoration: none; font-size: 14px;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    background: var(--teal); color: var(--navy);
+    padding: 9px 20px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    text-decoration: none;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .nav-cta:hover { background: var(--teal2); transform: translateY(-1px); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 120px 24px 80px;
+    text-align: center;
+    position: relative;
+  }
+  .hero-glow {
+    position: absolute;
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(0,201,184,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(0,201,184,0.1);
+    border: 1px solid rgba(0,201,184,0.3);
+    border-radius: 20px; padding: 6px 16px;
+    font-size: 12px; font-weight: 500; color: var(--teal);
+    margin-bottom: 32px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.05em;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-badge::before { content: '●'; font-size: 8px; animation: blink 2s ease infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(42px, 8vw, 80px);
+    line-height: 1.05;
+    color: var(--text);
+    max-width: 900px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--teal);
+  }
+  .hero-sub {
+    font-size: clamp(16px, 2.5vw, 20px);
+    color: var(--muted);
+    max-width: 600px;
+    line-height: 1.7;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+  .hero-actions {
+    display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .btn-primary {
+    background: var(--teal); color: var(--navy);
+    padding: 15px 32px; border-radius: 10px;
+    font-size: 15px; font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s;
+    box-shadow: 0 0 32px rgba(0,201,184,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 48px rgba(0,201,184,0.45); }
+  .btn-secondary {
+    background: transparent; color: var(--text);
+    padding: 15px 32px; border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 15px; font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+
+  .hero-stats {
+    display: flex; gap: 48px; margin-top: 72px;
+    flex-wrap: wrap; justify-content: center;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px; color: var(--teal);
+    display: block;
+  }
+  .stat-label { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SECTION ── */
+  section { padding: 100px 24px; position: relative; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px; letter-spacing: 0.15em;
+    color: var(--teal); text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.1;
+    margin-bottom: 16px;
+  }
+  .section-title em { font-style: italic; color: var(--teal); }
+  .section-sub {
+    color: var(--muted); font-size: 17px; line-height: 1.7;
+    max-width: 560px;
+  }
+
+  /* ── FEATURES ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px; margin-top: 60px;
+  }
+  .feature-card {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px;
+    transition: all 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--teal), transparent);
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .feature-card:hover { border-color: rgba(0,201,184,0.4); transform: translateY(-4px); }
+  .feature-card:hover::before { opacity: 1; }
+  .feature-icon {
+    font-size: 32px; margin-bottom: 16px; display: block;
+  }
+  .feature-title {
+    font-size: 17px; font-weight: 700; margin-bottom: 10px;
+    font-family: 'DM Serif Display', serif;
+  }
+  .feature-desc { color: var(--muted); font-size: 14px; line-height: 1.7; }
+
+  /* ── HOW IT WORKS ── */
+  .steps { display: flex; flex-direction: column; gap: 0; margin-top: 60px; }
+  .step {
+    display: grid; grid-template-columns: 64px 1fr;
+    gap: 24px; align-items: flex-start;
+    position: relative; padding-bottom: 48px;
+  }
+  .step:last-child { padding-bottom: 0; }
+  .step::after {
+    content: '';
+    position: absolute; left: 31px; top: 64px; bottom: 0;
+    width: 2px; background: linear-gradient(180deg, var(--border), transparent);
+  }
+  .step:last-child::after { display: none; }
+  .step-num {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--navy2); border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 18px;
+    color: var(--teal); flex-shrink: 0;
+    position: relative; z-index: 1;
+  }
+  .step-content { padding-top: 12px; }
+  .step-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .step-desc { color: var(--muted); font-size: 14px; line-height: 1.7; }
+
+  /* ── PROFILES ── */
+  .profiles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px; margin-top: 60px;
+  }
+  .profile-card {
+    background: var(--navy2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 20px;
+    text-align: center; transition: all 0.3s;
+  }
+  .profile-card:hover { transform: translateY(-3px); border-color: var(--teal); }
+  .profile-icon { font-size: 36px; margin-bottom: 12px; display: block; }
+  .profile-name { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+  .profile-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── PRICING ── */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px; margin-top: 60px;
+  }
+  .price-card {
+    background: var(--navy2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 40px 32px;
+    position: relative; transition: all 0.3s;
+  }
+  .price-card.featured {
+    border-color: var(--teal);
+    background: linear-gradient(135deg, var(--navy2), rgba(0,201,184,0.05));
+    box-shadow: 0 0 48px rgba(0,201,184,0.15);
+  }
+  .price-badge {
+    position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+    background: var(--teal); color: var(--navy);
+    font-size: 11px; font-weight: 700; padding: 4px 14px; border-radius: 20px;
+    font-family: 'DM Mono', monospace; letter-spacing: 0.05em;
+  }
+  .price-label { font-size: 13px; color: var(--muted); margin-bottom: 8px; font-family: 'DM Mono', monospace; }
+  .price-name { font-family: 'DM Serif Display', serif; font-size: 26px; margin-bottom: 24px; }
+  .price-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 40px; color: var(--teal);
+    margin-bottom: 4px;
+  }
+  .price-value span { font-size: 16px; color: var(--muted); }
+  .price-period { font-size: 12px; color: var(--muted); margin-bottom: 32px; font-family: 'DM Mono', monospace; }
+  .price-features { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+  .price-features li { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .price-features li::before { content: '✓'; color: var(--teal); font-weight: 700; flex-shrink: 0; }
+  .price-cta {
+    display: block; text-align: center;
+    background: var(--teal); color: var(--navy);
+    padding: 13px; border-radius: 10px;
+    font-weight: 700; font-size: 14px; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .price-card:not(.featured) .price-cta {
+    background: transparent; color: var(--teal); border: 1px solid var(--teal);
+  }
+  .price-cta:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* ── CTA FINAL ── */
+  .cta-section {
+    background: linear-gradient(135deg, var(--navy2), var(--navy3));
+    border: 1px solid var(--border); border-radius: 24px;
+    padding: 80px 48px; text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .cta-section::before {
+    content: '';
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0,201,184,0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  .cta-section h2 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(28px, 5vw, 48px);
+    margin-bottom: 16px;
+  }
+  .cta-section p { color: var(--muted); font-size: 17px; margin-bottom: 40px; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--muted); font-size: 13px;
+  }
+  footer a { color: var(--teal); text-decoration: none; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 0 24px;
+  }
+
+  /* ── MOBILE ── */
+  @media (max-width: 640px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    section { padding: 60px 20px; }
+    .cta-section { padding: 48px 24px; }
+    .hero-stats { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    <span>⚓</span> NotificaAI
+  </div>
+  <div class="nav-links">
+    <a href="#funcionalidades">Funcionalidades</a>
+    <a href="#como-funciona">Como funciona</a>
+    <a href="#perfis">Perfis</a>
+    <a href="#precos">Preços</a>
+    <a href="index-1.html" class="nav-cta">Acessar sistema →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-badge">Piloto ativo · Hospital Naval de Salvador</div>
+  <h1>Notificação hospitalar<br/><em>inteligente</em></h1>
+  <p class="hero-sub">
+    Sistema de gestão de incidentes e segurança do paciente com IA conversacional.
+    Notifique, gerencie e analise — tudo em uma plataforma.
+  </p>
+  <div class="hero-actions">
+    <a href="index-1.html" class="btn-primary">Acessar o sistema →</a>
+    <a href="#como-funciona" class="btn-secondary">Ver como funciona</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat">
+      <span class="stat-num">3</span>
+      <span class="stat-label">tipos de notificação</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">5</span>
+      <span class="stat-label">perfis de acesso</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">Web</span>
+      <span class="stat-label">celular ou computador</span>
+    </div>
+    <div class="stat">
+      <span class="stat-num">HNSA</span>
+      <span class="stat-label">piloto ativo</span>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<div class="divider"></div>
+
+<!-- CONTEXTO NSP / ANVISA -->
+<section style="background:var(--navy2)">
+  <div class="container">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center">
+      <div>
+        <div class="section-label">Por que o NSP é obrigatório</div>
+        <h2 class="section-title">Exigência da <em>ANVISA</em> — e uma oportunidade real de melhoria</h2>
+        <p style="color:var(--muted);font-size:16px;line-height:1.8;margin-bottom:20px">
+          A RDC nº 36/2013 da ANVISA determina que todo serviço de saúde deve ter um <strong style="color:var(--text)">Núcleo de Segurança do Paciente (NSP)</strong>, com obrigação de registrar, analisar e notificar incidentes relacionados à assistência.
+        </p>
+        <p style="color:var(--muted);font-size:16px;line-height:1.8">
+          Na prática, a maioria dos hospitais ainda faz esse registro em papel ou planilhas manuais — o que resulta em subnotificação, dados incompletos e perda de informações valiosas para melhorar a qualidade do cuidado.
+        </p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <div style="background:var(--navy3);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:12px;padding:24px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px">📋 Conformidade regulatória</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7">O NotificaAI foi desenvolvido com base nos protocolos da ANVISA e nos campos exigidos pelo sistema federal de notificação (Notivisa).</div>
+        </div>
+        <div style="background:var(--navy3);border:1px solid var(--border);border-left:3px solid var(--yellow);border-radius:12px;padding:24px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px">📈 Dados que geram decisões</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7">Com os registros organizados, o NSP consegue identificar padrões — quais setores concentram mais eventos, quais turnos têm maior risco — e agir com base em evidências.</div>
+        </div>
+        <div style="background:var(--navy3);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:24px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:8px">🏥 Cultura de segurança</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.7">Quando notificar é simples e seguro, a equipe notifica mais. Mais dados significam melhor gestão do risco e menos eventos adversos evitáveis.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FUNCIONALIDADES -->
+<section id="funcionalidades">
+  <div class="container">
+    <div class="section-label">Funcionalidades</div>
+    <h2 class="section-title">Tudo que o NSP precisa,<br/><em>num único lugar</em></h2>
+    <p class="section-sub">Do registro ao relatório, sem papel, sem formulários complexos.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">💬</span>
+        <div class="feature-title">Notificação por conversa</div>
+        <div class="feature-desc">O profissional conta o que aconteceu com suas próprias palavras. A IA faz as perguntas certas e monta o registro automaticamente — sem formulários.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🧠</span>
+        <div class="feature-title">3 tipos de notificação</div>
+        <div class="feature-desc">Segurança do Paciente, Infecção Hospitalar e Ocorrências Administrativas. O sistema identifica o tipo pelo relato e conduz cada caso da forma correta.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📧</span>
+        <div class="feature-title">Aviso imediato ao NSP</div>
+        <div class="feature-desc">Assim que a notificação é confirmada, o responsável pelo NSP recebe um e-mail com o resumo completo. Sem depender de ligação ou papel.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">Gráficos e relatórios</div>
+        <div class="feature-desc">Visualize os dados por mês, setor e turno. Exporte a planilha completa para o Google Sheets com um toque — pronta para auditorias e reuniões.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔒</span>
+        <div class="feature-title">Painel exclusivo do NSP</div>
+        <div class="feature-desc">Acesso protegido por senha. O NSP e o gestor visualizam todas as notificações, os indicadores e um texto de análise gerado pela IA — pronto para a ata.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📚</span>
+        <div class="feature-title">Material educativo sempre acessível</div>
+        <div class="feature-desc">Protocolos da ANVISA atualizados, vídeos e orientações para profissionais e pacientes — disponíveis pelo QR Code fixado no setor.</div>
+      </div>
+    </div>
+
+    <!-- UPGRADE -->
+    <div style="margin-top:48px;background:linear-gradient(135deg,rgba(0,201,184,0.06),rgba(29,111,232,0.06));border:1px solid rgba(0,201,184,0.25);border-radius:20px;padding:40px 36px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+        <span style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase">Módulo adicional</span>
+        <span style="background:var(--teal);color:var(--navy);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:'DM Mono',monospace">UPGRADE</span>
+      </div>
+      <h3 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:10px">Gestão Operacional</h3>
+      <p style="color:var(--muted);font-size:15px;line-height:1.7;max-width:640px;margin-bottom:28px">
+        Além da notificação, gerencie chamados internos com rastreamento de status em tempo real. Equipe de manutenção e motorista acessam seus painéis por PIN próprio — visualizado, recebido, em andamento, concluído.
+      </p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px">
+        <div style="background:rgba(6,16,31,0.5);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="font-size:24px;margin-bottom:10px">🔧</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px">Chamados de Manutenção</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">Equipe de manutenção recebe, confirma e atualiza o status. Notificante acompanha em tempo real.</div>
+        </div>
+        <div style="background:rgba(6,16,31,0.5);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="font-size:24px;margin-bottom:10px">🚑</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px">Chamados de Ambulância</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">Motorista confirma disponibilidade com comentário. Enfermagem acompanha a resposta sem precisar ligar.</div>
+        </div>
+        <div style="background:rgba(6,16,31,0.5);border:1px solid var(--border);border-radius:12px;padding:20px">
+          <div style="font-size:24px;margin-bottom:10px">📈</div>
+          <div style="font-size:14px;font-weight:700;margin-bottom:6px">Painel Gerencial</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.6">Gestor visualiza tempos de resposta, pendências e análise de desempenho operacional por IA.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PERSONALIZAÇÃO -->
+    <div style="margin-top:24px;background:var(--navy2);border:1px solid var(--border);border-radius:20px;padding:40px 36px;display:flex;align-items:center;gap:40px;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <div style="font-size:11px;font-family:'DM Mono',monospace;letter-spacing:0.12em;color:var(--yellow);text-transform:uppercase;margin-bottom:8px">Flexibilidade</div>
+        <h3 style="font-family:'DM Serif Display',serif;font-size:26px;margin-bottom:10px">Personalizado para o seu serviço</h3>
+        <p style="color:var(--muted);font-size:15px;line-height:1.7">Setores, fluxos, perfis de acesso e campos de notificação adaptados à realidade de cada hospital. O NotificaAI se molda ao seu processo — não o contrário.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:220px">
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--yellow)">✦</span> Setores e unidades configuráveis</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--yellow)">✦</span> Perfis e PINs por função</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--yellow)">✦</span> Fluxos adaptados ao protocolo interno</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--yellow)">✦</span> Conteúdo educativo próprio da instituição</div>
+        <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)"><span style="color:var(--yellow)">✦</span> Multi-unidade com painel consolidado</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- COMO FUNCIONA -->
+<section id="como-funciona">
+  <div class="container" style="display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center">
+    <div>
+      <div class="section-label">Como funciona</div>
+      <h2 class="section-title">Simples para quem<br/><em>notifica</em></h2>
+      <p class="section-sub">O profissional acessa pelo QR Code do setor. Em menos de 2 minutos a notificação está registrada e o NSP foi avisado.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Acesse pelo QR Code</div>
+          <div class="step-desc">Código fixado no setor. Qualquer celular, sem instalar nada.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">Relate com suas palavras</div>
+          <div class="step-desc">A IA conduz a conversa, faz as perguntas certas e classifica o evento automaticamente.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Confirme e envie</div>
+          <div class="step-desc">Revise o resumo gerado pela IA e confirme. O protocolo é gerado na hora.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">NSP recebe imediatamente</div>
+          <div class="step-desc">E-mail automático com todos os dados. Registro no Supabase para análise e exportação.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PERFIS -->
+<section id="perfis">
+  <div class="container" style="text-align:center">
+    <div class="section-label">Perfis de acesso</div>
+    <h2 class="section-title">Cada função,<br/><em>seu painel</em></h2>
+    <p class="section-sub" style="margin:0 auto 0">Acesso por PIN — cada perfil vê exatamente o que precisa.</p>
+    <div class="profiles-grid">
+      <div class="profile-card">
+        <span class="profile-icon">🔒</span>
+        <div class="profile-name">NSP</div>
+        <div class="profile-desc">Acessa todas as notificações, gráficos, relatórios e configurações do sistema</div>
+      </div>
+      <div class="profile-card">
+        <span class="profile-icon">🔧</span>
+        <div class="profile-name">Manutenção</div>
+        <div class="profile-desc">Recebe os chamados de manutenção, confirma e atualiza o andamento</div>
+      </div>
+      <div class="profile-card">
+        <span class="profile-icon">🚑</span>
+        <div class="profile-name">Motorista</div>
+        <div class="profile-desc">Recebe solicitações de ambulância e confirma disponibilidade com comentário</div>
+      </div>
+      <div class="profile-card">
+        <span class="profile-icon">🩺</span>
+        <div class="profile-name">Enfermagem</div>
+        <div class="profile-desc">Abre chamados e acompanha as respostas da equipe operacional em tempo real</div>
+      </div>
+      <div class="profile-card">
+        <span class="profile-icon">📊</span>
+        <div class="profile-name">Gestor</div>
+        <div class="profile-desc">Visão completa — notificações, indicadores e desempenho de toda a equipe</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PREÇOS -->
+<section id="precos">
+  <div class="container" style="text-align:center">
+    <div class="section-label">Modelo de negócio</div>
+    <h2 class="section-title">Investimento <em>acessível</em><br/>para qualquer porte</h2>
+    <p class="section-sub" style="margin:0 auto 16px">Da unidade isolada à rede estadual.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-label">HOSPITAL ISOLADO</div>
+        <div class="price-name">Unidade</div>
+        <div class="price-value">R$ 2.500 <span>implantação</span></div>
+        <div class="price-period">+ R$ 450/mês · R$ 7.900/ano</div>
+        <ul class="price-features">
+          <li>Chat com IA para registrar notificações</li>
+          <li>Alerta por e-mail a cada notificação</li>
+          <li>Painel do NSP com gráficos e relatórios</li>
+          <li>Exportação de dados para planilha</li>
+          <li>Central com protocolos e vídeos</li>
+          <li>Suporte por WhatsApp</li>
+        </ul>
+        <a href="mailto:contato@notificaai.com.br" class="price-cta">Solicitar proposta</a>
+      </div>
+
+      <div class="price-card featured">
+        <div class="price-badge">RECOMENDADO</div>
+        <div class="price-label">REDE DE HOSPITAIS</div>
+        <div class="price-name">Rede / Secretaria</div>
+        <div class="price-value">Sob proposta</div>
+        <div class="price-period">valor conforme número de unidades</div>
+        <ul class="price-features">
+          <li>Tudo do plano Unidade</li>
+          <li>Vários hospitais num só sistema</li>
+          <li>Painel geral com dados de toda a rede</li>
+          <li>Envio dos dados ao sistema federal (Notivisa)</li>
+          <li>Treinamento presencial da equipe</li>
+          <li>Implantação assistida pelo desenvolvedor</li>
+        </ul>
+        <a href="mailto:contato@notificaai.com.br" class="price-cta">Falar com especialista</a>
+      </div>
+
+      <div class="price-card">
+        <div class="price-label">EXPANSÃO FUTURA</div>
+        <div class="price-name">Escala Nacional</div>
+        <div class="price-value">Em desenvolvimento</div>
+        <div class="price-period">previsão 2027</div>
+        <ul class="price-features">
+          <li>Módulo de controle de protocolos ANVISA</li>
+          <li>Alertas de validade de documentos</li>
+          <li>Integração com outros sistemas de saúde</li>
+          <li>Painel de indicadores em rede nacional</li>
+          <li>Personalização completa por contrato</li>
+          <li>Suporte dedicado</li>
+        </ul>
+        <a href="mailto:contato@notificaai.com.br" class="price-cta">Acompanhar desenvolvimento</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- CTA FINAL -->
+<section>
+  <div class="container">
+    <div class="cta-section">
+      <div class="section-label" style="margin-bottom:16px">Piloto ativo no HNSA</div>
+      <h2>Pronto para transformar<br/>a segurança do seu hospital?</h2>
+      <p>O NotificaAI está em operação. Entre em contato para uma demonstração.</p>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+        <a href="index-1.html" class="btn-primary">Acessar demonstração →</a>
+        <a href="mailto:contato@notificaai.com.br" class="btn-secondary">Falar com a equipe</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px">
+    <span style="font-size:20px">⚓</span>
+    <span style="font-family:'DM Mono',monospace;color:var(--teal);font-size:16px">NotificaAI</span>
+  </div>
+  <p>Notificação hospitalar inteligente · Piloto: Hospital Naval de Salvador · HNSA</p>
+  <p style="margin-top:8px">
+    <a href="index-1.html">Acessar sistema</a> ·
+    <a href="mailto:contato@notificaai.com.br">contato@notificaai.com.br</a>
+  </p>
+</footer>
+
+</body>
+</html>

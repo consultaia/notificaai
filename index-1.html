@@ -1209,11 +1209,16 @@ Inclua: pontos de atenção, padrões identificados e recomendações prioritár
             (n.ai_summary || '').replace(/"/g,'""'),
           ]);
           const csv = [header, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-          const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'});
+          const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
           const url = URL.createObjectURL(blob);
+          // Baixa o arquivo
           const a = document.createElement('a');
-          a.href = url; a.download = `notificacoes_hnsa_${filterYear}${filterMonth>0?'_'+String(filterMonth).padStart(2,'0'):''}.csv`;
-          a.click(); URL.revokeObjectURL(url);
+          a.href = url;
+          a.download = `notificacoes_hnsa_${filterYear}${filterMonth > 0 ? '_' + String(filterMonth).padStart(2,'0') : ''}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          // Abre Google Sheets novo para importar
+          setTimeout(() => window.open('https://sheets.new', '_blank'), 600);
         };
 
         const TYPE_LABEL = { seguranca_paciente:'Seg. Paciente', ccih:'CCIH', administrativa:'Administrativa' };
@@ -1235,7 +1240,7 @@ Inclua: pontos de atenção, padrões identificados e recomendações prioritár
               </select>
               <button onClick={exportCSV} disabled={filtered.length === 0}
                 style={{ flexShrink: 0, background: C.green, border: 'none', borderRadius: 8, padding: '8px 14px', color: '#06101F', fontSize: 12, fontWeight: 800, cursor: filtered.length>0?'pointer':'default', opacity: filtered.length>0?1:0.5 }}>
-                ↓ CSV
+                ↓ Sheets
               </button>
             </div>
 

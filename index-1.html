@@ -448,6 +448,84 @@ function StatCard({ icon, label, value, sub, color }) {
   );
 }
 
+function LineChartSimple({ data, lines, height = 150 }) {
+  if (!data || data.length === 0) return null;
+  const allVals = data.flatMap(d => lines.map(l => d[l.key] || 0));
+  const maxV = Math.max(...allVals, 1);
+  const w = 300, h = height, pad = 24;
+  const xStep = (w - pad * 2) / Math.max(data.length - 1, 1);
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height }} preserveAspectRatio="none">
+      {lines.map(line => {
+        const pts = data.map((d, i) => {
+          const x = pad + i * xStep;
+          const y = h - pad - ((d[line.key] || 0) / maxV) * (h - pad * 2);
+          return `${x},${y}`;
+        }).join(' ');
+        return <polyline key={line.key} points={pts} fill="none" stroke={line.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />;
+      })}
+      {data.map((d, i) => (
+        <text key={i} x={pad + i * xStep} y={h - 4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d.mes}</text>
+      ))}
+    </svg>
+  );
+}
+
+function BarChartSimple({ data, xKey, yKey, color, height = 150 }) {
+  if (!data || data.length === 0) return null;
+  const maxV = Math.max(...data.map(d => d[yKey] || 0), 1);
+  const w = 300, h = height, pad = 24;
+  const bw = (w - pad * 2) / data.length - 4;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height }}>
+      {data.map((d, i) => {
+        const bh = ((d[yKey] || 0) / maxV) * (h - pad * 2);
+        const x = pad + i * ((w - pad * 2) / data.length) + 2;
+        const y = h - pad - bh;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bw} height={bh} fill={color} rx="3" opacity="0.85" />
+            <text x={x + bw / 2} y={h - 4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d[xKey]}</text>
+            {bh > 12 && <text x={x + bw / 2} y={y + 10} textAnchor="middle" fontSize="9" fill="#fff">{d[yKey]}</text>}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function PieChartSimple({ data, size = 160 }) {
+  if (!data || data.length === 0) return null;
+  const total = data.reduce((s, d) => s + (d.value || 0), 0) || 1;
+  const cx = size / 2, cy = size / 2, r = size * 0.38;
+  let angle = -Math.PI / 2;
+  const slices = data.map(d => {
+    const sweep = (d.value / total) * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(angle);
+    const y1 = cy + r * Math.sin(angle);
+    angle += sweep;
+    const x2 = cx + r * Math.cos(angle);
+    const y2 = cy + r * Math.sin(angle);
+    const large = sweep > Math.PI ? 1 : 0;
+    return { path: `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large},1 ${x2},${y2} Z`, color: d.color, name: d.name, pct: Math.round(d.value / total * 100) };
+  });
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+      <svg viewBox={`0 0 ${size} ${size}`} style={{ width: size, height: size, flexShrink: 0 }}>
+        {slices.map((s, i) => <path key={i} d={s.path} fill={s.color} stroke={C.card} strokeWidth="1.5" />)}
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {slices.map((s, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: C.muted }}>{s.name} <span style={{ color: C.text, fontWeight: 700 }}>{s.pct}%</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function HeatCell({ value }) {
   const t = Math.min((value || 0) / 8, 1);
   const bg = t < 0.12 ? C.surface : t < 0.35 ? '#0E3D5B' : t < 0.6 ? '#0369A1' : t < 0.8 ? '#0891B2' : C.teal;
@@ -572,8 +650,8 @@ const knowledge = [
   { id: 'vid_maos', icon: '🎬', title: 'Vídeo: Higienização das Mãos', desc: 'Técnica correta nos 5 momentos — protocolo OMS/ANVISA', color: C.teal, type: 'video',
     url: 'https://www.youtube.com/watch?v=IisgnbMfKvI'
   },
-  { id: 'vid_quedas', icon: '🎬', title: 'Vídeo: Prevenção de Quedas', desc: 'Estratégias de prevenção de quedas em ambiente hospitalar', color: C.yellow, type: 'video',
-    url: 'https://www.youtube.com/watch?v=ieD1o-zIhm0'
+  { id: 'vid_quedas', icon: '🎬', title: 'Vídeo: Prevenção de Quedas', desc: 'Hospital INC · Meta 6 de Segurança do Paciente — prevenção de quedas hospitalares', color: C.yellow, type: 'video',
+    url: 'https://www.youtube.com/watch?v=QPADgajXCxg'
   },
   { id: 'vid_paciente', icon: '🎬', title: 'Vídeo: Segurança do Paciente', desc: 'Projeto Paciente Seguro — MS/Hospital Moinhos de Vento', color: C.blue, type: 'video',
     url: 'https://www.youtube.com/watch?v=pKDiDWZC-qM'

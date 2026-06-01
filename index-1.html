@@ -961,14 +961,13 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
       if (sbUrl && sbKey) {
         const res = await sbInsert(sbUrl, sbKey, 'notifications', { ...data, chat_history: messages });
         protocolo = res?.[0]?.id ? res[0].id.slice(0,8).toUpperCase() : Math.random().toString(36).slice(2,10).toUpperCase();
-        // ── Dispara webhook via Cloudflare Worker (evita CORS) ──────────────
+        // ── Dispara webhook para o n8n ──────────────────────────────────────
         if (webhookUrl) {
           try {
-            const WORKER_URL = 'https://notificaai-proxy.janan-almeida.workers.dev/webhook';
-            await fetch(WORKER_URL, {
+            await fetch(webhookUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ...data, protocolo, hospital_name: hospital?.name || 'HNSA', _webhookUrl: webhookUrl }),
+              body: JSON.stringify({ ...data, protocolo, hospital_name: hospital?.name || 'HNSA' }),
             });
           } catch (e) { console.warn('Webhook falhou:', e); }
         }

@@ -30,45 +30,7 @@ const { useState, useRef, useEffect } = React;
 
 window.storage = {
   get: async (key) => { try { const v = localStorage.getItem('nai_'+key); return v ? {value: v} : null; } catch { return null; } },
-  set: async (key, value) => { try { localStorage.setItem('nai_'+key, value); return {value};
-
-// ─── HOSPITAL CONTEXT ──────────────────────────────────────────────────────
-function getHospitalIdFromUrl() {
-  const p = new URLSearchParams(window.location.search);
-  return p.get('h') || p.get('hospital') || null;
-}
-
-const DEFAULT_HOSPITAL = {
-  id: 'hnsa',
-  name: 'Hospital Naval de Salvador',
-  short_name: 'HNSA',
-  logo: '⚓',
-  sectors: ['UPG', 'Ala A', 'Centro Cirúrgico', 'SEP'],
-  nsp_label: 'NSP',
-};
-
-async function loadHospital(sbUrl, sbKey, hospitalId) {
-  if (!hospitalId || !sbUrl || !sbKey) return DEFAULT_HOSPITAL;
-  try {
-    const data = await sbSelect(sbUrl, sbKey, 'hospitals', `select=*&id=eq.${hospitalId}&limit=1`);
-    if (data && data.length > 0) {
-      const h = data[0];
-      return {
-        id: h.id,
-        name: h.name,
-        short_name: h.short_name || h.name,
-        logo: h.logo || '🏥',
-        sectors: h.sectors || ['Setor 1', 'Setor 2'],
-        nsp_label: h.nsp_label || 'NSP',
-        nsp_email: h.nsp_email || '',
-        nsp_pin: h.nsp_pin || '1234',
-        webhook_url: h.webhook_url || '',
-        sesab_code: h.sesab_code || '',
-      };
-    }
-  } catch {}
-  return DEFAULT_HOSPITAL;
-} } catch { return null; } },
+  set: async (key, value) => { try { localStorage.setItem('nai_'+key, value); return {value}; } catch { return null; } },
   delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
 };
 
@@ -2618,7 +2580,8 @@ function NotificaAI() {
     setTheme(next);
     try { localStorage.setItem('nai_theme', next); } catch {}
   };
-  const [profileMode, setProfileMode] = useState(null); // null | 'nsp' | 'dsg' | 'motorista' | 'enfermeiro' | 'gestor'
+  const [profileMode, setProfileMode] = useState(null);
+  const [nspMode, setNspMode] = useState(false);
   const [nspPin, setNspPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
 

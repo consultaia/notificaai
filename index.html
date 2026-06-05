@@ -768,7 +768,7 @@ function NotificarView({ sbUrl, sbKey, webhookUrl, nspEmail, testMode, showToast
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  const [quickReplies, setQuickReplies] = useState([]);
+  const [quickReplies, setQuickReplies] = useState(['Sou paciente', 'Sou familiar / acompanhante', 'Enfermeiro(a)', 'Médico(a)', 'Técnico(a) de Enfermagem', 'Outro profissional', 'Prefiro não identificar']);
   const endRef = useRef(null);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
@@ -2595,6 +2595,16 @@ function NotificaAI() {
   const [hospital, setHospital] = useState(DEFAULT_HOSPITAL);
   const hospitalId = getHospitalIdFromUrl();
 
+  // Credenciais padrão HNSA — carregadas se não houver configuração local
+  const HNSA_DEFAULT = {
+    url: 'https://lnzvkfbcpnfmfvbdafab.supabase.co',
+    key: 'sb_publishable_SyVvXYS3AmHkq2KriFNJLA_yiGtToBB',
+    webhook: 'https://n8n-production-4e09.up.railway.app/webhook/notificaai',
+    pin: '1234',
+    email: '',
+    testMode: true,
+  };
+
   useEffect(() => {
     const splashTimer = setTimeout(() => {
       setSplashLeaving(true);
@@ -2604,18 +2614,16 @@ function NotificaAI() {
     (async () => {
       try {
         const r = await window.storage.get('notificai-sb');
-        if (r?.value) { 
-          const c = JSON.parse(r.value); 
-          setSbUrl(c.url||''); 
-          setSbKey(c.key||''); 
-          setWebhookUrl(c.webhook||''); 
-          setNspPin(c.pin||''); 
-          setNspEmail(c.email||'');
-          setTestMode(c.testMode !== undefined ? c.testMode : true);
-          const hId = getHospitalIdFromUrl() || c.defaultHospital || 'hnsa';
-          const h = await loadHospital(c.url||'', c.key||'', hId);
-          setHospital(h);
-        }
+        const c = r?.value ? JSON.parse(r.value) : HNSA_DEFAULT;
+        setSbUrl(c.url || HNSA_DEFAULT.url);
+        setSbKey(c.key || HNSA_DEFAULT.key);
+        setWebhookUrl(c.webhook || HNSA_DEFAULT.webhook);
+        setNspPin(c.pin || HNSA_DEFAULT.pin);
+        setNspEmail(c.email || '');
+        setTestMode(c.testMode !== undefined ? c.testMode : true);
+        const hId = getHospitalIdFromUrl() || 'hnsa';
+        const h = await loadHospital(c.url || HNSA_DEFAULT.url, c.key || HNSA_DEFAULT.key, hId);
+        setHospital(h);
       } catch {}
     })();
 

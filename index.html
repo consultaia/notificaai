@@ -2953,8 +2953,8 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'chamados',label:'Chamados',icon:IconTool},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'central',label:'Central',icon:IconBook}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'chamados',label:'Chamados',icon:IconTool},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconBook},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const tabs=gestorMode?gestorTabs:pubTabs;
 
   return(<>

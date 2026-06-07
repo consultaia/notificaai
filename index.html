@@ -1687,9 +1687,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 // ─── NOTIFICAR VIEW ──────────────────────────────────────────────────────────
 function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const [notifierType,setNotifierType]=useState(null);
-  const [messages,setMessages]=useState([{role:'assistant',content:'Olá! Para registrar a notificação, primeiro me diga: **quem é você?**
-
-Voce pode notificar anonimamente - nenhum dado de identificacao pessoal e obrigatorio.',quickReplies:['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Medico(a)','Tecnico(a) de Enfermagem','Outro profissional','Notificacao anonima']}]);
+  const [messages,setMessages]=useState([{role:'assistant',content:'Olá! Para registrar a notificação, primeiro me diga: **quem é você?** Você pode notificar anonimamente se preferir.',quickReplies:['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Médico(a)','Técnico(a) de Enfermagem','Outro profissional','Notificação anônima']}]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
   const [saving,setSaving]=useState(false);

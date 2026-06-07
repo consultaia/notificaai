@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>NotificaAI — HNSA</title>
+<title>NotificaAI - HNSA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -186,7 +186,7 @@ function computeStats(notifications) {
     else mm[k].adm++;
   });
   const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
-  const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'—',eventos:0});
+  const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'-',eventos:0});
   // Dias sem sentinela
   const sevts=notifications.filter(n=>n.gravidade==='Evento sentinela').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
   const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].created_at))/86400000):null;
@@ -527,17 +527,17 @@ function PinManager({sbUrl,sbKey,showToast}) {
       <div style={{background:C.surface,border:`1px solid ${C.teal}44`,borderRadius:10,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
-        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan — Gestor NSP" style={inp}/>
-        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>PIN (4 dígitos){editing?' — deixe em branco para manter':''}</label>
+        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan - Gestor NSP" style={inp}/>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>PIN (4 dígitos){editing?' - deixe em branco para manter':''}</label>
         <input type="password" value={form.pin} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="••••" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Confirmar PIN</label>
         <input type="password" value={form.confirma} onChange={e=>setForm({...form,confirma:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="••••" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
-          <option value="gestor">Gestor — acesso total</option>
-          <option value="dsg">DSG — apenas manutenção</option>
-          <option value="motorista">Motorista — apenas ambulância</option>
-          <option value="enfermeiro">Enfermeiro — abertura de chamados</option>
+          <option value="gestor">Gestor - acesso total</option>
+          <option value="dsg">DSG - apenas manutenção</option>
+          <option value="motorista">Motorista - apenas ambulância</option>
+          <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
@@ -651,7 +651,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
           <div style={{fontSize:12,color:C.text,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:'7px 10px'}}>{c.label}{c.ob?' *':''}</div>
           <div style={{color:C.muted,textAlign:'center',fontSize:12}}>→</div>
           <select id={'map_'+c.key} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,padding:'7px 10px',borderRadius:7,fontSize:12,outline:'none'}}>
-            <option value="">— Não mapear —</option>
+            <option value="">- Não mapear -</option>
             {cols.map(col=><option key={col} value={col}>{col}</option>)}
           </select>
         </div>
@@ -668,12 +668,12 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{regs.length} registros para importar</div>
         <div style={{marginBottom:10}}>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Período de referência (opcional)</label>
-          <input value={periodo} onChange={e=>setPeriodo(e.target.value)} placeholder="Ex: Jan–Jun 2024" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/>
+          <input value={periodo} onChange={e=>setPeriodo(e.target.value)} placeholder="Ex: Jan-Jun 2024" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/>
         </div>
         <div style={{maxHeight:180,overflowY:'auto',border:`1px solid ${C.border}`,borderRadius:8,marginBottom:12}}>
           {regs.slice(0,8).map((r,i)=>(
             <div key={i} style={{padding:'7px 12px',borderBottom:`1px solid ${C.border}22`,fontSize:12,color:C.muted}}>
-              <span style={{color:C.text}}>{r.event_date||'—'}</span> · {r.notification_type||'—'} · {r.sector||'—'}
+              <span style={{color:C.text}}>{r.event_date||'-'}</span> · {r.notification_type||'-'} · {r.sector||'-'}
             </div>
           ))}
           {regs.length>8&&<div style={{padding:'7px 12px',fontSize:11,color:C.muted}}>+{regs.length-8} registros...</div>}
@@ -687,7 +687,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     {step===4&&(<div style={{textAlign:'center',padding:'32px 16px'}}>
       <div style={{fontSize:48,marginBottom:12}}>✅</div>
       <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:6}}>Importação concluída!</div>
-      <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados} registros importados{periodo?` — ${periodo}`:''}</div>
+      <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados} registros importados{periodo?` - ${periodo}`:''}</div>
       <div style={{display:'flex',gap:8,justifyContent:'center'}}>
         <button onClick={()=>{setCsvData([]);setCols([]);setPeriodo('');setStep(1);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 18px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar outro</button>
         <button onClick={onDone} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontSize:13,fontWeight:800,cursor:'pointer'}}>Ver dashboard →</button>
@@ -740,7 +740,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
       </div>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red}`,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
-        <div style={{fontSize:13,color:C.text}}>{(notification.description||'—').slice(0,120)}</div>
+        <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
       {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:`linear-gradient(135deg,${C.teal},${C.blue})`,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Gerar RCA com IA</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente…</div></div>}
@@ -861,7 +861,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <textarea value={form.acao_imediata} onChange={e=>setForm({...form,acao_imediata:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Houve dano permanente?</label>
         <select value={form.dano} onChange={e=>setForm({...form,dano:e.target.value})} style={{...inp,appearance:'none'}}>
-          <option value="">Selecione</option><option>Não — dano reversível</option><option>Sim — dano permanente parcial</option><option>Sim — dano permanente total</option><option>Óbito</option>
+          <option value="">Selecione</option><option>Não - dano reversível</option><option>Sim - dano permanente parcial</option><option>Sim - dano permanente total</option><option>Óbito</option>
         </select>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Ação corretiva planejada</label>
         <textarea value={form.acao_corretiva} onChange={e=>setForm({...form,acao_corretiva:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>
@@ -871,15 +871,15 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       {step===2&&(<div>
         <div style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',marginBottom:14}}>
           <div style={{background:'#c8102e',color:'white',padding:'14px 16px'}}>
-            <div style={{fontSize:13,fontWeight:700}}>Formulário de Notificação — Segurança do Paciente</div>
-            <div style={{fontSize:10,opacity:.8,marginTop:2}}>SNVS/ANVISA — Notivisa · Gerado por NotificaAI · {new Date().toLocaleDateString('pt-BR')}</div>
+            <div style={{fontSize:13,fontWeight:700}}>Formulário de Notificação - Segurança do Paciente</div>
+            <div style={{fontSize:10,opacity:.8,marginTop:2}}>SNVS/ANVISA - Notivisa · Gerado por NotificaAI · {new Date().toLocaleDateString('pt-BR')}</div>
           </div>
           <div style={{padding:'12px 16px'}}>
-            {[['Data/Hora',`${form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'—'} ${form.hora_evento?'· '+form.hora_evento:''} · Turno: ${form.turno||'—'}`],
-              ['Tipo de incidente',form.tipo||'—'],['Gravidade',form.gravidade||'—'],['Setor',form.setor||'—'],
-              ['Paciente',`${form.idade?form.idade+' anos':''} ${form.sexo||''}`.trim()||'—'],
-              ['Descrição',form.descricao||'—'],['Ação imediata',form.acao_imediata||'—'],
-              ['Dano permanente',form.dano||'—'],['Ação corretiva',form.acao_corretiva||'—']
+            {[['Data/Hora',`${form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-'} ${form.hora_evento?'· '+form.hora_evento:''} · Turno: ${form.turno||'-'}`],
+              ['Tipo de incidente',form.tipo||'-'],['Gravidade',form.gravidade||'-'],['Setor',form.setor||'-'],
+              ['Paciente',`${form.idade?form.idade+' anos':''} ${form.sexo||''}`.trim()||'-'],
+              ['Descrição',form.descricao||'-'],['Ação imediata',form.acao_imediata||'-'],
+              ['Dano permanente',form.dano||'-'],['Ação corretiva',form.acao_corretiva||'-']
             ].map(([l,v])=>(
               <div key={l} style={{marginBottom:8,paddingBottom:8,borderBottom:'1px solid #eee'}}>
                 <div style={{fontSize:9,fontWeight:700,color:'#666',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:3}}>{l}</div>
@@ -903,7 +903,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:8}}>Passos para notificar no Notivisa</div>
           {[['01','Baixe o PDF','Use o botão "⬇ PDF" na etapa anterior'],
             ['02','Acesse notivisa.anvisa.gov.br','Login com credencial institucional'],
-            ['03','Preencha com o PDF ao lado','Transfira os campos (5–10 min vs 40 min sem o guia)']
+            ['03','Preencha com o PDF ao lado','Transfira os campos (5-10 min vs 40 min sem o guia)']
           ].map(([n,t,d])=>(
             <div key={n} style={{display:'flex',gap:10,marginBottom:8,textAlign:'left'}}>
               <div style={{fontSize:13,fontWeight:900,color:C.teal,minWidth:24}}>{n}</div>
@@ -942,7 +942,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   const [sev,setSev]=useState(notification.risco_severidade||0);
   const [saving,setSaving]=useState(false);
   const score=prob*sev;
-  const risco=score>=15?{label:'EXTREMO',color:'#7C0000',bg:'#7C000022'}:score>=10?{label:'ALTO',color:C.red,bg:C.red+'22'}:score>=5?{label:'MÉDIO',color:C.yellow,bg:C.yellow+'22'}:score>0?{label:'BAIXO',color:C.green,bg:C.green+'22'}:{label:'—',color:C.muted,bg:C.muted+'22'};
+  const risco=score>=15?{label:'EXTREMO',color:'#7C0000',bg:'#7C000022'}:score>=10?{label:'ALTO',color:C.red,bg:C.red+'22'}:score>=5?{label:'MÉDIO',color:C.yellow,bg:C.yellow+'22'}:score>0?{label:'BAIXO',color:C.green,bg:C.green+'22'}:{label:'-',color:C.muted,bg:C.muted+'22'};
 
   const salvar=async()=>{
     if(!prob||!sev){showToast('Selecione probabilidade e severidade','error');return;}
@@ -976,7 +976,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
       </div>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellow}`,borderRadius:10,padding:'10px 14px',marginBottom:16}}>
         <div style={{fontSize:11,color:C.yellow,fontWeight:700,marginBottom:2}}>Notificação</div>
-        <div style={{fontSize:13,color:C.text}}>{(notification.description||'—').slice(0,100)}</div>
+        <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,100)}</div>
       </div>
 
       {/* Score atual */}
@@ -998,8 +998,8 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
 
       {/* Tabela referência */}
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px 14px',marginTop:14,marginBottom:14}}>
-        <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>Referência — Classificação do risco</div>
-        {[['1–4','Baixo','Verde — monitorar','#10B981'],['5–9','Médio','Amarelo — ação planejada','#F59E0B'],['10–14','Alto','Vermelho — ação imediata','#EF4444'],['15–25','Extremo','Bordeaux — investigação urgente','#7C0000']].map(([r,l,a,c])=>(
+        <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>Referência - Classificação do risco</div>
+        {[['1 a 4','Baixo','Verde - monitorar','#10B981'],['5 a 9','Médio','Amarelo - acao planejada','#F59E0B'],['10 a 14','Alto','Vermelho - acao imediata','#EF4444'],['15 a 25','Extremo','Bordeaux - investigacao urgente','#7C0000']].map(([r,l,a,c])=>(
           <div key={r} style={{display:'flex',gap:8,alignItems:'center',marginBottom:5}}>
             <div style={{width:6,height:6,borderRadius:'50%',background:c,flexShrink:0}}/>
             <span style={{fontSize:10,color:c,fontWeight:700,minWidth:32}}>{r}</span>
@@ -1074,13 +1074,13 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       </div>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.blue}`,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.blue,fontWeight:700,marginBottom:2}}>Notificação</div>
-        <div style={{fontSize:13,color:C.text}}>{(notification.description||'—').slice(0,100)}</div>
+        <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,100)}</div>
       </div>
 
       {/* Progress */}
       {acoes.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-          <div style={{fontSize:12,fontWeight:700,color:C.text}}>Progresso — {concluidas}/{acoes.length} concluídas</div>
+          <div style={{fontSize:12,fontWeight:700,color:C.text}}>Progresso - {concluidas}/{acoes.length} concluídas</div>
           <div style={{fontSize:13,fontWeight:900,color:pct===100?C.green:C.teal}}>{pct}%</div>
         </div>
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
@@ -1194,12 +1194,12 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const INDICADORES=dados?[
-    {label:'Taxa de quedas',valor:dados.txQueda,unidade:'/1.000 p-d',meta:'< 1,5',ok:Number(dados.txQueda)<1.5,n:dados.quedas,desc:'Eventos de queda / paciente-dia × 1.000 (RDC 36/2013 — Meta 6 OMS)'},
-    {label:'Taxa de lesão por pressão',valor:dados.txLP,unidade:'/1.000 p-d',meta:'< 0,8',ok:Number(dados.txLP)<0.8,n:dados.lp,desc:'LPP adquirida na internação / paciente-dia × 1.000 (Meta 6 OMS)'},
-    {label:'Taxa de IRAS',valor:dados.txIRAS,unidade:'/1.000 p-d',meta:'< 2,0',ok:Number(dados.txIRAS)<2.0,n:dados.iras,desc:'Infecções relacionadas à assistência / paciente-dia × 1.000 (Meta 5 OMS)'},
-    {label:'Erros de medicação',valor:dados.txMed,unidade:'/1.000 p-d',meta:'< 0,5',ok:Number(dados.txMed)<0.5,n:dados.medicacao,desc:'Erros de medicação notificados / paciente-dia × 1.000 (Meta 3 OMS)'},
-    {label:'Taxa de near miss',valor:dados.txNearMiss+'%',unidade:'',meta:'> 20%',ok:dados.txNearMiss>=20,n:dados.nearMiss,desc:'Near miss / total de notificações × 100 — Indicador de cultura proativa'},
-    {label:'Eventos sentinela',valor:dados.sentinela,unidade:'eventos',meta:'0',ok:dados.sentinela===0,n:dados.sentinela,desc:'Eventos sentinela no período — qualquer valor > 0 exige RCA imediato'},
+    {label:'Taxa de quedas',valor:dados.txQueda,unidade:'/1000 p-d',meta:'< 1,5',ok:Number(dados.txQueda)<1.5,n:dados.quedas,desc:'Eventos de queda / paciente-dia × 1.000 (RDC 36/2013 - Meta 6 OMS)'},
+    {label:'Taxa de lesão por pressão',valor:dados.txLP,unidade:'/1000 p-d',meta:'< 0,8',ok:Number(dados.txLP)<0.8,n:dados.lp,desc:'LPP adquirida na internação / paciente-dia × 1.000 (Meta 6 OMS)'},
+    {label:'Taxa de IRAS',valor:dados.txIRAS,unidade:'/1000 p-d',meta:'< 2,0',ok:Number(dados.txIRAS)<2.0,n:dados.iras,desc:'Infecções relacionadas à assistência / paciente-dia × 1.000 (Meta 5 OMS)'},
+    {label:'Erros de medicação',valor:dados.txMed,unidade:'/1000 p-d',meta:'< 0,5',ok:Number(dados.txMed)<0.5,n:dados.medicacao,desc:'Erros de medicação notificados / paciente-dia × 1.000 (Meta 3 OMS)'},
+    {label:'Taxa de near miss',valor:dados.txNearMiss+'%',unidade:'',meta:'> 20%',ok:dados.txNearMiss>=20,n:dados.nearMiss,desc:'Near miss / total de notificações × 100 - Indicador de cultura proativa'},
+    {label:'Eventos sentinela',valor:dados.sentinela,unidade:'eventos',meta:'0',ok:dados.sentinela===0,n:dados.sentinela,desc:'Eventos sentinela no período - qualquer valor > 0 exige RCA imediato'},
   ]:[];
 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14}}>
@@ -1385,15 +1385,15 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontWeight:700,color:C.text}}>{p.nome}</div>
-            <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?`${p.numero} · `:''}{p.categoria||'—'}{p.responsavel?` · ${p.responsavel}`:''}</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?`${p.numero} · `:''}{p.categoria||'-'}{p.responsavel?` · ${p.responsavel}`:''}</div>
           </div>
           <div style={{background:stColor+'22',color:stColor,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
             {st==='ativo'?'✓ Válido':st==='vencido'?'⚠ Vencido':'⏰ Vence em breve'}
           </div>
         </div>
         <div style={{display:'flex',gap:12,fontSize:11,color:C.muted}}>
-          <span>Aprovado: {p.aprovado_em?new Date(p.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</span>
-          <span style={{color:stColor}}>Revisão: {p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'—'}</span>
+          <span>Aprovado: {p.aprovado_em?new Date(p.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
+          <span style={{color:stColor}}>Revisão: {p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
         </div>
         {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento →</a>}
       </div>);
@@ -1471,7 +1471,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           {/* Cabeçalho */}
           <div style={{background:'#c8102e',color:'white',padding:'20px 20px 16px'}}>
             <div style={{fontSize:10,opacity:.8,marginBottom:4}}>MARINHA DO BRASIL · HOSPITAL NAVAL DE SALVADOR</div>
-            <div style={{fontSize:18,fontWeight:700}}>Relatório Mensal — Núcleo de Segurança do Paciente</div>
+            <div style={{fontSize:18,fontWeight:700}}>Relatório Mensal - Núcleo de Segurança do Paciente</div>
             <div style={{fontSize:12,opacity:.9,marginTop:4}}>{MESES_PT[(dados.mesCorr.m-1)]} de {dados.mesCorr.a}</div>
           </div>
           <div style={{padding:'16px 20px'}}>
@@ -1480,7 +1480,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                 <tbody>
                   <tr><td style={{padding:'3px 0',color:'#666',width:160}}>Período de referência:</td><td style={{fontWeight:700}}>{new Date(dados.inicio+'T12:00:00').toLocaleDateString('pt-BR')} a {new Date(dados.fim+'T12:00:00').toLocaleDateString('pt-BR')}</td></tr>
-                  {gestor&&<tr><td style={{padding:'3px 0',color:'#666'}}>Elaborado por:</td><td style={{fontWeight:700}}>{gestor} — NSP {h.short_name}</td></tr>}
+                  {gestor&&<tr><td style={{padding:'3px 0',color:'#666'}}>Elaborado por:</td><td style={{fontWeight:700}}>{gestor} - NSP {h.short_name}</td></tr>}
                   {diretoria&&<tr><td style={{padding:'3px 0',color:'#666'}}>Destinatário:</td><td style={{fontWeight:700}}>{diretoria}</td></tr>}
                   <tr><td style={{padding:'3px 0',color:'#666'}}>Data de emissão:</td><td style={{fontWeight:700}}>{new Date().toLocaleDateString('pt-BR')}</td></tr>
                 </tbody>
@@ -1494,11 +1494,11 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
               <tbody>
                 {[
                   ['Total de notificações',dados.total,'100%'],
-                  ['Segurança do Paciente',dados.s.sp,dados.total?Math.round(dados.s.sp/dados.total*100)+'%':'—'],
-                  ['CCIH / Infecções',dados.s.ccih,dados.total?Math.round(dados.s.ccih/dados.total*100)+'%':'—'],
-                  ['Administrativa',dados.s.adm,dados.total?Math.round(dados.s.adm/dados.total*100)+'%':'—'],
-                  ['Eventos sentinela',dados.s.sentinela,dados.total?Math.round(dados.s.sentinela/dados.total*100)+'%':'—'],
-                  ['Near miss',dados.s.semRCA||0,dados.total?'—':'—'],
+                  ['Segurança do Paciente',dados.s.sp,dados.total?Math.round(dados.s.sp/dados.total*100)+'%':'-'],
+                  ['CCIH / Infecções',dados.s.ccih,dados.total?Math.round(dados.s.ccih/dados.total*100)+'%':'-'],
+                  ['Administrativa',dados.s.adm,dados.total?Math.round(dados.s.adm/dados.total*100)+'%':'-'],
+                  ['Eventos sentinela',dados.s.sentinela,dados.total?Math.round(dados.s.sentinela/dados.total*100)+'%':'-'],
+                  ['Near miss',dados.s.semRCA||0,dados.total?'-':'-'],
                 ].map(([l,v,p])=><tr key={l}><td style={{border:'1px solid #ddd',padding:'5px 10px'}}>{l}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',fontWeight:700,textAlign:'center'}}>{v}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',textAlign:'center',color:'#666'}}>{p}</td></tr>)}
               </tbody>
             </table>
@@ -1611,15 +1611,15 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando…':'Dados reais'}</div>
     </div>}
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
-      <span>🧪</span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo — notificações marcadas como teste</div>
+      <span>🧪</span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
       <StatCard icon="🔔" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'…':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'…':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'—'} color={C.blue}/>
+      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'…':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
       <StatCard icon="🦠" label="CCIH / Infecção" value={loading?'…':(s.ccih||0)} sub="notificações" color={C.yellow}/>
-      <StatCard icon="⚙️" label="Administrativas" value={loading?'…':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'—'} color={C.purple}/>
+      <StatCard icon="⚙️" label="Administrativas" value={loading?'…':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
     </div>
 
     {/* Indicadores NSP */}
@@ -1668,7 +1668,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           {/* Badges + botões RCA / Notivisa */}
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
             <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'✓ RCA':'⚠ Sem RCA'}</span>
-            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'✓ Notivisa':'— Notivisa'}</span>
+            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'✓ Notivisa':'- Notivisa'}</span>
             {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&
               <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:`1px solid ${C.blue}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>🧠 Gerar RCA</button>}
             {!n.notivisa_enviado&&n.notification_type==='seguranca_paciente'&&
@@ -1689,12 +1689,12 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const [notifierType,setNotifierType]=useState(null);
   const [messages,setMessages]=useState([{role:'assistant',content:'Olá! Para registrar a notificação, primeiro me diga: **quem é você?**
 
-_Você pode notificar anonimamente — nenhum dado de identificação pessoal é obrigatório._',quickReplies:['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Médico(a)','Técnico(a) de Enfermagem','Outro profissional','🔒 Notificação anônima']}]);
+Voce pode notificar anonimamente - nenhum dado de identificacao pessoal e obrigatorio.',quickReplies:['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Medico(a)','Tecnico(a) de Enfermagem','Outro profissional','Notificacao anonima']}]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
   const [saving,setSaving]=useState(false);
   const [done,setDone]=useState(false);
-  const [quickReplies,setQuickReplies]=useState(['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Médico(a)','Técnico(a) de Enfermagem','Outro profissional','🔒 Notificação anônima']);
+  const [quickReplies,setQuickReplies]=useState(['Sou paciente','Sou familiar / acompanhante','Enfermeiro(a)','Medico(a)','Tecnico(a) de Enfermagem','Outro profissional','Notificacao anonima']);
   const endRef=useRef(null);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth'});},[messages,loading]);
 
@@ -1726,22 +1726,22 @@ _Você pode notificar anonimamente — nenhum dado de identificação pessoal é
     const allText=[...messages.map(m=>m.content),msg].join(' ').toLowerCase();
     const h=hospital||DEFAULT_HOSPITAL;
     const ctx=[];
-    if(['queda','caiu','medicação','medicamento','remédio','avp','flebite','infiltração','lesão por pressão'].some(w=>allText.includes(w))&&!['infecção','iras','itu','pav'].some(w=>allText.includes(w))) ctx.push('TIPO: seguranca_paciente — não pergunte.');
-    if(['infecção','iras','itu','pav','sepse','cateter','micro-organismo'].some(w=>allText.includes(w))) ctx.push('TIPO: ccih — não pergunte.');
-    if(['infraestrutura','manutenção','hotelaria','limpeza','dieta','acesso indevido'].some(w=>allText.includes(w))&&!ctx.length) ctx.push('TIPO: administrativa — não pergunte.');
+    if(['queda','caiu','medicação','medicamento','remédio','avp','flebite','infiltração','lesão por pressão'].some(w=>allText.includes(w))&&!['infecção','iras','itu','pav'].some(w=>allText.includes(w))) ctx.push('TIPO: seguranca_paciente - não pergunte.');
+    if(['infecção','iras','itu','pav','sepse','cateter','micro-organismo'].some(w=>allText.includes(w))) ctx.push('TIPO: ccih - não pergunte.');
+    if(['infraestrutura','manutenção','hotelaria','limpeza','dieta','acesso indevido'].some(w=>allText.includes(w))&&!ctx.length) ctx.push('TIPO: administrativa - não pergunte.');
     const ds=h.sectors.find(s=>allText.includes(s.toLowerCase()));
-    if(ds) ctx.push(`SETOR: ${ds} — não pergunte.`);
-    if(allText.includes('hoje')||allText.includes('agora')) ctx.push(`DATA: ${hojeISO} — não pergunte.`);
-    else if(allText.includes('ontem')) ctx.push(`DATA: ${ontemISO} — não pergunte.`);
-    if(allText.includes('manhã')) ctx.push('TURNO: Manhã — não pergunte.');
-    else if(allText.includes('tarde')) ctx.push('TURNO: Tarde — não pergunte.');
-    else if(allText.includes('noite')) ctx.push('TURNO: Noite — não pergunte.');
+    if(ds) ctx.push(`SETOR: ${ds} - não pergunte.`);
+    if(allText.includes('hoje')||allText.includes('agora')) ctx.push(`DATA: ${hojeISO} - não pergunte.`);
+    else if(allText.includes('ontem')) ctx.push(`DATA: ${ontemISO} - não pergunte.`);
+    if(allText.includes('manhã')) ctx.push('TURNO: Manhã - não pergunte.');
+    else if(allText.includes('tarde')) ctx.push('TURNO: Tarde - não pergunte.');
+    else if(allText.includes('noite')) ctx.push('TURNO: Noite - não pergunte.');
     const next=[...messages,{role:'user',content:msg}];
     setMessages(next);setInput('');setQuickReplies([]);setLoading(true);
     try {
       const sys=buildChatSystem(hospital,cur||notifierType)+
         `\nDATA/HORA: ${new Date().toLocaleDateString('pt-BR')} às ${horaAtual} (ISO: ${hojeISO}).`+
-        (ctx.length?`\nJÁ EXTRAÍDO — não pergunte novamente:\n${ctx.join('\n')}`:'');
+        (ctx.length?`\nJÁ EXTRAÍDO - não pergunte novamente:\n${ctx.join('\n')}`:'');
       const reply=await callWorker(next.map(m=>({role:m.role,content:m.content})),sys);
       setMessages(p=>[...p,{role:'assistant',content:reply.replace(/\[opcoes:.*?\]/g,'').trim()}]);
       setQuickReplies(parseQR(reply,hospital,cur||notifierType));
@@ -1756,7 +1756,7 @@ _Você pode notificar anonimamente — nenhum dado de identificação pessoal é
     if(r.includes('qual foi o evento')||(r.includes('qual')&&r.includes('evento')&&r.includes('paciente'))) return['Queda','Lesão por pressão','Falha na identificação','Perda de AVP','Erro de medicação','Infecção hospitalar','Outro evento'];
     if((r.includes('avp')||r.includes('acesso venoso'))&&r.includes('causa')) return['Flebite','Infiltração','Extravasamento','Paciente arrancou','Saída acidental'];
     if(r.includes('qual')&&(r.includes('setor')||r.includes('área'))&&!r.includes('resumo')) return h.sectors;
-    if(r.includes('turno')&&!r.includes('turno:')) return['Manhã (07h–13h)','Tarde (13h–19h)','Noite (19h–07h)'];
+    if(r.includes('turno')&&!r.includes('turno:')) return['Manhã (07h-13h)','Tarde (13h-19h)','Noite (19h-07h)'];
     if(r.includes('desfecho')||r.includes('como ficou')) return['Sem dano','Dano leve','Dano moderado','Dano grave','Óbito'];
     if(r.includes('evitável')||r.includes('prevenível')) return['Sim, era evitável','Não era evitável','Não sei avaliar'];
     return[];
@@ -1910,7 +1910,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       ))}
       {s.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.red}`}}>
         <div style={{fontSize:12,fontWeight:700,color:C.text}}>⚠️ Ponto crítico identificado</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {s.heatmapPeak.turno} de {s.heatmapPeak.dia} — {s.heatmapPeak.val} evento(s). Atenção recomendada.</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {s.heatmapPeak.turno} de {s.heatmapPeak.dia} - {s.heatmapPeak.val} evento(s). Atenção recomendada.</div>
       </div>}
       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:14,justifyContent:'center'}}>
         <span style={{fontSize:10,color:C.muted}}>Menos</span>
@@ -1925,10 +1925,10 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
           <div style={{fontSize:14,fontWeight:700,color:C.text}}>Índice de Maturidade de Notificação</div>
-          <div style={{fontSize:10,color:C.muted,background:C.surface,borderRadius:6,padding:'3px 8px',fontWeight:600}}>0–100</div>
+          <div style={{fontSize:10,color:C.muted,background:C.surface,borderRadius:6,padding:'3px 8px',fontWeight:600}}>0-100</div>
         </div>
         <div style={{fontSize:11,color:C.muted,marginBottom:16,lineHeight:1.6}}>
-          Indicador operacional interno — mede a maturidade do <strong style={{color:C.text}}>sistema de notificação</strong>, não a cultura de segurança clínica (que exige instrumentos validados como SAQ ou HSOPSC).
+          Indicador operacional interno - mede a maturidade do <strong style={{color:C.text}}>sistema de notificação</strong>, não a cultura de segurança clínica (que exige instrumentos validados como SAQ ou HSOPSC).
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:14}}>
           <div style={{width:72,height:72,borderRadius:'50%',background:`conic-gradient(${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red} ${s.culturaScore*3.6}deg,${C.border} 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -1956,8 +1956,8 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
         {/* Componentes do score */}
         <div style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Como o score é calculado</div>
         {[
-          {label:'Near miss notificados',desc:'% de notificações classificadas como near miss — indicador de cultura proativa',valor:s.ratioNM,sufixo:'%',peso:'40%',color:C.teal,dica:'Profissionais de hospitais com cultura madura reportam mais near miss porque se sentem seguros para fazê-lo.'},
-          {label:'Ciclos concluídos',desc:'% de notificações com status "concluído" — indica que o NSP fecha os casos',valor:s.txC,sufixo:'%',peso:'40%',color:C.green,dica:'Notificações sem resposta visível desmotivam futuros reportes. Fechar o ciclo é essencial.'},
+          {label:'Near miss notificados',desc:'% de notificações classificadas como near miss - indicador de cultura proativa',valor:s.ratioNM,sufixo:'%',peso:'40%',color:C.teal,dica:'Profissionais de hospitais com cultura madura reportam mais near miss porque se sentem seguros para fazê-lo.'},
+          {label:'Ciclos concluídos',desc:'% de notificações com status "concluído" - indica que o NSP fecha os casos',valor:s.txC,sufixo:'%',peso:'40%',color:C.green,dica:'Notificações sem resposta visível desmotivam futuros reportes. Fechar o ciclo é essencial.'},
           {label:'Setores ativos',desc:'Setores distintos que já notificaram (máx. 5 para pontuação plena)',valor:s.nSets,sufixo:'',peso:'20%',color:C.blue,dica:'Abrangência ampla indica que a cultura de notificação se espalhou pelo hospital, não ficou restrita a um setor.'},
         ].map((item,i)=>(
           <div key={i} style={{background:C.surface,borderRadius:10,padding:'12px 14px',marginBottom:8}}>
@@ -2001,7 +2001,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-        <div style={{fontSize:11,color:C.muted,marginBottom:10,fontStyle:'italic'}}>Gerado por IA — revisar antes de publicação oficial</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:10,fontStyle:'italic'}}>Gerado por IA - revisar antes de publicação oficial</div>
         <div style={{fontSize:13,color:C.text,lineHeight:1.85,whiteSpace:'pre-wrap'}}>{narrative}</div>
       </div>}
     </div>}
@@ -2018,7 +2018,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
         <button onClick={exportCSV} disabled={filtered.length===0} style={{flexShrink:0,background:C.green,border:'none',borderRadius:8,padding:'8px 14px',color:'#06101F',fontSize:12,fontWeight:800,cursor:filtered.length>0?'pointer':'default',opacity:filtered.length>0?1:0.5}}>↓ Sheets</button>
       </div>
       <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Total {filterYear} — {totalAno} notificações</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Total {filterYear} - {totalAno} notificações</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
@@ -2026,10 +2026,10 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
               {byMonth.map((m,i)=>(
                 <tr key={i} onClick={()=>setFilterMonth(filterMonth===i+1?0:i+1)} style={{cursor:'pointer',background:filterMonth===i+1?C.teal+'15':'transparent'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontWeight:600,borderBottom:`1px solid ${C.border}22`}}>{m.mes}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.total||'—'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.sp||'—'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.ccih>0?C.purple:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.ccih||'—'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.adm>0?C.blue:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.adm||'—'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.total||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.sp||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.ccih>0?C.purple:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.ccih||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.adm>0?C.blue:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.adm||'-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -2045,12 +2045,12 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
             <div style={{display:'flex',justifyContent:'space-between',gap:8,marginBottom:3}}>
               <div style={{display:'flex',gap:4,alignItems:'center'}}>
                 <div style={{background:getTag(n).color+'22',color:getTag(n).color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{getTag(n).label}</div>
-                <span style={{fontSize:9,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.rca_gerado?'✓RCA':'—RCA'}</span>
-                <span style={{fontSize:9,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.notivisa_enviado?'✓NTV':'—NTV'}</span>
+                <span style={{fontSize:9,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.rca_gerado?'✓RCA':'-RCA'}</span>
+                <span style={{fontSize:9,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.notivisa_enviado?'✓NTV':'-NTV'}</span>
               </div>
               <div style={{fontSize:9,color:C.muted}}>{n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR')}</div>
             </div>
-            <div style={{fontSize:12,color:C.text,lineHeight:1.5}}>{(n.description||'—').slice(0,100)}</div>
+            <div style={{fontSize:12,color:C.text,lineHeight:1.5}}>{(n.description||'-').slice(0,100)}</div>
             <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:3}}>
               {n.sector&&<span style={{fontSize:10,color:C.muted}}>📍 {n.sector}</span>}
               {n.shift&&<span style={{fontSize:10,color:C.muted}}>⏱ {n.shift}</span>}
@@ -2296,7 +2296,7 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
 const KNOWLEDGE=[
   {id:'cards',icon:'📌',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
-    {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança — essencial para identificar vulnerabilidades.'},
+    {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança - essencial para identificar vulnerabilidades.'},
     {title:'Evento Sentinela',text:'Evento adverso grave que resulta em morte, perda permanente de função ou risco grave. Exige investigação imediata por Análise de Causa Raiz (ACR).'},
     {title:'Cultura Justa',text:'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema. Diferencia erro humano (acolher) de imprudência (responsabilizar).'},
   ]},
@@ -2311,21 +2311,21 @@ const KNOWLEDGE=[
   {id:'como',icon:'📘',title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
     {step:'01',title:'Acesse o NotificaAI',text:'Use o QR Code afixado no setor, leia com a câmera do celular ou acesse pelo computador da intranet.'},
     {step:'02',title:'Identifique-se',text:'Informe se é profissional, paciente ou familiar. O sistema adapta a linguagem ao seu perfil.'},
-    {step:'03',title:'Relate com suas palavras',text:'Descreva o que aconteceu naturalmente. A IA conduz as perguntas — sem formulários.'},
+    {step:'03',title:'Relate com suas palavras',text:'Descreva o que aconteceu naturalmente. A IA conduz as perguntas - sem formulários.'},
     {step:'04',title:'Confirme o resumo',text:'Revise o resumo e toque em "Confirmar e Enviar" se estiver correto.'},
     {step:'05',title:'Pronto!',text:'O NSP recebe notificação automática por e-mail. Você pode notificar quantas vezes precisar.'},
   ]},
-  {id:'ccih',icon:'🦠',title:'CCIH — Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
+  {id:'ccih',icon:'🦠',title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
     {title:'5 Momentos da Higienização (OMS)',text:'1) Antes de tocar o paciente. 2) Antes de procedimento asséptico. 3) Após exposição a fluidos. 4) Após tocar o paciente. 5) Após tocar superfícies próximas.'},
     {title:'Bundle de CVC',text:'Higiene das mãos · Paramentação estéril completa · Antissepsia com clorexidina · Subclávia preferencial · Avaliação diária de necessidade.'},
     {title:'Bundle de PAV',text:'Cabeceira 30-45° · Higiene oral com clorexidina · Despertar diário e avaliação de extubação · Profilaxia de TVP.'},
     {title:'Bundle de ITU por SVD',text:'Indicação criteriosa · Inserção asséptica · Sistema fechado · Avaliação diária · Higiene íntima diária.'},
   ]},
-  {id:'vid_maos',icon:'🎬',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos — OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
+  {id:'vid_maos',icon:'🎬',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
   {id:'vid_quedas',icon:'🎬',title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
-  {id:'pdf_nsp',icon:'📄',title:'Caderno 6 — Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
-  {id:'pdf_riscos',icon:'📄',title:'Caderno 7 — Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
-  {id:'pdf_iras',icon:'📄',title:'Caderno 4 — Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
+  {id:'pdf_nsp',icon:'📄',title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
+  {id:'pdf_riscos',icon:'📄',title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
+  {id:'pdf_iras',icon:'📄',title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
 ];
 
 function CentralView({sbUrl,sbKey,hospital,profileMode}) {

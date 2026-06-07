@@ -108,6 +108,7 @@ async function hashPin(pin) {
 // ─── PERFIS LOCAIS (fallback) ──────────────────────────────────────────────
 const PROFILES = {
   gestor:   {pin:'1234', label:'Gestor',     icon:'📊',color:'#8B5CF6',perfil:'gestor'},
+  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'🛡️',color:'#00C9B8',perfil:'membro_nsp'},
   dsg:      {pin:'1111', label:'DSG',        icon:'🔧',color:'#F59E0B',perfil:'dsg'},
   motorista:{pin:'2222', label:'Motorista',  icon:'🚑',color:'#EF4444',perfil:'motorista'},
   enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'🩺',color:'#1D6FE8',perfil:'enfermeiro'},
@@ -1557,6 +1558,723 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 }
 
 
+// ─── ABA NOTIFICAÇÕES COMPLETA ────────────────────────────────────────────────
+function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [notifications,setNotifications]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [filtroTipo,setFiltroTipo]=useState('todos');
+  const [filtroSetor,setFiltroSetor]=useState('todos');
+  const [filtroRCA,setFiltroRCA]=useState('todos');
+  const [filtroNotivisa,setFiltroNotivisa]=useState('todos');
+  const [filtroPeriodo,setFiltroPeriodo]=useState('');
+  const [pagina,setPagina]=useState(1);
+  const POR_PAGINA=20;
+  const [rcaTarget,setRcaTarget]=useState(null);
+  const [notiVisaTarget,setNotiVisaTarget]=useState(null);
+  const [riscoTarget,setRiscoTarget]=useState(null);
+  const [planoTarget,setPlanoTarget]=useState(null);
+  const [busca,setBusca]=useState('');
+
+  const load=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    try{
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=500');
+      setNotifications(data||[]);
+    }catch{showToast('Erro ao carregar notificações','error');}
+    setLoading(false);
+  };
+  useEffect(()=>{load();},[sbUrl,sbKey]);
+
+  const filtered=notifications.filter(n=>{
+    if(filtroTipo!=='todos'&&n.notification_type!==filtroTipo) return false;
+    if(filtroSetor!=='todos'&&n.sector!==filtroSetor) return false;
+    if(filtroRCA==='sem'&&n.rca_gerado) return false;
+    if(filtroRCA==='com'&&!n.rca_gerado) return false;
+    if(filtroNotivisa==='sem'&&n.notivisa_enviado) return false;
+    if(filtroNotivisa==='com'&&!n.notivisa_enviado) return false;
+    if(filtroPeriodo){
+      const [ano,mes]=filtroPeriodo.split('-');
+      const d=new Date(n.created_at);
+      if(d.getFullYear()!==Number(ano)||d.getMonth()+1!==Number(mes)) return false;
+    }
+    if(busca){
+      const b=busca.toLowerCase();
+      const txt=((n.description||'')+(n.event_subtype||'')+(n.sector||'')+(n.ai_summary||'')).toLowerCase();
+      if(!txt.includes(b)) return false;
+    }
+    return true;
+  });
+
+  const totalPags=Math.ceil(filtered.length/POR_PAGINA);
+  const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
+  const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
+
+  const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.is_test).length;
+  const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&!n.is_test).length;
+  const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&!n.is_test).length;
+
+  const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
+
+  const sel={background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'};
+
+  return(<div style={{padding:'16px 16px 80px'}}>
+    {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);updateNot(rcaTarget.id,{rca_gerado:true});}}/>}
+    {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);updateNot(notiVisaTarget.id,{notivisa_enviado:true});}}/>}
+    {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={n=>updateNot(n.id,{risco_classificacao:n.risco_classificacao,risco_score:n.risco_score})}/>}
+    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setPlanoTarget(null)}/>}
+
+    {/* Header */}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text}}>Notificacoes</div>
+        <div style={{fontSize:11,color:C.muted}}>{filtered.length} resultado(s) de {notifications.length} total</div>
+      </div>
+      <button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
+    </div>
+
+    {/* Cards de resumo */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+      {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
+        <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+          <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+          <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>{l}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Busca */}
+    <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder="Buscar por descricao, tipo, setor..."
+      style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'9px 14px',color:C.text,fontSize:13,outline:'none',marginBottom:10}}/>
+
+    {/* Filtros */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
+      <select value={filtroTipo} onChange={e=>{setFiltroTipo(e.target.value);setPagina(1);}} style={sel}>
+        <option value="todos">Todos os tipos</option>
+        <option value="seguranca_paciente">Seguranca do Paciente</option>
+        <option value="ccih">CCIH / Infeccao</option>
+        <option value="administrativa">Administrativa</option>
+      </select>
+      <select value={filtroSetor} onChange={e=>{setFiltroSetor(e.target.value);setPagina(1);}} style={sel}>
+        <option value="todos">Todos os setores</option>
+        {setores.map(s=><option key={s} value={s}>{s}</option>)}
+      </select>
+      <select value={filtroRCA} onChange={e=>{setFiltroRCA(e.target.value);setPagina(1);}} style={sel}>
+        <option value="todos">RCA: todos</option>
+        <option value="sem">Sem RCA</option>
+        <option value="com">Com RCA</option>
+      </select>
+      <select value={filtroNotivisa} onChange={e=>{setFiltroNotivisa(e.target.value);setPagina(1);}} style={sel}>
+        <option value="todos">Notivisa: todos</option>
+        <option value="sem">Sem Notivisa</option>
+        <option value="com">Com Notivisa</option>
+      </select>
+    </div>
+    <input type="month" value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}}
+      style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:12}}/>
+
+    {/* Lista */}
+    {loading&&<div style={{textAlign:'center',padding:40}}><Dots/></div>}
+    {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificacao encontrada.</div>}
+    {pagAtual.map(n=>{
+      const tag=getTag(n);const title=getTitle(n);
+      const isSentinela=n.gravidade==='Evento sentinela';
+      const isSP=n.notification_type==='seguranca_paciente';
+      const riscoColor={'BAIXO':C.green,'MEDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted;
+      return(<div key={n.id} style={{background:C.card,border:`1px solid ${isSentinela?C.red:C.border}`,borderRadius:14,padding:'12px 14px',marginBottom:10}}>
+        {/* Header do card */}
+        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
+          <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center',flexShrink:0}}>{tag.label}</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.text,textTransform:'capitalize'}}>{title}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+              {n.sector&&<span>{n.sector} · </span>}
+              {n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR')}
+              {n.shift&&<span> · {n.shift}</span>}
+            </div>
+          </div>
+          {isSentinela&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>SENTINELA</div>}
+        </div>
+
+        {/* Descricao */}
+        {n.description&&<div style={{fontSize:12,color:C.muted,marginBottom:8,lineHeight:1.5,borderLeft:`2px solid ${C.border}`,paddingLeft:8}}>{n.description.slice(0,150)}{n.description.length>150?'...':''}</div>}
+
+        {/* NIP / dados paciente */}
+        {n.admission_reason&&<div style={{fontSize:11,color:C.teal,marginBottom:8}}>Paciente: {n.admission_reason}</div>}
+
+        {/* Status badges */}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
+          <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>
+          {n.risco_classificacao&&<span style={{fontSize:10,background:riscoColor+'20',color:riscoColor,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.risco_classificacao}</span>}
+          {n.gravidade&&<span style={{fontSize:10,background:C.surface,color:C.muted,borderRadius:4,padding:'2px 7px'}}>{n.gravidade}</span>}
+        </div>
+
+        {/* Botoes de acao */}
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:`1px solid ${C.blue}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
+          {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:`1px solid ${C.purple}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
+          <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:`1px solid ${C.yellow}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
+          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:`1px solid ${C.orange}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
+        </div>
+      </div>);
+    })}
+
+    {/* Paginacao */}
+    {totalPags>1&&<div style={{display:'flex',justifyContent:'center',gap:8,marginTop:16,flexWrap:'wrap'}}>
+      <button onClick={()=>setPagina(p=>Math.max(1,p-1))} disabled={pagina===1} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 14px',color:pagina===1?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===1?'default':'pointer'}}>Anterior</button>
+      <span style={{padding:'7px 14px',fontSize:12,color:C.muted}}>{pagina}/{totalPags}</span>
+      <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Proxima</button>
+    </div>}
+  </div>);
+}
+
+// ─── MÓDULO TREINAMENTOS E REUNIOES ──────────────────────────────────────────
+const SUBNUCLEOS_HNSA=[
+  {id:'comunicacao',label:'Comunicacao Efetiva',icon:'💬',color:'#1D6FE8'},
+  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'💊',color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificacao Correta',icon:'🪪',color:'#00C9B8'},
+  {id:'queda',label:'Queda',icon:'🛡️',color:'#F59E0B'},
+  {id:'lpp',label:'LPP - Lesao por Pressao',icon:'🩹',color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:'🏥',color:'#10B981'},
+];
+
+function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [registros,setRegistros]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [showForm,setShowForm]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [subnucleoAtivo,setSubnucleoAtivo]=useState('todos');
+  const [form,setForm]=useState({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
+
+  const canEdit=profileMode==='gestor'||profileMode==='membro_nsp';
+
+  const load=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    try{
+      const data=await sbSelect(sbUrl,sbKey,'treinamentos_nsp','select=*&hospital_id=eq.'+h.id+'&order=data.desc');
+      setRegistros(data||[]);
+    }catch{setRegistros([]);}
+    setLoading(false);
+  };
+  useEffect(()=>{load();},[sbUrl,sbKey]);
+
+  const salvar=async()=>{
+    if(!form.data||!form.subnucleo||!form.participantes){showToast('Preencha data, subnucleo e participantes','error');return;}
+    setSaving(true);
+    try{
+      await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{hospital_id:h.id,...form,participantes:Number(form.participantes),created_at:new Date().toISOString()});
+      await load();setShowForm(false);
+      setForm({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
+      showToast('Registro salvo!','success');
+    }catch{showToast('Erro ao salvar. Execute o SQL de criacao da tabela.','error');}
+    setSaving(false);
+  };
+
+  const filtered=subnucleoAtivo==='todos'?registros:registros.filter(r=>r.subnucleo===subnucleoAtivo);
+
+  // Calculo de totais por subnucleo
+  const totaisPorSub={};
+  SUBNUCLEOS_HNSA.forEach(s=>{
+    const recs=registros.filter(r=>r.subnucleo===s.id);
+    totaisPorSub[s.id]={
+      treinamentos:recs.filter(r=>r.tipo==='treinamento').length,
+      reunioes:recs.filter(r=>r.tipo==='reuniao').length,
+      participantes:recs.filter(r=>r.tipo==='treinamento').reduce((acc,r)=>acc+(r.participantes||0),0),
+    };
+  });
+
+  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+
+  return(<div style={{padding:'16px 16px 80px'}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+      <div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text}}>Treinamentos e Reunioes</div>
+        <div style={{fontSize:11,color:C.muted}}>NSP - HNSA - Subnucleos</div>
+      </div>
+      {canEdit&&<button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button>}
+    </div>
+
+    {/* Cards por subnucleo */}
+    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
+      {SUBNUCLEOS_HNSA.map(s=>{
+        const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
+        const ativo=subnucleoAtivo===s.id;
+        return(<button key={s.id} onClick={()=>setSubnucleoAtivo(ativo?'todos':s.id)}
+          style={{background:ativo?s.color+'22':C.card,border:`1px solid ${ativo?s.color:C.border}`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
+          <span style={{fontSize:22}}>{s.icon}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{s.label}</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>{t.treinamentos} treinamento(s) · {t.reunioes} reuniao(oes) · {t.participantes} participantes</div>
+          </div>
+          {(t.treinamentos===0&&t.reunioes===0)&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
+        </button>);
+      })}
+    </div>
+
+    {/* Formulario */}
+    {showForm&&canEdit&&<div style={{background:C.card,border:`1px solid ${C.teal}44`,borderRadius:14,padding:16,marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
+      <div style={{display:'flex',gap:8,marginBottom:10}}>
+        {[['treinamento','Treinamento'],['reuniao','Reuniao']].map(([v,l])=>(
+          <button key={v} onClick={()=>setForm({...form,tipo:v})} style={{flex:1,padding:'8px',borderRadius:8,border:`1px solid ${form.tipo===v?C.teal:C.border}`,background:form.tipo===v?C.teal+'22':C.surface,color:form.tipo===v?C.teal:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{l}</button>
+        ))}
+      </div>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo *</label>
+      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+        {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+      </select>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Protocolo / Tema</label>
+      <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <div>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Data *</label>
+          <input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} style={inp}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>N. de participantes *</label>
+          <input type="number" value={form.participantes} onChange={e=>setForm({...form,participantes:e.target.value})} placeholder="Ex: 45" style={inp}/>
+        </div>
+      </div>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Responsavel</label>
+      <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Nome ou cargo" style={inp}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descricao / Pauta</label>
+      <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
+      <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
+      <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'8px 12px',marginBottom:10,fontSize:10,color:C.muted}}>
+        Execute no Supabase SQL Editor: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS treinamentos_nsp (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, tipo TEXT, subnucleo TEXT, protocolo TEXT, data DATE, participantes INT, descricao TEXT, responsavel TEXT, link_gdrive TEXT); ALTER TABLE treinamentos_nsp ENABLE ROW LEVEL SECURITY; CREATE POLICY "allow_all_treinamentos" ON treinamentos_nsp FOR ALL USING (true) WITH CHECK (true);</span>
+      </div>
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Salvar registro'}</button>
+      </div>
+    </div>}
+
+    {/* Lista de registros */}
+    {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
+    {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
+    {filtered.map(r=>{
+      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'📋',color:C.muted,label:r.subnucleo};
+      return(<div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
+          <span style={{fontSize:18}}>{sub.icon}</span>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text}}>{r.protocolo||sub.label}</div>
+              <div style={{background:r.tipo==='treinamento'?C.blue+'22':C.green+'22',color:r.tipo==='treinamento'?C.blue:C.green,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>{r.tipo==='treinamento'?'Treinamento':'Reuniao'}</div>
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+              {r.data&&new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR')}
+              {r.participantes&&<span> · {r.participantes} participante(s)</span>}
+              {r.responsavel&&<span> · {r.responsavel}</span>}
+            </div>
+          </div>
+        </div>
+        {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:`2px solid ${sub.color}44`,paddingLeft:8}}>{r.descricao}</div>}
+        {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:600}}>Abrir documento</a>}
+      </div>);
+    })}
+  </div>);
+}
+
+// ─── RELATÓRIO DSM + AVALIAÇÃO ANVISA ────────────────────────────────────────
+function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [tab,setTab]=useState('dsm');
+  const [semestre,setSemestre]=useState(()=>{const d=new Date();return d.getMonth()<6?`${d.getFullYear()}-1`:`${d.getFullYear()}-2`;});
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [gestor,setGestor]=useState('');
+
+  const getSemestreDatas=()=>{
+    const [ano,sem]=semestre.split('-').map(Number);
+    if(sem===1) return{inicio:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1 semestre de ${ano}`,meses:['Jan','Fev','Mar','Abr','Mai','Jun'],nums:[1,2,3,4,5,6]};
+    return{inicio:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2 semestre de ${ano}`,meses:['Jul','Ago','Set','Out','Nov','Dez'],nums:[7,8,9,10,11,12]};
+  };
+
+  const gerar=async()=>{
+    if(!sbUrl||!sbKey){showToast('Supabase necessario','error');return;}
+    setLoading(true);
+    try{
+      const {inicio,fim,nums}=getSemestreDatas();
+      const [nots,treinamentos,protocolos]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&select=*`),
+        sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+      ]);
+
+      // Notificacoes por mes
+      const porMes=nums.map(m=>{
+        const mes=nots.filter(n=>{const d=new Date(n.event_date+'T12:00:00');return d.getMonth()+1===m;});
+        return{m,total:mes.length,sp:mes.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:mes.filter(n=>n.notification_type==='ccih').length,quedas:mes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')).length,lpp:mes.filter(n=>n.event_subtype?.toLowerCase().includes('press')).length};
+      });
+
+      // Reunioes NSP
+      const reunioes=treinamentos.filter(t=>t.tipo==='reuniao');
+      const treinsTodos=treinamentos.filter(t=>t.tipo==='treinamento');
+
+      // Treinamentos por subnucleo
+      const porSubnucleo={};
+      SUBNUCLEOS_HNSA.forEach(s=>{
+        const regs=treinamentos.filter(t=>t.subnucleo===s.id);
+        const treins=regs.filter(t=>t.tipo==='treinamento');
+        porSubnucleo[s.id]={label:s.label,icon:s.icon,color:s.color,
+          treinamentos:treins.length,
+          reunioes:regs.filter(t=>t.tipo==='reuniao').length,
+          participantes:treins.reduce((acc,t)=>acc+(t.participantes||0),0),
+          porMes:nums.map(m=>treins.filter(t=>new Date(t.data+'T12:00:00').getMonth()+1===m).reduce((acc,t)=>acc+(t.participantes||0),0)),
+          links:regs.filter(t=>t.link_gdrive).map(t=>({data:t.data,link:t.link_gdrive,desc:t.protocolo||t.descricao})),
+        };
+      });
+
+      // Protocolos
+      const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
+
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
+    }catch(e){showToast('Erro: '+e.message,'error');}
+    setLoading(false);
+  };
+
+  const imprimir=()=>{
+    const el=document.getElementById('relatorio-dsm-pdf');
+    if(!el) return;
+    const w=window.open('','_blank');
+    w.document.write(`<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:11px}h1{font-size:16px;color:#003087}h2{font-size:13px;border-bottom:2px solid #003087;padding-bottom:3px;margin:16px 0 8px;color:#003087}h3{font-size:11px;font-weight:700;margin:12px 0 4px}table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10px}th,td{border:1px solid #ccc;padding:4px 7px;text-align:left}th{background:#e8eef7;font-weight:700}.ok{color:#059669;font-weight:700}.alerta{color:#dc2626;font-weight:700}.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700}@media print{button{display:none}}</style></head><body>${el.innerHTML}<br/><small style="color:#999">Gerado por NotificaAI em ${new Date().toLocaleString('pt-BR')}</small></body></html>`);
+    w.document.close();w.print();
+  };
+
+  const {label,meses,nums}=getSemestreDatas();
+  const tb=(id,l)=><button onClick={()=>setTab(id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:tab===id?C.teal:'transparent',color:tab===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>;
+
+  return(<div style={{padding:'16px 16px 80px'}}>
+    <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Relatorio DSM / ANVISA</div>
+    <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Circular 18/2024 - Indicadores de Monitoramento NSP</div>
+
+    <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
+      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('config','Configurar')}
+    </div>
+
+    {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Parametros do relatorio</div>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Semestre de referencia</label>
+        <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,appearance:'none'}}>
+          {[2024,2025,2026].flatMap(a=>[`${a}-1`,`${a}-2`]).map(s=>{const[a,sem]=s.split('-');return(<option key={s} value={s}>{sem}o semestre de {a}</option>);})}
+        </select>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
+        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+        <button onClick={gerar} disabled={loading} style={{width:'100%',background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
+          {loading?'Gerando...':'Gerar Relatorio'}
+        </button>
+      </div>
+      <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:12,padding:'12px 14px',fontSize:11,color:C.muted,lineHeight:1.7}}>
+        Para o relatorio completo, certifique-se de que os modulos de Treinamentos, Protocolos e Indicadores estao preenchidos com os dados do semestre.
+      </div>
+    </div>}
+
+    {(tab==='dsm'||tab==='anvisa')&&!dados&&<div style={{textAlign:'center',padding:40,color:C.muted}}>
+      <div style={{fontSize:32,marginBottom:12}}>📄</div>
+      <div style={{fontSize:13,marginBottom:16}}>Configure o semestre e gere o relatorio</div>
+      <button onClick={()=>setTab('config')} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 20px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Configurar</button>
+    </div>}
+
+    {tab==='dsm'&&dados&&<div>
+      <div style={{display:'flex',gap:8,marginBottom:14}}>
+        <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
+        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
+      </div>
+
+      <div id="relatorio-dsm-pdf" style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',fontSize:11}}>
+        {/* Cabecalho */}
+        <div style={{background:'#003087',color:'white',padding:'16px 20px'}}>
+          <div style={{fontSize:10,opacity:.8}}>MARINHA DO BRASIL - DIRETORIA DE SAUDE DA MARINHA</div>
+          <div style={{fontSize:16,fontWeight:700,marginTop:4}}>HOSPITAL NAVAL DE SALVADOR</div>
+          <div style={{fontSize:13,marginTop:2}}>Indicadores de Monitoramento - Nucleo de Seguranca do Paciente</div>
+          <div style={{fontSize:11,opacity:.8,marginTop:4}}>{label} | Gerado em {new Date().toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div style={{padding:'16px 20px'}}>
+          {/* 1. Notificacoes no periodo */}
+          <h2>1. Notificacoes no Periodo</h2>
+          <table>
+            <thead><tr><th>Mes</th><th>Total</th><th>Seg. Paciente</th><th>CCIH</th><th>Quedas</th><th>LPP</th></tr></thead>
+            <tbody>
+              {dados.porMes.map((m,i)=>(
+                <tr key={i}><td>{meses[i]}</td><td style={{textAlign:'center',fontWeight:700}}>{m.total||'-'}</td><td style={{textAlign:'center'}}>{m.sp||'-'}</td><td style={{textAlign:'center'}}>{m.ccih||'-'}</td><td style={{textAlign:'center'}}>{m.quedas||'-'}</td><td style={{textAlign:'center'}}>{m.lpp||'-'}</td></tr>
+              ))}
+              <tr style={{background:'#f5f5f5',fontWeight:700}}>
+                <td>TOTAL</td>
+                <td style={{textAlign:'center'}}>{dados.total}</td>
+                <td style={{textAlign:'center'}}>{dados.sp}</td>
+                <td style={{textAlign:'center'}}>{dados.ccih}</td>
+                <td style={{textAlign:'center'}}>{dados.porMes.reduce((a,m)=>a+m.quedas,0)}</td>
+                <td style={{textAlign:'center'}}>{dados.porMes.reduce((a,m)=>a+m.lpp,0)}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          {/* 2. Reunioes NSP */}
+          <h2>2. Reunioes do NSP</h2>
+          <div style={{marginBottom:8,fontSize:11}}>
+            <strong>Total de reunioes no semestre: {dados.reunioes.length}</strong>
+            {dados.reunioes.length>=2?<span style={{color:'#059669',fontWeight:700}}> (Conforme - minimo 2 por semestre)</span>:<span style={{color:'#dc2626',fontWeight:700}}> (Abaixo do minimo - requer 2 por semestre)</span>}
+          </div>
+          <table>
+            <thead><tr><th>Data</th><th>Tipo</th><th>Pauta / Descricao</th><th>Participantes</th><th>Comprovante</th></tr></thead>
+            <tbody>
+              {dados.reunioes.length>0?dados.reunioes.map((r,i)=>(
+                <tr key={i}>
+                  <td>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</td>
+                  <td>{SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)?.label||r.subnucleo||'-'}</td>
+                  <td>{r.descricao||r.protocolo||'-'}</td>
+                  <td style={{textAlign:'center'}}>{r.participantes||'-'}</td>
+                  <td>{r.link_gdrive?<a href={r.link_gdrive} style={{color:'#003087'}}>Ver ata</a>:'Pendente'}</td>
+                </tr>
+              )):<tr><td colSpan={5} style={{textAlign:'center',color:'#999'}}>Nenhuma reuniao registrada no periodo</td></tr>}
+            </tbody>
+          </table>
+
+          {/* 3. Treinamentos por subnucleo */}
+          <h2>3. Treinamentos por Subnucleo e Protocolo</h2>
+          {SUBNUCLEOS_HNSA.map(s=>{
+            const sub=dados.porSubnucleo[s.id];
+            return(<div key={s.id} style={{marginBottom:16}}>
+              <h3>{s.icon} {s.label}</h3>
+              <div style={{marginBottom:4,fontSize:11}}>
+                {sub.treinamentos} treinamento(s) | {sub.participantes} participantes no semestre
+                {sub.porMes.some(v=>v>0)&&<span> | Por mes: {meses.map((m,i)=>sub.porMes[i]>0?`${m}: ${sub.porMes[i]}`:null).filter(Boolean).join(', ')}</span>}
+              </div>
+              {sub.links.length>0&&<div style={{fontSize:10,color:'#666'}}>Comprovantes: {sub.links.map((l,i)=><span key={i}><a href={l.link} style={{color:'#003087'}}>{l.desc||new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR')}</a>{i<sub.links.length-1?', ':''}</span>)}</div>}
+              {sub.treinamentos===0&&<div style={{color:'#dc2626',fontSize:10,fontWeight:700}}>Sem treinamentos registrados no periodo</div>}
+            </div>);
+          })}
+
+          {/* 4. Eventos sentinela */}
+          <h2>4. Eventos Sentinela e Near Miss</h2>
+          <table>
+            <thead><tr><th>Indicador</th><th>Quantidade</th><th>Observacao</th></tr></thead>
+            <tbody>
+              <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
+              <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
+              <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
+              <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
+            </tbody>
+          </table>
+
+          {/* 5. Protocolos */}
+          <h2>5. Status dos Protocolos</h2>
+          <table>
+            <thead><tr><th>Protocolo</th><th>Data aprovacao</th><th>Proxima revisao</th><th>Status</th></tr></thead>
+            <tbody>
+              {dados.protocolos.length>0?dados.protocolos.map((p,i)=>{
+                const vencido=p.proxima_revisao&&p.proxima_revisao<new Date().toISOString().slice(0,10);
+                return(<tr key={i}>
+                  <td>{p.nome}</td>
+                  <td>{p.aprovado_em?new Date(p.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</td>
+                  <td style={{color:vencido?'#dc2626':'#059669'}}>{p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</td>
+                  <td style={{color:vencido?'#dc2626':'#059669',fontWeight:700}}>{vencido?'VENCIDO':'Valido'}</td>
+                </tr>);
+              }):<tr><td colSpan={4} style={{textAlign:'center',color:'#999'}}>Nenhum protocolo cadastrado. Use o modulo Protocolos.</td></tr>}
+            </tbody>
+          </table>
+
+          {/* Assinatura */}
+          <div style={{marginTop:32,display:'flex',gap:60}}>
+            <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
+              <div style={{fontSize:11,color:'#666'}}>{gestor||'Coordenador NSP'}</div>
+              <div style={{fontSize:10,color:'#999'}}>Nucleo de Seguranca do Paciente - HNSA</div>
+            </div>
+            <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
+              <div style={{fontSize:11,color:'#666'}}>Diretor-Geral HNSA</div>
+              <div style={{fontSize:10,color:'#999'}}>Hospital Naval de Salvador</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>}
+
+    {tab==='anvisa'&&dados&&<div>
+      <div style={{display:'flex',gap:8,marginBottom:14}}>
+        <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
+        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
+      </div>
+
+      {/* Score ANVISA */}
+      {(()=>{
+        const checks={
+          nsp_instituido:true,
+          reunioes_ok:dados.reunioes.length>=2,
+          protocolos_ok:dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length>=4,
+          treinamentos_ok:SUBNUCLEOS_HNSA.every(s=>dados.porSubnucleo[s.id].treinamentos>0),
+          notivisa_ok:dados.nots.filter(n=>n.notivisa_enviado).length>0,
+          indicadores_ok:dados.total>0,
+        };
+        const score=Object.values(checks).filter(Boolean).length;
+        const pct=Math.round(score/Object.keys(checks).length*100);
+        const nivel=pct>=67?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=34?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
+
+        return(<div>
+          <div style={{background:nivel.color+'18',border:`1px solid ${nivel.color}44`,borderRadius:14,padding:16,marginBottom:14,textAlign:'center'}}>
+            <div style={{fontSize:28,fontWeight:900,color:nivel.color,lineHeight:1}}>{pct}%</div>
+            <div style={{fontSize:14,fontWeight:800,color:nivel.color,marginTop:4}}>{nivel.label}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:4}}>{score} de {Object.keys(checks).length} indicadores conformes</div>
+          </div>
+
+          <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {[
+              ['NSP instituido com portaria',checks.nsp_instituido,'Portaria vigente no sistema'],
+              ['Minimo 2 reunioes no semestre',checks.reunioes_ok,`${dados.reunioes.length} reunioes registradas`],
+              ['Protocolos atualizados (4+)',checks.protocolos_ok,`${dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length} protocolos validos`],
+              ['Treinamento em todos os subnucleos',checks.treinamentos_ok,SUBNUCLEOS_HNSA.filter(s=>dados.porSubnucleo[s.id].treinamentos===0).map(s=>s.label).join(', ')||'Todos realizaram'],
+              ['Notificacoes enviadas ao Notivisa',checks.notivisa_ok,`${dados.nots.filter(n=>n.notivisa_enviado).length} notificacoes enviadas`],
+              ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
+            ].map(([l,ok,obs],i)=>(
+              <div key={i} style={{background:C.card,border:`1px solid ${ok?C.green:C.red}44`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+                <div style={{fontSize:18,flexShrink:0}}>{ok?'✅':'❌'}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l}</div>
+                  <div style={{fontSize:11,color:ok?C.green:C.red,marginTop:2}}>{obs}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {!checks.reunioes_ok&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:10,padding:'10px 14px',marginTop:12,fontSize:11,color:C.red,fontWeight:700}}>
+            ATENCAO: Reunioes insuficientes. O indicador 1 (NSP com 2 reunioes) e requisito minimo - sem ele o HNSA e classificado automaticamente como BAIXA CONFORMIDADE.
+          </div>}
+          {!checks.notivisa_ok&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:10,padding:'10px 14px',marginTop:8,fontSize:11,color:C.red,fontWeight:700}}>
+            ATENCAO: Nenhuma notificacao enviada ao Notivisa. O indicador 18 tambem e requisito minimo. Em 2023 o HNSA notificou apenas em fevereiro e marco, resultando em baixa conformidade.
+          </div>}
+        </div>);
+      })()}
+    </div>}
+  </div>);
+}
+
+// ─── PERFIL MEMBRO NSP ────────────────────────────────────────────────────────
+function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [stats,setStats]=useState(null);
+  const [notifications,setNotifications]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [filtroSub,setFiltroSub]=useState('todos');
+
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    Promise.all([
+      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=200'),
+      sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
+    ]).then(([nots,treins])=>{
+      setNotifications(nots||[]);
+      setStats({...computeStats(nots||[]),treins:treins||[]});
+    }).catch(()=>showToast('Erro ao carregar','error')).finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+
+  if(loading) return(<div style={{display:'flex',justifyContent:'center',padding:60}}><Dots/></div>);
+
+  const s=stats||{total:0,sp:0,ccih:0,adm:0,sentinela:0,culturaScore:0,sectorData:[],diasSemSentinela:null,treins:[]};
+
+  // Meu subnucleo (simplificado - gestor pode configurar depois)
+  const subNomes={comunicacao:'Comunicacao Efetiva',medicamentos:'Medicamentos',identificacao:'Identificacao Correta',queda:'Queda',lpp:'LPP',cirurgia:'Cirurgia Segura'};
+
+  return(<div style={{padding:'20px 16px 80px'}}>
+    <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Painel Membro NSP</div>
+    <div style={{fontSize:11,color:C.muted,marginBottom:16}}>Visualizacao - HNSA</div>
+
+    {/* Metricas principais */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+      <StatCard icon="🔔" label="Total notificacoes" value={s.total} color={C.teal}/>
+      <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
+      <StatCard icon="🦠" label="CCIH" value={s.ccih} color={C.yellow}/>
+      <StatCard icon="⚙️" label="Administrativas" value={s.adm} color={C.purple}/>
+    </div>
+
+    {/* Dias sem sentinela */}
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:`1px solid ${s.diasSemSentinela>=30?C.green:C.yellow}44`,borderRadius:12,padding:'14px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
+    </div>}
+
+    {/* Indice de maturidade */}
+    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Indice de Maturidade</div>
+        <div style={{fontSize:22,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
+      </div>
+      <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}>
+        <div style={{width:`${s.culturaScore}%`,height:'100%',background:`linear-gradient(90deg,${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red},${C.teal})`,borderRadius:3}}/>
+      </div>
+      <div style={{fontSize:11,color:C.muted,marginTop:6}}>{s.culturaScore>=70?'Maturidade avancada':s.culturaScore>=40?'Em desenvolvimento':'Estagio inicial'}</div>
+    </div>
+
+    {/* Distribuicao por setor */}
+    {s.sectorData.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Notificacoes por Setor</div>
+      {s.sectorData.map((d,i)=>{
+        const max=s.sectorData[0].eventos||1;
+        return(<div key={i} style={{marginBottom:8}}>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
+            <span style={{color:C.text}}>{d.setor}</span>
+            <span style={{color:C.teal,fontWeight:700}}>{d.eventos}</span>
+          </div>
+          <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
+            <div style={{width:`${(d.eventos/max)*100}%`,height:'100%',background:C.teal,borderRadius:2}}/>
+          </div>
+        </div>);
+      })}
+    </div>}
+
+    {/* Subnucleo - treinamentos */}
+    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Atividades dos Subnucleos</div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+      <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:C.card,color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
+      {SUBNUCLEOS_HNSA.map(sub=>(
+        <button key={sub.id} onClick={()=>setFiltroSub(sub.id)} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub===sub.id?sub.color:C.card,color:filtroSub===sub.id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{sub.icon}</button>
+      ))}
+    </div>
+    {SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
+      const regs=s.treins.filter(t=>t.subnucleo===sub.id);
+      const treins=regs.filter(t=>t.tipo==='treinamento');
+      const reunioes=regs.filter(t=>t.tipo==='reuniao');
+      return(<div key={sub.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:regs.length>0?8:0}}>
+          <span style={{fontSize:20}}>{sub.icon}</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{sub.label}</div>
+            <div style={{fontSize:10,color:C.muted}}>{treins.length} treinamento(s) | {reunioes.length} reuniao(oes) | {treins.reduce((a,t)=>a+(t.participantes||0),0)} participantes</div>
+          </div>
+          {regs.length===0&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
+        </div>
+        {regs.slice(0,2).map((r,i)=>(
+          <div key={i} style={{borderLeft:`2px solid ${sub.color}44`,paddingLeft:8,marginBottom:4}}>
+            <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||'-'}</div>
+            <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes</div>
+          </div>
+        ))}
+      </div>);
+    })}
+
+    {/* Lista de notificacoes (somente leitura) */}
+    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10,marginTop:6}}>Notificacoes Recentes</div>
+    {notifications.slice(0,10).map((n,i)=>{
+      const tag=getTag(n);
+      return(<div key={n.id||i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
+        <div style={{display:'flex',alignItems:'center',gap:8}}>
+          <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{tag.label}</div>
+          <div style={{flex:1,fontSize:12,color:C.text,fontWeight:600}}>{getTitle(n)}</div>
+          <div style={{fontSize:10,color:C.muted}}>{n.sector}</div>
+        </div>
+        <div style={{fontSize:10,color:C.muted,marginTop:3}}>{n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):formatTime(n.created_at)}</div>
+      </div>);
+    })}
+  </div>);
+}
+
+
 // ─── HOME VIEW ──────────────────────────────────────────────────────────────
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital}) {
   const [stats,setStats]=useState(null);
@@ -2954,8 +3672,9 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'chamados',label:'Chamados',icon:IconTool},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconBook},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
-  const tabs=gestorMode?gestorTabs:pubTabs;
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconBook},{id:'relatorio_dsm',label:'DSM/ANVISA',icon:IconShield},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'central',label:'Central',icon:IconBook}];
+  const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
     {splash&&<Splash leaving={splashLeaving}/>}
@@ -2970,7 +3689,7 @@ function NotificaAI() {
     <div style={{background:C.bg,minHeight:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
-        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
+        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -2983,6 +3702,10 @@ function NotificaAI() {
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
+        {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
       </div>
 
       {/* NAV */}

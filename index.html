@@ -449,7 +449,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>
         <button onClick={onClose} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'⏳ Verificando…':'Entrar'}</button>
+        <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'⏳ Verificando...':'Entrar'}</button>
       </div>
     </div>
   </div>);
@@ -541,11 +541,11 @@ function PinManager({sbUrl,sbKey,showToast}) {
         </select>
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-          <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando…':'✓ Salvar'}</button>
+          <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'✓ Salvar'}</button>
         </div>
       </div>
     )}
-    {loading&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Carregando…</div>}
+    {loading&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Carregando...</div>}
     {!loading&&users.length===0&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Nenhum usuário. Clique em "+ Novo".</div>}
     {users.map(u=>(
       <div key={u.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
@@ -561,7 +561,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
         <div style={{display:'flex',gap:4}}>
           <button onClick={()=>openForm(u)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>✎</button>
           <button onClick={()=>sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${u.id}`,{ativo:!u.ativo}).then(load)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:u.ativo!==false?C.yellow:C.green,fontSize:11,cursor:'pointer'}}>{u.ativo!==false?'Off':'On'}</button>
-          <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'…':'🗑'}</button>
+          <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'...':'🗑'}</button>
         </div>
       </div>
     ))}
@@ -743,7 +743,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
       {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:`linear-gradient(135deg,${C.teal},${C.blue})`,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Gerar RCA com IA</button>}
-      {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente…</div></div>}
+      {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
           {tb('porques','5 Porquês')}{tb('ishikawa','Ishikawa')}{tb('fatores','Fatores')}{tb('plano','Plano')}
@@ -780,7 +780,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
             </div>
           ))}
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
-            {saving?'Salvando…':'✓ Finalizar e salvar RCA'}
+            {saving?'Salvando...':'✓ Finalizar e salvar RCA'}
           </button>
         </div>)}
       </div>)}
@@ -914,7 +914,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <div style={{display:'flex',gap:8}}>
           <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>🌐 Abrir Notivisa</a>
           <button onClick={marcarEnviado} disabled={marking} style={{flex:2,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
-            {marking?'Salvando…':'✓ Marcar como enviado'}
+            {marking?'Salvando...':'✓ Marcar como enviado'}
           </button>
         </div>
       </div>)}
@@ -1010,7 +1010,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
       </div>
 
       <button onClick={salvar} disabled={saving||!prob||!sev} style={{width:'100%',background:prob&&sev?C.teal:C.border,border:'none',borderRadius:12,padding:'13px',color:prob&&sev?'#06101F':C.muted,fontWeight:800,fontSize:13,cursor:prob&&sev?'pointer':'default'}}>
-        {saving?'Salvando…':'✓ Salvar classificação de risco'}
+        {saving?'Salvando...':'✓ Salvar classificação de risco'}
       </button>
     </div>
   </div>);
@@ -1090,7 +1090,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       </div>}
 
       {/* Lista de ações */}
-      {loading&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Carregando…</div>}
+      {loading&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Carregando...</div>}
       {!loading&&acoes.length===0&&!showForm&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma ação cadastrada ainda.</div>}
       {acoes.map(a=>{
         const st=STATUS[a.status]||STATUS.pendente;
@@ -1139,7 +1139,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-          <button onClick={addAcao} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando…':'+ Adicionar ação'}</button>
+          <button onClick={addAcao} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'+ Adicionar ação'}</button>
         </div>
       </div>)}
 
@@ -1223,7 +1223,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       </div>
       <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:12}}>O <strong style={{color:C.text}}>total paciente-dia</strong> é o somatório dos dias de internação de todos os pacientes no mês. Obtido no censo hospitalar ou SAME.</div>
       <button onClick={calcular} disabled={loading||!pacientesDia} style={{width:'100%',background:loading||!pacientesDia?C.border:C.teal,border:'none',borderRadius:10,padding:'12px',color:loading||!pacientesDia?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading||!pacientesDia?'default':'pointer'}}>
-        {loading?'⏳ Calculando…':'📊 Calcular Indicadores'}
+        {loading?'⏳ Calculando...':'📊 Calcular Indicadores'}
       </button>
     </div>
 
@@ -1371,13 +1371,13 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
       <input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
       <div style={{display:'flex',gap:8,marginTop:4}}>
         <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando…':'✓ Cadastrar'}</button>
+        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'✓ Cadastrar'}</button>
       </div>
       <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6}}>⚠ Execute no Supabase: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS protocolos (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, nome TEXT, numero TEXT, categoria TEXT, responsavel TEXT, aprovado_em DATE, validade_anos INT DEFAULT 3, proxima_revisao DATE, link TEXT, status TEXT DEFAULT 'ativo');</span></div>
     </div>}
 
     {/* Lista */}
-    {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}>Carregando…</div>}
+    {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}>Carregando...</div>}
     {!loading&&protocolos.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum protocolo cadastrado ainda.</div>}
     {protocolos.map(p=>{
       const st=getStatus(p);const stColor=STATUS_COLOR[st]||C.muted;
@@ -1456,7 +1456,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?'⏳ Gerando…':'📄 Gerar Relatório'}
+          {loading?'⏳ Gerando...':'📄 Gerar Relatório'}
         </button>
       </div>)}
 
@@ -1608,7 +1608,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
     {configured&&<div style={{background:C.green+'18',border:`1px solid ${C.green}44`,borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
-      <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando…':'Dados reais'}</div>
+      <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
     </div>}
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span>🧪</span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
@@ -1616,10 +1616,10 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-      <StatCard icon="🔔" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'…':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'…':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon="🦠" label="CCIH / Infecção" value={loading?'…':(s.ccih||0)} sub="notificações" color={C.yellow}/>
-      <StatCard icon="⚙️" label="Administrativas" value={loading?'…':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
+      <StatCard icon="🔔" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
+      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
+      <StatCard icon="🦠" label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
+      <StatCard icon="⚙️" label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
     </div>
 
     {/* Indicadores NSP */}
@@ -1797,7 +1797,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
       ))}
       {(loading||saving)&&<div style={{display:'flex'}}>{saving?<div style={{padding:'11px 14px',background:C.card,border:`1px solid ${C.border}`,borderRadius:'16px 16px 16px 4px',fontSize:12,color:C.green}}>⏳ Salvando notificação...</div>:<Dots/>}</div>}
       {showConfirm&&!loading&&(<div style={{display:'flex',gap:8,marginTop:4}}>
-        <button onClick={handleConfirm} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{saving?'⏳ Salvando…':'✅ Confirmar e Enviar'}</button>
+        <button onClick={handleConfirm} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{saving?'⏳ Salvando...':'✅ Confirmar e Enviar'}</button>
         <button onClick={()=>send('Quero corrigir antes de enviar.')} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'13px',color:C.muted,fontWeight:600,fontSize:12,cursor:'pointer'}}>✏️ Corrigir</button>
       </div>)}
       <div ref={endRef}/>
@@ -1807,7 +1807,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
         {quickReplies.map((r,i)=><button key={i} onClick={()=>send(r)} style={{background:C.card,border:`1px solid ${C.teal}55`,borderRadius:20,padding:'7px 14px',color:C.teal,fontSize:13,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>{r}</button>)}
       </div>}
       <div style={{padding:'8px 14px 12px',display:'flex',gap:10}}>
-        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder={quickReplies.length>0?'Ou escreva…':'Escreva aqui…'} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
+        <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()} placeholder={quickReplies.length>0?'Ou escreva...':'Escreva aqui...'} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
         <button onClick={()=>send()} disabled={loading||!input.trim()} style={{width:44,height:44,borderRadius:'50%',border:'none',background:input.trim()?C.teal:C.border,cursor:input.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
           <IconSend size={17} color={input.trim()?'#06101F':C.muted}/>
         </button>
@@ -1870,7 +1870,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10}}>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
-      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'● Dados reais':sbUrl?'● Carregando…':'● Dados de exemplo'}</div>
+      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'● Dados reais':sbUrl?'● Carregando...':'● Dados de exemplo'}</div>
     </div>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
       {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('cultura','Maturidade')}{tb('ia','IA')}{tb('relatorio','Relatório')}
@@ -1995,7 +1995,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?'⏳ Gerando análise…':'✨ Gerar Interpretação do Mês'}
+          {loadingNarr?'⏳ Gerando análise...':'✨ Gerar Interpretação do Mês'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
@@ -2153,7 +2153,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
       ))}
     </div>
     <button onClick={submit} disabled={saving||!form.description.trim()} style={{width:'100%',background:tt?.color||C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',opacity:saving?0.7:1}}>
-      {saving?'⏳ Enviando…':`${tt?.icon} Abrir para ${tt?.dest}`}
+      {saving?'⏳ Enviando...':`${tt?.icon} Abrir para ${tt?.dest}`}
     </button>
   </div>);
 }
@@ -2208,7 +2208,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
     const st=ticket.status;
     const isComm=commenting===ticket.id;
     if(isComm) return(<div style={{marginTop:8}}>
-      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comentário ou observação…" style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'10px',color:C.text,fontSize:12,outline:'none',resize:'none',height:70,fontFamily:'inherit',marginBottom:8}}/>
+      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comentário ou observação..." style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'10px',color:C.text,fontSize:12,outline:'none',resize:'none',height:70,fontFamily:'inherit',marginBottom:8}}/>
       <div style={{display:'flex',gap:6}}>
         <button onClick={()=>{setCommenting(null);setCommentText('');}} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={()=>updateStatus(ticket,st,commentText)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'8px',color:'#06101F',fontSize:11,fontWeight:800,cursor:'pointer'}}>💬 Salvar</button>
@@ -2243,7 +2243,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
       ))}
       <button onClick={load} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:`1px solid ${C.border}`,background:'transparent',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>↻</button>
     </div>
-    {loading&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Carregando…</div>}
+    {loading&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Carregando...</div>}
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Nenhum chamado{filter!=='todos'?' com este filtro':''}.</div>}
     {filtered.map(ticket=>{
       const tt=TICKET_TYPES.find(t=>t.id===ticket.ticket_type)||TICKET_TYPES[5];
@@ -2459,7 +2459,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       {testCount>0&&<button onClick={clearTests} style={{width:'100%',background:confirmClear?C.red:C.red+'22',border:`1px solid ${C.red}55`,borderRadius:10,padding:'10px',color:confirmClear?'#fff':C.red,fontWeight:700,fontSize:12,cursor:'pointer',marginBottom:12}}>
         {confirmClear?`⚠️ CLIQUE NOVAMENTE para excluir ${testCount} testes`:`🗑️ Limpar ${testCount} notificações de teste`}
       </button>}
-      {loading&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Carregando…</div>}
+      {loading&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Carregando...</div>}
       {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificação</div>}
       {filtered.slice(0,20).map(n=>{const tag=getTag(n);const title=getTitle(n);return(
         <div key={n.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>

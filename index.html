@@ -1,7 +1,8 @@
+<script type="text/babel">
 // --- APP COMPONENTE PRINCIPAL ----------------------------------------------
 function App() {
-  const [step, setStep] = useState(2);
-  const [hospital, setHospital] = useState(DEFAULT_HOSPITAL);
+  const [step, setStep] = React.useState(2);
+  const [hospital, setHospital] = React.useState(DEFAULT_HOSPITAL);
 
   const processFile = (file) => {
     if (!window.Papa) return;
@@ -93,7 +94,8 @@ function App() {
   );
 }
 
-// --- RENDERIZADOR ----------------------------------------------------------
+// --- RENDERIZADOR CORRIGIDO ------------------------------------------------
 const container = document.getElementById('root');
 const root = ReactDOM.createRoot(container);
 root.render(<App />);
+</script>

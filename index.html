@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- NotificaAI v20260608-042621 -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -639,7 +640,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
           <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Importações anteriores</div>
           {JSON.parse(localStorage.getItem('nai_imports')||'[]').slice(0,3).map((h,i)=>(
             <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 12px',marginBottom:4,display:'flex',justifyContent:'space-between',fontSize:12}}>
-              <span style={{color:C.text}}>{h.data}{h.periodo?` · ${h.periodo}`:''}</span>
+              <span style={{color:C.text}}>{h.data}{h.periodo?' · '+h.periodo:''}</span>
               <span style={{color:C.teal,fontWeight:700}}>{h.registros} registros</span>
             </div>
           ))}
@@ -659,7 +660,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
       ))}
       <div style={{display:'flex',gap:8,marginTop:12}}>
-        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Voltar</button>
+        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
         <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar →</button>
       </div>
     </div>)}
@@ -681,7 +682,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
           {regs.length>8&&<div style={{padding:'7px 12px',fontSize:11,color:C.muted}}>+{regs.length-8} registros...</div>}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Voltar</button>
+          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
           <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>⬆ Importar {regs.length} registros</button>
         </div>
       </div>);
@@ -689,7 +690,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     {step===4&&(<div style={{textAlign:'center',padding:'32px 16px'}}>
       <div style={{fontSize:48,marginBottom:12}}>✅</div>
       <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:6}}>Importação concluída!</div>
-      <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados} registros importados{periodo?` - ${periodo}`:''}</div>
+      <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados+' registros importados'+(periodo?' - '+periodo:'')}</div>
       <div style={{display:'flex',gap:8,justifyContent:'center'}}>
         <button onClick={()=>{setCsvData([]);setCols([]);setPeriodo('');setStep(1);}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 18px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar outro</button>
         <button onClick={onDone} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontSize:13,fontWeight:800,cursor:'pointer'}}>Ver dashboard →</button>
@@ -1098,7 +1099,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         const st=STATUS[a.status]||STATUS.pendente;
         const pr=PRIO[a.prioridade]||PRIO.media;
         const vencida=a.status!=='concluido'&&a.status!=='cancelado'&&new Date(a.prazo)<new Date();
-        return(<div key={a.id} style={{background:C.card,border:`1px solid ${vencida?C.red:C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+        return(<div key={a.id} style={{background:C.card,border:'1px solid '+(vencida?C.red:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
@@ -1623,7 +1624,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       {dados&&(<div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}> Imprimir / PDF</button>
-          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>← Voltar</button>
+          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Voltar</button>
         </div>
 
         {/* Preview do relatório */}

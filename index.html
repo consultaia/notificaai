@@ -439,7 +439,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
 
   return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
-      <div style={{fontSize:36,marginBottom:12}}>🔐</div>
+      <div style={{fontSize:36,marginBottom:12}}></div>
       <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
       <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
       <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
@@ -778,12 +778,12 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
           {rca.plano?.map((a,i)=>(
             <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'grid',gridTemplateColumns:'1fr auto auto',gap:8,alignItems:'center'}}>
               <div style={{fontSize:12,color:C.text}}>{a.acao}</div>
-              <div style={{fontSize:10,color:C.teal,background:C.teal+'15',borderRadius:20,padding:'2px 8px',whiteSpace:'nowrap'}}>{a.responsavel}</div>
+              <div style={{fontSize:10,color:C.teal,background:C.teal+'15',borderRadius:20,padding:'2px 8px',whiteSpace:'nowrap'}}>👤 {a.responsavel}</div>
               <div style={{fontSize:10,color:C.muted,fontFamily:'monospace',whiteSpace:'nowrap'}}>⏱ {a.prazo}</div>
             </div>
           ))}
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
-            {saving?'Salvando...':'Ok Finalizar e salvar RCA'}
+            {saving?'Salvando...':String.fromCodePoint(10003)+' Finalizar e salvar RCA'}
           </button>
         </div>)}
       </div>)}
@@ -1089,7 +1089,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
           <div style={{width:pct+'%',height:'100%',background:pct===100?C.green:C.teal,borderRadius:3,transition:'width .4s'}}/>
         </div>
-        {vencidas.length>0&&<div style={{fontSize:11,color:C.red,fontWeight:700}}>⚠️ {vencidas.length} ação(ões) com prazo vencido</div>}
+        {vencidas.length>0&&<div style={{fontSize:11,color:C.red,fontWeight:700}}>{vencidas.length} ação(ões) com prazo vencido</div>}
       </div>}
 
       {/* Lista de ações */}
@@ -1111,7 +1111,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
               <div style={{background:st.color+'22',color:st.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700}}>{st.label}</div>
-              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>🗑</button>
+              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>✕</button>
             </div>
           </div>
           {a.status!=='concluido'&&a.status!=='cancelado'&&(
@@ -1597,7 +1597,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'94vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>Doc Relatório Mensal NSP</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>X</button>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
 
       {!dados&&(<div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -1614,7 +1614,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?'Aguarde Gerando...':'documento Gerar Relatório'}
+          {loading?String.fromCodePoint(9203)+' Gerando...':String.fromCodePoint(128196)+' Gerar Relatório'}
         </button>
       </div>)}
 
@@ -1874,7 +1874,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
           {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
           {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
           <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:'1px solid '+C.yellow+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
-          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
+          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>📋 Plano de Ação</button>
         </div>
       </div>);
     })}
@@ -2342,10 +2342,10 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
     {/* Metricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
-      <StatCard icon="" label="Total notificacoes" value={s.total} color={C.teal}/>
-      <StatCard icon="Hosp" label="Seg. Paciente" value={s.sp} color={C.red}/>
-      <StatCard icon="" label="CCIH" value={s.ccih} color={C.yellow}/>
-      <StatCard icon="Config" label="Administrativas" value={s.adm} color={C.purple}/>
+      <StatCard icon="📊" label="Total notificacoes" value={s.total} color={C.teal}/>
+      <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
+      <StatCard icon="🦠" label="CCIH" value={s.ccih} color={C.yellow}/>
+      <StatCard icon="📋" label="Administrativas" value={s.adm} color={C.purple}/>
     </div>
 
     {/* Dias sem sentinela */}
@@ -2483,7 +2483,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
     {configured&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
-      <span>OK</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
+      <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
     </div>}
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
@@ -2491,10 +2491,10 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-      <StatCard icon="" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon="Hosp" label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon="" label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
-      <StatCard icon="Config" label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
+      <StatCard icon="📅" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
+      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
+      <StatCard icon="🦠" label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
+      <StatCard icon="📋" label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
     </div>
 
     {/* Indicadores NSP */}
@@ -2542,8 +2542,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           </div>
           {/* Badges + botões RCA / Notivisa */}
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'Ok RCA':'ATENCAO Sem RCA'}</span>
-            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Ok Notivisa':'- Notivisa'}</span>
+            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?String.fromCodePoint(9989)+' RCA':String.fromCodePoint(9888)+' Sem RCA'}</span>
+            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?String.fromCodePoint(9989)+' Notivisa':'- Notivisa'}</span>
             {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&
               <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}> Gerar RCA</button>}
             {!n.notivisa_enviado&&n.notification_type==='seguranca_paciente'&&
@@ -3142,7 +3142,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10}}>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
-      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'? Dados reais':sbUrl?'? Carregando...':'? Dados de exemplo'}</div>
+      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?String.fromCodePoint(9989)+' Dados reais':sbUrl?String.fromCodePoint(9203)+' Carregando...':String.fromCodePoint(128203)+' Dados de exemplo'}</div>
     </div>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
       {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('cultura','Maturidade')}{tb('ia','IA')}{tb('relatorio','Relatório')}
@@ -3267,7 +3267,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?'Aguarde Gerando análise...':'? Gerar Interpretação do Mês'}
+          {loadingNarr?String.fromCodePoint(9203)+' Gerando análise...':String.fromCodePoint(129302)+' Gerar Interpretação do Mês'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
@@ -3712,11 +3712,11 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     <div style={{background:testMode?C.yellow+'18':C.green+'18',border:'1px solid '+(testMode?C.yellow+'55':C.green+'55'),borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
-          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'teste MODO TESTE':'OK MODO PRODUÇÃO'}</div>
+          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?String.fromCodePoint(129514)+' MODO TESTE':String.fromCodePoint(9989)+' MODO PRODUÇÃO'}</div>
           <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5,maxWidth:220}}>{testMode?'Notificações marcadas como teste. Exclua em lote depois.':'Notificações tratadas como reais. E-mails serão enviados.'}</div>
         </div>
         <button onClick={onToggleTestMode} style={{background:testMode?C.yellow:C.green,border:'none',borderRadius:999,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:11,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
-          {testMode?'Ativar Produção':'Ativar Teste'}
+          {testMode?String.fromCodePoint(9989)+' Produção':String.fromCodePoint(129514)+' Teste'}
         </button>
       </div>
     </div>
@@ -3736,12 +3736,12 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
     <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>Past</span>
+      <span style={{fontSize:22}}>📥</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.purple}}>Importar histórico CSV</div><div style={{fontSize:11,color:C.muted}}>Carregue planilhas do Google Sheets</div></div>
       <IconChev size={16} color={C.purple}/>
     </button>
     <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:'1px solid '+C.blue+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>Doc</span>
+      <span style={{fontSize:22}}>📄</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatório Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatório PDF para a diretoria</div></div>
       <IconChev size={16} color={C.blue}/>
     </button>
@@ -3907,7 +3907,7 @@ function NotificaAI() {
               <div style={{fontSize:10,color:C.muted}}>Hospital Naval de Salvador</div>
             </div>
           </div>
-          <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>X</button>
+          <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>✕</button>
         </div>
         {tabs.map(({id,label,icon:Icon})=>{
           const active=view===id;
@@ -3920,7 +3920,7 @@ function NotificaAI() {
         <div style={{borderTop:'1px solid '+C.border,paddingTop:10,marginTop:6}}>
           {!profileMode
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:20}}></span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
+              <span style={{fontSize:20}}>🔐</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
             :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
@@ -3928,8 +3928,8 @@ function NotificaAI() {
             </button>
           }
           <button onClick={()=>{toggleTheme();setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
-            <span style={{fontSize:20}}>{theme==='dark'?'?':'?'}</span>
-            <span style={{fontSize:13,color:C.muted}}>Tema {theme==='dark'?'Claro':'Escuro'}</span>
+            <span style={{fontSize:20}}>{theme==='dark'?String.fromCodePoint(9728):String.fromCodePoint(127769)}</span>
+            <span style={{fontSize:13,color:C.muted}}>Tema {theme==='dark'?String.fromCodePoint(9728)+' Claro':String.fromCodePoint(127769)+' Escuro'}</span>
           </button>
         </div>
       </div>)}

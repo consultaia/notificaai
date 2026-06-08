@@ -3507,7 +3507,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
   </div>);
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Chamados' subtitle={filtered.length+' chamado(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
       {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes',C.red]].map(([id,label,color])=>(

@@ -2,7 +2,11 @@
 // --- APP COMPONENTE PRINCIPAL ----------------------------------------------
 function App() {
   const [step, setStep] = React.useState(2);
-  const [hospital, setHospital] = React.useState(DEFAULT_HOSPITAL);
+  
+  // Proteção: Caso DEFAULT_HOSPITAL não exista ou falhe, ele não quebra a tela
+  const [hospital, setHospital] = React.useState(() => {
+    return typeof DEFAULT_HOSPITAL !== 'undefined' ? DEFAULT_HOSPITAL : { short_name: 'Hospital' };
+  });
 
   const processFile = (file) => {
     if (!window.Papa) return;
@@ -17,22 +21,24 @@ function App() {
   };
 
   return (
-    <div style={{ padding: 16, background: C.bg, minHeight: '100vh', color: C.text }}>
+    <div style={{ padding: 16, background: typeof C !== 'undefined' ? C.bg : '#0b132b', minHeight: '100vh', color: typeof C !== 'undefined' ? C.text : '#ffffff', fontFamily: 'sans-serif' }}>
       
       {step === 2 && (
-        <div style={{ maxWidth: 480, margin: '0 auto', background: C.surface, padding: 20, borderRadius: 16, border: '1px solid ' + C.border }}>
-          <h3 style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}>Importação de dados do {hospital.short_name}</h3>
+        <div style={{ maxWidth: 480, margin: '0 auto', background: typeof C !== 'undefined' ? C.surface : '#1c2541', padding: 20, borderRadius: 16, border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#3a506b') }}>
+          <h3 style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}>
+            Importação de dados do {hospital?.short_name || 'Hospital'}
+          </h3>
           
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button 
               onClick={() => setStep(1)} 
               style={{
                 flex: 1,
-                background: C.card,
-                border: '1px solid ' + C.border,
+                background: typeof C !== 'undefined' ? C.card : '#3a506b',
+                border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#5bc0be'),
                 borderRadius: 8,
                 padding: '9px',
-                color: C.muted,
+                color: typeof C !== 'undefined' ? C.muted : '#ffffff',
                 fontSize: 12,
                 fontWeight: 700,
                 cursor: 'pointer'
@@ -45,7 +51,7 @@ function App() {
               onClick={() => setStep(3)} 
               style={{
                 flex: 2,
-                background: C.teal,
+                background: typeof C !== 'undefined' ? C.teal : '#5bc0be',
                 border: 'none',
                 borderRadius: 8,
                 padding: '9px',
@@ -60,8 +66,11 @@ function App() {
           </div>
 
           <div 
-            style={{ fontSize: 12, color: C.muted, marginTop: 12, cursor: 'pointer', textAlign: 'center', background: C.card, padding: 10, borderRadius: 8, border: '1px solid ' + C.border }}
-            onClick={() => document.getElementById('csvInput').click()}
+            style={{ fontSize: 12, color: typeof C !== 'undefined' ? C.muted : '#ffffff', marginTop: 12, cursor: 'pointer', textAlign: 'center', background: typeof C !== 'undefined' ? C.card : '#3a506b', padding: 10, borderRadius: 8, border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#5bc0be') }}
+            onClick={() => {
+              const input = document.getElementById('csvInput');
+              if (input) input.click();
+            }}
           >
             Exportado do Google Sheets ou outro sistema
           </div>
@@ -83,7 +92,7 @@ function App() {
           <h3 style={{ marginBottom: 12 }}>Dados Carregados para Revisão</h3>
           <button 
             onClick={() => setStep(2)} 
-            style={{ marginTop: 12, padding: '8px 16px', background: C.teal, border: 'none', borderRadius: 6, color: '#06101F', fontWeight: 700, cursor: 'pointer' }}
+            style={{ marginTop: 12, padding: '8px 16px', background: typeof C !== 'undefined' ? C.teal : '#5bc0be', border: 'none', borderRadius: 6, color: '#06101F', fontWeight: 700, cursor: 'pointer' }}
           >
             Voltar para Tela Principal
           </button>
@@ -94,8 +103,10 @@ function App() {
   );
 }
 
-// --- RENDERIZADOR CORRIGIDO ------------------------------------------------
+// --- RENDERIZADOR ----------------------------------------------------------
 const container = document.getElementById('root');
-const root = ReactDOM.createRoot(container);
-root.render(<App />);
+if (container) {
+  const root = ReactDOM.createRoot(container);
+  root.render(<App />);
+}
 </script>

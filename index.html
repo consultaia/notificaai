@@ -625,7 +625,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     </div>
     {step===1&&(<div>
       <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
-        i Google Sheets: <strong>Arquivo -> Download -> Valores separados por vírgula (.csv)</strong>
+      i Google Sheets: <strong>{"Arquivo -> Download -> Valores separados por vírgula (.csv)"}</strong>
       </div>
       <div onClick={()=>document.getElementById('csvInput').click()} style={{border:'2px dashed '+C.border,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>

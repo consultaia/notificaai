@@ -2019,7 +2019,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
     {filtered.map(r=>{
-      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'lista',color:C.muted,label:r.subnucleo};
+      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
       return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
           <span style={{fontSize:18}}>{sub.icon}</span>
@@ -3341,12 +3341,12 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
 
 // --- TICKETS -----------------------------------------------------------------
 const TICKET_TYPES=[
-  {id:'manutencao',label:'Manutenção / DSG',icon:'ferramenta',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
-  {id:'ambulancia',label:'Saída por Ambulância',icon:'ambulancia',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
-  {id:'leito',label:'Solicitação de Leito',icon:'?',color:'#1D6FE8',dest:'Enfermagem',desc:'Transferência interna entre setores'},
-  {id:'material',label:'Solicitação de Material',icon:'?',color:'#10B981',dest:'Almoxarifado',desc:'Equipamentos, insumos, materiais médicos'},
-  {id:'dieta',label:'Dieta Especial',icon:'?',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
-  {id:'outro',label:'Outro Chamado',icon:'lista',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
+  {id:'manutencao',label:'Manutenção / DSG',icon:'wrench',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
+  {id:'ambulancia',label:'Saída por Ambulância',icon:'ambulance',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
+  {id:'leito',label:'Solicitação de Leito',icon:'bed',color:'#1D6FE8',dest:'Enfermagem',desc:'Transferência interna entre setores'},
+  {id:'material',label:'Solicitação de Material',icon:'box',color:'#10B981',dest:'Almoxarifado',desc:'Equipamentos, insumos, materiais médicos'},
+  {id:'dieta',label:'Dieta Especial',icon:'food',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
+  {id:'outro',label:'Outro Chamado',icon:'clipboard',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
 ];
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
@@ -3394,7 +3394,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {TICKET_TYPES.map(t=>(
         <button key={t.id} onClick={()=>{setType(t.id);setStep('form');}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
-          <div style={{width:44,height:44,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{t.icon}</div>
+          <div style={{width:44,height:44,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{ticketEmoji(t.icon)}</div>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{t.label}</div><div style={{fontSize:11,color:C.muted}}> {t.dest} · {t.desc}</div></div>
         </button>
       ))}
@@ -3530,7 +3530,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
       const st=TICKET_STATUS[ticket.status]||TICKET_STATUS.aberto;
       return(<div key={ticket.id} style={{background:C.card,border:'1px solid '+(ticket.status==='aberto'?'#F59E0B55':C.border),borderRadius:14,padding:14,marginBottom:10}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:8}}>
-          <div style={{width:40,height:40,borderRadius:10,background:tt.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{tt.icon}</div>
+          <div style={{width:40,height:40,borderRadius:10,background:tt.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{ticketEmoji(tt.icon)}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
               <div style={{fontSize:13,fontWeight:700,color:C.text}}>{tt.label}</div>

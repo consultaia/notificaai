@@ -1885,6 +1885,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       <span style={{padding:'7px 14px',fontSize:12,color:C.muted}}>{pagina}/{totalPags}</span>
       <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Proxima</button>
     </div>}
+  </div>
   </div>);
 }
 
@@ -3933,3 +3934,7 @@ function NotificaAI() {
           <span style={{fontSize:9,fontWeight:showMenu?700:400}}>Menu</span>
         </button>
       </div>
+    </>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<NotificaAI/>);

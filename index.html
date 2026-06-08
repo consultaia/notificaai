@@ -619,7 +619,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     }catch(e){showToast('Erro: '+e.message,'error');}
   };
   const stepLabel=(n)=>({flex:1,textAlign:'center',padding:'8px 6px',borderRadius:8,fontSize:11,color:step===n?C.teal:step>n?C.green:C.muted,background:step===n?C.card:'transparent',border:step===n?'1px solid '+C.border:'none'});
-  return(<div>
+  return(<div>)
     <div style={{display:'flex',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:3,gap:2,marginBottom:16}}>
       {['Upload','Colunas','Revisão','Concluído'].map((l,i)=><div key={i} style={stepLabel(i+1)}>{step>i+1?'Ok ':''}{l}</div>)}
     </div>

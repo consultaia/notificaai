@@ -642,8 +642,8 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         <div style={{marginTop:12}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Importações anteriores</div>
           {JSON.parse(localStorage.getItem('nai_imports')||'[]').slice(0,3).map((h,i)=>(
-            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 12px',marginBottom:4,display:'flex',justifyContent:'space-between',fontSize:12}}>
-              <span style={{color:C.text}}>{h.data}{h.periodo?` · ${h.periodo}`:''}</span>
+            <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{"<- Voltar"}</button>
+              <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{"Revisar ->"}</button>
               <span style={{color:C.teal,fontWeight:700}}>{h.registros} registros</span>
             </div>
           ))}

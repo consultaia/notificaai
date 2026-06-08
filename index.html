@@ -36,7 +36,7 @@ window.storage = {
   delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
 };
 
-// ─── HOSPITAL ──────────────────────────────────────────────────────────────
+// --- HOSPITAL --------------------------------------------------------------
 function getHospitalIdFromUrl() {
   const p=new URLSearchParams(window.location.search);
   return p.get('h')||p.get('hospital')||null;
@@ -60,7 +60,7 @@ async function loadHospital(url, key, id) {
   } catch { return DEFAULT_HOSPITAL; }
 }
 
-// ─── THEMES ────────────────────────────────────────────────────────────────
+// --- THEMES ----------------------------------------------------------------
 const THEMES = {
   dark:{ bg:'#06101F',surface:'#0C1A30',card:'#102040',border:'#1A3060',
     teal:'#00C9B8',blue:'#1D6FE8',text:'#DFF0FF',muted:'#5A7AA0',
@@ -71,7 +71,7 @@ const THEMES = {
 };
 let C = THEMES.dark;
 
-// ─── ICONS ─────────────────────────────────────────────────────────────────
+// --- ICONS -----------------------------------------------------------------
 const mkIco=(d)=>({size=24,sw=2,color='currentColor'})=>
   <span style={{display:'inline-flex',alignItems:'center',color}}
     dangerouslySetInnerHTML={{__html:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${sw}" width="${size}" height="${size}">${d}</svg>`}}/>;
@@ -86,7 +86,7 @@ const IconShield=mkIco(`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`
 const IconTool=mkIco(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`);
 const IconGear=mkIco(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`);
 
-// ─── SUPABASE ──────────────────────────────────────────────────────────────
+// --- SUPABASE --------------------------------------------------------------
 async function sbReq(url,key,path,opts={}) {
   const res=await fetch(`${url}/rest/v1${path}`,{...opts,headers:{
     'Content-Type':'application/json',apikey:key,Authorization:`Bearer ${key}`,Prefer:'return=representation',...(opts.headers||{})
@@ -99,13 +99,13 @@ const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
 const sbPatch=(u,k,tb,f,d)=>sbReq(u,k,`/${tb}?${f}`,{method:'PATCH',body:JSON.stringify(d)});
 const sbDelete=(u,k,tb,f)=>sbReq(u,k,`/${tb}?${f}`,{method:'DELETE'});
 
-// ─── SHA-256 PIN ───────────────────────────────────────────────────────────
+// --- SHA-256 PIN -----------------------------------------------------------
 async function hashPin(pin) {
   const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+'notificaai_salt_2025'));
   return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
 }
 
-// ─── PERFIS LOCAIS (fallback) ──────────────────────────────────────────────
+// --- PERFIS LOCAIS (fallback) ----------------------------------------------
 const PROFILES = {
   gestor:   {pin:'1234', label:'Gestor',     icon:'📊',color:'#8B5CF6',perfil:'gestor'},
   membro_nsp:{pin:'5555',label:'Membro NSP',icon:'🛡️',color:'#00C9B8',perfil:'membro_nsp'},
@@ -114,7 +114,7 @@ const PROFILES = {
   enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'🩺',color:'#1D6FE8',perfil:'enfermeiro'},
 };
 
-// ─── HELPERS ───────────────────────────────────────────────────────────────
+// --- HELPERS ---------------------------------------------------------------
 function formatTime(iso){
   const diff=Date.now()-new Date(iso).getTime();
   if(diff<3600000) return `${Math.floor(diff/60000)}min`;
@@ -133,7 +133,7 @@ function md(t){
   return t.replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g,'<br/>');
 }
 
-// ─── STATS ─────────────────────────────────────────────────────────────────
+// --- STATS -----------------------------------------------------------------
 const MOCK_MONTHLY=[{mes:'Jan',sp:4,adm:7},{mes:'Fev',sp:6,adm:5},{mes:'Mar',sp:3,adm:8},{mes:'Abr',sp:8,adm:4},{mes:'Mai',sp:5,adm:6}];
 const MOCK_SECTORS=[{setor:'UPG',eventos:8},{setor:'Ala A',eventos:14},{setor:'CC',eventos:5},{setor:'SEP',eventos:11}];
 const MOCK_TYPES=[{name:'Queda',value:35,color:'#EF4444'},{name:'Medicação',value:25,color:'#F59E0B'},{name:'Acesso',value:20,color:'#8B5CF6'},{name:'Hotelaria',value:15,color:'#1D6FE8'},{name:'Outros',value:5,color:'#5A7AA0'}];
@@ -202,7 +202,7 @@ function computeStats(notifications) {
   return{total,totalPrev,sp,ccih,adm,sentinela,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
 }
 
-// ─── AI HELPER ─────────────────────────────────────────────────────────────
+// --- AI HELPER -------------------------------------------------------------
 const WORKER_URL='https://notificaai-proxy.janan-almeida.workers.dev';
 async function callWorker(messages,system) {
   const converted=messages.map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content}));
@@ -234,7 +234,7 @@ DATA: ${hoje} (${hojeISO}). "hoje"=${hojeISO}, "ontem"=${ontemISO}.`;
   } catch { return null; }
 }
 
-// ─── PROMPTS ───────────────────────────────────────────────────────────────
+// --- PROMPTS ---------------------------------------------------------------
 function buildChatSystem(hospital,notifierType) {
   const h=hospital||DEFAULT_HOSPITAL;
   const setores=h.sectors.join(' / ');
@@ -254,7 +254,7 @@ Ao ter tudo: resumo + "Posso confirmar o envio para análise da equipe responsá
 Sempre em português.`;
 }
 
-// ─── UI COMPONENTS ─────────────────────────────────────────────────────────
+// --- UI COMPONENTS ---------------------------------------------------------
 function StatCard({icon,label,value,sub,color}) {
   return(
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:'flex',flexDirection:'column',gap:8}}>
@@ -334,7 +334,7 @@ function HeatCell({value}) {
   return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:t>0.55?'#06101F':C.muted,border:`1px solid ${C.border}`}}>{value||0}</div>);
 }
 
-// ─── CONFIG PANEL ──────────────────────────────────────────────────────────
+// --- CONFIG PANEL ----------------------------------------------------------
 function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
   const [url,setUrl]=useState(sbUrl);
   const [key,setKey]=useState(sbKey);
@@ -402,7 +402,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   </div>);
 }
 
-// ─── PIN MODAL ─────────────────────────────────────────────────────────────
+// --- PIN MODAL -------------------------------------------------------------
 function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
   const [pin,setPin]=useState('');
   const [error,setError]=useState(false);
@@ -457,7 +457,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
   </div>);
 }
 
-// ─── GERENCIAMENTO DE PINs ──────────────────────────────────────────────────
+// --- GERENCIAMENTO DE PINs --------------------------------------------------
 function PinManager({sbUrl,sbKey,showToast}) {
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -570,7 +570,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
   </div>);
 }
 
-// ─── CSV IMPORTER ──────────────────────────────────────────────────────────
+// --- CSV IMPORTER ----------------------------------------------------------
 function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
   const [step,setStep]=useState(1);
   const [csvData,setCsvData]=useState([]);
@@ -698,7 +698,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
   </div>);
 }
 
-// ─── RCA PANEL ─────────────────────────────────────────────────────────────
+// --- RCA PANEL -------------------------------------------------------------
 function RCAPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const [rca,setRca]=useState(null);
   const [loading,setLoading]=useState(false);
@@ -790,7 +790,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
   </div>);
 }
 
-// ─── NOTIVISA PANEL ─────────────────────────────────────────────────────────
+// --- NOTIVISA PANEL ---------------------------------------------------------
 function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const [step,setStep]=useState(1);
   const [form,setForm]=useState({
@@ -924,7 +924,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   </div>);
 }
 
-// ─── MATRIZ DE RISCO (FMEA) ────────────────────────────────────────────────
+// --- MATRIZ DE RISCO (FMEA) ------------------------------------------------
 function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   const PROB=[
     {v:1,label:'Raro',desc:'Pode ocorrer em circunstâncias excepcionais'},
@@ -1018,7 +1018,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   </div>);
 }
 
-// ─── PLANO DE AÇÃO (rastreamento pós-RCA) ────────────────────────────────────
+// --- PLANO DE AÇÃO (rastreamento pós-RCA) ------------------------------------
 function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const [acoes,setAcoes]=useState([]);
   const [loading,setLoading]=useState(true);
@@ -1156,7 +1156,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   </div>);
 }
 
-// ─── BACK HEADER ────────────────────────────────────────────────────────────
+// --- BACK HEADER ------------------------------------------------------------
 function BackHeader({title,subtitle,onBack,right}) {
   return(<div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:10}}>
     {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:'4px 0',flexShrink:0}}>
@@ -1171,7 +1171,7 @@ function BackHeader({title,subtitle,onBack,right}) {
 }
 
 
-// ─── INDICADORES DE PROCESSO ─────────────────────────────────────────────────
+// --- INDICADORES DE PROCESSO -------------------------------------------------
 function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [dados,setDados]=useState(null);
@@ -1415,7 +1415,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 }
 
 
-// ─── GESTÃO DE PROTOCOLOS ─────────────────────────────────────────────────────
+// --- GESTÃO DE PROTOCOLOS -----------------------------------------------------
 function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const [protocolos,setProtocolos]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -1561,7 +1561,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-// ─── RELATÓRIO MENSAL PDF ─────────────────────────────────────────────────────
+// --- RELATÓRIO MENSAL PDF -----------------------------------------------------
 function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
   const [loading,setLoading]=useState(false);
   const [dados,setDados]=useState(null);
@@ -1716,7 +1716,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 }
 
 
-// ─── ABA NOTIFICAÇÕES COMPLETA ────────────────────────────────────────────────
+// --- ABA NOTIFICAÇÕES COMPLETA ------------------------------------------------
 function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [notifications,setNotifications]=useState([]);
@@ -1890,7 +1890,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-// ─── MÓDULO TREINAMENTOS E REUNIOES ──────────────────────────────────────────
+// --- MÓDULO TREINAMENTOS E REUNIOES ------------------------------------------
 const SUBNUCLEOS_HNSA=[
   {id:'comunicacao',label:'Comunicacao Efetiva',icon:'💬',color:'#1D6FE8'},
   {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'💊',color:'#8B5CF6'},
@@ -2043,7 +2043,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   </div>);
 }
 
-// ─── RELATÓRIO DSM + AVALIAÇÃO ANVISA ────────────────────────────────────────
+// --- RELATÓRIO DSM + AVALIAÇÃO ANVISA ----------------------------------------
 function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [tab,setTab]=useState('dsm');
@@ -2317,7 +2317,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-// ─── PERFIL MEMBRO NSP ────────────────────────────────────────────────────────
+// --- PERFIL MEMBRO NSP --------------------------------------------------------
 function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
@@ -2439,7 +2439,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
 
 
-// ─── HOME VIEW ──────────────────────────────────────────────────────────────
+// --- HOME VIEW --------------------------------------------------------------
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital}) {
   const [stats,setStats]=useState(null);
   const [recent,setRecent]=useState(MOCK_RECENT);
@@ -2567,11 +2567,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   </div>);
 }
 
-// ─── NOTIFICAR VIEW ──────────────────────────────────────────────────────────
+// --- NOTIFICAR VIEW ----------------------------------------------------------
 function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
 
-  // ── STEPS ─────────────────────────────────────────────────────────────
+  // -- STEPS -------------------------------------------------------------
   // SP:  perfil > tipo > subtipo > [avp_motivo] > setor > data > relato > medidas > nip > idade > sexo > desfecho > preventivel > resumo > done
   // ADM: perfil > tipo > subtipo_adm > setor > data > relato > medidas > resumo > done
   // PAC/FAM: perfil > subtipo > [avp_motivo] > setor > data > relato > medidas > nip > idade > sexo > desfecho > preventivel > resumo > done
@@ -2592,7 +2592,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
   const addMsg=(role,txt)=>setMessages(p=>[...p,{role,content:txt}]);
 
-  // ── AVANÇAR PASSO ──────────────────────────────────────────────────────
+  // -- AVANÇAR PASSO ------------------------------------------------------
   const avancar=(novosDados,proximoStep,pergunta)=>{
     setDados(novosDados);
     if(pergunta) addMsg('assistant',pergunta);
@@ -2603,7 +2603,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const isADM=(d)=>(d.notification_type||dados.notification_type)==='administrativa';
   const isCCIH=(d)=>(d.notification_type||dados.notification_type)==='ccih';
 
-  // ── LÓGICA PRINCIPAL DE RESPOSTA ───────────────────────────────────────
+  // -- LÓGICA PRINCIPAL DE RESPOSTA ---------------------------------------
   const responder=(valor,label)=>{
     const txt=label||valor;
     addMsg('user',txt);
@@ -2728,7 +2728,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     }
   };
 
-  // ── PULAR CAMPO OPCIONAL ───────────────────────────────────────────────
+  // -- PULAR CAMPO OPCIONAL -----------------------------------------------
   const pular=()=>{
     const pulos={
       nip:'idade',
@@ -2746,7 +2746,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     avancar({...dados},proximo,perguntas[proximo]);
   };
 
-  // ── RESUMO COM IA ──────────────────────────────────────────────────────
+  // -- RESUMO COM IA ------------------------------------------------------
   const gerarResumo=async(d)=>{
     setDados(d);setStep('resumo');setLoading(true);
     const ctx=[
@@ -2775,7 +2775,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     setLoading(false);
   };
 
-  // ── CONFIRMAR E SALVAR ─────────────────────────────────────────────────
+  // -- CONFIRMAR E SALVAR -------------------------------------------------
   const confirmar=async()=>{
     setSaving(true);addMsg('user','Sim, confirmar e enviar.');
     try{
@@ -2820,7 +2820,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     setStep('relato');
   };
 
-  // ── CHIPS POR STEP ─────────────────────────────────────────────────────
+  // -- CHIPS POR STEP -----------------------------------------------------
   const CHIPS_MAP={
     perfil:[
       {v:'profissional',l:'Enfermeiro(a)'},
@@ -2922,7 +2922,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     return CHIPS_MAP[step]||[];
   };
 
-  // ── PROGRESSO ─────────────────────────────────────────────────────────
+  // -- PROGRESSO ---------------------------------------------------------
   const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','idade','sexo','desfecho','preventivel','resumo'];
   const ORDEM_ADM=['perfil','tipo','subtipo_adm','setor','data','relato','medidas','resumo'];
   const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','idade','sexo','desfecho','preventivel','resumo'];
@@ -2966,12 +2966,12 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const showPular=['nip','idade','sexo'].includes(step)&&!loading&&!saving;
   const showConfirm=step==='resumo'&&!loading&&!saving;
 
-  // ── MENSAGEM INICIAL ───────────────────────────────────────────────────
+  // -- MENSAGEM INICIAL ---------------------------------------------------
   useEffect(()=>{
     setMessages([{role:'assistant',content:'Olá! Vamos registrar a notificação passo a passo.\n\n**Quem é você?**\n\nVocê pode notificar anonimamente se preferir - nenhum dado pessoal é obrigatório.'}]);
   },[]);
 
-  // ── RENDER ─────────────────────────────────────────────────────────────
+  // -- RENDER -------------------------------------------------------------
   return(<div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 64px)'}}>
 
     {/* Header com barra de progresso */}
@@ -3081,7 +3081,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 }
 
 
-// ─── ANALYTICS VIEW ──────────────────────────────────────────────────────────
+// --- ANALYTICS VIEW ----------------------------------------------------------
 function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [tab,setTab]=useState('graficos');
   const [narrative,setNarrative]=useState('');
@@ -3341,7 +3341,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
   </div>);
 }
 
-// ─── TICKETS ─────────────────────────────────────────────────────────────────
+// --- TICKETS -----------------------------------------------------------------
 const TICKET_TYPES=[
   {id:'manutencao',label:'Manutenção / DSG',icon:'🔧',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
   {id:'ambulancia',label:'Saída por Ambulância',icon:'🚑',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
@@ -3572,7 +3572,7 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
   </div>);
 }
 
-// ─── CENTRAL DE CONHECIMENTO ─────────────────────────────────────────────────
+// --- CENTRAL DE CONHECIMENTO -------------------------------------------------
 const KNOWLEDGE=[
   {id:'cards',icon:'📌',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
@@ -3643,7 +3643,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   </div>);
 }
 
-// ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+// --- ADMIN PANEL --------------------------------------------------------------
 function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
@@ -3762,7 +3762,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   </div>);
 }
 
-// ─── SPLASH ───────────────────────────────────────────────────────────────────
+// --- SPLASH -------------------------------------------------------------------
 function Splash({leaving}) {
   return(<div className={leaving?'splash-out':'splash-in'} style={{position:'fixed',inset:0,background:'#06101F',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:9999,gap:0}}>
     <div style={{animation:'splashLogoAnim 1.4s ease-in-out infinite',marginBottom:20,filter:'drop-shadow(0 0 24px rgba(0,180,170,0.35))'}}>
@@ -3778,7 +3778,7 @@ function Splash({leaving}) {
   </div>);
 }
 
-// ─── ROOT APP ─────────────────────────────────────────────────────────────────
+// --- ROOT APP -----------------------------------------------------------------
 function NotificaAI() {
   const [view,setView]=useState('notificar');
   const [splash,setSplash]=useState(true);

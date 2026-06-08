@@ -619,18 +619,18 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     }catch(e){showToast('Erro: '+e.message,'error');}
   };
   const stepLabel=(n)=>({flex:1,textAlign:'center',padding:'8px 6px',borderRadius:8,fontSize:11,color:step===n?C.teal:step>n?C.green:C.muted,background:step===n?C.card:'transparent',border:step===n?'1px solid '+C.border:'none'});
-  return(<div>)
+  return(<div>
     <div style={{display:'flex',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:3,gap:2,marginBottom:16}}>
       {['Upload','Colunas','Revisão','Concluído'].map((l,i)=><div key={i} style={stepLabel(i+1)}>{step>i+1?'Ok ':''}{l}</div>)}
     </div>
     {step===1&&(<div>
       <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
-      i Google Sheets: <strong>{"Arquivo -> Download -> Valores separados por vírgula (.csv)"}</strong>
+        i Google Sheets: <strong>Arquivo -> Download -> Valores separados por vírgula (.csv)</strong>
       </div>
       <div onClick={()=>document.getElementById('csvInput').click()} style={{border:'2px dashed '+C.border,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
         <div style={{fontSize:32,marginBottom:8}}>📂</div>
-        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{"<- Voltar"}</button>
+        <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:4}}>Clique ou arraste o arquivo CSV</div>
         <div style={{fontSize:12,color:C.muted}}>Exportado do Google Sheets ou outro sistema</div>
         <input id="csvInput" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}}/>
       </div>

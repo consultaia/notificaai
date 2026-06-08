@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.9/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -257,7 +257,7 @@ Sempre em português.`;
 // --- UI COMPONENTS ---------------------------------------------------------
 function StatCard({icon,label,value,sub,color}) {
   return(
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,display:'flex',flexDirection:'column',gap:8}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,display:'flex',flexDirection:'column',gap:8}}>
       <div style={{display:'flex',justifyContent:'space-between'}}>
         <span style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:'0.1em',fontWeight:600}}>{label}</span>
         <span style={{fontSize:20}}>{icon}</span>
@@ -270,10 +270,10 @@ function StatCard({icon,label,value,sub,color}) {
 function Toast({msg,type,onClose}) {
   useEffect(()=>{const t=setTimeout(onClose,4500);return()=>clearTimeout(t);},[]);
   const bg=type==='success'?C.green:type==='error'?C.red:C.blue;
-  return(<div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:bg,color:'#fff',borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,zIndex:9999,maxWidth:340,textAlign:'center',boxShadow:`0 4px 24px ${bg}66`,whiteSpace:'pre-wrap'}}>{msg}</div>);
+  return(<div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:bg,color:'#fff',borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,zIndex:9999,maxWidth:340,textAlign:'center',boxShadow:'0 4px 24px '+bg+'66',whiteSpace:'pre-wrap'}}>{msg}</div>);
 }
 function Dots({color}) {
-  return(<div style={{display:'flex',gap:5,padding:'13px 16px',background:C.card,border:`1px solid ${C.border}`,borderRadius:'16px 16px 16px 4px',width:'fit-content'}}>
+  return(<div style={{display:'flex',gap:5,padding:'13px 16px',background:C.card,border:'1px solid '+C.border,borderRadius:'16px 16px 16px 4px',width:'fit-content'}}>
     {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:`pulse 1.2s ${i*0.2}s ease-in-out infinite`}}/>)}
   </div>);
 }
@@ -331,7 +331,7 @@ function PieChart({data,size=160}) {
 function HeatCell({value}) {
   const t=Math.min((value||0)/8,1);
   const bg=t<0.12?C.surface:t<0.35?'#0E3D5B':t<0.6?'#0369A1':t<0.8?'#0891B2':C.teal;
-  return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:t>0.55?'#06101F':C.muted,border:`1px solid ${C.border}`}}>{value||0}</div>);
+  return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:t>0.55?'#06101F':C.muted,border:'1px solid '+C.border}}>{value||0}</div>);
 }
 
 // --- CONFIG PANEL ----------------------------------------------------------
@@ -339,15 +339,15 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
   const [url,setUrl]=useState(sbUrl);
   const [key,setKey]=useState(sbKey);
   const [wh,setWh]=useState(webhookUrl);
-  const inp={background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
+  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
   const lbl={fontSize:11,color:C.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',display:'block',marginBottom:6};
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'24px 20px 36px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'90vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'24px 20px 36px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
         <div style={{fontSize:16,fontWeight:800,color:C.text}}>⚙️ Configurar Supabase</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.7,background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.teal}`}}>
+      <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.7,background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.teal}}>
         Supabase: <strong style={{color:C.teal}}>Project Settings -> API</strong><br/>
         Copie o <strong style={{color:C.text}}>Project URL</strong> e a <strong style={{color:C.text}}>anon public key</strong>.
       </div>
@@ -357,7 +357,7 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
       <input value={key} onChange={e=>setKey(e.target.value)} placeholder="eyJ..." style={{...inp,fontFamily:'monospace',fontSize:11}}/>
       <label style={lbl}>Webhook URL (n8n / Make)</label>
       <input value={wh} onChange={e=>setWh(e.target.value)} placeholder="https://seu-n8n.app/webhook/notificaai" style={{...inp,fontFamily:'monospace',fontSize:11}}/>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,fontWeight:700,color:C.teal,marginBottom:6}}>SQL para o Supabase SQL Editor:</div>
         <pre style={{fontFamily:'monospace',fontSize:10,color:'#9ECFFF',lineHeight:1.8,overflowX:'auto',whiteSpace:'pre-wrap'}}>{`CREATE TABLE IF NOT EXISTS nsp_usuarios (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -437,20 +437,20 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
   };
 
   return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-    <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:`1px solid ${error?C.red:C.border}`,transition:'border-color 0.3s',textAlign:'center'}}>
+    <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
       <div style={{fontSize:36,marginBottom:12}}>🔐</div>
       <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
       <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
       <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
         {Object.entries(PROFILES).map(([k,p])=>(
-          <div key={k} style={{background:p.color+'15',border:`1px solid ${p.color}33`,borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
+          <div key={k} style={{background:p.color+'15',border:'1px solid '+p.color+'33',borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
         ))}
       </div>
       <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
-        style={{width:'100%',background:C.card,border:`1px solid ${error?C.red:C.border}`,borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
+        style={{width:'100%',background:C.card,border:'1px solid '+(error?C.red:C.border),borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>
-        <button onClick={onClose} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
         <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde Verificando...':'Entrar'}</button>
       </div>
     </div>
@@ -509,10 +509,10 @@ function PinManager({sbUrl,sbKey,showToast}) {
     setDeleting(null);
   };
 
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
 
   if(!sbUrl||!sbKey) return(
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>🔐 Usuários e PINs</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários. PINs locais ativos:<br/>
         {Object.entries(PROFILES).map(([k,p])=><span key={k} style={{display:'inline-block',background:p.color+'15',color:p.color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,margin:'2px'}}>{p.icon} {p.label}: {p.pin}</span>)}
@@ -520,13 +520,13 @@ function PinManager({sbUrl,sbKey,showToast}) {
     </div>
   );
 
-  return(<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+  return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text}}>🔐 Usuários e PINs</div>
       <button onClick={()=>openForm()} style={{background:C.teal,border:'none',borderRadius:8,padding:'6px 12px',color:'#06101F',fontWeight:700,fontSize:12,cursor:'pointer'}}>+ Novo</button>
     </div>
     {showForm&&(
-      <div style={{background:C.surface,border:`1px solid ${C.teal}44`,borderRadius:10,padding:14,marginBottom:12}}>
+      <div style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
         <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan - Gestor NSP" style={inp}/>
@@ -542,7 +542,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
           <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
         <div style={{display:'flex',gap:8,marginTop:4}}>
-          <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+          <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Salvar'}</button>
         </div>
       </div>
@@ -550,7 +550,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Carregando...</div>}
     {!loading&&users.length===0&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Nenhum usuário. Clique em "+ Novo".</div>}
     {users.map(u=>(
-      <div key={u.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
+      <div key={u.id} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
         <div style={{width:34,height:34,borderRadius:'50%',background:C.teal+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>🔐</div>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:600,color:C.text}}>{u.nome}</div>
@@ -561,8 +561,8 @@ function PinManager({sbUrl,sbKey,showToast}) {
           </div>
         </div>
         <div style={{display:'flex',gap:4}}>
-          <button onClick={()=>openForm(u)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>✎</button>
-          <button onClick={()=>sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${u.id}`,{ativo:!u.ativo}).then(load)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:u.ativo!==false?C.yellow:C.green,fontSize:11,cursor:'pointer'}}>{u.ativo!==false?'Off':'On'}</button>
+          <button onClick={()=>openForm(u)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>✎</button>
+          <button onClick={()=>sbPatch(sbUrl,sbKey,'nsp_usuarios','id=eq.'+u.id,{ativo:!u.ativo}).then(load)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'5px 9px',color:u.ativo!==false?C.yellow:C.green,fontSize:11,cursor:'pointer'}}>{u.ativo!==false?'Off':'On'}</button>
           <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'...':'X'}</button>
         </div>
       </div>
@@ -618,16 +618,16 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       setImportados(n);setStep(4);
     }catch(e){showToast('Erro: '+e.message,'error');}
   };
-  const stepLabel=(n)=>({flex:1,textAlign:'center',padding:'8px 6px',borderRadius:8,fontSize:11,color:step===n?C.teal:step>n?C.green:C.muted,background:step===n?C.card:'transparent',border:step===n?`1px solid ${C.border}`:'none'});
+  const stepLabel=(n)=>({flex:1,textAlign:'center',padding:'8px 6px',borderRadius:8,fontSize:11,color:step===n?C.teal:step>n?C.green:C.muted,background:step===n?C.card:'transparent',border:step===n?'1px solid '+C.border:'none'});
   return(<div>
-    <div style={{display:'flex',background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:3,gap:2,marginBottom:16}}>
+    <div style={{display:'flex',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:3,gap:2,marginBottom:16}}>
       {['Upload','Colunas','Revisão','Concluído'].map((l,i)=><div key={i} style={stepLabel(i+1)}>{step>i+1?'Ok ':''}{l}</div>)}
     </div>
     {step===1&&(<div>
-      <div style={{background:C.teal+'10',border:`1px solid ${C.teal}33`,borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
+      <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
         i Google Sheets: <strong>Arquivo -> Download -> Valores separados por vírgula (.csv)</strong>
       </div>
-      <div onClick={()=>document.getElementById('csvInput').click()} style={{border:`2px dashed ${C.border}`,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
+      <div onClick={()=>document.getElementById('csvInput').click()} style={{border:'2px dashed '+C.border,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
         <div style={{fontSize:32,marginBottom:8}}>📂</div>
         <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:4}}>Clique ou arraste o arquivo CSV</div>
@@ -638,7 +638,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         <div style={{marginTop:12}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.08em'}}>Importações anteriores</div>
           {JSON.parse(localStorage.getItem('nai_imports')||'[]').slice(0,3).map((h,i)=>(
-            <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 12px',marginBottom:4,display:'flex',justifyContent:'space-between',fontSize:12}}>
+            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 12px',marginBottom:4,display:'flex',justifyContent:'space-between',fontSize:12}}>
               <span style={{color:C.text}}>{h.data}{h.periodo?` · ${h.periodo}`:''}</span>
               <span style={{color:C.teal,fontWeight:700}}>{h.registros} registros</span>
             </div>
@@ -650,16 +650,16 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Mapeie as colunas ({csvData.length} linhas)</div>
       {CAMPOS.map(c=>(
         <div key={c.key} style={{display:'grid',gridTemplateColumns:'1fr 16px 1fr',gap:8,alignItems:'center',marginBottom:8}}>
-          <div style={{fontSize:12,color:C.text,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:'7px 10px'}}>{c.label}{c.ob?' *':''}</div>
+          <div style={{fontSize:12,color:C.text,background:C.surface,border:'1px solid '+C.border,borderRadius:7,padding:'7px 10px'}}>{c.label}{c.ob?' *':''}</div>
           <div style={{color:C.muted,textAlign:'center',fontSize:12}}>-></div>
-          <select id={'map_'+c.key} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,padding:'7px 10px',borderRadius:7,fontSize:12,outline:'none'}}>
+          <select id={'map_'+c.key} style={{background:C.surface,border:'1px solid '+C.border,color:C.text,padding:'7px 10px',borderRadius:7,fontSize:12,outline:'none'}}>
             <option value="">- Não mapear -</option>
             {cols.map(col=><option key={col} value={col}>{col}</option>)}
           </select>
         </div>
       ))}
       <div style={{display:'flex',gap:8,marginTop:12}}>
-        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
+        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
         <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar -></button>
       </div>
     </div>)}
@@ -670,18 +670,18 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{regs.length} registros para importar</div>
         <div style={{marginBottom:10}}>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Período de referência (opcional)</label>
-          <input value={periodo} onChange={e=>setPeriodo(e.target.value)} placeholder="Ex: Jan-Jun 2024" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/>
+          <input value={periodo} onChange={e=>setPeriodo(e.target.value)} placeholder="Ex: Jan-Jun 2024" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/>
         </div>
-        <div style={{maxHeight:180,overflowY:'auto',border:`1px solid ${C.border}`,borderRadius:8,marginBottom:12}}>
+        <div style={{maxHeight:180,overflowY:'auto',border:'1px solid '+C.border,borderRadius:8,marginBottom:12}}>
           {regs.slice(0,8).map((r,i)=>(
-            <div key={i} style={{padding:'7px 12px',borderBottom:`1px solid ${C.border}22`,fontSize:12,color:C.muted}}>
+            <div key={i} style={{padding:'7px 12px',borderBottom:'1px solid '+C.border+'22',fontSize:12,color:C.muted}}>
               <span style={{color:C.text}}>{r.event_date||'-'}</span> · {r.notification_type||'-'} · {r.sector||'-'}
             </div>
           ))}
           {regs.length>8&&<div style={{padding:'7px 12px',fontSize:11,color:C.muted}}>+{regs.length-8} registros...</div>}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
+          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
           <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>⬆ Importar {regs.length} registros</button>
         </div>
       </div>);
@@ -691,7 +691,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:6}}>Importação concluída!</div>
       <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados} registros importados{periodo?` - ${periodo}`:''}</div>
       <div style={{display:'flex',gap:8,justifyContent:'center'}}>
-        <button onClick={()=>{setCsvData([]);setCols([]);setPeriodo('');setStep(1);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 18px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar outro</button>
+        <button onClick={()=>{setCsvData([]);setCols([]);setPeriodo('');setStep(1);}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 18px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar outro</button>
         <button onClick={onDone} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontSize:13,fontWeight:800,cursor:'pointer'}}>Ver dashboard -></button>
       </div>
     </div>)}
@@ -735,16 +735,16 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
   const tb=(id,label)=><button onClick={()=>setTab(id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:tab===id?C.teal:'transparent',color:tab===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{label}</button>;
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'92vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>🧠 Análise de Causa Raiz (RCA)</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.red}`,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.red,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
-      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:`linear-gradient(135deg,${C.teal},${C.blue})`,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Gerar RCA com IA</button>}
+      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Gerar RCA com IA</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
@@ -752,15 +752,15 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
         </div>
         {tab==='porques'&&rca.cinco_porques?.map((p,i)=>(
           <div key={i} style={{display:'grid',gridTemplateColumns:'36px 1fr',gap:10,alignItems:'flex-start',marginBottom:12}}>
-            <div style={{width:36,height:36,borderRadius:'50%',background:C.card,border:`1px solid ${C.border}`,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'monospace',fontSize:13,color:C.teal}}>P{i+1}</div>
+            <div style={{width:36,height:36,borderRadius:'50%',background:C.card,border:'1px solid '+C.border,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'monospace',fontSize:13,color:C.teal}}>P{i+1}</div>
             <div>
               <div style={{fontSize:10,color:C.muted,marginBottom:4,textTransform:'uppercase'}}>{p.pergunta}</div>
-              <div style={{fontSize:13,color:C.text,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'10px 12px',lineHeight:1.5}}>{p.resposta}</div>
+              <div style={{fontSize:13,color:C.text,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',lineHeight:1.5}}>{p.resposta}</div>
             </div>
           </div>
         ))}
         {tab==='ishikawa'&&rca.ishikawa?.map((cat,i)=>(
-          <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:8}}>
+          <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8}}>
             <div style={{fontSize:11,fontWeight:700,color:cat.cor,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:8,height:8,borderRadius:'50%',background:cat.cor}}/>{cat.categoria}
             </div>
@@ -768,14 +768,14 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
           </div>
         ))}
         {tab==='fatores'&&rca.fatores?.map((f,i)=>(
-          <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:8,display:'flex',gap:10}}>
+          <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'flex',gap:10}}>
             <span style={{fontSize:20}}>{f.icone}</span>
             <div><div style={{fontSize:11,color:C.muted,fontWeight:700}}>{f.tipo}</div><div style={{fontSize:12,color:C.text,marginTop:3,lineHeight:1.5}}>{f.descricao}</div></div>
           </div>
         ))}
         {tab==='plano'&&(<div>
           {rca.plano?.map((a,i)=>(
-            <div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginBottom:8,display:'grid',gridTemplateColumns:'1fr auto auto',gap:8,alignItems:'center'}}>
+            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'grid',gridTemplateColumns:'1fr auto auto',gap:8,alignItems:'center'}}>
               <div style={{fontSize:12,color:C.text}}>{a.acao}</div>
               <div style={{fontSize:10,color:C.teal,background:C.teal+'15',borderRadius:20,padding:'2px 8px',whiteSpace:'nowrap'}}>{a.responsavel}</div>
               <div style={{fontSize:10,color:C.muted,fontFamily:'monospace',whiteSpace:'nowrap'}}>⏱ {a.prazo}</div>
@@ -812,11 +812,11 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     setMarking(false);
   };
 
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:10};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:10};
   const grid2={display:'grid',gridTemplateColumns:'1fr 1fr',gap:10};
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'92vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>📋 Formulário Notivisa</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
@@ -826,7 +826,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       </div>
 
       {step===1&&(<div>
-        <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:12,color:C.yellow,lineHeight:1.6}}>
+        <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:12,color:C.yellow,lineHeight:1.6}}>
           ⚠ Campos preenchidos automaticamente. Revise e ajuste antes de continuar.
         </div>
         <div style={grid2}>
@@ -877,7 +877,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{fontSize:10,opacity:.8,marginTop:2}}>SNVS/ANVISA - Notivisa · Gerado por NotificaAI · {new Date().toLocaleDateString('pt-BR')}</div>
           </div>
           <div style={{padding:'12px 16px'}}>
-            {[['Data/Hora',`${form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-'} ${form.hora_evento?'· '+form.hora_evento:''} · Turno: ${form.turno||'-'}`],
+            {[['Data/Hora',(form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-')+' '+(form.hora_evento?'· '+form.hora_evento:'')+' · Turno: '+(form.turno||'-')],
               ['Tipo de incidente',form.tipo||'-'],['Gravidade',form.gravidade||'-'],['Setor',form.setor||'-'],
               ['Paciente',`${form.idade?form.idade+' anos':''} ${form.sexo||''}`.trim()||'-'],
               ['Descrição',form.descricao||'-'],['Ação imediata',form.acao_imediata||'-'],
@@ -894,14 +894,14 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           </div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Editar</button>
+          <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Editar</button>
           <button onClick={()=>window.print()} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
           <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar -></button>
         </div>
       </div>)}
 
       {step===3&&(<div style={{textAlign:'center',padding:'16px 0'}}>
-        <div style={{background:C.teal+'10',border:`1px solid ${C.teal}33`,borderRadius:10,padding:'14px',marginBottom:14}}>
+        <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'14px',marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:8}}>Passos para notificar no Notivisa</div>
           {[['01','Baixe o PDF','Use o botão "baixar PDF" na etapa anterior'],
             ['02','Acesse notivisa.anvisa.gov.br','Login com credencial institucional'],
@@ -914,7 +914,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>🌐 Abrir Notivisa</a>
+          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>🌐 Abrir Notivisa</a>
           <button onClick={marcarEnviado} disabled={marking} style={{flex:2,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
             {marking?'Salvando...':'Ok Marcar como enviado'}
           </button>
@@ -959,7 +959,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   };
 
   const CelBtn=({item,selected,onClick,tipo})=>(
-    <button onClick={onClick} style={{background:selected?tipo==='prob'?C.blue+'33':C.red+'33':C.surface,border:`1px solid ${selected?tipo==='prob'?C.blue:C.red:C.border}`,borderRadius:8,padding:'8px 10px',cursor:'pointer',textAlign:'left',width:'100%',marginBottom:6}}>
+    <button onClick={onClick} style={{background:selected?tipo==='prob'?C.blue+'33':C.red+'33':C.surface,border:'1px solid '+(selected?tipo==='prob'?C.blue:C.red:C.border),borderRadius:8,padding:'8px 10px',cursor:'pointer',textAlign:'left',width:'100%',marginBottom:6}}>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
         <div style={{width:24,height:24,borderRadius:'50%',background:selected?tipo==='prob'?C.blue:C.red:C.border,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900,color:'#fff',flexShrink:0}}>{item.v}</div>
         <div>
@@ -971,18 +971,18 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   );
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'92vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>⚠️ Matriz de Risco</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.yellow}`,borderRadius:10,padding:'10px 14px',marginBottom:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.yellow,borderRadius:10,padding:'10px 14px',marginBottom:16}}>
         <div style={{fontSize:11,color:C.yellow,fontWeight:700,marginBottom:2}}>Notificação</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,100)}</div>
       </div>
 
       {/* Score atual */}
-      {score>0&&<div style={{background:risco.bg,border:`1px solid ${risco.color}44`,borderRadius:12,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
+      {score>0&&<div style={{background:risco.bg,border:'1px solid '+risco.color+'44',borderRadius:12,padding:'12px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:12}}>
         <div style={{fontSize:32,fontWeight:900,color:risco.color,lineHeight:1}}>{score}</div>
         <div>
           <div style={{fontSize:14,fontWeight:800,color:risco.color}}>RISCO {risco.label}</div>
@@ -999,7 +999,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
       {SEV.map(s=><CelBtn key={s.v} item={s} selected={sev===s.v} onClick={()=>setSev(s.v)} tipo="sev"/>)}
 
       {/* Tabela referência */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px 14px',marginTop:14,marginBottom:14}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginTop:14,marginBottom:14}}>
         <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:8}}>Referência - Classificação do risco</div>
         {[['1 a 4','Baixo','Verde - monitorar','#10B981'],['5 a 9','Médio','Amarelo - acao planejada','#F59E0B'],['10 a 14','Alto','Vermelho - acao imediata','#EF4444'],['15 a 25','Extremo','Bordeaux - investigacao urgente','#7C0000']].map(([r,l,a,c])=>(
           <div key={r} style={{display:'flex',gap:8,alignItems:'center',marginBottom:5}}>
@@ -1062,31 +1062,31 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
   const STATUS={pendente:{label:'Pendente',color:C.yellow},em_andamento:{label:'Em andamento',color:C.blue},concluido:{label:'Concluído',color:C.green},cancelado:{label:'Cancelado',color:C.muted}};
   const PRIO={alta:{label:'Alta',color:C.red},media:{label:'Média',color:C.yellow},baixa:{label:'Baixa',color:C.green}};
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
 
   const vencidas=acoes.filter(a=>a.status!=='concluido'&&a.status!=='cancelado'&&new Date(a.prazo)<new Date());
   const concluidas=acoes.filter(a=>a.status==='concluido').length;
   const pct=acoes.length>0?Math.round(concluidas/acoes.length*100):0;
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'92vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>📋 Plano de Ação</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${C.blue}`,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.blue,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.blue,fontWeight:700,marginBottom:2}}>Notificação</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,100)}</div>
       </div>
 
       {/* Progress */}
-      {acoes.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
+      {acoes.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
         <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
           <div style={{fontSize:12,fontWeight:700,color:C.text}}>Progresso - {concluidas}/{acoes.length} concluídas</div>
           <div style={{fontSize:13,fontWeight:900,color:pct===100?C.green:C.teal}}>{pct}%</div>
         </div>
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
-          <div style={{width:`${pct}%`,height:'100%',background:pct===100?C.green:C.teal,borderRadius:3,transition:'width .4s'}}/>
+          <div style={{width:pct+'%',height:'100%',background:pct===100?C.green:C.teal,borderRadius:3,transition:'width .4s'}}/>
         </div>
         {vencidas.length>0&&<div style={{fontSize:11,color:C.red,fontWeight:700}}>⚠️ {vencidas.length} ação(ões) com prazo vencido</div>}
       </div>}
@@ -1115,9 +1115,9 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           </div>
           {a.status!=='concluido'&&a.status!=='cancelado'&&(
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-              {a.status==='pendente'&&<button onClick={()=>updateStatus(a.id,'em_andamento')} style={{background:C.blue+'22',border:`1px solid ${C.blue}44`,borderRadius:7,padding:'5px 10px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}>▶ Iniciar</button>}
-              {(a.status==='pendente'||a.status==='em_andamento')&&<button onClick={()=>updateStatus(a.id,'concluido')} style={{background:C.green+'22',border:`1px solid ${C.green}44`,borderRadius:7,padding:'5px 10px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluir</button>}
-              <button onClick={()=>updateStatus(a.id,'cancelado')} style={{background:C.muted+'15',border:`1px solid ${C.muted}33`,borderRadius:7,padding:'5px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+              {a.status==='pendente'&&<button onClick={()=>updateStatus(a.id,'em_andamento')} style={{background:C.blue+'22',border:'1px solid '+C.blue+'44',borderRadius:7,padding:'5px 10px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}>▶ Iniciar</button>}
+              {(a.status==='pendente'||a.status==='em_andamento')&&<button onClick={()=>updateStatus(a.id,'concluido')} style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:7,padding:'5px 10px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluir</button>}
+              <button onClick={()=>updateStatus(a.id,'cancelado')} style={{background:C.muted+'15',border:'1px solid '+C.muted+'33',borderRadius:7,padding:'5px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
             </div>
           )}
           {a.concluido_em&&<div style={{fontSize:10,color:C.green,marginTop:4}}>✓ Concluído em {new Date(a.concluido_em).toLocaleDateString('pt-BR')}</div>}
@@ -1125,7 +1125,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       })}
 
       {/* Form nova ação */}
-      {showForm&&(<div style={{background:C.card,border:`1px solid ${C.teal}44`,borderRadius:12,padding:'14px',marginBottom:12}}>
+      {showForm&&(<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:12,padding:'14px',marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Nova ação</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Ação *</label>
         <textarea value={form.acao} onChange={e=>setForm({...form,acao:e.target.value})} placeholder="Descreva a ação corretiva ou preventiva" rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>
@@ -1136,18 +1136,18 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Prioridade</label>
         <div style={{display:'flex',gap:8,marginBottom:12}}>
           {Object.entries(PRIO).map(([k,p])=>(
-            <button key={k} onClick={()=>setForm({...form,prioridade:k})} style={{flex:1,padding:'7px',borderRadius:7,border:`1px solid ${form.prioridade===k?p.color:C.border}`,background:form.prioridade===k?p.color+'22':C.surface,color:form.prioridade===k?p.color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{p.label}</button>
+            <button key={k} onClick={()=>setForm({...form,prioridade:k})} style={{flex:1,padding:'7px',borderRadius:7,border:'1px solid '+(form.prioridade===k?p.color:C.border),background:form.prioridade===k?p.color+'22':C.surface,color:form.prioridade===k?p.color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{p.label}</button>
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+          <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           <button onClick={addAcao} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'+ Adicionar ação'}</button>
         </div>
       </div>)}
 
-      {!showForm&&<button onClick={()=>setShowForm(true)} style={{width:'100%',background:C.teal+'15',border:`1px dashed ${C.teal}`,borderRadius:12,padding:'12px',color:C.teal,fontSize:13,fontWeight:700,cursor:'pointer',marginTop:4}}>+ Nova ação</button>}
+      {!showForm&&<button onClick={()=>setShowForm(true)} style={{width:'100%',background:C.teal+'15',border:'1px dashed '+C.teal,borderRadius:12,padding:'12px',color:C.teal,fontSize:13,fontWeight:700,cursor:'pointer',marginTop:4}}>+ Nova ação</button>}
 
-      <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'10px 12px',marginTop:12}}>
+      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>⚠ Para persistir o plano de ação, execute no Supabase SQL Editor:<br/>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ);</span>
         </div>
@@ -1158,7 +1158,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
 // --- BACK HEADER ------------------------------------------------------------
 function BackHeader({title,subtitle,onBack,right}) {
-  return(<div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:10}}>
+  return(<div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:10,position:'sticky',top:0,zIndex:10}}>
     {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:'4px 0',flexShrink:0}}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20"><polyline points="15 18 9 12 15 6"/></svg>
     </button>}
@@ -1301,7 +1301,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
           <div style={{background:ok?C.green+'22':C.red+'22',color:ok?C.green:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>{ok?'Meta':'Alerta'}</div>
         </div>);
       })}
-      {d.sentinela>0&&<div style={{background:C.red+'22',border:`1px solid ${C.red}44`,borderRadius:8,padding:'8px 12px',fontSize:11,color:C.red,fontWeight:700}}>
+      {d.sentinela>0&&<div style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'8px 12px',fontSize:11,color:C.red,fontWeight:700}}>
         {d.sentinela} evento(s) sentinela - RCA obrigatorio
       </div>}
     </div>);
@@ -1312,15 +1312,15 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
     <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
 
     {/* Parametros */}
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Parametros de calculo</div>
 
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mes de referencia</label>
       <input type="month" value={mesRef} onChange={e=>setMesRef(e.target.value)}
-        style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+        style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
 
       {/* Paciente-dia por setor */}
-      <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
+      <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:10}}>Total paciente-dia (soma dos dias de internacao no mes)</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr',gap:10}}>
           <div>
@@ -1329,7 +1329,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
               Hospital (geral)
             </label>
             <input type="number" value={pdGeral} onChange={e=>setPdGeral(e.target.value)} placeholder="Ex: 620 (total hospital)"
-              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
           </div>
           <div>
             <label style={{fontSize:11,color:C.muted,display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
@@ -1337,7 +1337,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
               UPG - Unidade de Pacientes Graves
             </label>
             <input type="number" value={pdUPG} onChange={e=>setPdUPG(e.target.value)} placeholder="Ex: 180 (somente UPG)"
-              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
           </div>
           <div>
             <label style={{fontSize:11,color:C.muted,display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
@@ -1345,10 +1345,10 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
               Ala A - Internacao Geral
             </label>
             <input type="number" value={pdAlaA} onChange={e=>setPdAlaA(e.target.value)} placeholder="Ex: 310 (somente Ala A)"
-              style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
           </div>
         </div>
-        <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6,borderTop:`1px solid ${C.border}`,paddingTop:8}}>
+        <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6,borderTop:'1px solid '+C.border,paddingTop:8}}>
           Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME.
         </div>
       </div>
@@ -1366,17 +1366,17 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       </div>
 
       {/* Comparativo rapido se tem setores */}
-      {(dados.upg||dados.alaA)&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16,marginBottom:14}}>
+      {(dados.upg||dados.alaA)&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Comparativo por Setor</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead>
               <tr>
-                <th style={{padding:'6px 8px',textAlign:'left',color:C.muted,borderBottom:`1px solid ${C.border}`,fontWeight:700}}>Indicador</th>
-                {dados.geral&&<th style={{padding:'6px 8px',textAlign:'center',color:C.teal,borderBottom:`1px solid ${C.border}`,fontWeight:700}}>Geral</th>}
-                {dados.upg&&<th style={{padding:'6px 8px',textAlign:'center',color:C.red,borderBottom:`1px solid ${C.border}`,fontWeight:700}}>UPG</th>}
-                {dados.alaA&&<th style={{padding:'6px 8px',textAlign:'center',color:C.blue,borderBottom:`1px solid ${C.border}`,fontWeight:700}}>Ala A</th>}
-                <th style={{padding:'6px 8px',textAlign:'center',color:C.muted,borderBottom:`1px solid ${C.border}`,fontWeight:700}}>Meta</th>
+                <th style={{padding:'6px 8px',textAlign:'left',color:C.muted,borderBottom:'1px solid '+C.border,fontWeight:700}}>Indicador</th>
+                {dados.geral&&<th style={{padding:'6px 8px',textAlign:'center',color:C.teal,borderBottom:'1px solid '+C.border,fontWeight:700}}>Geral</th>}
+                {dados.upg&&<th style={{padding:'6px 8px',textAlign:'center',color:C.red,borderBottom:'1px solid '+C.border,fontWeight:700}}>UPG</th>}
+                {dados.alaA&&<th style={{padding:'6px 8px',textAlign:'center',color:C.blue,borderBottom:'1px solid '+C.border,fontWeight:700}}>Ala A</th>}
+                <th style={{padding:'6px 8px',textAlign:'center',color:C.muted,borderBottom:'1px solid '+C.border,fontWeight:700}}>Meta</th>
               </tr>
             </thead>
             <tbody>
@@ -1389,7 +1389,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
                   var ok=ind.menor?v<ind.meta:v>=ind.meta;
                   return ok?C.green:C.red;
                 }
-                return(<tr key={i} style={{borderBottom:`1px solid ${C.border}22`}}>
+                return(<tr key={i} style={{borderBottom:'1px solid '+C.border+'22'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontSize:11}}>{ind.label}</td>
                   {dados.geral&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>}
                   {dados.upg&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vU)}}>{vU}{ind.unidade==='%'?'%':''}</td>}
@@ -1407,7 +1407,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       <SetorCard titulo="UPG - Unidade de Pacientes Graves" cor={C.red} dados={dados.upg} icon="🔴"/>
       <SetorCard titulo="Ala A - Internacao Geral" cor={C.blue} dados={dados.alaA} icon="🔵"/>
 
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px'}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>As taxas sao calculadas com base nas notificacoes registradas. A qualidade depende da completude das notificacoes. Indicadores subnotificados subestimam os valores reais.</div>
       </div>
     </div>}
@@ -1462,7 +1462,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const cadastrados=new Set(protocolos.map(p=>p.nome.toLowerCase()));
   const faltando=OBRIGATORIOS.filter(o=>![...cadastrados].some(c=>c.includes(o.nome.toLowerCase().slice(0,10))));
 
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
   const STATUS_COLOR={ativo:C.green,vencido:C.red,proximo:C.yellow};
 
   const getStatus=(p)=>{if(!p.proxima_revisao)return'ativo';if(p.proxima_revisao<hoje)return'vencido';if(new Date(p.proxima_revisao)<=new Date(Date.now()+60*86400000))return'proximo';return'ativo';};
@@ -1477,32 +1477,32 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     </div>
 
     {/* Alertas */}
-    {vencidos.length>0&&<div style={{background:C.red+'15',border:`1px solid ${C.red}44`,borderRadius:12,padding:'12px 14px'}}>
+    {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>🔴 {vencidos.length} protocolo(s) com revisão vencida</div>
       {vencidos.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>-> {p.nome} · venceu em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
-    {proximos60.length>0&&<div style={{background:C.yellow+'15',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'12px 14px'}}>
+    {proximos60.length>0&&<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>🟡 {proximos60.length} protocolo(s) vencem em 60 dias</div>
       {proximos60.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>-> {p.nome} · vence em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
 
     {/* Protocolos obrigatórios faltando */}
-    {faltando.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    {faltando.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>⚠️ Protocolos obrigatórios não cadastrados ({faltando.length})</div>
       {faltando.map((p,i)=>(
-        <div key={i} style={{display:'flex',alignItems:'center',gap:10,paddingBottom:8,marginBottom:8,borderBottom:`1px solid ${C.border}22`}}>
+        <div key={i} style={{display:'flex',alignItems:'center',gap:10,paddingBottom:8,marginBottom:8,borderBottom:'1px solid '+C.border+'22'}}>
           <div style={{width:8,height:8,borderRadius:'50%',background:C.red,flexShrink:0}}/>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:600,color:C.text}}>{p.nome}</div>
             <div style={{fontSize:10,color:C.muted}}>{p.cat} · {p.base}</div>
           </div>
-          <button onClick={()=>{setForm({...form,nome:p.nome,categoria:p.cat});setShowForm(true);}} style={{background:C.teal+'22',border:`1px solid ${C.teal}44`,borderRadius:7,padding:'4px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>+ Cadastrar</button>
+          <button onClick={()=>{setForm({...form,nome:p.nome,categoria:p.cat});setShowForm(true);}} style={{background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:7,padding:'4px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>+ Cadastrar</button>
         </div>
       ))}
     </div>}
 
     {/* Form */}
-    {showForm&&<div style={{background:C.card,border:`1px solid ${C.teal}44`,borderRadius:14,padding:16}}>
+    {showForm&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Novo protocolo</div>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome do protocolo *</label>
       <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Protocolo de Higienização das Mãos" style={inp}/>
@@ -1530,7 +1530,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link do documento (opcional)</label>
       <input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
       <div style={{display:'flex',gap:8,marginTop:4}}>
-        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Cadastrar'}</button>
       </div>
       <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6}}>⚠ Execute no Supabase: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS protocolos (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, nome TEXT, numero TEXT, categoria TEXT, responsavel TEXT, aprovado_em DATE, validade_anos INT DEFAULT 3, proxima_revisao DATE, link TEXT, status TEXT DEFAULT 'ativo');</span></div>
@@ -1541,7 +1541,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     {!loading&&protocolos.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum protocolo cadastrado ainda.</div>}
     {protocolos.map(p=>{
       const st=getStatus(p);const stColor=STATUS_COLOR[st]||C.muted;
-      return(<div key={p.id} style={{background:C.card,border:`1px solid ${stColor}44`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+      return(<div key={p.id} style={{background:C.card,border:'1px solid '+stColor+'44',borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontWeight:700,color:C.text}}>{p.nome}</div>
@@ -1589,14 +1589,14 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     const el=document.getElementById('relatorio-pdf');
     if(!el)return;
     const w=window.open('','_blank');
-    w.document.write(`<html><head><title>Relatório NSP</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}h1{font-size:18px;color:#c8102e}h2{font-size:14px;border-bottom:2px solid #c8102e;padding-bottom:4px;margin:20px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5;font-weight:700}.badge-sp{color:#c8102e;font-weight:700}.badge-ccih{color:#d97706}.badge-adm{color:#2563eb}.ok{color:#059669;font-weight:700}.alerta{color:#c8102e;font-weight:700}@media print{button{display:none}}</style></head><body>${el.innerHTML}<br/><br/><small style="color:#999">Gerado por NotificaAI em ${new Date().toLocaleString('pt-BR')}</small></body></html>`);
+    w.document.write('<html><head><title>Relatório NSP</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px+'h1{font-size:18px;color:#c8102e+'h2{font-size:14px;border-bottom:2px solid #c8102e;padding-bottom:4px;margin:20px 0 10px+'table{width:100%;border-collapse:collapse;margin-bottom:16px+'th,td{border:1px solid #ddd;padding:6px 10px;text-align:left+'th{background:#f5f5f5;font-weight:700+'.badge-sp{color:#c8102e;font-weight:700+'.badge-ccih{color:#d97706+'.badge-adm{color:#2563eb+'.ok{color:#059669;font-weight:700+'.alerta{color:#c8102e;font-weight:700+'@media print{button{display:none+'+'</style></head><body>'+el.innerHTML+'<br/><br/><small style="color:#999">Gerado por NotificaAI em '+new Date().toLocaleString('pt-BR')+'</small></body></html>');
     w.document.close();w.print();
   };
 
   const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:`1px solid ${C.border}`,maxHeight:'94vh',overflowY:'auto'}}>
+    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'94vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>📄 Relatório Mensal NSP</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
@@ -1605,15 +1605,15 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       {!dados&&(<div style={{display:'flex',flexDirection:'column',gap:10}}>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
-          <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor / Coordenador NSP</label>
-          <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Diretoria / Chefia (destinatário)</label>
-          <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
           {loading?'Aguarde Gerando...':'documento Gerar Relatório'}
@@ -1623,7 +1623,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       {dados&&(<div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>🖨️ Imprimir / PDF</button>
-          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}><- Voltar</button>
+          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}><- Voltar</button>
         </div>
 
         {/* Preview do relatório */}
@@ -1775,10 +1775,10 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
   const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
 
-  const sel={background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'};
+  const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'};
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={`${filtered.length} resultado(s) de ${notifications.length} total`} right={<button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);updateNot(rcaTarget.id,{rca_gerado:true});}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);updateNot(notiVisaTarget.id,{notivisa_enviado:true});}}/>}
@@ -1791,13 +1791,13 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
         <div style={{fontSize:17,fontWeight:900,color:C.text}}>Notificacoes</div>
         <div style={{fontSize:11,color:C.muted}}>{filtered.length} resultado(s) de {notifications.length} total</div>
       </div>
-      <button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
+      <button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
     </div>
 
     {/* Cards de resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
       {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
-        <div key={l} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div key={l} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
           <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
           <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>{l}</div>
         </div>
@@ -1806,7 +1806,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Busca */}
     <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder="Buscar por descricao, tipo, setor..."
-      style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'9px 14px',color:C.text,fontSize:13,outline:'none',marginBottom:10}}/>
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.text,fontSize:13,outline:'none',marginBottom:10}}/>
 
     {/* Filtros */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
@@ -1832,7 +1832,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       </select>
     </div>
     <input type="month" value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}}
-      style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:12}}/>
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:12}}/>
 
     {/* Lista */}
     {loading&&<div style={{textAlign:'center',padding:40}}><Dots/></div>}
@@ -1858,7 +1858,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
         </div>
 
         {/* Descricao */}
-        {n.description&&<div style={{fontSize:12,color:C.muted,marginBottom:8,lineHeight:1.5,borderLeft:`2px solid ${C.border}`,paddingLeft:8}}>{n.description.slice(0,150)}{n.description.length>150?'...':''}</div>}
+        {n.description&&<div style={{fontSize:12,color:C.muted,marginBottom:8,lineHeight:1.5,borderLeft:'2px solid '+C.border,paddingLeft:8}}>{n.description.slice(0,150)}{n.description.length>150?'...':''}</div>}
 
         {/* NIP / dados paciente */}
         {n.admission_reason&&<div style={{fontSize:11,color:C.teal,marginBottom:8}}>Paciente: {n.admission_reason}</div>}
@@ -1873,19 +1873,19 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
         {/* Botoes de acao */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:`1px solid ${C.blue}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
-          {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:`1px solid ${C.purple}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
-          <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:`1px solid ${C.yellow}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
-          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:`1px solid ${C.orange}33`,borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
+          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
+          {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
+          <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:'1px solid '+C.yellow+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
+          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
         </div>
       </div>);
     })}
 
     {/* Paginacao */}
     {totalPags>1&&<div style={{display:'flex',justifyContent:'center',gap:8,marginTop:16,flexWrap:'wrap'}}>
-      <button onClick={()=>setPagina(p=>Math.max(1,p-1))} disabled={pagina===1} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 14px',color:pagina===1?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===1?'default':'pointer'}}>Anterior</button>
+      <button onClick={()=>setPagina(p=>Math.max(1,p-1))} disabled={pagina===1} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===1?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===1?'default':'pointer'}}>Anterior</button>
       <span style={{padding:'7px 14px',fontSize:12,color:C.muted}}>{pagina}/{totalPags}</span>
-      <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Proxima</button>
+      <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Proxima</button>
     </div>}
   </div>);
 }
@@ -1947,10 +1947,10 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     };
   });
 
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={`${filtered.length} resultado(s) de ${notifications.length} total`} right={<button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
       <div>
@@ -1966,7 +1966,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
         const ativo=subnucleoAtivo===s.id;
         return(<button key={s.id} onClick={()=>setSubnucleoAtivo(ativo?'todos':s.id)}
-          style={{background:ativo?s.color+'22':C.card,border:`1px solid ${ativo?s.color:C.border}`,borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
+          style={{background:ativo?s.color+'22':C.card,border:'1px solid '+(ativo?s.color:C.border),borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
           <span style={{fontSize:22}}>{s.icon}</span>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{s.label}</div>
@@ -1978,11 +1978,11 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     </div>
 
     {/* Formulario */}
-    {showForm&&canEdit&&<div style={{background:C.card,border:`1px solid ${C.teal}44`,borderRadius:14,padding:16,marginBottom:14}}>
+    {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
       <div style={{display:'flex',gap:8,marginBottom:10}}>
         {[['treinamento','Treinamento'],['reuniao','Reuniao']].map(([v,l])=>(
-          <button key={v} onClick={()=>setForm({...form,tipo:v})} style={{flex:1,padding:'8px',borderRadius:8,border:`1px solid ${form.tipo===v?C.teal:C.border}`,background:form.tipo===v?C.teal+'22':C.surface,color:form.tipo===v?C.teal:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{l}</button>
+          <button key={v} onClick={()=>setForm({...form,tipo:v})} style={{flex:1,padding:'8px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.surface,color:form.tipo===v?C.teal:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{l}</button>
         ))}
       </div>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo *</label>
@@ -2007,11 +2007,11 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
       <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
-      <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'8px 12px',marginBottom:10,fontSize:10,color:C.muted}}>
+      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'8px 12px',marginBottom:10,fontSize:10,color:C.muted}}>
         Execute no Supabase SQL Editor: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS treinamentos_nsp (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, tipo TEXT, subnucleo TEXT, protocolo TEXT, data DATE, participantes INT, descricao TEXT, responsavel TEXT, link_gdrive TEXT); ALTER TABLE treinamentos_nsp ENABLE ROW LEVEL SECURITY; CREATE POLICY "allow_all_treinamentos" ON treinamentos_nsp FOR ALL USING (true) WITH CHECK (true);</span>
       </div>
       <div style={{display:'flex',gap:8}}>
-        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Salvar registro'}</button>
       </div>
     </div>}
@@ -2021,7 +2021,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
     {filtered.map(r=>{
       const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'lista',color:C.muted,label:r.subnucleo};
-      return(<div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+      return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
           <span style={{fontSize:18}}>{sub.icon}</span>
           <div style={{flex:1}}>
@@ -2105,7 +2105,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
     const w=window.open('','_blank');
-    w.document.write(`<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:11px}h1{font-size:16px;color:#003087}h2{font-size:13px;border-bottom:2px solid #003087;padding-bottom:3px;margin:16px 0 8px;color:#003087}h3{font-size:11px;font-weight:700;margin:12px 0 4px}table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10px}th,td{border:1px solid #ccc;padding:4px 7px;text-align:left}th{background:#e8eef7;font-weight:700}.ok{color:#059669;font-weight:700}.alerta{color:#dc2626;font-weight:700}.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700}@media print{button{display:none}}</style></head><body>${el.innerHTML}<br/><small style="color:#999">Gerado por NotificaAI em ${new Date().toLocaleString('pt-BR')}</small></body></html>`);
+    w.document.write('<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:11px+'h1{font-size:16px;color:#003087+'h2{font-size:13px;border-bottom:2px solid #003087;padding-bottom:3px;margin:16px 0 8px;color:#003087+'h3{font-size:11px;font-weight:700;margin:12px 0 4px+'table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10px+'th,td{border:1px solid #ccc;padding:4px 7px;text-align:left+'th{background:#e8eef7;font-weight:700+'.ok{color:#059669;font-weight:700+'.alerta{color:#dc2626;font-weight:700+'.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700+'@media print{button{display:none+'+'</style></head><body>'+el.innerHTML+'<br/><small style="color:#999">Gerado por NotificaAI em '+new Date().toLocaleString('pt-BR')+'</small></body></html>');
     w.document.close();w.print();
   };
 
@@ -2113,7 +2113,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const tb=(id,l)=><button onClick={()=>setTab(id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:tab===id?C.teal:'transparent',color:tab===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>;
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={`${filtered.length} resultado(s) de ${notifications.length} total`} right={<button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
@@ -2122,19 +2122,19 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     </div>
 
     {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Parametros do relatorio</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Semestre de referencia</label>
-        <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,appearance:'none'}}>
+        <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,appearance:'none'}}>
           {[2024,2025,2026].flatMap(a=>[`${a}-1`,`${a}-2`]).map(s=>{const[a,sem]=s.split('-');return(<option key={s} value={s}>{sem}o semestre de {a}</option>);})}
         </select>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
-        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
         <button onClick={gerar} disabled={loading} style={{width:'100%',background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
           {loading?'Gerando...':'Gerar Relatorio'}
         </button>
       </div>
-      <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:12,padding:'12px 14px',fontSize:11,color:C.muted,lineHeight:1.7}}>
+      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:12,padding:'12px 14px',fontSize:11,color:C.muted,lineHeight:1.7}}>
         Para o relatorio completo, certifique-se de que os modulos de Treinamentos, Protocolos e Indicadores estao preenchidos com os dados do semestre.
       </div>
     </div>}
@@ -2148,7 +2148,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     {tab==='dsm'&&dados&&<div>
       <div style={{display:'flex',gap:8,marginBottom:14}}>
         <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
-        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
+        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
       </div>
 
       <div id="relatorio-dsm-pdf" style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',fontSize:11}}>
@@ -2262,7 +2262,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     {tab==='anvisa'&&dados&&<div>
       <div style={{display:'flex',gap:8,marginBottom:14}}>
         <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
-        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
+        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
       </div>
 
       {/* Score ANVISA */}
@@ -2280,7 +2280,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         const nivel=pct>=67?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=34?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
 
         return(<div>
-          <div style={{background:nivel.color+'18',border:`1px solid ${nivel.color}44`,borderRadius:14,padding:16,marginBottom:14,textAlign:'center'}}>
+          <div style={{background:nivel.color+'18',border:'1px solid '+nivel.color+'44',borderRadius:14,padding:16,marginBottom:14,textAlign:'center'}}>
             <div style={{fontSize:28,fontWeight:900,color:nivel.color,lineHeight:1}}>{pct}%</div>
             <div style={{fontSize:14,fontWeight:800,color:nivel.color,marginTop:4}}>{nivel.label}</div>
             <div style={{fontSize:11,color:C.muted,marginTop:4}}>{score} de {Object.keys(checks).length} indicadores conformes</div>
@@ -2290,7 +2290,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             {[
               ['NSP instituido com portaria',checks.nsp_instituido,'Portaria vigente no sistema'],
               ['Minimo 2 reunioes no semestre',checks.reunioes_ok,`${dados.reunioes.length} reunioes registradas`],
-              ['Protocolos atualizados (4+)',checks.protocolos_ok,`${dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length} protocolos validos`],
+              ['Protocolos atualizados (4+)',checks.protocolos_ok,dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length+' protocolos validos'],
               ['Treinamento em todos os subnucleos',checks.treinamentos_ok,SUBNUCLEOS_HNSA.filter(s=>dados.porSubnucleo[s.id].treinamentos===0).map(s=>s.label).join(', ')||'Todos realizaram'],
               ['Notificacoes enviadas ao Notivisa',checks.notivisa_ok,`${dados.nots.filter(n=>n.notivisa_enviado).length} notificacoes enviadas`],
               ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
@@ -2305,10 +2305,10 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             ))}
           </div>
 
-          {!checks.reunioes_ok&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:10,padding:'10px 14px',marginTop:12,fontSize:11,color:C.red,fontWeight:700}}>
+          {!checks.reunioes_ok&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'33',borderRadius:10,padding:'10px 14px',marginTop:12,fontSize:11,color:C.red,fontWeight:700}}>
             ATENCAO: Reunioes insuficientes. O indicador 1 (NSP com 2 reunioes) e requisito minimo - sem ele o HNSA e classificado automaticamente como BAIXA CONFORMIDADE.
           </div>}
-          {!checks.notivisa_ok&&<div style={{background:C.red+'15',border:`1px solid ${C.red}33`,borderRadius:10,padding:'10px 14px',marginTop:8,fontSize:11,color:C.red,fontWeight:700}}>
+          {!checks.notivisa_ok&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'33',borderRadius:10,padding:'10px 14px',marginTop:8,fontSize:11,color:C.red,fontWeight:700}}>
             ATENCAO: Nenhuma notificacao enviada ao Notivisa. O indicador 18 tambem e requisito minimo. Em 2023 o HNSA notificou apenas em fevereiro e marco, resultando em baixa conformidade.
           </div>}
         </div>);
@@ -2357,25 +2357,25 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     </div>
 
     {/* Dias sem sentinela */}
-    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:`1px solid ${s.diasSemSentinela>=30?C.green:C.yellow}44`,borderRadius:12,padding:'14px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'14px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
       <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
     {/* Indice de maturidade */}
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text}}>Indice de Maturidade</div>
         <div style={{fontSize:22,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
       </div>
       <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}>
-        <div style={{width:`${s.culturaScore}%`,height:'100%',background:`linear-gradient(90deg,${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red},${C.teal})`,borderRadius:3}}/>
+        <div style={{width:s.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3}}/>
       </div>
       <div style={{fontSize:11,color:C.muted,marginTop:6}}>{s.culturaScore>=70?'Maturidade avancada':s.culturaScore>=40?'Em desenvolvimento':'Estagio inicial'}</div>
     </div>
 
     {/* Distribuicao por setor */}
-    {s.sectorData.length>0&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
+    {s.sectorData.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Notificacoes por Setor</div>
       {s.sectorData.map((d,i)=>{
         const max=s.sectorData[0].eventos||1;
@@ -2403,7 +2403,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       const regs=s.treins.filter(t=>t.subnucleo===sub.id);
       const treins=regs.filter(t=>t.tipo==='treinamento');
       const reunioes=regs.filter(t=>t.tipo==='reuniao');
-      return(<div key={sub.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+      return(<div key={sub.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:regs.length>0?8:0}}>
           <span style={{fontSize:20}}>{sub.icon}</span>
           <div style={{flex:1}}>
@@ -2425,7 +2425,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10,marginTop:6}}>Notificacoes Recentes</div>
     {notifications.slice(0,10).map((n,i)=>{
       const tag=getTag(n);
-      return(<div key={n.id||i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
+      return(<div key={n.id||i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{tag.label}</div>
           <div style={{flex:1,fontSize:12,color:C.text,fontWeight:600}}>{getTitle(n)}</div>
@@ -2474,7 +2474,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     {/* Header */}
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <div style={{width:44,height:44,borderRadius:14,background:`linear-gradient(135deg,${C.teal},${C.blue})`,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}><img src='data:image/png;base64,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' alt='HNSA' style={{width:38,height:'auto'}}/></div>
+        <div style={{width:44,height:44,borderRadius:14,background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}><img src='data:image/png;base64,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' alt='HNSA' style={{width:38,height:'auto'}}/></div>
         <div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:'-0.02em'}}>NotificaAI</div>
           <div style={{fontSize:11,color:C.muted}}>{hospital?.short_name||'HNSA'} · Núcleo de Segurança do Paciente</div>
@@ -2486,14 +2486,14 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     </div>
 
     {/* Alertas de status */}
-    {!configured&&<div onClick={onConfig} style={{background:C.yellow+'18',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'13px 16px',cursor:'pointer'}}>
+    {!configured&&<div onClick={onConfig} style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'13px 16px',cursor:'pointer'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.yellow}}>⚠️ Banco de dados não configurado</div>
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
-    {configured&&<div style={{background:C.green+'18',border:`1px solid ${C.green}44`,borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
+    {configured&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
       <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
     </div>}
-    {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
+    {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span>🧪</span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
 
@@ -2507,7 +2507,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Indicadores NSP */}
     {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div style={{background:C.card,border:`1px solid ${s.sentinela>0?C.red:C.border}`,borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:s.sentinela>0?`0 0 0 0 ${C.red}66`:undefined,animation:s.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
+      <div style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:s.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:s.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
         <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
       </div>
@@ -2522,13 +2522,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     </div>}
 
     {/* Dias sem sentinela */}
-    {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:`1px solid ${s.diasSemSentinela>=30?C.green:C.yellow}44`,borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+    {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
       <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
     {/* Botão notificar */}
-    <button onClick={()=>setView('notificar')} style={{background:`linear-gradient(135deg,${C.teal}22,${C.blue}33)`,border:`1px solid ${C.teal}55`,borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
+    <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
       <div style={{textAlign:'left'}}><div style={{fontSize:16,fontWeight:800,color:C.teal}}>+ Nova Notificação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Registre um evento agora</div></div>
       <IconMsg size={26} color={C.teal}/>
     </button>
@@ -2553,13 +2553,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
             <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'Ok RCA':'ATENCAO Sem RCA'}</span>
             <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Ok Notivisa':'- Notivisa'}</span>
             {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&
-              <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:`1px solid ${C.blue}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>🧠 Gerar RCA</button>}
+              <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>🧠 Gerar RCA</button>}
             {!n.notivisa_enviado&&n.notification_type==='seguranca_paciente'&&
-              <button onClick={()=>setNotiVisaTarget(n)} style={{fontSize:10,background:C.purple+'20',color:C.purple,border:`1px solid ${C.purple}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Notivisa</button>}
+              <button onClick={()=>setNotiVisaTarget(n)} style={{fontSize:10,background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Notivisa</button>}
             <button onClick={()=>setRiscoTarget(n)} style={{fontSize:10,background:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted)+'20':C.muted+'20',color:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted):C.muted,border:'1px solid transparent',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>
               {n.risco_classificacao?`⚠ ${n.risco_classificacao}`:'ATENCAO Risco'}
             </button>
-            <button onClick={()=>setPlanoTarget(n)} style={{fontSize:10,background:C.orange+'20',color:C.orange,border:`1px solid ${C.orange}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Plano</button>
+            <button onClick={()=>setPlanoTarget(n)} style={{fontSize:10,background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Plano</button>
           </div>
         </div>);
       })}
@@ -2808,7 +2808,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
         protocolo=Math.random().toString(36).slice(2,10).toUpperCase();
         showToast('Notificação registrada!','success');
       }
-      addMsg('assistant',`Notificação enviada com sucesso!\n\nProtocolo: ${protocolo}\n\nGuarde este número. O Gestor foi notificado.\n\nObrigado por contribuir com a segurança do HNSA.`);
+      addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número. O Gestor foi notificado.\n\nObrigado por contribuir com a segurança do HNSA.');
       setStep('done');
     }catch{showToast('Erro ao salvar. Tente novamente.','error');}
     setSaving(false);
@@ -2975,14 +2975,14 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   return(<div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 64px)'}}>
 
     {/* Header com barra de progresso */}
-    <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface}}>
+    <div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:step!=='done'?6:0}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text}}>Registrar Notificação</div>
         {step!=='done'&&<div style={{fontSize:11,color:C.muted,fontWeight:600}}>Passo {prog.atual}/{prog.total}</div>}
       </div>
       {step!=='done'&&<div>
         <div style={{height:3,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:4}}>
-          <div style={{width:`${(prog.atual/prog.total)*100}%`,height:'100%',background:`linear-gradient(90deg,${C.teal},${C.blue})`,borderRadius:2,transition:'width .4s'}}/>
+          <div style={{width:`${(prog.atual/prog.total)*100}%`,height:'100%',background:'linear-gradient(90deg,'+C.teal+','+C.blue+')',borderRadius:2,transition:'width .4s'}}/>
         </div>
         <div style={{fontSize:10,color:C.teal,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>{LABELS_STEP[step]||''}</div>
       </div>}
@@ -2992,7 +2992,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     <div style={{flex:1,overflowY:'auto',padding:16,display:'flex',flexDirection:'column',gap:10}}>
       {messages.map((m,i)=>(
         <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start'}}>
-          <div style={{maxWidth:'88%',background:m.role==='user'?`linear-gradient(135deg,${C.teal},${C.blue})`:C.card,border:m.role==='assistant'?`1px solid ${C.border}`:'none',borderRadius:m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px',padding:'11px 14px',fontSize:14,color:m.role==='user'?'#fff':C.text,lineHeight:1.65}}
+          <div style={{maxWidth:'88%',background:m.role==='user'?'linear-gradient(135deg,'+C.teal+','+C.blue+')':C.card,border:m.role==='assistant'?'1px solid '+C.border:'none',borderRadius:m.role==='user'?'16px 16px 4px 16px':'16px 16px 16px 4px',padding:'11px 14px',fontSize:14,color:m.role==='user'?'#fff':C.text,lineHeight:1.65}}
             dangerouslySetInnerHTML={{__html:md(m.content)}}/>
         </div>
       ))}
@@ -3005,14 +3005,14 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
     {/* Área de entrada */}
     {step!=='done'&&(
-      <div style={{borderTop:`1px solid ${C.border}`,background:C.surface}}>
+      <div style={{borderTop:'1px solid '+C.border,background:C.surface}}>
 
         {/* Chips clicáveis */}
         {chips.length>0&&!loading&&!saving&&(
           <div style={{padding:'10px 14px 6px',display:'flex',flexWrap:'wrap',gap:7,maxHeight:200,overflowY:'auto'}}>
             {chips.map((c,i)=>(
               <button key={i} onClick={()=>responder(c.v,c.l)}
-                style={{background:C.card,border:`1px solid ${C.teal}55`,borderRadius:20,padding:'7px 14px',color:C.teal,fontSize:13,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
+                style={{background:C.card,border:'1px solid '+C.teal+'55',borderRadius:20,padding:'7px 14px',color:C.teal,fontSize:13,fontWeight:600,cursor:'pointer',whiteSpace:'nowrap'}}>
                 {c.l}
               </button>
             ))}
@@ -3034,7 +3034,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
             <button onClick={confirmar} style={{flex:2,background:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>
               Confirmar e Enviar
             </button>
-            <button onClick={corrigir} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'13px',color:C.muted,fontWeight:600,fontSize:12,cursor:'pointer'}}>
+            <button onClick={corrigir} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'13px',color:C.muted,fontWeight:600,fontSize:12,cursor:'pointer'}}>
               Corrigir
             </button>
           </div>
@@ -3052,7 +3052,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
                 chips.length>0?'Ou escreva livremente...' :
                 'Escreva aqui...'
               }
-              style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
+              style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
             <button onClick={()=>{if(input.trim()){responder(input.trim(),input.trim());setInput('');}}}
               disabled={!input.trim()}
               style={{width:44,height:44,borderRadius:'50%',border:'none',background:input.trim()?C.teal:C.border,cursor:input.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -3067,7 +3067,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
             <input value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>e.key==='Enter'&&input.trim()&&(responder(input.trim(),input.trim()),setInput(''))}
               placeholder="Digite o NIP do paciente..."
-              style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
+              style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
             <button onClick={()=>{if(input.trim()){responder(input.trim(),input.trim());setInput('');}}}
               disabled={!input.trim()}
               style={{width:44,height:44,borderRadius:'50%',border:'none',background:input.trim()?C.teal:C.border,cursor:input.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -3157,24 +3157,24 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
     </div>
 
     {tab==='graficos'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'16px 12px'}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>Evolução Mensal</div>
         <div style={{display:'flex',gap:14,marginBottom:10}}>
           {[['SP',C.teal],['Adm',C.purple]].map(([l,c])=><div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.muted}}><div style={{width:10,height:10,borderRadius:2,background:c}}/>{l}</div>)}
         </div>
         <LineChart data={s.monthly?.length?s.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={150}/>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'16px 12px'}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Eventos por Setor</div>
         <BarChart data={s.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={150}/>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'16px 12px'}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição por Tipo</div>
         <PieChart data={s.typeData} size={180}/>
       </div>
     </div>}
 
-    {tab==='calor'&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    {tab==='calor'&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>Mapa de Calor</div>
       <div style={{fontSize:11,color:C.muted,marginBottom:16}}>Eventos por turno × dia da semana</div>
       <div style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr)',gap:3,marginBottom:4}}>
@@ -3186,13 +3186,13 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
           {row.v.map((val,i)=><HeatCell key={i} value={val}/>)}
         </div>
       ))}
-      {s.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.red}`}}>
+      {s.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.red}}>
         <div style={{fontSize:12,fontWeight:700,color:C.text}}>⚠️ Ponto crítico identificado</div>
         <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {s.heatmapPeak.turno} de {s.heatmapPeak.dia} - {s.heatmapPeak.val} evento(s). Atenção recomendada.</div>
       </div>}
       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:14,justifyContent:'center'}}>
         <span style={{fontSize:10,color:C.muted}}>Menos</span>
-        {[C.surface,'#0E3D5B','#0369A1','#0891B2',C.teal].map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:`1px solid ${C.border}`}}/>)}
+        {[C.surface,'#0E3D5B','#0369A1','#0891B2',C.teal].map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:'1px solid '+C.border}}/>)}
         <span style={{fontSize:10,color:C.muted}}>Mais</span>
       </div>
     </div>}
@@ -3200,7 +3200,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
     {tab==='cultura'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
 
       {/* Score principal */}
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
           <div style={{fontSize:14,fontWeight:700,color:C.text}}>Índice de Maturidade de Notificação</div>
           <div style={{fontSize:10,color:C.muted,background:C.surface,borderRadius:6,padding:'3px 8px',fontWeight:600}}>0-100</div>
@@ -3209,7 +3209,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
           Indicador operacional interno - mede a maturidade do <strong style={{color:C.text}}>sistema de notificação</strong>, não a cultura de segurança clínica (que exige instrumentos validados como SAQ ou HSOPSC).
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:14}}>
-          <div style={{width:72,height:72,borderRadius:'50%',background:`conic-gradient(${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red} ${s.culturaScore*3.6}deg,${C.border} 0deg)`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <div style={{width:72,height:72,borderRadius:'50%',background:'conic-gradient('+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+' '+(s.culturaScore*3.6)+'deg,'+C.border+' 0deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             <div style={{width:56,height:56,borderRadius:'50%',background:C.card,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
               <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red,lineHeight:1}}>{s.culturaScore}</div>
               <div style={{fontSize:8,color:C.muted,fontWeight:700}}>pts</div>
@@ -3225,7 +3225,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
           </div>
         </div>
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
-          <div style={{width:`${s.culturaScore}%`,height:'100%',background:`linear-gradient(90deg,${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red},${C.teal})`,borderRadius:3,transition:'width .6s'}}/>
+          <div style={{width:s.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3,transition:'width .6s'}}/>
         </div>
         <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:C.muted,marginBottom:16}}>
           <span>Inicial (0)</span><span>Desenvolvimento (40)</span><span>Avançado (70+)</span>
@@ -3256,14 +3256,14 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
           </div>
         ))}
 
-        <div style={{background:C.yellow+'10',border:`1px solid ${C.yellow}33`,borderRadius:8,padding:'10px 12px',marginTop:4}}>
+        <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:4}}>
           <div style={{fontSize:10,color:C.yellow,fontWeight:700,marginBottom:3}}>⚠ Limitação do indicador</div>
           <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>Este índice é um proxy operacional, não um instrumento validado cientificamente. Para avaliação formal da cultura de segurança, utilize o <strong style={{color:C.text}}>SAQ (Safety Attitudes Questionnaire)</strong> ou o <strong style={{color:C.text}}>HSOPSC</strong> (AHRQ), ambos disponíveis em português.</div>
         </div>
       </div>
 
       {/* Dias sem sentinela */}
-      {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:`1px solid ${s.diasSemSentinela>=30?C.green:C.yellow}44`,borderRadius:12,padding:'16px',textAlign:'center'}}>
+      {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'16px',textAlign:'center'}}>
         <div style={{fontSize:40,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
         <div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow,marginTop:6}}>dias sem evento sentinela</div>
         <div style={{fontSize:11,color:C.muted,marginTop:4}}>Meta ONA: 90 dias contínuos</div>
@@ -3271,14 +3271,14 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
     </div>}
 
     {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
           {loadingNarr?'Aguarde Gerando análise...':'? Gerar Interpretação do Mês'}
         </button>
       </div>
-      {narrative&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      {narrative&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:11,color:C.muted,marginBottom:10,fontStyle:'italic'}}>Gerado por IA - revisar antes de publicação oficial</div>
         <div style={{fontSize:13,color:C.text,lineHeight:1.85,whiteSpace:'pre-wrap'}}>{narrative}</div>
       </div>}
@@ -3286,28 +3286,28 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
 
     {tab==='relatorio'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-        <select value={filterYear} onChange={e=>{setFilterYear(Number(e.target.value));setFilterMonth(0);}} style={{flex:1,minWidth:80,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
+        <select value={filterYear} onChange={e=>{setFilterYear(Number(e.target.value));setFilterMonth(0);}} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
           {(anos.length?anos:[new Date().getFullYear()]).map(a=><option key={a} value={a}>{a}</option>)}
         </select>
-        <select value={filterMonth} onChange={e=>setFilterMonth(Number(e.target.value))} style={{flex:2,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
+        <select value={filterMonth} onChange={e=>setFilterMonth(Number(e.target.value))} style={{flex:2,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
           <option value={0}>Todos os meses</option>
           {MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
         </select>
         <button onClick={exportCSV} disabled={filtered.length===0} style={{flexShrink:0,background:C.green,border:'none',borderRadius:8,padding:'8px 14px',color:'#06101F',fontSize:12,fontWeight:800,cursor:filtered.length>0?'pointer':'default',opacity:filtered.length>0?1:0.5}}>↓ Sheets</button>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Total {filterYear} - {totalAno} notificações</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-            <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:`1px solid ${C.border}`}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>)}</tr></thead>
             <tbody>
               {byMonth.map((m,i)=>(
                 <tr key={i} onClick={()=>setFilterMonth(filterMonth===i+1?0:i+1)} style={{cursor:'pointer',background:filterMonth===i+1?C.teal+'15':'transparent'}}>
-                  <td style={{padding:'6px 8px',color:C.text,fontWeight:600,borderBottom:`1px solid ${C.border}22`}}>{m.mes}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.total||'-'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.sp||'-'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.ccih>0?C.purple:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.ccih||'-'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.adm>0?C.blue:C.muted,borderBottom:`1px solid ${C.border}22`}}>{m.adm||'-'}</td>
+                  <td style={{padding:'6px 8px',color:C.text,fontWeight:600,borderBottom:'1px solid '+C.border+'22'}}>{m.mes}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.total||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.sp||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.ccih>0?C.purple:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.ccih||'-'}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',color:m.adm>0?C.blue:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.adm||'-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -3315,11 +3315,11 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         </div>
         <div style={{fontSize:10,color:C.muted,marginTop:8}}>Toque em um mês para filtrar a listagem abaixo</div>
       </div>
-      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{filtered.length} notificações</div>
         {filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificação neste período.</div>}
         {filtered.slice(0,40).map((n,i)=>(
-          <div key={n.id||i} style={{borderBottom:`1px solid ${C.border}22`,paddingBottom:10,marginBottom:10}}>
+          <div key={n.id||i} style={{borderBottom:'1px solid '+C.border+'22',paddingBottom:10,marginBottom:10}}>
             <div style={{display:'flex',justifyContent:'space-between',gap:8,marginBottom:3}}>
               <div style={{display:'flex',gap:4,alignItems:'center'}}>
                 <div style={{background:getTag(n).color+'22',color:getTag(n).color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{getTag(n).label}</div>
@@ -3379,7 +3379,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     setSaving(false);
   };
 
-  const inp={background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
+  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
   const lbl={fontSize:11,color:C.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',display:'block',marginBottom:6};
 
   if(step==='done') return(<div style={{padding:32,textAlign:'center'}}>
@@ -3395,7 +3395,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Qual o tipo de chamado?</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {TICKET_TYPES.map(t=>(
-        <button key={t.id} onClick={()=>{setType(t.id);setStep('form');}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
+        <button key={t.id} onClick={()=>{setType(t.id);setStep('form');}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
           <div style={{width:44,height:44,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{t.icon}</div>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{t.label}</div><div style={{fontSize:11,color:C.muted}}>-> {t.dest} · {t.desc}</div></div>
         </button>
@@ -3429,7 +3429,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     <label style={lbl}>Prioridade</label>
     <div style={{display:'flex',gap:8,marginBottom:16}}>
       {[['normal','Normal','#5A7AA0'],['urgente','Urgente','#F59E0B'],['critico','Crítico','#EF4444']].map(([id,label,color])=>(
-        <button key={id} onClick={()=>setForm({...form,priority:id})} style={{flex:1,padding:'9px',borderRadius:8,border:`1px solid ${form.priority===id?color:C.border}`,background:form.priority===id?color+'22':C.card,color:form.priority===id?color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{label}</button>
+        <button key={id} onClick={()=>setForm({...form,priority:id})} style={{flex:1,padding:'9px',borderRadius:8,border:'1px solid '+(form.priority===id?color:C.border),background:form.priority===id?color+'22':C.card,color:form.priority===id?color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{label}</button>
       ))}
     </div>
     <button onClick={submit} disabled={saving||!form.description.trim()} style={{width:'100%',background:tt?.color||C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',opacity:saving?0.7:1}}>
@@ -3488,17 +3488,17 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
     const st=ticket.status;
     const isComm=commenting===ticket.id;
     if(isComm) return(<div style={{marginTop:8}}>
-      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comentário ou observação..." style={{width:'100%',background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'10px',color:C.text,fontSize:12,outline:'none',resize:'none',height:70,fontFamily:'inherit',marginBottom:8}}/>
+      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comentário ou observação..." style={{width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px',color:C.text,fontSize:12,outline:'none',resize:'none',height:70,fontFamily:'inherit',marginBottom:8}}/>
       <div style={{display:'flex',gap:6}}>
-        <button onClick={()=>{setCommenting(null);setCommentText('');}} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>{setCommenting(null);setCommentText('');}} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={()=>updateStatus(ticket,st,commentText)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'8px',color:'#06101F',fontSize:11,fontWeight:800,cursor:'pointer'}}>💬 Salvar</button>
       </div>
     </div>);
     return(<div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
-      <button onClick={()=>setCommenting(ticket.id)} style={{flex:1,minWidth:80,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>💬 Comentar</button>
-      {st==='visualizado'&&<button onClick={()=>updateStatus(ticket,'recebido')} style={{flex:1,minWidth:80,background:C.blue+'22',border:`1px solid ${C.blue}44`,borderRadius:8,padding:'8px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}>📬 Recebido</button>}
-      {st==='recebido'&&<button onClick={()=>updateStatus(ticket,'em_andamento')} style={{flex:1,minWidth:80,background:C.teal+'22',border:`1px solid ${C.teal}44`,borderRadius:8,padding:'8px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>▶ Andamento</button>}
-      {(st==='em_andamento'||st==='recebido')&&<button onClick={()=>updateStatus(ticket,'concluido')} style={{flex:1,minWidth:80,background:C.green+'22',border:`1px solid ${C.green}44`,borderRadius:8,padding:'8px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluído</button>}
+      <button onClick={()=>setCommenting(ticket.id)} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>💬 Comentar</button>
+      {st==='visualizado'&&<button onClick={()=>updateStatus(ticket,'recebido')} style={{flex:1,minWidth:80,background:C.blue+'22',border:'1px solid '+C.blue+'44',borderRadius:8,padding:'8px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}>📬 Recebido</button>}
+      {st==='recebido'&&<button onClick={()=>updateStatus(ticket,'em_andamento')} style={{flex:1,minWidth:80,background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:8,padding:'8px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>▶ Andamento</button>}
+      {(st==='em_andamento'||st==='recebido')&&<button onClick={()=>updateStatus(ticket,'concluido')} style={{flex:1,minWidth:80,background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:8,padding:'8px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluído</button>}
     </div>);
   };
 
@@ -3509,11 +3509,11 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
   </div>);
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={`${filtered.length} resultado(s) de ${notifications.length} total`} right={<button onClick={load} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
       {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes',C.red]].map(([id,label,color])=>(
-        <div key={id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div key={id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
           <div style={{fontSize:22,fontWeight:900,color}}>{counts[id]||0}</div>
           <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>{label}</div>
         </div>
@@ -3523,7 +3523,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
       {[['todos','Todos'],['aberto','Aberto'],['visualizado','Visualizado'],['recebido','Recebido'],['em_andamento','Andamento'],['concluido','Concluído']].map(([id,label])=>(
         <button key={id} onClick={()=>setFilter(id)} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:'none',background:filter===id?C.teal:C.card,color:filter===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{label}</button>
       ))}
-      <button onClick={load} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:`1px solid ${C.border}`,background:'transparent',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>↻</button>
+      <button onClick={load} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:'1px solid '+C.border,background:'transparent',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>↻</button>
     </div>
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Carregando...</div>}
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Nenhum chamado{filter!=='todos'?' com este filtro':''}.</div>}
@@ -3559,7 +3559,7 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
   const [subview,setSubview]=useState(profileMode?'list':'new');
   const canCreate=profileMode?['gestor','enfermeiro'].includes(profileMode):false;
   return(<div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 64px)'}}>
-    <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div><div style={{fontSize:15,fontWeight:700,color:C.text}}>Chamados Operacionais</div><div style={{fontSize:11,color:C.muted}}>DSG · SAME · Almoxarifado · Nutrição</div></div>
       {subview==='list'&&canCreate&&<button onClick={()=>setSubview('new')} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button>}
     </div>
@@ -3615,16 +3615,16 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
 
   const item=items.find(k=>k.id===selected);
   if(selected&&item) return(<div>
-    <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
       <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}><-</button>
       <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:C.text}}>{item.icon} {item.title}</div><div style={{fontSize:11,color:C.muted}}>{item.desc}</div></div>
     </div>
     <div style={{padding:16,display:'flex',flexDirection:'column',gap:10}}>
-      {item.type==='video'&&getYtId(item.url||'')&&<div style={{borderRadius:12,overflow:'hidden',background:'#000',aspectRatio:'16/9'}}><iframe width="100%" height="100%" src={`https://www.youtube.com/embed/${getYtId(item.url)}`} frameBorder="0" allowFullScreen style={{display:'block',aspectRatio:'16/9'}}/></div>}
-      {item.type==='pdf'&&item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{display:'block',background:C.teal+'22',border:`1px solid ${C.teal}44`,borderRadius:12,padding:16,textAlign:'center',color:C.teal,fontWeight:700,fontSize:14,textDecoration:'none'}}>📄 Abrir documento oficial (ANVISA)</a>}
-      {item.type==='cards'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderLeft:`3px solid ${item.color}`,borderRadius:12,padding:14}}><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div>)}
-      {item.type==='steps'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{fontSize:26,fontWeight:900,color:item.color,minWidth:32}}>{c.step}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
-      {item.type==='metas'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{minWidth:36,height:36,borderRadius:18,background:item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#06101F'}}>{c.num}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
+      {item.type==='video'&&getYtId(item.url||'')&&<div style={{borderRadius:12,overflow:'hidden',background:'#000',aspectRatio:'16/9'}}><iframe width="100%" height="100%" src={'https://www.youtube.com/embed/'+getYtId(item.url)} frameBorder="0" allowFullScreen style={{display:'block',aspectRatio:'16/9'}}/></div>}
+      {item.type==='pdf'&&item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{display:'block',background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:12,padding:16,textAlign:'center',color:C.teal,fontWeight:700,fontSize:14,textDecoration:'none'}}>📄 Abrir documento oficial (ANVISA)</a>}
+      {item.type==='cards'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+item.color,borderRadius:12,padding:14}}><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div>)}
+      {item.type==='steps'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{fontSize:26,fontWeight:900,color:item.color,minWidth:32}}>{c.step}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
+      {item.type==='metas'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{minWidth:36,height:36,borderRadius:18,background:item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#06101F'}}>{c.num}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
     </div>
   </div>);
 
@@ -3633,7 +3633,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Materiais de apoio, treinamentos e educação em saúde</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {items.map(item=>(
-        <button key={item.id} onClick={()=>setSelected(item.id)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%'}}>
+        <button key={item.id} onClick={()=>setSelected(item.id)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%'}}>
           <div style={{width:48,height:48,borderRadius:14,background:(item.color||C.teal)+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{item.icon}</div>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{item.title}</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{item.desc}</div></div>
           <IconChev size={16} color={C.muted}/>
@@ -3679,7 +3679,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
   const filtered=notifications.filter(n=>filterTest==='test'?n.is_test:filterTest==='prod'?!n.is_test:true);
   const testCount=notifications.filter(n=>n.is_test).length;
-  const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
 
   if(showImport) return(<div style={{padding:'20px 16px'}}>
     <button onClick={()=>setShowImport(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}><-</button>
@@ -3703,13 +3703,13 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       </div>
     </div>
 
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>📧 E-mail de destino</div>
       <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="hnsa.nsp@marinha.mil.br" style={{...inp,marginBottom:10}}/>
       <button onClick={()=>{onSaveEmail(email.trim());showToast('OK E-mail atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar e-mail</button>
     </div>
 
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>🔗 Webhook (n8n / Make)</div>
       <div style={{fontSize:11,color:C.muted,marginBottom:10}}>URL que receberá os dados para envio automático de e-mail.</div>
       <input value={webhook} onChange={e=>setWebhook(e.target.value)} placeholder="https://seu-n8n.app/webhook/notificaai" style={{...inp,marginBottom:10,fontFamily:'monospace',fontSize:11}}/>
@@ -3717,34 +3717,34 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     </div>
 
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
-    <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:`1px solid ${C.purple}44`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
+    <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
       <span style={{fontSize:22}}>📂</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.purple}}>Importar histórico CSV</div><div style={{fontSize:11,color:C.muted}}>Carregue planilhas do Google Sheets</div></div>
       <IconChev size={16} color={C.purple}/>
     </button>
-    <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:`1px solid ${C.blue}44`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
+    <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:'1px solid '+C.blue+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
       <span style={{fontSize:22}}>📄</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatório Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatório PDF para a diretoria</div></div>
       <IconChev size={16} color={C.blue}/>
     </button>
 
-    <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12}}>
         <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>📋 Notificações</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total · {testCount} teste</div></div>
-        <button onClick={loadNots} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>↻</button>
+        <button onClick={loadNots} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>↻</button>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:12}}>
         {[['all','Todas',notifications.length],['test','Teste',testCount],['prod','Prod',notifications.length-testCount]].map(([id,label,count])=>(
           <button key={id} onClick={()=>setFilterTest(id)} style={{flex:1,padding:'6px 8px',borderRadius:8,border:'none',background:filterTest===id?C.teal:C.surface,color:filterTest===id?'#06101F':C.muted,fontSize:10,fontWeight:700,cursor:'pointer'}}>{label} ({count})</button>
         ))}
       </div>
-      {testCount>0&&<button onClick={clearTests} style={{width:'100%',background:confirmClear?C.red:C.red+'22',border:`1px solid ${C.red}55`,borderRadius:10,padding:'10px',color:confirmClear?'#fff':C.red,fontWeight:700,fontSize:12,cursor:'pointer',marginBottom:12}}>
+      {testCount>0&&<button onClick={clearTests} style={{width:'100%',background:confirmClear?C.red:C.red+'22',border:'1px solid '+C.red+'55',borderRadius:10,padding:'10px',color:confirmClear?'#fff':C.red,fontWeight:700,fontSize:12,cursor:'pointer',marginBottom:12}}>
         {confirmClear?`⚠️ CLIQUE NOVAMENTE para excluir ${testCount} testes`:`🗑️ Limpar ${testCount} notificações de teste`}
       </button>}
       {loading&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Carregando...</div>}
       {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificação</div>}
       {filtered.slice(0,20).map(n=>{const tag=getTag(n);const title=getTitle(n);return(
-        <div key={n.id} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
+        <div key={n.id} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
           <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
           {n.is_test&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700}}>TESTE</div>}
           <div style={{flex:1,minWidth:0}}>
@@ -3880,8 +3880,8 @@ function NotificaAI() {
 
       {/* NAV + MENU HAMBURGUER */}
       {showMenu&&(<div onClick={()=>setShowMenu(false)} style={{position:'fixed',inset:0,background:'#000a',zIndex:150}}/>)}
-      {showMenu&&(<div style={{position:'fixed',bottom:68,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:`1px solid ${C.border}`,borderRadius:'20px 20px 0 0',zIndex:160,padding:'16px 12px 8px',maxHeight:'70vh',overflowY:'auto'}}>
-        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,paddingBottom:10,borderBottom:`1px solid ${C.border}`}}>
+      {showMenu&&(<div style={{position:'fixed',bottom:68,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,borderRadius:'20px 20px 0 0',zIndex:160,padding:'16px 12px 8px',maxHeight:'70vh',overflowY:'auto'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,paddingBottom:10,borderBottom:'1px solid '+C.border}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAD6ALADASIAAhEBAxEB/8QAHAABAQADAQEBAQAAAAAAAAAAAAUGBwgEAQID/8QAUhAAAQIEAgMKCgcEBgkFAAAAAgADAQQFEgYRByIyExYhMTZCVXSUsggUQVFSYoKS0dIVIzNhcXKBN6Gis0VTc3WT8BckJUNERoSxwoOR4vHy/8QAGwEBAAMBAQEBAAAAAAAAAAAAAAQFBgMCBwH/xAA1EQABAwIEBAIJBAIDAAAAAAAAAQIDBBEFEiExBhNBUWFxFCIygZGhscHwMzTh8QfRFiNS/9oADAMBAAIRAxEAPwDqbDNBoZYbphFR6eUSk2sy8VD0B9VUd79C6EpvZA+VML8mqX1NruCqaAmb36F0JTeyB8qb36F0JTeyB8qpogJm9+hdCU3sgfKm9+hdCU3sgfKqaICZvfoXQlN7IHypvfoXQlN7IHyqmiAmb36F0JTeyB8qb36F0JTeyB8qpogJm9+hdCU3sgfKm9+hdCU3sgfKqaICZvfoXQlN7IHypvfoXQlN7IHyqmiAmb36F0JTeyB8qb36F0JTeyB8qpogJm9+hdCU3sgfKm9+hdCU3sgfKqaICZvfoXQlN7IHypvfoXQlN7IHyqmiAmb36F0JTeyB8qnYmoNDHDdTIaPTxiMm7kXioegXqrJFMxRyaqnU3e4SAYX5NUvqbXcFU1MwvyapfU2u4KpoAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIApmKOTVU6m73CVNTMUcmqp1N3uEgGF+TVL6m13BVNTML8mqX1NruCqaAIiIAsPrNXxTLT063KUdp2Ubm4A1MZuEVni8DItygOvacS2S4crdpZgiA16/XsVsvNQaZ8ZaGBjByFMeA5jgyEsi1QGBZ563kuEYwKC9UxM43Cm7mRNBNboEQchJ3kQEYAV4iVsCG4y1S2RH1lnCIDEqHXavGYfarVOmZVrxmEJV3cIlurJQKAxKwitLMMyuttvEcl4atXcVsVabk2aM4+2bjoSLrUtEvI3Ab7oiOqRxK64RIcx5sSWdogMEfxFispOASlAejPWw1DYyG8rY23EQjaNjwxjd5AjzxVKYrc5M4dmJmSamGJwSG0XZI7gAjhrWc4hDWyWUogMHolUxNMYkk5eayGn7md5xlDaJ4oG6IlkQxtuEQLahx/evMOI8VtuTYfQsxNk3NX/UyRAIyokd8IRMhuctEByhzjuG8VsFEBhm+GsRZvjT3j+teA4hKHAmrHitjbHauZGJQ9aA+mKns1/GMX2AmaY5LzbVgvSniRE3METuta7AiERFohjddtXXcVq2GiA11M1jGrtJddkJXdZpsG34wKnuM5EQGRs5GWtbEQ1h9LzrYTZXtAXnhmv2iAIiIApmKOTVU6m73CVNTMUcmqp1N3uEgGF+TVL6m13BVNTML8mqX1NruCqaAIiIAiIgCIiAIp1SrFKp0zJy0/PsS7865uUq2Z6zp+iMPKqKA+Ima8FJqkhVGTep8yL7bTsWjiMI8BD5F5zJmyjKUERTqrWKVS3pRqoz7Eqc47uUvB08t0P0R+9egUUREAREQBERAFMxRyaqnU3e4SpqZijk1VOpu9wkAwvyapfU2u4KpqZhfk1S+ptdwVTQBERAEREB5IzkpCchJFMtDMkF8Gb4Xxh58l6oQhlwLAtMFEmJ6ihVqdugz9OzMSajaZNltZF921+kfOsErGkmsNMyMzKSsxKQkRtd3Z+DoTA25XEMMtb8SVJWYzFRSrHPptbx/okxUrpW3YevE9Gp8cUzdXxhiaWm66yB/Q1OlbhGRhdcBausRlmG1btc7VWfSGLJuYmmQdw/UpeRJojfnHwsFrIIls8ZbPNXrw8+zO0eTxLMycoM3NyTbjj7MOZtDrbVuRZqvLndAoHG6IHxEPCH+fOp7udPIkyv0smlun4vY4MZHGmVENXuaUJedk61JuxmIRdiTdPckwiDkBLPWKMY6pDwRULRdiOXwrMzpVZyfiw9C4YAROgJ8ZFGGe0XBrLXelWmYjldI2IIUuYnpKWOauaabdEBG4biIdQtUtX3uJY7FjFbz7gy1WqYhYVoxfEbStEhLWD1v/isNV11YyrRea31L9/mXMcESxeyup0vhrSLM1GhOTDdJeqdSafydlJSFhC0V2R63Hs7O0pOOd7GLZs5PGBT1JkmZeHi/jIEybTpHrGJaw8QiPDx3ErHg/yr0rozpEJtuMJwymHX3I8ZFuxwG6NsM9X/ALLMXCGYg7LvQFyDkODMcxgOzs+jn73D5Fs6aOpWKN/M1Sy7FTLy1crVTRT+GDJSakcPSstM1wq5kObU8UIXOtx4QzjCOtG3LW8qsTL7Uu0TrzgNtjxkZZQgtS4/x5U6Xire9T2xk2JY2CJxkBN0m4jnwBnkMOP8bfMv5FNzOkLGsrLs/SUvRGQByaYdLICsK7hESy1tUfPtLhLjcPOWFmsl7W21/wBJ/R7ZSOaxHdDcvGi/IjAQhAYZQh5IL9K5I4REQBTMUcmqp1N3uEqamYo5NVTqbvcJAML8mqX1NruCqamYX5NUvqbXcFU0AREQBERAfgxgULYw4FyXpcwrPt47nqW5ORjSLhIGXrYNbkY55W5a8R1oaxZc62K60hw8S1Ppww+UJaZxPGcZZl5aXhukCIoHq+jlDzcPsrPcQwPfAksLbvT6dSZQvRr7OXRSloNmYngYKXu7kw7THLANyI3GBaw7PBzoisireJKLQ3pWSnSi3CZGMBjlsQ9bnDDh8y51whi+aclpuXpVTnJZl4oC8ULQLVutK664R2lh1VOovTxFVKyLLZCbLu6l9rta9glslqqBSYzM2P0Z6ZJGJrmv06Wte6p5Hd9Mx681q3Yqpt49fJDauk2p0qoVP6WoL5Tbj7WU6I6muAjADu51wwhztW31lilLOcvIHQJsSFoSdhqiOqIncJe9+VT5GrfSsqFPYlpmZJoBaN1shEdm266/V7y9crJ73ZW5phxwLrvqrzt9m5Y2tm50r3yNRHqu3f5lkxro7MZqzv8AiG/KXjjCMvJydPkJo5psNykxGAQGIBbaJHfbqrMGXGnB3ZiGYR1yOP7vj/8Aa4snrZmfjOStZEDKaJ4wL6q7VG0fRLZt1vSWe4Trlco9JZJqrTIPGBbqBGJNjdzSHZK3ZuWzTiFaWFizWW/RLoqfHf4leuH53PybJbfr/WxC0kt12sYwnMSyFQMnZh6xooZhuTIlaA28ImNpc7nFtCuidDFImJDBMlMzxNnPzwC++YBbnDmj/wC3/eK0Ng6Yp+Jan4uxOSzG5cG6zdwB+p7Otzdnnaq6lokqMlR5OTgQlBhgGs4RzhHIcl4wGKolq3yVTLPTumuv8HirkjWJvKW6Ke9ERbIrQiIgCmYo5NVTqbvcJU1MxRyaqnU3e4SAYX5NUvqbXcFU1MwvyapfU2u4KpoAiIgCIiAnVuoBS6PNVBxsjhLtE5EB4yyhxLlDSlpJxTPV9+nzZyrko1YQM7lkI3CJFslrcdutctr6bsQMzE8NEl3ovtyW5TEy0yV5E7FzVGMB8o23W+ch80FoTS9TZikY8m5SZjm9uDBnD0CJoSt9lRMGRmLYw+key8TGrftfRU+BCxyaSioWzRrZ6r8tSQ3X5tkDblZWSlIGVxbiBgXvXXD7K88KpMD/ALlv/Ff+dZxo40VTONcOnWWq01JQCZKX3I5Yj2RErrrvWV57QNPN/wDMssX/AEpfMtdJhvD8T1R7PW67mbgqMakYisdp7jF8L4lcnB8TKeptLdEdQXpYrD9vddr8y9NSrOI6aN08dEYG24SIrt1G7aC0yIhttK71lUe0Jzgf8wsF/wBKXzL+dQ0UVB4WROtSQiw0LQWSZDqj6WtraxF7yoJ+HOH3S5mMSy76LoXcFdi3KXPunjua+nsQzc++T5yzDRF/VbqF3rEN6SdfqEpcLW5WFtAd5iXskSzF3RZON/00wX/oF8y8bujibH+lmv8AAL5lctwvh1sbY1Yip7yqdNjrnZkdb3oQqXiabpg2yMhT2rtq1s9b+Nbe8F/SpO1pp6n1OVaYkynBlwiLpFuTsR5ufEBRt1fIUYx5y0OUIjmPmWQaA5CYjgOq1Ebxl/p0Gd1acIXAP6sh1h2fVJUnF+HU2ExMrKOP1r6rqt0ul917FlwxWz1jnw1D9E289Tu2HFBMuNYhoxxC5XqK43OHE5uScg26cRyvhlmJf58yzCHnUWmqWVMTZWbKXj2OY5WuPqIikHgKZijk1VOpu9wlTUzFHJqqdTd7hIBhfk1S+ptdwVTUzC/Jql9Ta7gqmgCIiA/MYKZiqcKnYXqtQbjactJvPDHzEIRiqkVg2mWYJnCjLIxtCYmwA4eeGRH3hgoVdP6PTPl7IqnSJmd7WmCaLsN/SuIhqRGBSUmLRxiUbjcMSOI/xa0Y/Far8Jj9sVX/ALOX/lAuitCVKYksIjNNne5NulfHzQbjEBh+7P2lzt4S37Y6t/Zy/wDKBT/8fUiQNavVyXX5fYpeMJOZB5KbQ8GP9msx/ebvcaWwJy60rdpa/wDBkIR0av3F/SbvcaWwZvnKZiP7t/mdsM/aR+SHOWlbF+kLDOLISz1WlGJc293loSzAbmQXW614kV2r6SxeqaWMYTxhFiZlpOAwESbZYEr4+3csl8JIQPHlFExaIPExuF07BId1PaJYXjijBLVAX6bJtMS7IBu4AWsBEWqRCRXW7OsqabEI4qhkD91KuohqnLJJG9bIqaG7KH9OfRLW+A5Qp0huLxcbRH1S9b8q+TG0qkxsqTNRG4Ru2lOTcv0blZY0E79qf5iW5vAuozNe0RYupcxHKD1ZuA/QMQbII+yQitLvfan+Zb+8AL9n+Jf77L+UC0XEsbZII2u2W/2Mxw07LNKqeH3LOip5yk6RClXRcYdnJl+TmAzzhEmhK37uNooiXrF6S3vwZ5eZaH0iyExRdIwTUvCLIxdKoyzwFzojaV3tGfq2+0ty4YqB1TD8jUngEHZhgTMR4oR8uS+Z4BJyXzUTt2Lp5dPzxN3WNztbN3+pWREWnIAUzFHJqqdTd7hKmpmKOTVU6m73CQDC/Jql9Ta7gqmpmF+TVL6m13BVNAEREB8gtQ6dznDqUlLDD6nxUzZ8xO3cPu6nvLby0vp6mpga5KA3lGEpJ+MNgWcIEREUC/cEFQcTLbD3p5fVCZQ/rNNh6N5NqSwPSxaO4X2BmYxuz1ndeP6ZkuXPCY/bFVv7OX/lAutsOyzUlQKdJMHBxmXlWmmzhzhEIQhFcleEx+2Krf2cv/KBbbhZiRzNanRv+jK8Trmpr+J4m67V6Boeo07SnCZi3id12LmWrcDAWiXqxzjq/cvS5p/xce1SqJ/hO/OpVYnH2tAsjTwbEmprETxGVtxQsYC0R97+FYXvcxCMOT9V7GfyqPiX7l/mUnpFRG1iQquyFvElfq+kjEsiM21Iy00LW4BuVwjbrFziLWXs0j1NlirTslLMl4xMA0L70S1bBESER9raWIlT6lKzzLDkjNy00cR3IDaIDLW1bfaWQaSDk3Ks1FmAlO2/XkHOG0bLvW2vZtWTrIkficOfVLLp2W6LdfDb3lnBUS+gTO2fdNV66Klk8fsVnNLeIj45Gl+4fzrzU/GNYr2LKKL4sNwambbGRIRK7VIiuIubcsU+h6wOf+yZ7sx/KqWDvHKZjGl7rKOtOG+IWuhbqlqltfmWhbuV8dXVue1JFW10PO59qf5lv7wBP2fYl/vwv5QLQL32p/it/eAH+z3Ev99l/KBaTiL9OL3/AGJPDX6kvu+5m+nuTmG40qpS5DGLt8naQ3WmWuJfhARc/csn0NuuOYAkWnSJwpYnWIGXGQiZW/w2qHp4g8EnSHQAnIbq62Po3RGEYXe7FZLoqbBvANMbCOcYCe6F6bl5Xl+pXL5jTJbGprf+U9/ibt/7RPMytERaYghTMUcmqp1N3uEqamYo5NVTqbvcJAML8mqX1NruCqamYX5NUvqbXcFU0AREQH5jwrS+neMwGK6a/AHCaZki4B54kev+o2gX7uct0x4OFa606SsHcNyk63C12Wm4Q3X0BMYjlH1YlZ+5U+OwrJQSInb6akqkdlmapl+EYEGFKQBHBwhkmYRKEc7tQeFcn+E02bemCpxjDITZYIfvhucIf+K6P0Q1KE7hBiTedgU3JFFt0LrrIXRiHs25Zfh9y0/4X1BcbrNJxKA/VTDUZN6NvEcLiD3oRL3FpuE6tkj4pE2chnOJYHLTOTsp6fB1k6VW8AnKzzQuvUut+OtCXNOwbC7y2xObK5o0DYuawti2LFQd3Om1MRZdMi1QPmGXq6xD7S6XnCEQIiIREda5SMapnRVTl6LqfmBzxy0iW9pNDm7wnHnZfG9HfYMgdCREgIdoS3U1rfE77T9fi61deQt7rmPPttJZt4SFWptTxlKDTZxqb8Vk9ydJorhE7yK272lrR103Jjd3SiRkVxFHnKjdBmnSbsip9CprqhOZJF3VF+CHVcxsrGq9LytzVTmQEjkBN0C9HV1lblZ+TqkkE3T5lqZZMbhICu//ACsG0p1kJSnfRbLn+tTW0I80Od72z7ysKWB08rY06mjqqiOGnWRdkNV5lGFxbXlXQngDNF/ovrk35H667l+jTXxXNuIZwZGkzD11pQC0PzR2V2N4J2GjwzoMoLL4RCZnxKoPwKHD9aVwfwWK84kkbdkSdCi4ZjdZ8q9Txac5l5uvyTZCTgDKZy4QjtmRlf3W/wAFsHRm3BrAVGHnlKibuX9YWsf8USWqtJ1SOsaSSpkvY64wbNPZKGsDROkFxFHm6xjAh2tQVumhU9qk0eUprJuONyzQtiZ7UcvLFfM8NY6TFKiZNtE96Ibid1oGMKKIi0xBCmYo5NVTqbvcJU1MxRyaqnU3e4SAYX5NUvqbXcFU1MwvyapfU2u4KpoAiIgC8dWk25+lzcicBIJlg2izhnDWG1exF+Kl0sEOedHNQncOY0kWajmDcSOUm3TL7LV2T9sR1vey41uTHeGpHF+FpyhT/AD46jgw1mjhsnD74RWI6Z8MwmZCFdpwk1NMcE4bcPtGstoh51uQ8PHbnw8C/vo7xwzMy8jRa4dk+IAyEzH7OaK2EPZOPo/v4clmsKmTCaj0ORba3Yvfw7XQm1UfpcXMt4KcmYuw9VcL15+jVdjcplkuPmmPNOEfLAlnujfS3N0SUapFfadn6e0Ig08H2rA+j6w/xLpHSLgOgY4pfilWlyF5vPxebaja6yX3R8sPujwLmnG+hTGmHHTdkZSNbkbtV6TG5y31mtr3bl9WhxGlxGLl1OjvzY+fT0FXhsvMptW/m5mRSuiTEs0VTFukOTBlcd5lLkResFw3e6vziCj6OZkhmZ5qiCTQiAkD4tao7I6hDctCzLT8u+TEyybLobQGNpD7K/nxLx/x6NzsyP0Oa46trPhS5tWtY8oNIkPo7C8o05bskLVjQf8AkX+dZaxnZt+bm3J2beJ18yuMyXjamoTU8EjIMv1CdMrW5aSaJ50y9URW0dH3g/Ywxe61N4y3TDFBuuKUgUCnpgfRjzWh/Nrequ3MosLauT1n/P8AgcquxVyZ0ys+X8mJ6FdHU3pcxu2cwDgYSpDonPTHEM0f9QH5ud6I/mFdj6Ra2GHcJzDkuYtTLgizLAG1CJFAcxh6sI3fov6yUrhnR9hJmTk2WKXR5OEAbbCHO7xmUfxIoxWoKxPVbGeLRbayl/Gn/F5OBwvJpr0rRL0RIy1o85fNuI8be1bN1kk0RPzsbvDKBkLEYnsoV9DdHjVMQv1KblzalaUQ7jAyu3V4hjrR/LDW1ta4hjq5a27YKbQKTJ0WmNSEkMYNN84o5kcfLGP3qkveE0KUNM2Pr18zpUTc19z6iIrM4BTMUcmqp1N3uEqamYo5NVTqbvcJAML8mqX1NruCqamYX5NUvqbXcFU0AREQBERAfONah0m4BmITcaxh1p9oSjDdmZPaaKEdsA4R4fLaN2fD5Sy29+qR4VBraKOtjySf0dYpXROuhqfB2lMZiaCSxGci2DxZNT0udofcJhEit/Ndl54CsjxhpApdCmClRYOemIQhcLZwgMIlxDn5+GCn4w0bylRnnahIzLctFzM3G3QuC70oR5q0PEJp/dbqfLWtP6kJd8mgIxLVEituIrvR1dX1VlK3FMTw6PlSom+j9NU8u5ZRU0E65k+BuCZ0nyUxN7jPYWbmmrcnBFyDhj+hBAf0IhUHEdbwQ7PQKS0eYeshHIpifpTRXe7DVh+aPsrBJB+VlqjMMDT3ZmYhC512W3UJdrZ1LRIb3fW9G3VFfZWeYmZmYmoG0wGz4vMTRwIC9YCusu1S1ri/Kq2TH8T5PqzJ3218trHVtBTZ/YNh0DSM5Sz8UkMP4fl2RG4WpENwE4eznb7pLZTWMqMWFBxGTjkGS1NxyhF3deLcsvSzhGHm52zwrnRufcm3GZOSdZByXyjuQP3tAGzdaOrbx27JXQ9VU8KUkq7Uypclk6Zvk+07MPZNRK0RMg+/VLgAc9X0V2oeIq5Hujd/2KqaaImvu6H5LQxI2+xk+MsSVbGM3KyUrKC1kZeKywfWmZx1bs+Adm78IEWstlYHwdJYdlpd9yAzVW3Gx+bj547QhDmjn+vAOea9mEMK0rDMgEvJS7PjEW7Xpqz616N0YxzLjyzKOUM+BZFHhyWnw3C1ietTVLnkXrbbwQrp6hHJkj0Q/SIiviKEREAUzFHJqqdTd7hKmpmKOTVU6m73CQDC/Jql9Ta7gqmpmF+TVL6m13BVNAEREAREQBR8WVqVw7QJuszcDJqWGGoG0ZEVoj+sYwVhfF4d7OgOcp6u1nSNPeJSLrk+64N4y0rwMS4c4iKOqJcdpHrXbPorLWdDpvSLBzVXjLTjI2tMS4XS7Y+bmkUfW1Yer59vcHmhBfrycaoo+H4MznTuWRV7/YmLWvRLM0Q1XRdEcs0467Vai7dGGQNyOoEPvjdncX6Q/VVXtFWE4tOEzLOtT7gQb8fid7tsI5262rlx8GSz7ycSeTKHGpkeEUUbMjY07fi7nJ1RKq3VxqyV0QyLkyB1ifGcaaOBADMtuMY5RztIrijb+CgYu0bVOmOTD1HZmKlKukLwQhburRjAeDIbc9YbroekXtbyhn5Y5pFRpuHqJ8XLY3L4pue21syOuq3NB4S0kO0d9hqeqMJmTiMCOWmXfr2h+64roRh6Jfl1Vvdh5t5kHWiE2jGBAQ8RQivPLUunS80/NMSEoy/MRzecBkRN2PrF5V7lIwyglo2LG6RXp0v0PE8rZXXRLH1ERWpwCIiAKZijk1VOpu9wlTUzFHJqqdTd7hIBhfk1S+ptdwVTUzC/Jql9Ta7gqmgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCmYo5NVTqbvcJU1MxRyaqnU3e4SAYX5NUvqbXcFU1MwvyapfU2u4KpoAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIApmKOTVU6m73CVNTMUcmqp1N3uEgGF+TVL6m13BVNc50CvVyFBpsIVmowh4sH/FH6I/evZvgr3TdS7UfxQHQCLn/AHwV7pupdqP4pvgr3TdS7UfxQHQCLn/fBXum6l2o/im+CvdN1LtR/FAdAIuf98Fe6bqXaj+Kb4K903Uu1H8UB0Ai5/3wV7pupdqP4pvgr3TdS7UfxQHQCLn/AHwV7pupdqP4pvgr3TdS7UfxQHQCLn/fBXum6l2o/im+CvdN1LtR/FAdAIuf98Fe6bqXaj+Kb4K903Uu1H8UB0Ai5/3wV7pupdqP4pvgr3TdS7UfxQHQCLn/AHwV7pupdqP4pvgr3TdS7UfxQHQCmYo5NVTqbvcJaS3wV7pupdqP4rxYgr1cjQajCNaqMYeLH/xR+iX3oD//2Q==" alt="HNSA" style={{width:32,height:'auto'}}/>
             <div>
@@ -3893,30 +3893,30 @@ function NotificaAI() {
         </div>
         {tabs.map(({id,label,icon:Icon})=>{
           const active=view===id;
-          return(<button key={id} onClick={()=>{setView(id);setShowMenu(false);}} style={{width:'100%',background:active?C.teal+'18':'transparent',border:`1px solid ${active?C.teal+'44':'transparent'}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+          return(<button key={id} onClick={()=>{setView(id);setShowMenu(false);}} style={{width:'100%',background:active?C.teal+'18':'transparent',border:'1px solid '+(active?C.teal+'44':'transparent'),borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
             <Icon size={20} sw={active?2.5:1.8} color={active?C.teal:C.muted}/>
             <span style={{fontSize:13,fontWeight:active?700:400,color:active?C.teal:C.text}}>{label}</span>
             {active&&<div style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:C.teal}}/>}
           </button>);
         })}
-        <div style={{borderTop:`1px solid ${C.border}`,paddingTop:10,marginTop:6}}>
+        <div style={{borderTop:'1px solid '+C.border,paddingTop:10,marginTop:6}}>
           {!profileMode
-            ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>🔒</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
           }
-          <button onClick={()=>{toggleTheme();setShowMenu(false);}} style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
+          <button onClick={()=>{toggleTheme();setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
             <span style={{fontSize:20}}>{theme==='dark'?'?':'?'}</span>
             <span style={{fontSize:13,color:C.muted}}>Tema {theme==='dark'?'Claro':'Escuro'}</span>
           </button>
         </div>
       </div>)}
 
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:`1px solid ${C.border}`,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
+      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
         {/* Abas fixas: as 4 primeiras do perfil ativo */}
         {tabs.slice(0,4).map(({id,label,icon:Icon})=>{
           const active=view===id;

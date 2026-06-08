@@ -1,428 +1,10 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>NotificaAI - HNSA</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.25.9/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#06101F;height:100%}
-@keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
-@keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-@keyframes splashFadeOut{from{opacity:1}to{opacity:0}}
-@keyframes splashLogoAnim{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-@keyframes sentinelaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
-.splash-in{animation:splashFadeIn .45s ease forwards}
-.splash-out{animation:splashFadeOut .4s ease forwards}
-input::placeholder{color:#5A7AA0}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
-button:active{opacity:.85}
-</style>
-</head>
-<body>
-<div id="root"></div>
-<script type="text/babel">
-const { useState, useRef, useEffect } = React;
-
-window.storage = {
-  get: async (key) => { try { const v=localStorage.getItem('nai_'+key); return v?{value:v}:null; } catch { return null; } },
-  set: async (key,value) => { try { localStorage.setItem('nai_'+key,value); return {value}; } catch { return null; } },
-  delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
-};
-
-// --- HOSPITAL --------------------------------------------------------------
-function getHospitalIdFromUrl() {
-  const p=new URLSearchParams(window.location.search);
-  return p.get('h')||p.get('hospital')||null;
-}
-const DEFAULT_HOSPITAL = {
-  id:'hnsa', name:'Hospital Naval de Salvador', short_name:'HNSA',
-  logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP'], nsp_label:'NSP',
-};
-async function loadHospital(url, key, id) {
-  if (!url||!key||!id||id==='hnsa') return DEFAULT_HOSPITAL;
-  try {
-    const res=await fetch(`${url}/rest/v1/hospitals?id=eq.${id}&limit=1`,{
-      headers:{apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'}
-    });
-    if (!res.ok) return DEFAULT_HOSPITAL;
-    const data=await res.json();
-    if (!data||!data[0]) return DEFAULT_HOSPITAL;
-    const h=data[0];
-    return { id:h.id||id, name:h.name||DEFAULT_HOSPITAL.name, short_name:h.short_name||DEFAULT_HOSPITAL.short_name,
-      logo:h.logo||'hospital', sectors:h.sectors||DEFAULT_HOSPITAL.sectors, nsp_label:h.nsp_label||'NSP' };
-  } catch { return DEFAULT_HOSPITAL; }
-}
-
-// --- THEMES ----------------------------------------------------------------
-const THEMES = {
-  dark:{ bg:'#06101F',surface:'#0C1A30',card:'#102040',border:'#1A3060',
-    teal:'#00C9B8',blue:'#1D6FE8',text:'#DFF0FF',muted:'#5A7AA0',
-    red:'#EF4444',yellow:'#F59E0B',green:'#10B981',purple:'#8B5CF6',orange:'#F97316' },
-  light:{ bg:'#F0F4F8',surface:'#FFFFFF',card:'#FFFFFF',border:'#CBD5E1',
-    teal:'#0097A7',blue:'#1565C0',text:'#0F172A',muted:'#64748B',
-    red:'#DC2626',yellow:'#D97706',green:'#059669',purple:'#7C3AED',orange:'#EA580C' },
-};
-let C = THEMES.dark;
-
-// --- ICONS -----------------------------------------------------------------
-const mkIco=(d)=>({size=24,sw=2,color='currentColor'})=>
-  <span style={{display:'inline-flex',alignItems:'center',color}}
-    dangerouslySetInnerHTML={{__html:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${sw}" width="${size}" height="${size}">${d}</svg>`}}/>;
-const IconMsg=mkIco(`<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`);
-const IconBar=mkIco(`<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`);
-const IconBook=mkIco(`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`);
-const IconHome=mkIco(`<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`);
-const IconSend=mkIco(`<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>`);
-const IconChev=mkIco(`<polyline points="9 18 15 12 9 6"/>`);
-const IconTrash=mkIco(`<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>`);
-const IconShield=mkIco(`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`);
-const IconTool=mkIco(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`);
-const IconGear=mkIco(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`);
-
-// --- SUPABASE --------------------------------------------------------------
-async function sbReq(url,key,path,opts={}) {
-  const res=await fetch(`${url}/rest/v1${path}`,{...opts,headers:{
-    'Content-Type':'application/json',apikey:key,Authorization:`Bearer ${key}`,Prefer:'return=representation',...(opts.headers||{})
-  }});
-  if(!res.ok) throw new Error(`Supabase ${res.status}`);
-  const t=await res.text(); return t?JSON.parse(t):[];
-}
-const sbInsert=(u,k,tb,d)=>sbReq(u,k,`/${tb}`,{method:'POST',body:JSON.stringify(d)});
-const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
-const sbPatch=(u,k,tb,f,d)=>sbReq(u,k,`/${tb}?${f}`,{method:'PATCH',body:JSON.stringify(d)});
-const sbDelete=(u,k,tb,f)=>sbReq(u,k,`/${tb}?${f}`);
-
-// --- SHA-256 PIN -----------------------------------------------------------
-async function hashPin(pin) {
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+'notificaai_salt_2025'));
-  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
-}
-
-// --- PERFIS LOCAIS (fallback) ----------------------------------------------
-const PROFILES = {
-  gestor:    {pin:'1234', label:'Gestor',      icon:'painel',color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'escudo',color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:       {pin:'1111', label:'DSG',         icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
-  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
-};
-
-// --- HELPERS ---------------------------------------------------------------
-function formatTime(iso){
-  const diff=Date.now()-new Date(iso).getTime();
-  if(diff<3600000) return `${Math.floor(diff/60000)}min`;
-  if(diff<86400000) return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  return 'ontem';
-}
-function getTag(n){
-  if(n.notification_type==='seguranca_paciente') return{label:'SP',color:C.red};
-  if(n.notification_type==='ccih') return{label:'CCIH',color:C.yellow};
-  return{label:'ADM',color:C.purple};
-}
-function getTitle(n){
-  return n.event_subtype||n.occurrence_subtype||n.infection_topography||(n.description||'').slice(0,30)||'Notificação';
-}
-function md(t){
-  return t.replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g,'<br/>');
-}
-
-// --- STATS -----------------------------------------------------------------
-const MOCK_MONTHLY=[{mes:'Jan',sp:4,adm:7},{mes:'Fev',sp:6,adm:5},{mes:'Mar',sp:3,adm:8},{mes:'Abr',sp:8,adm:4},{mes:'Mai',sp:5,adm:6}];
-const MOCK_SECTORS=[{setor:'UPG',eventos:8},{setor:'Ala A',eventos:14},{setor:'CC',eventos:5},{setor:'SEP',eventos:11}];
-const MOCK_TYPES=[{name:'Queda',value:35,color:'#EF4444'},{name:'Medicação',value:25,color:'#F59E0B'},{name:'Acesso',value:20,color:'#8B5CF6'},{name:'Hotelaria',value:15,color:'#1D6FE8'},{name:'Outros',value:5,color:'#5A7AA0'}];
-const MOCK_HEATMAP=[{turno:'Manhã',v:[1,2,2,3,2,2,1]},{turno:'Tarde',v:[2,4,5,3,4,5,2]},{turno:'Noite',v:[4,6,5,7,5,4,3]}];
-const MOCK_RECENT=[
-  {id:'1',event_subtype:'queda',notification_type:'seguranca_paciente',sector:'Ala A',created_at:new Date().toISOString(),rca_gerado:false,notivisa_enviado:false,gravidade:''},
-  {id:'2',occurrence_subtype:'hotelaria',notification_type:'administrativa',sector:'SEP',created_at:new Date(Date.now()-3600000).toISOString(),rca_gerado:false,notivisa_enviado:false},
-];
-const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-
-function computeStats(notifications) {
-  const now=new Date(),tm=now.getMonth(),ty=now.getFullYear();
-  const pm=tm===0?11:tm-1,py=tm===0?ty-1:ty;
-  const isTM=n=>{const d=new Date(n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
-  const isPM=n=>{const d=new Date(n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
-  const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
-  const total=thisM.length,totalPrev=prevM.length;
-  const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente').length;
-  const ccih=thisM.filter(n=>n.notification_type==='ccih').length;
-  const adm=thisM.filter(n=>n.notification_type==='administrativa').length;
-  const sentinela=notifications.filter(n=>n.gravidade==='Evento sentinela').length;
-  const semRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
-  // Setor
-  const sm={};notifications.forEach(n=>{if(n.sector)sm[n.sector]=(sm[n.sector]||0)+1;});
-  const SETOR_NOMES={'UPG':'UPG (Unidade de Pacientes Graves)','SEP':'SEP (Servico de Estabilizacao de Pacientes)','CC':'Centro Cirurgico','Centro Cirurgico':'Centro Cirurgico','Ala A':'Ala A','Geral':'Hospital Naval de Salvador'};
-  const sectorData=Object.entries(sm).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({setor:k==='Centro Cirurgico'?'CC':k,setorNome:SETOR_NOMES[k]||k,eventos:v}));
-  // Tipo
-  const tm2={};notifications.forEach(n=>{const t=n.event_subtype||n.occurrence_subtype||'outros';const l=t.charAt(0).toUpperCase()+t.slice(1);tm2[l]=(tm2[l]||0)+1;});
-  const tc=['#EF4444','#F59E0B','#8B5CF6','#1D6FE8','#10B981','#5A7AA0'];
-  const typeData=Object.entries(tm2).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([name,value],i)=>({name,value,color:tc[i]}));
-  // Heatmap
-  const TURNOS=['Manhã','Tarde','Noite'];
-  const heatmap=TURNOS.map(t=>({turno:t,v:[0,0,0,0,0,0,0]}));
-  notifications.forEach(n=>{
-    if(!n.event_date||!n.shift) return;
-    const day=new Date(n.event_date+'T12:00:00').getDay();
-    const si=TURNOS.indexOf(n.shift);
-    if(si>=0) heatmap[si].v[day]++;
-  });
-  let pv=0,pt='',pd='';
-  heatmap.forEach(row=>row.v.forEach((v,di)=>{if(v>pv){pv=v;pt=row.turno;pd=DIAS[di];}}));
-  const heatmapPeak=pv>0?{turno:pt,dia:pd,val:pv}:null;
-  // Monthly
-  const mm={};
-  notifications.forEach(n=>{
-    const d=new Date(n.created_at);
-    const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const label=d.toLocaleDateString('pt-BR',{month:'short'});
-    if(!mm[k]) mm[k]={mes:label,sp:0,adm:0,ccih:0};
-    if(n.notification_type==='seguranca_paciente') mm[k].sp++;
-    else if(n.notification_type==='ccih') mm[k].ccih++;
-    else mm[k].adm++;
-  });
-  const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
-  const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'-',eventos:0});
-  // Dias sem sentinela
-  const sevts=notifications.filter(n=>n.gravidade==='Evento sentinela').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].created_at))/86400000):null;
-  // Índice de cultura
-  const nmCount=notifications.filter(n=>n.gravidade==='Near miss').length;
-  const concl=notifications.filter(n=>n.status==='concluido').length;
-  const nSets=new Set(notifications.map(n=>n.sector).filter(Boolean)).size;
-  const ratioNM=notifications.length>0?Math.round(nmCount/notifications.length*100):0;
-  const txC=notifications.length>0?Math.round(concl/notifications.length*100):0;
-  const culturaScore=Math.min(100,Math.round(ratioNM*0.4+txC*0.4+Math.min(nSets,5)/5*20));
-  return{total,totalPrev,sp,ccih,adm,sentinela,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
-}
-
-// --- AI HELPER -------------------------------------------------------------
-const WORKER_URL='https://notificaai-proxy.janan-almeida.workers.dev';
-async function callWorker(messages,system) {
-  const converted=messages.map(m=>({role:m.role==='assistant'?'assistant':'user',content:m.content}));
-  const fi=converted.findIndex(m=>m.role==='user');
-  const filtered=fi>=0?converted.slice(fi):converted;
-  const msgs=[];
-  if(system) msgs.push({role:'system',content:system});
-  filtered.forEach(m=>msgs.push(m));
-  if(msgs.length===0||(msgs.length===1&&msgs[0].role==='system')) return 'Olá! Como posso ajudá-lo?';
-  try {
-    const res=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    return data.choices?.[0]?.message?.content||'Erro ao processar.';
-  } catch(e) { console.error('Worker:',e); return 'Erro ao processar. Tente novamente.'; }
-}
-async function extractData(chatMsgs,hospital) {
-  const hoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'});
-  const hojeISO=new Date().toISOString().slice(0,10);
-  const ontemISO=new Date(Date.now()-86400000).toISOString().slice(0,10);
-  const sys=`Extraia os dados da conversa como JSON puro (sem markdown, sem explicação).
-Formato:{"notifier_type":"profissional"|"paciente"|"familiar","notification_type":"seguranca_paciente"|"ccih"|"administrativa","sector":"string","event_date":"YYYY-MM-DD"|null,"event_time":"HH:MM"|null,"shift":"Manhã"|"Tarde"|"Noite"|null,"description":"string","measures_taken":"string"|null,"event_subtype":"string"|null,"patient_outcome":"string"|null,"was_preventable":true|false|null,"occurrence_subtype":"string"|null,"patient_age":null,"admission_reason":null,"infection_topography":null,"invasive_procedure":null,"microorganism":null,"is_test":false,"ai_summary":"string"}
-DATA: ${hoje} (${hojeISO}). "hoje"=${hojeISO}, "ontem"=${ontemISO}.`;
-  const text=await callWorker([...chatMsgs,{role:'user',content:'Extraia os dados no formato JSON.'}],sys);
-  try {
-    const p=JSON.parse(text.replace(/```json|```/g,'').trim());
-    if(hospital) p.hospital_id=hospital.id;
-    return p;
-  } catch { return null; }
-}
-
-// --- PROMPTS ---------------------------------------------------------------
-function buildChatSystem(hospital,notifierType) {
-  const h=hospital||DEFAULT_HOSPITAL;
-  const setores=h.sectors.join(' / ');
-  if(notifierType==='profissional') return `Você é o NotificaAI, assistente de notificações do ${h.short_name}.
-TOM: direto, neutro, profissional. Máximo 2 linhas por resposta. SEM empatia emocional.
-FLUXO: 1) Paciente ou administrativo? 2) Tipo específico. 3) Dados faltantes.
-REGRAS: Uma pergunta por vez. NUNCA deduza. NUNCA repita pergunta. NUNCA pergunte quem causou. Se informou data/hora, calcule turno (07-13h=Manhã,13-19h=Tarde,19-07h=Noite). Se mencionou setor/tipo, não pergunte.
-COLETAR: Tipo·Setor(${setores})·Data/hora·Descrição·Medidas·Desfecho(SP)·Evitável(SP)·Idade(SP)·Internação(SP)·CCIH:topografia+procedimento+microorganismo.
-Ao ter tudo: resumo + "Posso confirmar o envio desta notificação?"
-Sempre em português.`;
-  return `Você é o NotificaAI, canal de ouvidoria do ${h.short_name}.
-TOM: acolhedor, empático, linguagem simples. Máximo 2-3 linhas.
-REGRA: extraia tudo que já foi informado antes de perguntar.
-Primeira resposta: "Lamentamos o ocorrido." -> identifique quem é. Uma pergunta por vez. NUNCA pergunte quem causou.
-COLETAR: O que aconteceu·Quando·Setor·O que foi feito.
-Ao ter tudo: resumo + "Posso confirmar o envio para análise da equipe responsável?"
-Sempre em português.`;
-}
-
-// --- UI COMPONENTS ---------------------------------------------------------
-function StatCard({icon,label,value,sub,color}) {
-  return(
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,display:'flex',flexDirection:'column',gap:8}}>
-      <div style={{display:'flex',justifyContent:'space-between'}}>
-        <span style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:'0.1em',fontWeight:600}}>{label}</span>
-        <span style={{fontSize:20}}>{icon}</span>
-      </div>
-      <div style={{fontSize:28,fontWeight:900,color:color||C.teal,lineHeight:1}}>{value}</div>
-      {sub&&<div style={{fontSize:11,color:C.muted}}>{sub}</div>}
-    </div>
-  );
-}
-function Toast({msg,type,onClose}) {
-  useEffect(()=>{const t=setTimeout(onClose,4500);return()=>clearTimeout(t);},[]);
-  const bg=type==='success'?C.green:type==='error'?C.red:C.blue;
-  return(<div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:bg,color:'#fff',borderRadius:12,padding:'12px 20px',fontSize:13,fontWeight:700,zIndex:9999,maxWidth:340,textAlign:'center',boxShadow:'0 4px 24px '+bg+'66',whiteSpace:'pre-wrap'}}>{msg}</div>);
-}
-function Dots({color}) {
-  return(<div style={{display:'flex',gap:5,padding:'13px 16px',background:C.card,border:'1px solid '+C.border,borderRadius:'16px 16px 16px 4px',width:'fit-content'}}>
-    {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:`pulse 1.2s ${i*0.2}s ease-in-out infinite`}}/>)}
-  </div>);
-}
-function LineChart({data,lines,height=150}) {
-  if(!data||!data.length) return null;
-  const all=data.flatMap(d=>lines.map(l=>d[l.key]||0));
-  const maxV=Math.max(...all,1),w=300,h=height,pad=24;
-  const xs=(w-pad*2)/Math.max(data.length-1,1);
-  return(<svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}} preserveAspectRatio="none">
-    {lines.map(line=>{
-      const pts=data.map((d,i)=>{const x=pad+i*xs;const y=h-pad-((d[line.key]||0)/maxV)*(h-pad*2);return`${x},${y}`;}).join(' ');
-      return<polyline key={line.key} points={pts} fill="none" stroke={line.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>;
-    })}
-    {data.map((d,i)=><text key={i} x={pad+i*xs} y={h-4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d.mes}</text>)}
-  </svg>);
-}
-function BarChart({data,xKey,yKey,color,height=150}) {
-  if(!data||!data.length) return null;
-  const maxV=Math.max(...data.map(d=>d[yKey]||0),1),w=300,h=height,pad=24;
-  const bw=(w-pad*2)/data.length-4;
-  return(<svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}}>
-    {data.map((d,i)=>{
-      const bh=((d[yKey]||0)/maxV)*(h-pad*2),x=pad+i*((w-pad*2)/data.length)+2,y=h-pad-bh;
-      return(<g key={i}><rect x={x} y={y} width={bw} height={bh} fill={color} rx="3" opacity="0.85"/>
-        <text x={x+bw/2} y={h-4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d[xKey]}</text>
-        {bh>12&&<text x={x+bw/2} y={y+10} textAnchor="middle" fontSize="9" fill="#fff">{d[yKey]}</text>}
-      </g>);
-    })}
-  </svg>);
-}
-function PieChart({data,size=160}) {
-  if(!data||!data.length) return null;
-  const total=data.reduce((s,d)=>s+(d.value||0),0)||1;
-  const cx=size/2,cy=size/2,r=size*0.38;
-  let angle=-Math.PI/2;
-  const slices=data.map(d=>{
-    const sweep=(d.value/total)*2*Math.PI;
-    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
-    angle+=sweep;
-    const x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
-    return{path:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${sweep>Math.PI?1:0},1 ${x2},${y2} Z`,color:d.color,name:d.name,pct:Math.round(d.value/total*100)};
-  });
-  return(<div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-    <svg viewBox={`0 0 ${size} ${size}`} style={{width:size,height:size,flexShrink:0}}>
-      {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke={C.card} strokeWidth="1.5"/>)}
-    </svg>
-    <div style={{display:'flex',flexDirection:'column',gap:6}}>
-      {slices.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:6}}>
-        <div style={{width:10,height:10,borderRadius:2,background:s.color,flexShrink:0}}/>
-        <span style={{fontSize:11,color:C.muted}}>{s.name} <span style={{color:C.text,fontWeight:700}}>{s.pct}%</span></span>
-      </div>)}
-    </div>
-  </div>);
-}
-function HeatCell({value}) {
-  const t=Math.min((value||0)/8,1);
-  const bg=t<0.12?C.surface:t<0.35?'#0E3D5B':t<0.6?'#0369A1':t<0.8?'#0891B2':C.teal;
-  return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:t>0.55?'#06101F':C.muted,border:'1px solid '+C.border}}>{value||0}</div>);
-}
-
-// --- CONFIG PANEL ----------------------------------------------------------
-function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
-  const [url,setUrl]=useState(sbUrl);
-  const [key,setKey]=useState(sbKey);
-  const [wh,setWh]=useState(webhookUrl);
-  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
-  const lbl={fontSize:11,color:C.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',display:'block',marginBottom:6};
-  return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
-    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'24px 20px 36px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'90vh',overflowY:'auto'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
-        <div style={{fontSize:16,fontWeight:800,color:C.text}}>⚙️ Configurar Supabase</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
-      </div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.7,background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.teal}}>
-        Supabase: <strong style={{color:C.teal}}>Project Settings -> API</strong><br/>
-        Copie o <strong style={{color:C.text}}>Project URL</strong> e a <strong style={{color:C.text}}>anon public key</strong>.
-      </div>
-      <label style={lbl}>Project URL</label>
-      <input value={url} onChange={setUrl} placeholder="https://xxxx.supabase.co" style={inp}/>
-      <label style={lbl}>Anon Key</label>
-      <input value={key} onChange={setKey} placeholder="eyJ..." style={{...inp,fontFamily:'monospace',fontSize:11}}/>
-      <label style={lbl}>Webhook URL (n8n / Make)</label>
-      <input value={wh} onChange={setWh} placeholder="https://seu-n8n.app/webhook/notificaai" style={{...inp,fontFamily:'monospace',fontSize:11}}/>
-      <button onClick={()=>onSave(url.trim(),key.trim(),wh.trim())} style={{width:'100%',background:C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>
-        Salvar e Conectar
-      </button>
-    </div>
-  </div>);
-}
-
-// --- PIN MODAL -------------------------------------------------------------
-function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
-  const [pin,setPin]=useState('');
-  const [error,setError]=useState(false);
-  const [loading,setLoading]=useState(false);
-  const ref=useRef(null);
-  useEffect(()=>{setTimeout(()=>ref.current?.focus(),100);},[]);
-
-  const check=async()=>{
-    if(loading||!pin) return;
-    setLoading(true);
-    let matched=null;
-    if(sbUrl&&sbKey) {
-      try {
-        const h=await hashPin(pin);
-        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
-        if(rows&&rows[0]) {
-          const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
-          sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
-        }
-      } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
-    }
-    if(!matched) {
-      const lm=Object.entries(PROFILES).find(([,p])=>p.pin===pin);
-      if(lm) matched={key:lm[0],label:lm[1].label,color:lm[1].color,icon:lm[1].icon};
-    }
-    setLoading(false);
-    if(matched) onSuccess(matched.key,matched);
-    else { setError(true); setPin(''); setTimeout(()=>setError(false),1200); }
-  };
-
-  return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-    <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
-      <div style={{fontSize:36,marginBottom:12}}>🔐</div>
-      <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
-      <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
-        {Object.entries(PROFILES).map(([k,p])=>(
-          <div key={k} style={{background:p.color+'15',border:'1px solid '+p.color+'33',borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
-        ))}
-      </div>
-      <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
-        style={{width:'100%',background:C.card,border:'1px solid '+(error?C.red:C.border),borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
-      {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
-      <div style={{display:'flex',gap:10,marginTop:8}}>
-        <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde...':'Entrar'}</button>
-      </div>
-    </div>
-  </div>);
-}
-
 // --- APP COMPONENTE PRINCIPAL ----------------------------------------------
 function App() {
   const [step, setStep] = useState(2);
   const [hospital, setHospital] = useState(DEFAULT_HOSPITAL);
 
   const processFile = (file) => {
+    if (!window.Papa) return;
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -437,17 +19,16 @@ function App() {
     <div style={{ padding: 16, background: C.bg, minHeight: '100vh', color: C.text }}>
       
       {step === 2 && (
-        <div style={{ maxWidth: 480, margin: '0 auto', background: C.surface, padding: 20, borderRadius: 16, border: '1px solid '+C.border }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', background: C.surface, padding: 20, borderRadius: 16, border: '1px solid ' + C.border }}>
           <h3 style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}>Importação de dados do {hospital.short_name}</h3>
           
-          {/* BLOCO REFEITO INTEIRAMENTE DAS IMAGENS REVISADAS */}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button 
               onClick={() => setStep(1)} 
               style={{
                 flex: 1,
                 background: C.card,
-                border: `1px solid ${C.border}`,
+                border: '1px solid ' + C.border,
                 borderRadius: 8,
                 padding: '9px',
                 color: C.muted,
@@ -456,7 +37,7 @@ function App() {
                 cursor: 'pointer'
               }}
             >
-              {"<- Voltar"}
+              {"\u2190 Voltar"}
             </button>
 
             <button 
@@ -473,12 +54,12 @@ function App() {
                 cursor: 'pointer'
               }}
             >
-              {"Revisar ->"}
+              {"Revisar \u2192"}
             </button>
           </div>
 
           <div 
-            style={{ fontSize: 12, color: C.muted, marginTop: 12, cursor: 'pointer', textAlign: 'center', background: C.card, padding: 10, borderRadius: 8 }}
+            style={{ fontSize: 12, color: C.muted, marginTop: 12, cursor: 'pointer', textAlign: 'center', background: C.card, padding: 10, borderRadius: 8, border: '1px solid ' + C.border }}
             onClick={() => document.getElementById('csvInput').click()}
           >
             Exportado do Google Sheets ou outro sistema
@@ -490,16 +71,19 @@ function App() {
             accept=".csv" 
             style={{ display: 'none' }} 
             onChange={e => {
-              if (e.target.files[0]) processFile(e.target.files[0]);
+              if (e.target.files && e.target.files[0]) processFile(e.target.files[0]);
             }}
           />
         </div>
       )}
 
       {step === 3 && (
-        <div style={{ maxWidth: 480, margin: '0 auto', textCenter: 'center' }}>
-          <h3>Dados Carregados para Revisão</h3>
-          <button onClick={() => setStep(2)} style={{ marginTop: 12, padding: '8px 16px', background: C.teal, border: 'none', borderRadius: 6, cursor: 'pointer' }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', textAlign: 'center' }}>
+          <h3 style={{ marginBottom: 12 }}>Dados Carregados para Revisão</h3>
+          <button 
+            onClick={() => setStep(2)} 
+            style={{ marginTop: 12, padding: '8px 16px', background: C.teal, border: 'none', borderRadius: 6, color: '#06101F', fontWeight: 700, cursor: 'pointer' }}
+          >
             Voltar para Tela Principal
           </button>
         </div>
@@ -509,8 +93,7 @@ function App() {
   );
 }
 
-const root = Scrooge = ReactDOM.createRoot(document.getElementById('root'));
+// --- RENDER ----------------------------------------------------------------
+const container = document.getElementById('root');
+const root = Scrooge = ReactDOM.createRoot(container);
 root.render(<App />);
-</script>
-</body>
-</html>

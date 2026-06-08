@@ -1556,7 +1556,6 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento →</a>}
       </div>);
     })}
-  </div>
   </div>);
 }
 
@@ -2114,8 +2113,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const tb=(id,l)=><button onClick={()=>setTab(id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:tab===id?C.teal:'transparent',color:tab===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>;
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
-    <div style={{padding:'16px'}}>
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
@@ -2315,7 +2312,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         </div>);
       })()}
     </div>}
-  </div>
   </div>);
 }
 
@@ -2436,8 +2432,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
         <div style={{fontSize:10,color:C.muted,marginTop:3}}>{n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):formatTime(n.created_at)}</div>
       </div>);
     })}
-  </div>
-  </div>
   </div>);
 }
 
@@ -3081,9 +3075,6 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
         )}
       </div>
     )}
-  </div>
-  </div>
-  </div>
   </div>);
 }
 
@@ -3345,10 +3336,6 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         ))}
       </div>
     </div>}
-  </div>
-  </div>
-  </div>
-  </div>
   </div>);
 }
 

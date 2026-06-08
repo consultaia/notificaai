@@ -1556,6 +1556,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento →</a>}
       </div>);
     })}
+  </div>
   </div>);
 }
 
@@ -2039,6 +2040,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
         {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:600}}>Abrir documento</a>}
       </div>);
     })}
+  </div>
   </div>);
 }
 
@@ -2313,6 +2315,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         </div>);
       })()}
     </div>}
+  </div>
   </div>);
 }
 
@@ -2433,6 +2436,8 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
         <div style={{fontSize:10,color:C.muted,marginTop:3}}>{n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):formatTime(n.created_at)}</div>
       </div>);
     })}
+  </div>
+  </div>
   </div>);
 }
 
@@ -3076,6 +3081,9 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
         )}
       </div>
     )}
+  </div>
+  </div>
+  </div>
   </div>);
 }
 
@@ -3337,6 +3345,10 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         ))}
       </div>
     </div>}
+  </div>
+  </div>
+  </div>
+  </div>
   </div>);
 }
 

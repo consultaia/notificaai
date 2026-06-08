@@ -1587,7 +1587,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     const el=document.getElementById('relatorio-pdf');
     if(!el)return;
     const w=window.open('','_blank');
-    w.document.write('<html><head><title>Relatório NSP</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px+'h1{font-size:18px;color:#c8102e+'h2{font-size:14px;border-bottom:2px solid #c8102e;padding-bottom:4px;margin:20px 0 10px+'table{width:100%;border-collapse:collapse;margin-bottom:16px+'th,td{border:1px solid #ddd;padding:6px 10px;text-align:left+'th{background:#f5f5f5;font-weight:700+'.badge-sp{color:#c8102e;font-weight:700+'.badge-ccih{color:#d97706+'.badge-adm{color:#2563eb+'.ok{color:#059669;font-weight:700+'.alerta{color:#c8102e;font-weight:700+'@media print{button{display:none+'+'</style></head><body>'+el.innerHTML+'<br/><br/><small style="color:#999">Gerado por NotificaAI em '+new Date().toLocaleString('pt-BR')+'</small></body></html>');
+    w.document.write("<html><head><title>Relatório NSP</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}h1{font-size:18px;color:#c8102e}h2{font-size:14px;border-bottom:2px solid #c8102e;padding-bottom:4px;margin:20px 0 10px}table{width:100%;border-collapse:collapse;margin-bottom:16px}th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}th{background:#f5f5f5;font-weight:700}.badge-sp{color:#c8102e;font-weight:700}.badge-ccih{color:#d97706}.badge-adm{color:#2563eb}.ok{color:#059669;font-weight:700}.alerta{color:#c8102e;font-weight:700}@media print{button{display:none}}</style></head><body>"+el.innerHTML+"<br/><br/><small style=\"color:#999\">Gerado por NotificaAI em "+new Date().toLocaleString('pt-BR')+"</small></body></html>")
     w.document.close();w.print();
   };
 
@@ -2103,7 +2103,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
     const w=window.open('','_blank');
-    w.document.write('<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#1a1a1a;font-size:11px+'h1{font-size:16px;color:#003087+'h2{font-size:13px;border-bottom:2px solid #003087;padding-bottom:3px;margin:16px 0 8px;color:#003087+'h3{font-size:11px;font-weight:700;margin:12px 0 4px+'table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:10px+'th,td{border:1px solid #ccc;padding:4px 7px;text-align:left+'th{background:#e8eef7;font-weight:700+'.ok{color:#059669;font-weight:700+'.alerta{color:#dc2626;font-weight:700+'.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700+'@media print{button{display:none+'+'</style></head><body>'+el.innerHTML+'<br/><small style="color:#999">Gerado por NotificaAI em '+new Date().toLocaleString('pt-BR')+'</small></body></html>');
+    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+doc.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small></body></html>")
     w.document.close();w.print();
   };
 

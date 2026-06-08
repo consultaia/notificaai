@@ -625,12 +625,12 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
     </div>
     {step===1&&(<div>
       <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
-      <strong>Arquivo -> Download -> Valores separados por vírgula (.csv)</strong>
+      <strong>{"Arquivo -> Download -> Valores separados por vírgula (.csv)"}</strong>
       </div>
       <div onClick={()=>document.getElementById('csvInput').click()} style={{border:'2px dashed '+C.border,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
         <div style={{fontSize:32,marginBottom:8}}>📂</div>
-        <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:4}}>Clique ou arraste o arquivo CSV</div>
+        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{"<- Voltar"}</button>
         <div style={{fontSize:12,color:C.muted}}>Exportado do Google Sheets ou outro sistema</div>
         <input id="csvInput" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}}/>
       </div>

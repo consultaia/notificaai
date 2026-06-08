@@ -56,7 +56,7 @@ async function loadHospital(url, key, id) {
     if (!data||!data[0]) return DEFAULT_HOSPITAL;
     const h=data[0];
     return { id:h.id||id, name:h.name||DEFAULT_HOSPITAL.name, short_name:h.short_name||DEFAULT_HOSPITAL.short_name,
-      logo:h.logo||'🏥', sectors:h.sectors||DEFAULT_HOSPITAL.sectors, nsp_label:h.nsp_label||'NSP' };
+      logo:h.logo||'hospital', sectors:h.sectors||DEFAULT_HOSPITAL.sectors, nsp_label:h.nsp_label||'NSP' };
   } catch { return DEFAULT_HOSPITAL; }
 }
 
@@ -107,11 +107,11 @@ async function hashPin(pin) {
 
 // --- PERFIS LOCAIS (fallback) ----------------------------------------------
 const PROFILES = {
-  gestor:   {pin:'1234', label:'Gestor',     icon:'📊',color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'🛡️',color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:      {pin:'1111', label:'DSG',        icon:'🔧',color:'#F59E0B',perfil:'dsg'},
-  motorista:{pin:'2222', label:'Motorista',  icon:'🚑',color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'🩺',color:'#1D6FE8',perfil:'enfermeiro'},
+  gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
+  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'escudo',color:'#00C9B8',perfil:'membro_nsp'},
+  dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
+  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
+  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
 };
 
 // --- HELPERS ---------------------------------------------------------------
@@ -903,7 +903,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
       {step===3&&(<div style={{textAlign:'center',padding:'16px 0'}}>
         <div style={{background:C.teal+'10',border:`1px solid ${C.teal}33`,borderRadius:10,padding:'14px',marginBottom:14}}>
           <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:8}}>Passos para notificar no Notivisa</div>
-          {[['01','Baixe o PDF','Use o botão "⬇ PDF" na etapa anterior'],
+          {[['01','Baixe o PDF','Use o botão "baixar PDF" na etapa anterior'],
             ['02','Acesse notivisa.anvisa.gov.br','Login com credencial institucional'],
             ['03','Preencha com o PDF ao lado','Transfira os campos (5-10 min vs 40 min sem o guia)']
           ].map(([n,t,d])=>(
@@ -1104,7 +1104,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
                 <span>👤 {a.responsavel}</span>
-                <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' ⚠ VENCIDO':''}</span>
+                <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
             </div>
@@ -1548,7 +1548,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?`${p.numero} · `:''}{p.categoria||'-'}{p.responsavel?` · ${p.responsavel}`:''}</div>
           </div>
           <div style={{background:stColor+'22',color:stColor,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
-            {st==='ativo'?'Ok Válido':st==='vencido'?'ATENCAO Vencido':'⏰ Vence em breve'}
+            {st==='ativo'?'Ok Válido':st==='vencido'?'ATENCAO Vencido':'relogio Vence em breve'}
           </div>
         </div>
         <div style={{display:'flex',gap:12,fontSize:11,color:C.muted}}>
@@ -1616,7 +1616,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?'Aguarde Gerando...':'📄 Gerar Relatório'}
+          {loading?'Aguarde Gerando...':'documento Gerar Relatório'}
         </button>
       </div>)}
 
@@ -1892,12 +1892,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
 // --- MÓDULO TREINAMENTOS E REUNIOES ------------------------------------------
 const SUBNUCLEOS_HNSA=[
-  {id:'comunicacao',label:'Comunicacao Efetiva',icon:'💬',color:'#1D6FE8'},
-  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'💊',color:'#8B5CF6'},
-  {id:'identificacao',label:'Identificacao Correta',icon:'🪪',color:'#00C9B8'},
-  {id:'queda',label:'Queda',icon:'🛡️',color:'#F59E0B'},
-  {id:'lpp',label:'LPP - Lesao por Pressao',icon:'🩹',color:'#EF4444'},
-  {id:'cirurgia',label:'Cirurgia Segura',icon:'🏥',color:'#10B981'},
+  {id:'comunicacao',label:'Comunicacao Efetiva',icon:'chat',color:'#1D6FE8'},
+  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'remedios',color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificacao Correta',icon:'identificacao',color:'#00C9B8'},
+  {id:'queda',label:'Queda',icon:'escudo',color:'#F59E0B'},
+  {id:'lpp',label:'LPP - Lesao por Pressao',icon:'curativo',color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:'hospital',color:'#10B981'},
 ];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
@@ -2020,7 +2020,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
     {filtered.map(r=>{
-      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'📋',color:C.muted,label:r.subnucleo};
+      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'lista',color:C.muted,label:r.subnucleo};
       return(<div key={r.id} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
           <span style={{fontSize:18}}>{sub.icon}</span>
@@ -2296,7 +2296,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
             ].map(([l,ok,obs],i)=>(
               <div key={i} style={{background:C.card,border:`1px solid ${ok?C.green:C.red}44`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
-                <div style={{fontSize:18,flexShrink:0}}>{ok?'OK':'❌'}</div>
+                <div style={{fontSize:18,flexShrink:0}}>{ok?'OK':'X'}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l}</div>
                   <div style={{fontSize:11,color:ok?C.green:C.red,marginTop:2}}>{obs}</div>
@@ -3150,7 +3150,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10}}>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
-      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'● Dados reais':sbUrl?'● Carregando...':'● Dados de exemplo'}</div>
+      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'? Dados reais':sbUrl?'? Carregando...':'? Dados de exemplo'}</div>
     </div>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
       {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('cultura','Maturidade')}{tb('ia','IA')}{tb('relatorio','Relatório')}
@@ -3217,7 +3217,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
           </div>
           <div style={{flex:1}}>
             <div style={{fontSize:15,fontWeight:800,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red,marginBottom:4}}>
-              {s.culturaScore>=70?'🟢 Maturidade avançada':s.culturaScore>=40?'🟡 Em desenvolvimento':'🔴 Estágio inicial'}
+              {s.culturaScore>=70?'verde Maturidade avançada':s.culturaScore>=40?'amarelo Em desenvolvimento':'vermelho Estágio inicial'}
             </div>
             <div style={{fontSize:11,color:C.muted,lineHeight:1.6}}>
               {s.culturaScore>=70?'Sistema de notificação consolidado. Near miss sendo reportado, ciclos fechados, boa abrangência setorial.':s.culturaScore>=40?'Sistema em evolução. Há oportunidades de melhoria na taxa de near miss e no fechamento dos ciclos.':'Sistema inicial. Foco em incentivar notificações de near miss e fechar ciclos das ocorrências registradas.'}
@@ -3275,7 +3275,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?'Aguarde Gerando análise...':'✨ Gerar Interpretação do Mês'}
+          {loadingNarr?'Aguarde Gerando análise...':'? Gerar Interpretação do Mês'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
@@ -3323,8 +3323,8 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
             <div style={{display:'flex',justifyContent:'space-between',gap:8,marginBottom:3}}>
               <div style={{display:'flex',gap:4,alignItems:'center'}}>
                 <div style={{background:getTag(n).color+'22',color:getTag(n).color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{getTag(n).label}</div>
-                <span style={{fontSize:9,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.rca_gerado?'✓RCA':'-RCA'}</span>
-                <span style={{fontSize:9,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.notivisa_enviado?'✓NTV':'-NTV'}</span>
+                <span style={{fontSize:9,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.rca_gerado?'OkRCA':'-RCA'}</span>
+                <span style={{fontSize:9,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:3,padding:'1px 5px',fontWeight:700}}>{n.notivisa_enviado?'OkNTV':'-NTV'}</span>
               </div>
               <div style={{fontSize:9,color:C.muted}}>{n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR')}</div>
             </div>
@@ -3343,12 +3343,12 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
 
 // --- TICKETS -----------------------------------------------------------------
 const TICKET_TYPES=[
-  {id:'manutencao',label:'Manutenção / DSG',icon:'🔧',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
-  {id:'ambulancia',label:'Saída por Ambulância',icon:'🚑',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
-  {id:'leito',label:'Solicitação de Leito',icon:'🛏️',color:'#1D6FE8',dest:'Enfermagem',desc:'Transferência interna entre setores'},
-  {id:'material',label:'Solicitação de Material',icon:'📦',color:'#10B981',dest:'Almoxarifado',desc:'Equipamentos, insumos, materiais médicos'},
-  {id:'dieta',label:'Dieta Especial',icon:'🍽️',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
-  {id:'outro',label:'Outro Chamado',icon:'📋',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
+  {id:'manutencao',label:'Manutenção / DSG',icon:'ferramenta',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
+  {id:'ambulancia',label:'Saída por Ambulância',icon:'ambulancia',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
+  {id:'leito',label:'Solicitação de Leito',icon:'?',color:'#1D6FE8',dest:'Enfermagem',desc:'Transferência interna entre setores'},
+  {id:'material',label:'Solicitação de Material',icon:'?',color:'#10B981',dest:'Almoxarifado',desc:'Equipamentos, insumos, materiais médicos'},
+  {id:'dieta',label:'Dieta Especial',icon:'?',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
+  {id:'outro',label:'Outro Chamado',icon:'lista',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
 ];
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
@@ -3476,7 +3476,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
       await sbPatch(sbUrl,sbKey,'tickets',`id=eq.${ticket.id}`,patch);
       setTickets(prev=>prev.map(t=>t.id===ticket.id?{...t,...patch}:t));
       setCommenting(null);setCommentText('');
-      showToast({recebido:'📬 Recebido!',em_andamento:'Aguarde Em andamento!',concluido:'OK Concluído!',pendente:'ATENCAO Pendente'}[newStatus]||'Atualizado!','success');
+      showToast({recebido:'? Recebido!',em_andamento:'Aguarde Em andamento!',concluido:'OK Concluído!',pendente:'ATENCAO Pendente'}[newStatus]||'Atualizado!','success');
     } catch { showToast('Erro ao atualizar','error'); }
   };
 
@@ -3574,13 +3574,13 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
 
 // --- CENTRAL DE CONHECIMENTO -------------------------------------------------
 const KNOWLEDGE=[
-  {id:'cards',icon:'📌',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
+  {id:'cards',icon:'?',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
     {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança - essencial para identificar vulnerabilidades.'},
     {title:'Evento Sentinela',text:'Evento adverso grave que resulta em morte, perda permanente de função ou risco grave. Exige investigação imediata por Análise de Causa Raiz (ACR).'},
     {title:'Cultura Justa',text:'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema. Diferencia erro humano (acolher) de imprudência (responsabilizar).'},
   ]},
-  {id:'metas',icon:'🎯',title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
+  {id:'metas',icon:'?',title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
     {num:'1',title:'Identificar corretamente o paciente',text:'Usar pelo menos 2 identificadores. Verificar pulseira antes de qualquer procedimento, medicação ou coleta.'},
     {num:'2',title:'Comunicação efetiva',text:'Usar SBAR (Situação, Background, Avaliação, Recomendação) na passagem de plantão. Ler de volta prescrições verbais.'},
     {num:'3',title:'Medicamentos de alta vigilância',text:'Identificar, padronizar armazenagem e dupla checagem de medicamentos de alta vigilância (KCl, insulina, opioides, anticoagulantes).'},
@@ -3588,24 +3588,24 @@ const KNOWLEDGE=[
     {num:'5',title:'Reduzir risco de infecções',text:'Higienização das mãos nos 5 momentos da OMS. Precauções padrão e específicas. Bundles de IRAS.'},
     {num:'6',title:'Reduzir risco de quedas',text:'Avaliar risco (Morse, Humpty Dumpty). Sinalização visual. Grades, calçados antiderrapantes, iluminação.'},
   ]},
-  {id:'como',icon:'📘',title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
+  {id:'como',icon:'?',title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
     {step:'01',title:'Acesse o NotificaAI',text:'Use o QR Code afixado no setor, leia com a câmera do celular ou acesse pelo computador da intranet.'},
     {step:'02',title:'Identifique-se',text:'Informe se é profissional, paciente ou familiar. O sistema adapta a linguagem ao seu perfil.'},
     {step:'03',title:'Relate com suas palavras',text:'Descreva o que aconteceu naturalmente. A IA conduz as perguntas - sem formulários.'},
     {step:'04',title:'Confirme o resumo',text:'Revise o resumo e toque em "Confirmar e Enviar" se estiver correto.'},
     {step:'05',title:'Pronto!',text:'O NSP recebe notificação automática por e-mail. Você pode notificar quantas vezes precisar.'},
   ]},
-  {id:'ccih',icon:'🦠',title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
+  {id:'ccih',icon:'?',title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
     {title:'5 Momentos da Higienização (OMS)',text:'1) Antes de tocar o paciente. 2) Antes de procedimento asséptico. 3) Após exposição a fluidos. 4) Após tocar o paciente. 5) Após tocar superfícies próximas.'},
     {title:'Bundle de CVC',text:'Higiene das mãos · Paramentação estéril completa · Antissepsia com clorexidina · Subclávia preferencial · Avaliação diária de necessidade.'},
     {title:'Bundle de PAV',text:'Cabeceira 30-45° · Higiene oral com clorexidina · Despertar diário e avaliação de extubação · Profilaxia de TVP.'},
     {title:'Bundle de ITU por SVD',text:'Indicação criteriosa · Inserção asséptica · Sistema fechado · Avaliação diária · Higiene íntima diária.'},
   ]},
-  {id:'vid_maos',icon:'🎬',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
-  {id:'vid_quedas',icon:'🎬',title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
-  {id:'pdf_nsp',icon:'📄',title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
-  {id:'pdf_riscos',icon:'📄',title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
-  {id:'pdf_iras',icon:'📄',title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
+  {id:'vid_maos',icon:'?',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
+  {id:'vid_quedas',icon:'?',title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
+  {id:'pdf_nsp',icon:'documento',title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
+  {id:'pdf_riscos',icon:'documento',title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
+  {id:'pdf_iras',icon:'documento',title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
 ];
 
 function CentralView({sbUrl,sbKey,hospital,profileMode}) {
@@ -3694,7 +3694,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     <div style={{background:testMode?C.yellow+'18':C.green+'18',border:`1px solid ${testMode?C.yellow+'55':C.green+'55'}`,borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
-          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'🧪 MODO TESTE':'OK MODO PRODUÇÃO'}</div>
+          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'teste MODO TESTE':'OK MODO PRODUÇÃO'}</div>
           <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5,maxWidth:220}}>{testMode?'Notificações marcadas como teste. Exclua em lote depois.':'Notificações tratadas como reais. E-mails serão enviados.'}</div>
         </div>
         <button onClick={onToggleTestMode} style={{background:testMode?C.yellow:C.green,border:'none',borderRadius:999,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:11,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
@@ -3837,7 +3837,7 @@ function NotificaAI() {
     setHospital(h);
   };
   const handleSaveEmail=email=>{setNspEmail(email);saveAll({email});};
-  const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'🧪 Modo TESTE ativado':'OK Modo PRODUÇÃO ativado','success');};
+  const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'teste Modo TESTE ativado':'OK Modo PRODUÇÃO ativado','success');};
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
@@ -3905,12 +3905,12 @@ function NotificaAI() {
               <span style={{fontSize:20}}>🔒</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
             :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'🔓'}</span>
+              <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
           }
           <button onClick={()=>{toggleTheme();setShowMenu(false);}} style={{width:'100%',background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
-            <span style={{fontSize:20}}>{theme==='dark'?'☀️':'🌙'}</span>
+            <span style={{fontSize:20}}>{theme==='dark'?'?':'?'}</span>
             <span style={{fontSize:13,color:C.muted}}>Tema {theme==='dark'?'Claro':'Escuro'}</span>
           </button>
         </div>

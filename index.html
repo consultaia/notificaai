@@ -3344,7 +3344,17 @@ const TICKET_TYPES=[
 ];
 
 function ticketEmoji(icon){
-  var m={'wrench':'&#128295;','ambulance':'&#128657;','bed':'&#128719;','box':'&#128230;','food':'&#127869;','clipboard':'&#128203;','ferramenta':'&#128295;','ambulancia':'&#128657;','lista':'&#128203;','?':'&#128203;'};
+  var m={
+    'wrench':String.fromCodePoint(128295),
+    'ambulance':String.fromCodePoint(128657),
+    'bed':String.fromCodePoint(128719),
+    'box':String.fromCodePoint(128230),
+    'food':String.fromCodePoint(127869),
+    'clipboard':String.fromCodePoint(128203),
+    'ferramenta':String.fromCodePoint(128295),
+    'ambulancia':String.fromCodePoint(128657),
+    'lista':String.fromCodePoint(128203)
+  };
   return m[icon]||icon;
 }
 const TICKET_STATUS={

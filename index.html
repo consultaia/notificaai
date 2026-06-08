@@ -3342,6 +3342,11 @@ const TICKET_TYPES=[
   {id:'dieta',label:'Dieta Especial',icon:'food',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
   {id:'outro',label:'Outro Chamado',icon:'clipboard',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
 ];
+
+function ticketEmoji(icon){
+  var m={'wrench':'&#128295;','ambulance':'&#128657;','bed':'&#128719;','box':'&#128230;','food':'&#127869;','clipboard':'&#128203;','ferramenta':'&#128295;','ambulancia':'&#128657;','lista':'&#128203;','?':'&#128203;'};
+  return m[icon]||icon;
+}
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
   visualizado:{label:'Visualizado',color:'#8B5CF6',bg:'#8B5CF622'},

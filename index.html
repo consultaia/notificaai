@@ -1736,7 +1736,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=500');
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000');
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificações','error');}
     setLoading(false);
@@ -2445,7 +2445,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   useEffect(()=>{
     if(!configured) return;
     setLoading(true);
-    sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=300')
+    sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=2000')
       .then(data=>{setStats(computeStats(data));setRecent(data.slice(0,6));})
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -3676,7 +3676,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=200');setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=2000');setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };

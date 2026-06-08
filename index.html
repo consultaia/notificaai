@@ -1,15 +1,31 @@
 <script type="text/babel">
+// --- CONFIGURAÇÕES E CONSTANTES PADRÃO -------------------------------------
+// Caso as constantes globais C ou DEFAULT_HOSPITAL não tenham sido declaradas 
+// em outros scripts, o código assume estes valores padrão abaixo para não quebrar.
+const _C = typeof C !== 'undefined' ? C : {
+  bg: '#0b132b',
+  text: '#ffffff',
+  surface: '#1c2541',
+  border: '#3a506b',
+  card: '#3a506b',
+  muted: '#a5b4fc',
+  teal: '#5bc0be'
+};
+
+const _HOSPITAL = typeof DEFAULT_HOSPITAL !== 'undefined' ? DEFAULT_HOSPITAL : { 
+  short_name: 'Hospital' 
+};
+
 // --- APP COMPONENTE PRINCIPAL ----------------------------------------------
 function App() {
   const [step, setStep] = React.useState(2);
-  
-  // Proteção: Caso DEFAULT_HOSPITAL não exista ou falhe, ele não quebra a tela
-  const [hospital, setHospital] = React.useState(() => {
-    return typeof DEFAULT_HOSPITAL !== 'undefined' ? DEFAULT_HOSPITAL : { short_name: 'Hospital' };
-  });
+  const [hospital, setHospital] = React.useState(_HOSPITAL);
 
   const processFile = (file) => {
-    if (!window.Papa) return;
+    if (!window.Papa) {
+      console.error("Biblioteca PapaParse não encontrada no escopo global.");
+      return;
+    }
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
@@ -21,10 +37,10 @@ function App() {
   };
 
   return (
-    <div style={{ padding: 16, background: typeof C !== 'undefined' ? C.bg : '#0b132b', minHeight: '100vh', color: typeof C !== 'undefined' ? C.text : '#ffffff', fontFamily: 'sans-serif' }}>
+    <div style={{ padding: 16, background: _C.bg, minHeight: '100vh', color: _C.text, fontFamily: 'sans-serif' }}>
       
       {step === 2 && (
-        <div style={{ maxWidth: 480, margin: '0 auto', background: typeof C !== 'undefined' ? C.surface : '#1c2541', padding: 20, borderRadius: 16, border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#3a506b') }}>
+        <div style={{ maxWidth: 480, margin: '0 auto', background: _C.surface, padding: 20, borderRadius: 16, border: '1px solid ' + _C.border }}>
           <h3 style={{ marginBottom: 12, fontSize: 16, fontWeight: 700 }}>
             Importação de dados do {hospital?.short_name || 'Hospital'}
           </h3>
@@ -34,11 +50,11 @@ function App() {
               onClick={() => setStep(1)} 
               style={{
                 flex: 1,
-                background: typeof C !== 'undefined' ? C.card : '#3a506b',
-                border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#5bc0be'),
+                background: _C.card,
+                border: '1px solid ' + _C.border,
                 borderRadius: 8,
                 padding: '9px',
-                color: typeof C !== 'undefined' ? C.muted : '#ffffff',
+                color: _C.muted,
                 fontSize: 12,
                 fontWeight: 700,
                 cursor: 'pointer'
@@ -51,7 +67,7 @@ function App() {
               onClick={() => setStep(3)} 
               style={{
                 flex: 2,
-                background: typeof C !== 'undefined' ? C.teal : '#5bc0be',
+                background: _C.teal,
                 border: 'none',
                 borderRadius: 8,
                 padding: '9px',
@@ -66,7 +82,7 @@ function App() {
           </div>
 
           <div 
-            style={{ fontSize: 12, color: typeof C !== 'undefined' ? C.muted : '#ffffff', marginTop: 12, cursor: 'pointer', textAlign: 'center', background: typeof C !== 'undefined' ? C.card : '#3a506b', padding: 10, borderRadius: 8, border: '1px solid ' + (typeof C !== 'undefined' ? C.border : '#5bc0be') }}
+            style={{ fontSize: 12, color: _C.muted, marginTop: 12, cursor: 'pointer', textAlign: 'center', background: _C.card, padding: 10, borderRadius: 8, border: '1px solid ' + _C.border }}
             onClick={() => {
               const input = document.getElementById('csvInput');
               if (input) input.click();
@@ -92,7 +108,7 @@ function App() {
           <h3 style={{ marginBottom: 12 }}>Dados Carregados para Revisão</h3>
           <button 
             onClick={() => setStep(2)} 
-            style={{ marginTop: 12, padding: '8px 16px', background: typeof C !== 'undefined' ? C.teal : '#5bc0be', border: 'none', borderRadius: 6, color: '#06101F', fontWeight: 700, cursor: 'pointer' }}
+            style={{ marginTop: 12, padding: '8px 16px', background: _C.teal, border: 'none', borderRadius: 6, color: '#06101F', fontWeight: 700, cursor: 'pointer' }}
           >
             Voltar para Tela Principal
           </button>
@@ -103,10 +119,27 @@ function App() {
   );
 }
 
-// --- RENDERIZADOR ----------------------------------------------------------
-const container = document.getElementById('root');
-if (container) {
+// --- INICIALIZADOR AUTOMÁTICO SEGURO ---------------------------------------
+function initApp() {
+  // Procura por algum container válido na página ('root' ou 'app')
+  let container = document.getElementById('root') || document.getElementById('app');
+  
+  // Se não achar nenhum, cria a div 'root' dinamicamente para o React não quebrar
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'root';
+    document.body.prepend(container);
+  }
+
   const root = ReactDOM.createRoot(container);
   root.render(<App />);
+  console.log("React montado com sucesso no elemento de ID:", container.id);
+}
+
+// Executa na hora se a página já carregou, ou aguarda o carregamento dos elementos
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  initApp();
+} else {
+  document.addEventListener('DOMContentLoaded', initApp);
 }
 </script>

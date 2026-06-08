@@ -1385,11 +1385,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
                 const vG=Number(dados.geral?.[ind.key]||0);
                 const vU=dados.upg?Number(dados.upg[ind.key]||0):null;
                 const vA=dados.alaA?Number(dados.alaA[ind.key]||0):null;
-                function cor(v){
-                  if(v===null) return C.muted;
-                  var ok=ind.menor?v<ind.meta:v>=ind.meta;
-                  return ok?C.green:C.red;
-                }
+                const cor=(v)=>{if(v===null)return C.muted;const ok=ind.menor?v<ind.meta:v>=ind.meta;return ok?C.green:C.red;};
                 return(<tr key={i} style={{borderBottom:'1px solid '+C.border+'22'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontSize:11}}>{ind.label}</td>
                   {dados.geral&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>}

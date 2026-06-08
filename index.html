@@ -275,7 +275,7 @@ function Toast({msg,type,onClose}) {
 }
 function Dots({color}) {
   return(<div style={{display:'flex',gap:5,padding:'13px 16px',background:C.card,border:'1px solid '+C.border,borderRadius:'16px 16px 16px 4px',width:'fit-content'}}>
-    {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:`pulse 1.2s ${i*0.2}s ease-in-out infinite`}}/>)}
+    {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:'pulse 1.2s '+(i*0.2)+'s ease-in-out infinite'}}/>)}
   </div>);
 }
 function LineChart({data,lines,height=150}) {
@@ -283,7 +283,7 @@ function LineChart({data,lines,height=150}) {
   const all=data.flatMap(d=>lines.map(l=>d[l.key]||0));
   const maxV=Math.max(...all,1),w=300,h=height,pad=24;
   const xs=(w-pad*2)/Math.max(data.length-1,1);
-  return(<svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}} preserveAspectRatio="none">
+  return(<svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}} preserveAspectRatio="none">
     {lines.map(line=>{
       const pts=data.map((d,i)=>{const x=pad+i*xs;const y=h-pad-((d[line.key]||0)/maxV)*(h-pad*2);return`${x},${y}`;}).join(' ');
       return<polyline key={line.key} points={pts} fill="none" stroke={line.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>;
@@ -295,7 +295,7 @@ function BarChart({data,xKey,yKey,color,height=150}) {
   if(!data||!data.length) return null;
   const maxV=Math.max(...data.map(d=>d[yKey]||0),1),w=300,h=height,pad=24;
   const bw=(w-pad*2)/data.length-4;
-  return(<svg viewBox={`0 0 ${w} ${h}`} style={{width:'100%',height}}>
+  return(<svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}}>
     {data.map((d,i)=>{
       const bh=((d[yKey]||0)/maxV)*(h-pad*2),x=pad+i*((w-pad*2)/data.length)+2,y=h-pad-bh;
       return(<g key={i}><rect x={x} y={y} width={bw} height={bh} fill={color} rx="3" opacity="0.85"/>
@@ -318,7 +318,7 @@ function PieChart({data,size=160}) {
     return{path:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${sweep>Math.PI?1:0},1 ${x2},${y2} Z`,color:d.color,name:d.name,pct:Math.round(d.value/total*100)};
   });
   return(<div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-    <svg viewBox={`0 0 ${size} ${size}`} style={{width:size,height:size,flexShrink:0}}>
+    <svg viewBox={'0 0 '+size+' '+size} style={{width:size,height:size,flexShrink:0}}>
       {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke={C.card} strokeWidth="1.5"/>)}
     </svg>
     <div style={{display:'flex',flexDirection:'column',gap:6}}>
@@ -1279,7 +1279,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
   const SetorCard=({titulo,cor,dados:d,icon})=>{
     if(!d) return null;
-    return(<div style={{background:C.card,border:`2px solid ${cor}44`,borderRadius:14,padding:16,marginBottom:14}}>
+    return(<div style={{background:C.card,border:'2px solid '+cor+'44',borderRadius:14,padding:16,marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
         <span style={{fontSize:20}}>{icon}</span>
         <div>
@@ -1542,7 +1542,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
           <div style={{flex:1}}>
             <div style={{fontSize:13,fontWeight:700,color:C.text}}>{p.nome}</div>
-            <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?`${p.numero} · `:''}{p.categoria||'-'}{p.responsavel?` · ${p.responsavel}`:''}</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?p.numero+' · ':''}{p.categoria||'-'}{p.responsavel?' · '+p.responsavel:''}</div>
           </div>
           <div style={{background:stColor+'22',color:stColor,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
             {st==='ativo'?'Ok Válido':st==='vencido'?'ATENCAO Vencido':'relogio Vence em breve'}
@@ -1839,7 +1839,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       const isSentinela=n.gravidade==='Evento sentinela';
       const isSP=n.notification_type==='seguranca_paciente';
       const riscoColor={'BAIXO':C.green,'MEDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted;
-      return(<div key={n.id} style={{background:C.card,border:`1px solid ${isSentinela?C.red:C.border}`,borderRadius:14,padding:'12px 14px',marginBottom:10}}>
+      return(<div key={n.id} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:14,padding:'12px 14px',marginBottom:10}}>
         {/* Header do card */}
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
           <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center',flexShrink:0}}>{tag.label}</div>
@@ -2033,7 +2033,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             </div>
           </div>
         </div>
-        {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:`2px solid ${sub.color}44`,paddingLeft:8}}>{r.descricao}</div>}
+        {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
         {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:600}}>Abrir documento</a>}
       </div>);
     })}
@@ -2292,7 +2292,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               ['Notificacoes enviadas ao Notivisa',checks.notivisa_ok,`${dados.nots.filter(n=>n.notivisa_enviado).length} notificacoes enviadas`],
               ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
             ].map(([l,ok,obs],i)=>(
-              <div key={i} style={{background:C.card,border:`1px solid ${ok?C.green:C.red}44`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+              <div key={i} style={{background:C.card,border:'1px solid '+(ok?C.green:C.red)+'44',borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
                 <div style={{fontSize:18,flexShrink:0}}>{ok?'OK':'X'}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l}</div>
@@ -2382,7 +2382,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             <span style={{color:C.teal,fontWeight:700}}>{d.eventos}</span>
           </div>
           <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
-            <div style={{width:`${(d.eventos/max)*100}%`,height:'100%',background:C.teal,borderRadius:2}}/>
+            <div style={{width:(d.eventos/max)*100+'%',height:'100%',background:C.teal,borderRadius:2}}/>
           </div>
         </div>);
       })}
@@ -2410,7 +2410,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
           {regs.length===0&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
         </div>
         {regs.slice(0,2).map((r,i)=>(
-          <div key={i} style={{borderLeft:`2px solid ${sub.color}44`,paddingLeft:8,marginBottom:4}}>
+          <div key={i} style={{borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginBottom:4}}>
             <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||'-'}</div>
             <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes</div>
           </div>
@@ -2477,7 +2477,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <div style={{fontSize:11,color:C.muted}}>{hospital?.short_name||'HNSA'} · Núcleo de Segurança do Paciente</div>
         </div>
       </div>
-      <button onClick={onConfig} style={{background:C.card,border:`1px solid ${configured?C.teal+'66':C.border}`,borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
+      <button onClick={onConfig} style={{background:C.card,border:'1px solid '+(configured?C.teal+'66':C.border),borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
         <IconGear size={18} color={configured?C.teal:C.muted}/>
       </button>
     </div>
@@ -2508,11 +2508,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
       </div>
-      <div style={{background:C.card,border:`1px solid ${s.semRCA>0?C.yellow:C.border}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+      <div style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem RCA</div>
       </div>
-      <div style={{background:C.card,border:`1px solid ${s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+      <div style={{background:C.card,border:'1px solid '+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Maturidade</div>
       </div>
@@ -2536,7 +2536,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       {recent.map((n,i)=>{
         const tag=getTag(n);const title=getTitle(n);
         const isSentinela=n.gravidade==='Evento sentinela';
-        return(<div key={n.id||i} style={{background:C.card,border:`1px solid ${isSentinela?C.red:C.border}`,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+        return(<div key={n.id||i} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8}}>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
             <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
             <div style={{flex:1}}>
@@ -2979,7 +2979,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
       </div>
       {step!=='done'&&<div>
         <div style={{height:3,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:4}}>
-          <div style={{width:`${(prog.atual/prog.total)*100}%`,height:'100%',background:'linear-gradient(90deg,'+C.teal+','+C.blue+')',borderRadius:2,transition:'width .4s'}}/>
+          <div style={{width:(prog.atual/prog.total)*100+'%',height:'100%',background:'linear-gradient(90deg,'+C.teal+','+C.blue+')',borderRadius:2,transition:'width .4s'}}/>
         </div>
         <div style={{fontSize:10,color:C.teal,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.06em'}}>{LABELS_STEP[step]||''}</div>
       </div>}
@@ -3247,9 +3247,9 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
               </div>
             </div>
             <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:6}}>
-              <div style={{width:`${Math.min(item.valor/(item.sufixo==='%'?100:5)*100,100)}%`,height:'100%',background:item.color,borderRadius:2}}/>
+              <div style={{width:Math.min(item.valor/(item.sufixo==='%'?100:5)*100,100)+'%',height:'100%',background:item.color,borderRadius:2}}/>
             </div>
-            <div style={{fontSize:10,color:C.muted,lineHeight:1.5,borderLeft:`2px solid ${item.color}44`,paddingLeft:8}}>Dica {item.dica}</div>
+            <div style={{fontSize:10,color:C.muted,lineHeight:1.5,borderLeft:'2px solid '+item.color+'44',paddingLeft:8}}>Dica {item.dica}</div>
           </div>
         ))}
 
@@ -3527,7 +3527,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
     {filtered.map(ticket=>{
       const tt=TICKET_TYPES.find(t=>t.id===ticket.ticket_type)||TICKET_TYPES[5];
       const st=TICKET_STATUS[ticket.status]||TICKET_STATUS.aberto;
-      return(<div key={ticket.id} style={{background:C.card,border:`1px solid ${ticket.status==='aberto'?'#F59E0B55':C.border}`,borderRadius:14,padding:14,marginBottom:10}}>
+      return(<div key={ticket.id} style={{background:C.card,border:'1px solid '+(ticket.status==='aberto'?'#F59E0B55':C.border),borderRadius:14,padding:14,marginBottom:10}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:8}}>
           <div style={{width:40,height:40,borderRadius:10,background:tt.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{tt.icon}</div>
           <div style={{flex:1,minWidth:0}}>
@@ -3542,7 +3542,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
           </div>
         </div>
         <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginBottom:8}}>{ticket.description}</div>
-        {ticket.response_notes&&<div style={{background:C.surface,borderRadius:8,padding:'8px 10px',marginBottom:8,borderLeft:`3px solid ${tt.color}`}}>
+        {ticket.response_notes&&<div style={{background:C.surface,borderRadius:8,padding:'8px 10px',marginBottom:8,borderLeft:'3px solid '+(tt.color)}}>
           <div style={{fontSize:10,color:C.muted,fontWeight:700,marginBottom:2}}>{tt.dest}:</div>
           <div style={{fontSize:12,color:C.text}}>{ticket.response_notes}</div>
         </div>}
@@ -3688,7 +3688,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     <div><div style={{fontSize:17,fontWeight:900,color:C.text}}>Administração</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Painel exclusivo do gestor</div></div>
 
-    <div style={{background:testMode?C.yellow+'18':C.green+'18',border:`1px solid ${testMode?C.yellow+'55':C.green+'55'}`,borderRadius:14,padding:16}}>
+    <div style={{background:testMode?C.yellow+'18':C.green+'18',border:'1px solid '+(testMode?C.yellow+'55':C.green+'55'),borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
           <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'teste MODO TESTE':'OK MODO PRODUÇÃO'}</div>

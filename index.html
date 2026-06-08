@@ -631,7 +631,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
         <div style={{fontSize:32,marginBottom:8}}>📂</div>
         <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{"<- Voltar"}</button>
-        <div style={{fontSize:12,color:C.muted}}>Exportado do Google Sheets ou outro sistema</div>
+        <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{"Revisar ->"}</button>
         <input id="csvInput" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}}/>
       </div>
       {JSON.parse(localStorage.getItem('nai_imports')||'[]').length>0&&(

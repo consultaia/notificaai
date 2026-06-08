@@ -43,7 +43,7 @@ function getHospitalIdFromUrl() {
 }
 const DEFAULT_HOSPITAL = {
   id:'hnsa', name:'Hospital Naval de Salvador', short_name:'HNSA',
-  logo:'⚓', sectors:['UPG','Ala A','Centro Cirúrgico','SEP'], nsp_label:'NSP',
+  logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP'], nsp_label:'NSP',
 };
 async function loadHospital(url, key, id) {
   if (!url||!key||!id||id==='hnsa') return DEFAULT_HOSPITAL;
@@ -248,7 +248,7 @@ Sempre em português.`;
   return `Você é o NotificaAI, canal de ouvidoria do ${h.short_name}.
 TOM: acolhedor, empático, linguagem simples. Máximo 2-3 linhas.
 REGRA: extraia tudo que já foi informado antes de perguntar.
-Primeira resposta: "Lamentamos o ocorrido." → identifique quem é. Uma pergunta por vez. NUNCA pergunte quem causou.
+Primeira resposta: "Lamentamos o ocorrido." -> identifique quem é. Uma pergunta por vez. NUNCA pergunte quem causou.
 COLETAR: O que aconteceu·Quando·Setor·O que foi feito.
 Ao ter tudo: resumo + "Posso confirmar o envio para análise da equipe responsável?"
 Sempre em português.`;
@@ -348,7 +348,7 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
       <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.7,background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:`3px solid ${C.teal}`}}>
-        Supabase: <strong style={{color:C.teal}}>Project Settings → API</strong><br/>
+        Supabase: <strong style={{color:C.teal}}>Project Settings -> API</strong><br/>
         Copie o <strong style={{color:C.text}}>Project URL</strong> e a <strong style={{color:C.text}}>anon public key</strong>.
       </div>
       <label style={lbl}>Project URL</label>
@@ -421,7 +421,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'🔐'};
+          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
       } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
@@ -446,12 +446,12 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
           <div key={k} style={{background:p.color+'15',border:`1px solid ${p.color}33`,borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
         ))}
       </div>
-      <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="••••" maxLength={8}
+      <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
         style={{width:'100%',background:C.card,border:`1px solid ${error?C.red:C.border}`,borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>
         <button onClick={onClose} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'⏳ Verificando...':'Entrar'}</button>
+        <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde Verificando...':'Entrar'}</button>
       </div>
     </div>
   </div>);
@@ -497,14 +497,14 @@ function PinManager({sbUrl,sbKey,showToast}) {
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
       else await sbInsert(sbUrl,sbKey,'nsp_usuarios',payload);
-      await load(); setShowForm(false); showToast('✅ Usuário salvo!','success');
+      await load(); setShowForm(false); showToast('OK Usuário salvo!','success');
     }catch(e){showToast('Erro: '+e.message,'error');}
     setSaving(false);
   };
   const del=async(id)=>{
     if(!confirm('Remover este usuário?')) return;
     setDeleting(id);
-    try{await sbDelete(sbUrl,sbKey,'nsp_usuarios',`id=eq.${id}`);await load();showToast('✅ Removido','success');}
+    try{await sbDelete(sbUrl,sbKey,'nsp_usuarios',`id=eq.${id}`);await load();showToast('OK Removido','success');}
     catch{showToast('Erro ao remover','error');}
     setDeleting(null);
   };
@@ -531,9 +531,9 @@ function PinManager({sbUrl,sbKey,showToast}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
         <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan - Gestor NSP" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>PIN (4 dígitos){editing?' - deixe em branco para manter':''}</label>
-        <input type="password" value={form.pin} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="••••" inputMode="numeric" style={inp}/>
+        <input type="password" value={form.pin} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="****" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Confirmar PIN</label>
-        <input type="password" value={form.confirma} onChange={e=>setForm({...form,confirma:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="••••" inputMode="numeric" style={inp}/>
+        <input type="password" value={form.confirma} onChange={e=>setForm({...form,confirma:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="****" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
@@ -543,7 +543,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
         </select>
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-          <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'✓ Salvar'}</button>
+          <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Salvar'}</button>
         </div>
       </div>
     )}
@@ -563,7 +563,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
         <div style={{display:'flex',gap:4}}>
           <button onClick={()=>openForm(u)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>✎</button>
           <button onClick={()=>sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${u.id}`,{ativo:!u.ativo}).then(load)} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:'5px 9px',color:u.ativo!==false?C.yellow:C.green,fontSize:11,cursor:'pointer'}}>{u.ativo!==false?'Off':'On'}</button>
-          <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'...':'🗑'}</button>
+          <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'...':'X'}</button>
         </div>
       </div>
     ))}
@@ -621,11 +621,11 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
   const stepLabel=(n)=>({flex:1,textAlign:'center',padding:'8px 6px',borderRadius:8,fontSize:11,color:step===n?C.teal:step>n?C.green:C.muted,background:step===n?C.card:'transparent',border:step===n?`1px solid ${C.border}`:'none'});
   return(<div>
     <div style={{display:'flex',background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:3,gap:2,marginBottom:16}}>
-      {['Upload','Colunas','Revisão','Concluído'].map((l,i)=><div key={i} style={stepLabel(i+1)}>{step>i+1?'✓ ':''}{l}</div>)}
+      {['Upload','Colunas','Revisão','Concluído'].map((l,i)=><div key={i} style={stepLabel(i+1)}>{step>i+1?'Ok ':''}{l}</div>)}
     </div>
     {step===1&&(<div>
       <div style={{background:C.teal+'10',border:`1px solid ${C.teal}33`,borderRadius:10,padding:'10px 14px',marginBottom:14,fontSize:12,color:C.teal}}>
-        ℹ Google Sheets: <strong>Arquivo → Download → Valores separados por vírgula (.csv)</strong>
+        i Google Sheets: <strong>Arquivo -> Download -> Valores separados por vírgula (.csv)</strong>
       </div>
       <div onClick={()=>document.getElementById('csvInput').click()} style={{border:`2px dashed ${C.border}`,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
@@ -651,7 +651,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       {CAMPOS.map(c=>(
         <div key={c.key} style={{display:'grid',gridTemplateColumns:'1fr 16px 1fr',gap:8,alignItems:'center',marginBottom:8}}>
           <div style={{fontSize:12,color:C.text,background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,padding:'7px 10px'}}>{c.label}{c.ob?' *':''}</div>
-          <div style={{color:C.muted,textAlign:'center',fontSize:12}}>→</div>
+          <div style={{color:C.muted,textAlign:'center',fontSize:12}}>-></div>
           <select id={'map_'+c.key} style={{background:C.surface,border:`1px solid ${C.border}`,color:C.text,padding:'7px 10px',borderRadius:7,fontSize:12,outline:'none'}}>
             <option value="">- Não mapear -</option>
             {cols.map(col=><option key={col} value={col}>{col}</option>)}
@@ -659,8 +659,8 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
       ))}
       <div style={{display:'flex',gap:8,marginTop:12}}>
-        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Voltar</button>
-        <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar →</button>
+        <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
+        <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar -></button>
       </div>
     </div>)}
     {step===3&&(()=>{
@@ -681,7 +681,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
           {regs.length>8&&<div style={{padding:'7px 12px',fontSize:11,color:C.muted}}>+{regs.length-8} registros...</div>}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Voltar</button>
+          <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Voltar</button>
           <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>⬆ Importar {regs.length} registros</button>
         </div>
       </div>);
@@ -692,7 +692,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados} registros importados{periodo?` - ${periodo}`:''}</div>
       <div style={{display:'flex',gap:8,justifyContent:'center'}}>
         <button onClick={()=>{setCsvData([]);setCols([]);setPeriodo('');setStep(1);}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px 18px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>Importar outro</button>
-        <button onClick={onDone} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontSize:13,fontWeight:800,cursor:'pointer'}}>Ver dashboard →</button>
+        <button onClick={onDone} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontSize:13,fontWeight:800,cursor:'pointer'}}>Ver dashboard -></button>
       </div>
     </div>)}
   </div>);
@@ -727,7 +727,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
     setSaving(true);
     try {
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true});
-      showToast('✅ RCA salvo!','success');onClose();
+      showToast('OK RCA salvo!','success');onClose();
     } catch { showToast('Erro ao salvar','error'); }
     setSaving(false);
   };
@@ -764,7 +764,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
             <div style={{fontSize:11,fontWeight:700,color:cat.cor,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:8,height:8,borderRadius:'50%',background:cat.cor}}/>{cat.categoria}
             </div>
-            {cat.causas?.map((c,j)=><div key={j} style={{fontSize:12,color:C.muted,marginBottom:4,paddingLeft:14,position:'relative'}}><span style={{position:'absolute',left:0,color:C.border}}>→</span>{c}</div>)}
+            {cat.causas?.map((c,j)=><div key={j} style={{fontSize:12,color:C.muted,marginBottom:4,paddingLeft:14,position:'relative'}}><span style={{position:'absolute',left:0,color:C.border}}>-></span>{c}</div>)}
           </div>
         ))}
         {tab==='fatores'&&rca.fatores?.map((f,i)=>(
@@ -782,7 +782,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
             </div>
           ))}
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
-            {saving?'Salvando...':'✓ Finalizar e salvar RCA'}
+            {saving?'Salvando...':'Ok Finalizar e salvar RCA'}
           </button>
         </div>)}
       </div>)}
@@ -807,7 +807,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     setMarking(true);
     try {
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{notivisa_enviado:true});
-      showToast('✅ Marcado como enviado ao Notivisa!','success');onClose();
+      showToast('OK Marcado como enviado ao Notivisa!','success');onClose();
     } catch { showToast('Erro','error'); }
     setMarking(false);
   };
@@ -822,7 +822,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
       <div style={{display:'flex',background:C.card,borderRadius:8,padding:2,gap:2,marginBottom:14}}>
-        {['Campos','Revisão','Envio'].map((l,i)=><div key={i} style={{flex:1,textAlign:'center',padding:'7px',borderRadius:6,fontSize:11,fontWeight:700,background:step===i+1?C.teal:'transparent',color:step===i+1?'#06101F':step>i+1?C.green:C.muted}}>{step>i+1?'✓ ':''}{l}</div>)}
+        {['Campos','Revisão','Envio'].map((l,i)=><div key={i} style={{flex:1,textAlign:'center',padding:'7px',borderRadius:6,fontSize:11,fontWeight:700,background:step===i+1?C.teal:'transparent',color:step===i+1?'#06101F':step>i+1?C.green:C.muted}}>{step>i+1?'Ok ':''}{l}</div>)}
       </div>
 
       {step===1&&(<div>
@@ -867,7 +867,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </select>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Ação corretiva planejada</label>
         <textarea value={form.acao_corretiva} onChange={e=>setForm({...form,acao_corretiva:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>
-        <button onClick={()=>setStep(2)} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:4}}>Revisar →</button>
+        <button onClick={()=>setStep(2)} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:4}}>Revisar -></button>
       </div>)}
 
       {step===2&&(<div>
@@ -894,9 +894,9 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           </div>
         </div>
         <div style={{display:'flex',gap:8}}>
-          <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Editar</button>
+          <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}><- Editar</button>
           <button onClick={()=>window.print()} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
-          <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar →</button>
+          <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar -></button>
         </div>
       </div>)}
 
@@ -916,7 +916,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <div style={{display:'flex',gap:8}}>
           <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>🌐 Abrir Notivisa</a>
           <button onClick={marcarEnviado} disabled={marking} style={{flex:2,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
-            {marking?'Salvando...':'✓ Marcar como enviado'}
+            {marking?'Salvando...':'Ok Marcar como enviado'}
           </button>
         </div>
       </div>)}
@@ -951,7 +951,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
     setSaving(true);
     try{
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{risco_probabilidade:prob,risco_severidade:sev,risco_score:score,risco_classificacao:risco.label});
-      showToast('✅ Matriz de risco salva!','success');
+      showToast('OK Matriz de risco salva!','success');
       if(onSaved)onSaved({...notification,risco_probabilidade:prob,risco_severidade:sev,risco_score:score,risco_classificacao:risco.label});
       onClose();
     }catch{showToast('Erro ao salvar','error');}
@@ -1012,7 +1012,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
       </div>
 
       <button onClick={salvar} disabled={saving||!prob||!sev} style={{width:'100%',background:prob&&sev?C.teal:C.border,border:'none',borderRadius:12,padding:'13px',color:prob&&sev?'#06101F':C.muted,fontWeight:800,fontSize:13,cursor:prob&&sev?'pointer':'default'}}>
-        {saving?'Salvando...':'✓ Salvar classificação de risco'}
+        {saving?'Salvando...':'Ok Salvar classificação de risco'}
       </button>
     </div>
   </div>);
@@ -1042,7 +1042,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     try{
       await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,...form,status:'pendente',created_at:new Date().toISOString()});
       await load();setShowForm(false);setForm({acao:'',responsavel:'',prazo:'',prioridade:'media'});
-      showToast('✅ Ação adicionada!','success');
+      showToast('OK Ação adicionada!','success');
     }catch{showToast('Erro ao salvar','error');}
     setSaving(false);
   };
@@ -1050,7 +1050,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const updateStatus=async(id,status)=>{
     try{
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${id}`,{status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})});
-      await load();showToast('✅ Status atualizado!','success');
+      await load();showToast('OK Status atualizado!','success');
     }catch{showToast('Erro','error');}
   };
 
@@ -1451,7 +1451,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     try{
       await sbInsert(sbUrl,sbKey,'protocolos',{hospital_id:h.id,...form,proxima_revisao:proxRevisao.toISOString().slice(0,10),status:'ativo'});
       await load();setShowForm(false);setForm({nome:'',categoria:'',responsavel:'',aprovado_em:'',validade_anos:3,numero:'',link:''});
-      showToast('✅ Protocolo cadastrado!','success');
+      showToast('OK Protocolo cadastrado!','success');
     }catch{showToast('Erro ao salvar','error');}
     setSaving(false);
   };
@@ -1479,11 +1479,11 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     {/* Alertas */}
     {vencidos.length>0&&<div style={{background:C.red+'15',border:`1px solid ${C.red}44`,borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>🔴 {vencidos.length} protocolo(s) com revisão vencida</div>
-      {vencidos.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · venceu em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
+      {vencidos.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>-> {p.nome} · venceu em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
     {proximos60.length>0&&<div style={{background:C.yellow+'15',border:`1px solid ${C.yellow}44`,borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>🟡 {proximos60.length} protocolo(s) vencem em 60 dias</div>
-      {proximos60.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · vence em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
+      {proximos60.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>-> {p.nome} · vence em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
 
     {/* Protocolos obrigatórios faltando */}
@@ -1531,7 +1531,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
       <input value={form.link} onChange={e=>setForm({...form,link:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
       <div style={{display:'flex',gap:8,marginTop:4}}>
         <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'✓ Cadastrar'}</button>
+        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Cadastrar'}</button>
       </div>
       <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6}}>⚠ Execute no Supabase: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS protocolos (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, nome TEXT, numero TEXT, categoria TEXT, responsavel TEXT, aprovado_em DATE, validade_anos INT DEFAULT 3, proxima_revisao DATE, link TEXT, status TEXT DEFAULT 'ativo');</span></div>
     </div>}
@@ -1548,14 +1548,14 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>{p.numero?`${p.numero} · `:''}{p.categoria||'-'}{p.responsavel?` · ${p.responsavel}`:''}</div>
           </div>
           <div style={{background:stColor+'22',color:stColor,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>
-            {st==='ativo'?'✓ Válido':st==='vencido'?'⚠ Vencido':'⏰ Vence em breve'}
+            {st==='ativo'?'Ok Válido':st==='vencido'?'ATENCAO Vencido':'⏰ Vence em breve'}
           </div>
         </div>
         <div style={{display:'flex',gap:12,fontSize:11,color:C.muted}}>
           <span>Aprovado: {p.aprovado_em?new Date(p.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
           <span style={{color:stColor}}>Revisão: {p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
         </div>
-        {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento →</a>}
+        {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento -></a>}
       </div>);
     })}
   </div>);
@@ -1616,14 +1616,14 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?'⏳ Gerando...':'📄 Gerar Relatório'}
+          {loading?'Aguarde Gerando...':'📄 Gerar Relatório'}
         </button>
       </div>)}
 
       {dados&&(<div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>🖨️ Imprimir / PDF</button>
-          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>← Voltar</button>
+          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}><- Voltar</button>
         </div>
 
         {/* Preview do relatório */}
@@ -2296,7 +2296,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
             ].map(([l,ok,obs],i)=>(
               <div key={i} style={{background:C.card,border:`1px solid ${ok?C.green:C.red}44`,borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
-                <div style={{fontSize:18,flexShrink:0}}>{ok?'✅':'❌'}</div>
+                <div style={{fontSize:18,flexShrink:0}}>{ok?'OK':'❌'}</div>
                 <div style={{flex:1}}>
                   <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l}</div>
                   <div style={{fontSize:11,color:ok?C.green:C.red,marginTop:2}}>{obs}</div>
@@ -2550,14 +2550,14 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           </div>
           {/* Badges + botões RCA / Notivisa */}
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'✓ RCA':'⚠ Sem RCA'}</span>
-            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'✓ Notivisa':'- Notivisa'}</span>
+            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'Ok RCA':'ATENCAO Sem RCA'}</span>
+            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Ok Notivisa':'- Notivisa'}</span>
             {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&
               <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:`1px solid ${C.blue}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>🧠 Gerar RCA</button>}
             {!n.notivisa_enviado&&n.notification_type==='seguranca_paciente'&&
               <button onClick={()=>setNotiVisaTarget(n)} style={{fontSize:10,background:C.purple+'20',color:C.purple,border:`1px solid ${C.purple}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Notivisa</button>}
             <button onClick={()=>setRiscoTarget(n)} style={{fontSize:10,background:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted)+'20':C.muted+'20',color:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted):C.muted,border:'1px solid transparent',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>
-              {n.risco_classificacao?`⚠ ${n.risco_classificacao}`:'⚠ Risco'}
+              {n.risco_classificacao?`⚠ ${n.risco_classificacao}`:'ATENCAO Risco'}
             </button>
             <button onClick={()=>setPlanoTarget(n)} style={{fontSize:10,background:C.orange+'20',color:C.orange,border:`1px solid ${C.orange}44`,borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>📋 Plano</button>
           </div>
@@ -3275,7 +3275,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?'⏳ Gerando análise...':'✨ Gerar Interpretação do Mês'}
+          {loadingNarr?'Aguarde Gerando análise...':'✨ Gerar Interpretação do Mês'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
@@ -3373,7 +3373,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     try {
       const payload={hospital_id:h.id,ticket_type:type,origin_sector:form.sector,description:form.description,priority:form.priority,patient_name:form.patient_name||null,requester_name:form.requester_name||null,destination_sector:tt?.dest||null,scheduled_at:form.scheduled_at||null,status:'aberto',opened_at:new Date().toISOString()};
       if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'tickets',payload);
-      showToast('✅ Chamado aberto! '+tt?.dest+' foi notificado.','success');
+      showToast('OK Chamado aberto! '+tt?.dest+' foi notificado.','success');
       setStep('done');
     } catch(e) { showToast('Erro: '+e.message,'error'); }
     setSaving(false);
@@ -3390,24 +3390,24 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   </div>);
 
   if(step==='type') return(<div style={{padding:'20px 16px'}}>
-    {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}>←</button>}
+    {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}><-</button>}
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Novo Chamado</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Qual o tipo de chamado?</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {TICKET_TYPES.map(t=>(
         <button key={t.id} onClick={()=>{setType(t.id);setStep('form');}} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
           <div style={{width:44,height:44,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{t.icon}</div>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{t.label}</div><div style={{fontSize:11,color:C.muted}}>→ {t.dest} · {t.desc}</div></div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{t.label}</div><div style={{fontSize:11,color:C.muted}}>-> {t.dest} · {t.desc}</div></div>
         </button>
       ))}
     </div>
   </div>);
 
   return(<div style={{padding:'20px 16px'}}>
-    <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}>←</button>
+    <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}><-</button>
     <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
       <div style={{width:44,height:44,borderRadius:12,background:tt?.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{tt?.icon}</div>
-      <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{tt?.label}</div><div style={{fontSize:11,color:C.muted}}>→ {tt?.dest}</div></div>
+      <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{tt?.label}</div><div style={{fontSize:11,color:C.muted}}>-> {tt?.dest}</div></div>
     </div>
     <label style={lbl}>Setor de origem</label>
     <select value={form.sector} onChange={e=>setForm({...form,sector:e.target.value})} style={{...inp,appearance:'none'}}>
@@ -3433,7 +3433,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
       ))}
     </div>
     <button onClick={submit} disabled={saving||!form.description.trim()} style={{width:'100%',background:tt?.color||C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',opacity:saving?0.7:1}}>
-      {saving?'⏳ Enviando...':`${tt?.icon} Abrir para ${tt?.dest}`}
+      {saving?'Aguarde Enviando...':`${tt?.icon} Abrir para ${tt?.dest}`}
     </button>
   </div>);
 }
@@ -3476,7 +3476,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
       await sbPatch(sbUrl,sbKey,'tickets',`id=eq.${ticket.id}`,patch);
       setTickets(prev=>prev.map(t=>t.id===ticket.id?{...t,...patch}:t));
       setCommenting(null);setCommentText('');
-      showToast({recebido:'📬 Recebido!',em_andamento:'⏳ Em andamento!',concluido:'✅ Concluído!',pendente:'⚠ Pendente'}[newStatus]||'Atualizado!','success');
+      showToast({recebido:'📬 Recebido!',em_andamento:'Aguarde Em andamento!',concluido:'OK Concluído!',pendente:'ATENCAO Pendente'}[newStatus]||'Atualizado!','success');
     } catch { showToast('Erro ao atualizar','error'); }
   };
 
@@ -3538,7 +3538,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
               <div style={{fontSize:13,fontWeight:700,color:C.text}}>{tt.label}</div>
               <div style={{background:st.bg,color:st.color,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{st.label}</div>
             </div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>{ticket.origin_sector} → {tt.dest} · {formatTime(ticket.opened_at)}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>{ticket.origin_sector} -> {tt.dest} · {formatTime(ticket.opened_at)}</div>
             {ticket.requester_name&&<div style={{fontSize:11,color:C.teal,marginTop:2}}>👤 {ticket.requester_name}</div>}
             {ticket.priority==='critico'&&<div style={{display:'inline-block',background:C.red+'22',color:C.red,borderRadius:4,padding:'1px 6px',fontSize:9,fontWeight:700,marginTop:3}}>🔴 CRÍTICO</div>}
             {ticket.priority==='urgente'&&<div style={{display:'inline-block',background:C.yellow+'22',color:C.yellow,borderRadius:4,padding:'1px 6px',fontSize:9,fontWeight:700,marginTop:3}}>🟡 URGENTE</div>}
@@ -3616,7 +3616,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   const item=items.find(k=>k.id===selected);
   if(selected&&item) return(<div>
     <div style={{padding:'14px 16px',borderBottom:`1px solid ${C.border}`,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
-      <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}>←</button>
+      <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}><-</button>
       <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:C.text}}>{item.icon} {item.title}</div><div style={{fontSize:11,color:C.muted}}>{item.desc}</div></div>
     </div>
     <div style={{padding:16,display:'flex',flexDirection:'column',gap:10}}>
@@ -3667,13 +3667,13 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const del=async(id)=>{
     if(!confirm('Excluir esta notificação? Ação irreversível.')) return;
     setDeleting(id);
-    try{await sbDelete(sbUrl,sbKey,'notifications',`id=eq.${id}`);setNotifications(notifications.filter(n=>n.id!==id));showToast('✅ Excluída','success');}
+    try{await sbDelete(sbUrl,sbKey,'notifications',`id=eq.${id}`);setNotifications(notifications.filter(n=>n.id!==id));showToast('OK Excluída','success');}
     catch{showToast('Erro','error');}
     setDeleting(null);
   };
   const clearTests=async()=>{
     if(!confirmClear){setConfirmClear(true);setTimeout(()=>setConfirmClear(false),3500);return;}
-    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>!n.is_test));showToast('✅ Testes limpos','success');setConfirmClear(false);}
+    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>!n.is_test));showToast('OK Testes limpos','success');setConfirmClear(false);}
     catch{showToast('Erro','error');}
   };
 
@@ -3682,7 +3682,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const inp={background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
 
   if(showImport) return(<div style={{padding:'20px 16px'}}>
-    <button onClick={()=>setShowImport(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}>←</button>
+    <button onClick={()=>setShowImport(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}><-</button>
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Importar histórico CSV</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Carregue planilhas de períodos anteriores do Google Sheets</div>
     <CSVImporter sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onDone={()=>setShowImport(false)}/>
@@ -3694,7 +3694,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     <div style={{background:testMode?C.yellow+'18':C.green+'18',border:`1px solid ${testMode?C.yellow+'55':C.green+'55'}`,borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
-          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'🧪 MODO TESTE':'✅ MODO PRODUÇÃO'}</div>
+          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'🧪 MODO TESTE':'OK MODO PRODUÇÃO'}</div>
           <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5,maxWidth:220}}>{testMode?'Notificações marcadas como teste. Exclua em lote depois.':'Notificações tratadas como reais. E-mails serão enviados.'}</div>
         </div>
         <button onClick={onToggleTestMode} style={{background:testMode?C.yellow:C.green,border:'none',borderRadius:999,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:11,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
@@ -3706,14 +3706,14 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>📧 E-mail de destino</div>
       <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="hnsa.nsp@marinha.mil.br" style={{...inp,marginBottom:10}}/>
-      <button onClick={()=>{onSaveEmail(email.trim());showToast('✅ E-mail atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar e-mail</button>
+      <button onClick={()=>{onSaveEmail(email.trim());showToast('OK E-mail atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar e-mail</button>
     </div>
 
     <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>🔗 Webhook (n8n / Make)</div>
       <div style={{fontSize:11,color:C.muted,marginBottom:10}}>URL que receberá os dados para envio automático de e-mail.</div>
       <input value={webhook} onChange={e=>setWebhook(e.target.value)} placeholder="https://seu-n8n.app/webhook/notificaai" style={{...inp,marginBottom:10,fontFamily:'monospace',fontSize:11}}/>
-      <button onClick={()=>{onSaveWebhook(webhook.trim());showToast('✅ Webhook atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar webhook</button>
+      <button onClick={()=>{onSaveWebhook(webhook.trim());showToast('OK Webhook atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar webhook</button>
     </div>
 
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
@@ -3831,13 +3831,13 @@ function NotificaAI() {
   const handleSaveConfig=async(url,key,wh)=>{
     setSbUrl(url);setSbKey(key);setWebhookUrl(wh);
     try{await window.storage.set('notificai-sb',JSON.stringify({url,key,webhook:wh,email:nspEmail,testMode}));}catch{}
-    setShowConfig(false);showToast('✅ Supabase configurado!','success');
+    setShowConfig(false);showToast('OK Supabase configurado!','success');
     // Recarrega hospital
     const h=await loadHospital(url,key,getHospitalIdFromUrl()||'hnsa');
     setHospital(h);
   };
   const handleSaveEmail=email=>{setNspEmail(email);saveAll({email});};
-  const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'🧪 Modo TESTE ativado':'✅ Modo PRODUÇÃO ativado','success');};
+  const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'🧪 Modo TESTE ativado':'OK Modo PRODUÇÃO ativado','success');};
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 

@@ -3388,7 +3388,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   </div>);
 
   if(step==='type') return(<div style={{padding:'20px 16px'}}>
-    {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}}><-</button>}
+    {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}}>←</button>}
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Novo Chamado</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Qual o tipo de chamado?</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -3402,7 +3402,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   </div>);
 
   return(<div style={{padding:'20px 16px'}}>
-    <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}}><-</button>
+    <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}}>←</button>
     <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
       <div style={{width:44,height:44,borderRadius:12,background:tt?.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{tt?.icon}</div>
       <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{tt?.label}</div><div style={{fontSize:11,color:C.muted}}>-> {tt?.dest}</div></div>
@@ -3614,7 +3614,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   const item=items.find(k=>k.id===selected);
   if(selected&&item) return(<div>
     <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
-      <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}}><-</button>
+      <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}}>←</button>
       <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:C.text}}>{item.icon} {item.title}</div><div style={{fontSize:11,color:C.muted}}>{item.desc}</div></div>
     </div>
     <div style={{padding:16,display:'flex',flexDirection:'column',gap:10}}>
@@ -3680,7 +3680,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
 
   if(showImport) return(<div style={{padding:'20px 16px'}}>
-    <button onClick={()=>setShowImport(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}}><-</button>
+    <button onClick={()=>setShowImport(false)} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}}>←</button>
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Importar histórico CSV</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:16}}>Carregue planilhas de períodos anteriores do Google Sheets</div>
     <CSVImporter sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onDone={()=>setShowImport(false)}/>

@@ -765,7 +765,31 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
             <div style={{fontSize:11,fontWeight:700,color:cat.cor,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
               <div style={{width:8,height:8,borderRadius:'50%',background:cat.cor}}/>{cat.categoria}
             </div>
-            {cat.causas?.map((c,j)=><div key={j} style={{fontSize:12,color:C.muted,marginBottom:4,paddingLeft:14,position:'relative'}}><span style={{position:'absolute',left:0,color:C.border}}>→</span>{c}</div>)}
+            {cat.causas?.map((c,j)=>(
+              <div key={j} style={{display:'flex',alignItems:'center',gap:6,marginBottom:6,paddingLeft:14,position:'relative'}}>
+                <span style={{position:'absolute',left:0,color:C.border}}>→</span>
+                <input
+                  value={c}
+                  onChange={e=>{
+                    const novo=[...rca.ishikawa];
+                    novo[i]={...novo[i],causas:[...novo[i].causas]};
+                    novo[i].causas[j]=e.target.value;
+                    setRca(r=>({...r,ishikawa:novo}));
+                  }}
+                  style={{flex:1,background:'transparent',border:'none',borderBottom:'1px solid '+C.border,fontSize:12,color:C.text,padding:'2px 4px',outline:'none'}}
+                />
+                <button onClick={()=>{
+                  const novo=[...rca.ishikawa];
+                  novo[i]={...novo[i],causas:novo[i].causas.filter((_,k)=>k!==j)};
+                  setRca(r=>({...r,ishikawa:novo}));
+                }} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>✕</button>
+              </div>
+            ))}
+            <button onClick={()=>{
+              const novo=[...rca.ishikawa];
+              novo[i]={...novo[i],causas:[...novo[i].causas,'']};
+              setRca(r=>({...r,ishikawa:novo}));
+            }} style={{background:'none',border:'1px dashed '+cat.cor+'66',borderRadius:6,padding:'3px 10px',color:cat.cor,fontSize:11,cursor:'pointer',marginTop:4,width:'100%'}}>+ causa</button>
           </div>
         ))}
         {tab==='fatores'&&rca.fatores?.map((f,i)=>(

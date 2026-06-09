@@ -108,11 +108,11 @@ async function hashPin(pin) {
 
 // --- PERFIS LOCAIS (fallback) ----------------------------------------------
 const PROFILES = {
-  gestor:   {pin:'1234', label:'Gestor',     icon:String.fromCodePoint(128202),color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:      {pin:'1111', label:'DSG',        icon:String.fromCodePoint(128295),color:'#F59E0B',perfil:'dsg'},
-  motorista:{pin:'2222', label:'Motorista',  icon:String.fromCodePoint(128657),color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:String.fromCodePoint(129658),color:'#1D6FE8',perfil:'enfermeiro'},
+  gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
+  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'escudo',color:'#00C9B8',perfil:'membro_nsp'},
+  dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
+  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
+  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
 };
 
 // --- HELPERS ---------------------------------------------------------------
@@ -124,7 +124,7 @@ function formatTime(iso){
 }
 function getTag(n){
   if(n.notification_type==='seguranca_paciente') return{label:'SP',color:C.red};
-  if(n.notification_type==='ccih') return{label:'CCIH',color:'#7C3AED'};
+  if(n.notification_type==='ccih') return{label:'CCIH',color:C.yellow};
   return{label:'ADM',color:C.purple};
 }
 function getTitle(n){
@@ -439,7 +439,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
 
   return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
-      <div style={{fontSize:36,marginBottom:12}}></div>
+      <div style={{fontSize:36,marginBottom:12}}>🔐</div>
       <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
       <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
       <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
@@ -1173,7 +1173,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
           <div style={{width:pct+'%',height:'100%',background:pct===100?C.green:C.teal,borderRadius:3,transition:'width .4s'}}/>
         </div>
-        {vencidas.length>0&&<div style={{fontSize:11,color:C.red,fontWeight:700}}>{vencidas.length} ação(ões) com prazo vencido</div>}
+        {vencidas.length>0&&<div style={{fontSize:11,color:C.red,fontWeight:700}}>⚠️ {vencidas.length} ação(ões) com prazo vencido</div>}
       </div>}
 
       {/* Lista de ações */}
@@ -1195,7 +1195,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
               <div style={{background:st.color+'22',color:st.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700}}>{st.label}</div>
-              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>✕</button>
+              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>🗑</button>
             </div>
           </div>
           {a.status!=='concluido'&&a.status!=='cancelado'&&(
@@ -1232,7 +1232,11 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
       {!showForm&&<button onClick={()=>setShowForm(true)} style={{width:'100%',background:C.teal+'15',border:'1px dashed '+C.teal,borderRadius:12,padding:'12px',color:C.teal,fontSize:13,fontWeight:700,cursor:'pointer',marginTop:4}}>+ Nova ação</button>}
 
-
+      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
+        <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>⚠ Para persistir o plano de ação, execute no Supabase SQL Editor:<br/>
+          <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ);</span>
+        </div>
+      </div>
     </div>
   </div>);
 }
@@ -1320,7 +1324,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       // Filtros por tipo de evento
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
-      const isIRAS=n=>n.notification_type==='ccih';
+      const isIRAS=n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH');
       const isMed=n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic');
       const isNearMiss=n=>n.gravidade==='Near miss';
       const isSentinela=n=>n.gravidade==='Evento sentinela';
@@ -1723,7 +1727,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'94vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>Doc Relatório Mensal NSP</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>X</button>
       </div>
 
       {!dados&&(<div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -1740,7 +1744,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
           <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?String.fromCodePoint(9203)+' Gerando...':String.fromCodePoint(128196)+' Gerar Relatório'}
+          {loading?'Aguarde Gerando...':'documento Gerar Relatório'}
         </button>
       </div>)}
 
@@ -1812,9 +1816,9 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
             <table style={{width:'100%',borderCollapse:'collapse',marginBottom:16}}>
               <tbody>
                 {[
-                  ['Notificações com Análise concluída',dados.nots.filter(n=>n.rca_gerado).length],
+                  ['Notificações com RCA concluído',dados.nots.filter(n=>n.rca_gerado).length],
                   ['Notificações com Notivisa enviado',dados.nots.filter(n=>n.notivisa_enviado).length],
-                  ['Notificações pendentes de Análise de Causa',dados.nots.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.rca_gerado).length],
+                  ['Notificações pendentes de RCA',dados.nots.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length],
                   ['Notificações com status concluído',dados.nots.filter(n=>n.status==='concluido').length],
                 ].map(([l,v])=><tr key={l}><td style={{border:'1px solid #ddd',padding:'5px 10px'}}>{l}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',fontWeight:700,textAlign:'center'}}>{v}</td></tr>)}
               </tbody>
@@ -1862,7 +1866,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000');
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=500');
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificações','error');}
     setLoading(false);
@@ -1893,9 +1897,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
   const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
 
-  const statsSP=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.is_test).length;
-  const statsSemRCA=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.rca_gerado&&!n.is_test).length;
-  const statsSemNotivisa=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.notivisa_enviado&&!n.is_test).length;
+  const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.is_test).length;
+  const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&!n.is_test).length;
+  const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&!n.is_test).length;
 
   const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
 
@@ -1920,7 +1924,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Cards de resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-      {[['Total SP',statsSP,C.red],['Sem Análise',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
+      {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
         <div key={l} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
           <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
           <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>{l}</div>
@@ -1945,9 +1949,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
         {setores.map(s=><option key={s} value={s}>{s}</option>)}
       </select>
       <select value={filtroRCA} onChange={e=>{setFiltroRCA(e.target.value);setPagina(1);}} style={sel}>
-        <option value="todos">Análise: todos</option>
-        <option value="sem">Sem Análise</option>
-        <option value="com">Com Análise</option>
+        <option value="todos">RCA: todos</option>
+        <option value="sem">Sem RCA</option>
+        <option value="com">Com RCA</option>
       </select>
       <select value={filtroNotivisa} onChange={e=>{setFiltroNotivisa(e.target.value);setPagina(1);}} style={sel}>
         <option value="todos">Notivisa: todos</option>
@@ -1964,7 +1968,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     {pagAtual.map(n=>{
       const tag=getTag(n);const title=getTitle(n);
       const isSentinela=n.gravidade==='Evento sentinela';
-      const isSP=(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
+      const isSP=n.notification_type==='seguranca_paciente';
       const riscoColor={'BAIXO':C.green,'MEDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted;
       return(<div key={n.id} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:14,padding:'12px 14px',marginBottom:10}}>
         {/* Header do card */}
@@ -1989,7 +1993,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
         {/* Status badges */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'Causa Raiz':'Sem Análise'}</span>
+          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
           <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>
           {n.risco_classificacao&&<span style={{fontSize:10,background:riscoColor+'20',color:riscoColor,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.risco_classificacao}</span>}
           {n.gravidade&&<span style={{fontSize:10,background:C.surface,color:C.muted,borderRadius:4,padding:'2px 7px'}}>{n.gravidade}</span>}
@@ -1997,10 +2001,10 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
         {/* Botoes de acao */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Análise</button>}
+          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
           {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
           <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:'1px solid '+C.yellow+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
-          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>📋 Plano de Ação</button>
+          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
         </div>
       </div>);
     })}
@@ -2017,12 +2021,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
 // --- MÓDULO TREINAMENTOS E REUNIOES ------------------------------------------
 const SUBNUCLEOS_HNSA=[
-  {id:'comunicacao',label:'Comunicacao Efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
-  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
-  {id:'identificacao',label:'Identificacao Correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
-  {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
-  {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
-  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(127973),color:'#10B981'},
+  {id:'comunicacao',label:'Comunicacao Efetiva',icon:'chat',color:'#1D6FE8'},
+  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'remedios',color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificacao Correta',icon:'identificacao',color:'#00C9B8'},
+  {id:'queda',label:'Queda',icon:'escudo',color:'#F59E0B'},
+  {id:'lpp',label:'LPP - Lesao por Pressao',icon:'curativo',color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:'hospital',color:'#10B981'},
 ];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
@@ -2216,7 +2220,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Protocolos
       const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
 
-      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')).length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
@@ -2340,7 +2344,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             <tbody>
               <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
               <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
-              <tr><td>Notificacoes com Análise concluída</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
+              <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
               <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
             </tbody>
           </table>
@@ -2518,7 +2522,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {label:'Quedas',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda')).length,cor:'#F59E0B'},
     {label:'Perda AVP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('avp')||n.event_subtype?.toLowerCase().includes('acesso')).length,cor:'#3B82F6'},
     {label:'LPP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')).length,cor:'#EF4444'},
-    {label:'Infecção',count:notsMes.filter(n=>n.notification_type==='ccih').length,cor:'#7C3AED'},
+    {label:'Infecção (CCIH)',count:notsMes.filter(n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')).length,cor:'#7C3AED'},
     {label:'Medicação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
     {label:'Identificação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
   ].filter(t=>t.count>0).sort((a,b)=>b.count-a.count);
@@ -2535,11 +2539,14 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     <div style={{fontSize:11,color:C.muted,marginBottom:16}}>HNSA · Nucleo de Seguranca do Paciente</div>
 
     {/* Métricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
       <StatCard icon="📊" label="Total notificacoes" value={s.total} color={C.teal}/>
       <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
-      <StatCard icon="🦠" label="CCIH" value={s.ccih} color={C.yellow}/>
       <StatCard icon="📋" label="Administrativas" value={s.adm} color={C.purple}/>
+      {s.ccih>0&&<div style={{gridColumn:'span 3',background:'#7C3AED10',border:'1px solid #7C3AED33',borderRadius:10,padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
+        <span style={{fontSize:14}}>{String.fromCodePoint(129440)}</span>
+        <span style={{fontSize:11,color:'#7C3AED',fontWeight:700}}>CCIH / Infecções: {s.ccih} notificações</span>
+      </div>}
     </div>
 
     {/* Dias sem sentinela */}
@@ -2719,101 +2726,8 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 }
 
 
-function ListaMensal({sbUrl,sbKey,onSelect}) {
-  const C=useColors();
-  const hoje=new Date();
-  const [mes,setMes]=React.useState(hoje.getMonth()+1);
-  const [ano,setAno]=React.useState(hoje.getFullYear());
-  const [nots,setNots]=React.useState([]);
-  const [loading,setLoading]=React.useState(false);
-  const [aberta,setAberta]=React.useState(false);
-  const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
-  const carregar=async()=>{
-    if(!sbUrl||!sbKey) return;
-    setLoading(true);
-    try{
-      const mesStr=String(mes).padStart(2,'0');
-      const inicio=`${ano}-${mesStr}-01`;
-      const ultimoDia=new Date(ano,mes,0).getDate();
-      const fim=`${ano}-${mesStr}-${ultimoDia}`;
-      const data=await sbSelect(sbUrl,sbKey,'notifications',
-        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`);
-      setNots(data||[]);
-    }catch(e){setNots([]);}
-    setLoading(false);
-  };
-
-  React.useEffect(()=>{if(aberta)carregar();},[mes,ano,aberta,sbUrl,sbKey]);
-
-  const getTag=(n)=>{
-    if(n.notification_type==='seguranca_paciente') return{l:'SP',c:C.red};
-    if(n.notification_type==='ccih') return{l:'CCIH',c:'#7C3AED'};
-    return{l:'ADM',c:C.muted};
-  };
-
-  const navMes=(dir)=>{
-    let m=mes+dir, a=ano;
-    if(m>12){m=1;a++;}
-    if(m<1){m=12;a--;}
-    setMes(m);setAno(a);
-  };
-
-  const spCount=nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
-  const admCount=nots.filter(n=>n.notification_type==='administrativa').length;
-
-  return(<div style={{marginBottom:12}}>
-    {/* Header clicável */}
-    <button onClick={()=>setAberta(a=>{if(!a)setTimeout(carregar,50);return!a;})}
-      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
-      <div style={{fontSize:12,fontWeight:700,color:C.text}}>
-        {String.fromCodePoint(128197)} Notificações do mês
-      </div>
-      <div style={{display:'flex',alignItems:'center',gap:8}}>
-        {!aberta&&nots.length>0&&<span style={{fontSize:11,color:C.muted}}>{nots.length} registros</span>}
-        <span style={{fontSize:14,color:C.muted}}>{aberta?String.fromCodePoint(9650):String.fromCodePoint(9660)}</span>
-      </div>
-    </button>
-
-    {aberta&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:'0 0 12px 12px',borderTop:'none',overflow:'hidden'}}>
-      {/* Navegação de mês */}
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
-        <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}>‹</button>
-        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{MESES[mes-1]}/{ano}</div>
-        <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:mes===hoje.getMonth()+1&&ano===hoje.getFullYear()?C.muted:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}
-          disabled={mes===hoje.getMonth()+1&&ano===hoje.getFullYear()}>›</button>
-      </div>
-
-      {/* Resumo rápido */}
-      {nots.length>0&&<div style={{display:'flex',gap:8,padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
-        <span style={{fontSize:11,background:C.red+'15',color:C.red,borderRadius:6,padding:'2px 8px',fontWeight:700}}>SP+CCIH: {spCount}</span>
-        <span style={{fontSize:11,background:C.muted+'15',color:C.muted,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Adm: {admCount}</span>
-        <span style={{fontSize:11,background:C.teal+'15',color:C.teal,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Total: {nots.length}</span>
-      </div>}
-
-      {/* Tabela */}
-      {loading&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}><Dots/></div>}
-      {!loading&&nots.length===0&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}>Nenhuma notificação neste mês</div>}
-      {!loading&&nots.map((n,i)=>{
-        const tag=getTag(n);
-        const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'--';
-        const titulo=(n.event_subtype||n.description||'Notificação').slice(0,45);
-        const pacInfo=n.admission_reason?n.admission_reason.split('|')[0].trim():'';
-        return(<div key={n.id||i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderBottom:i<nots.length-1?'1px solid '+C.border+'55':'none',cursor:'pointer'}}
-          onClick={()=>onSelect&&onSelect(n)}>
-          <span style={{fontSize:10,background:tag.c+'20',color:tag.c,borderRadius:4,padding:'2px 5px',fontWeight:700,flexShrink:0,minWidth:34,textAlign:'center'}}>{tag.l}</span>
-          <span style={{fontSize:11,color:C.muted,flexShrink:0,fontFamily:'monospace',width:36}}>{data}</span>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:12,color:C.text,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{titulo}</div>
-            {pacInfo&&<div style={{fontSize:10,color:C.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pacInfo}</div>}
-          </div>
-          <span style={{fontSize:10,color:C.muted,flexShrink:0}}>{n.sector||''}</span>
-        </div>);
-      })}
-    </div>)}
-  </div>);
-}
-
+// --- HOME VIEW --------------------------------------------------------------
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital}) {
   const [stats,setStats]=useState(null);
   const [recent,setRecent]=useState(MOCK_RECENT);
@@ -2973,7 +2887,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     setStep(proximoStep);
   };
 
-  const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type);
+  const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type||'seguranca_paciente');
   const isADM=(d)=>(d.notification_type||dados.notification_type)==='administrativa';
   const isCCIH=(d)=>(d.notification_type||dados.notification_type)==='ccih';
 
@@ -3000,9 +2914,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
       case 'tipo':{
         d.notification_type=valor;
         if(valor==='seguranca_paciente'){
-          avancar(d,'subtipo','Qual foi o tipo de evento?');
-        } else if(valor==='ccih'){
-          avancar(d,'subtipo','Qual o foco da infecção?');
+          avancar(d,'subtipo','Qual foi o tipo de evento de segurança do paciente?');
         } else {
           avancar(d,'subtipo_adm','Qual o tipo de ocorrência administrativa?');
         }
@@ -3296,11 +3208,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
   };
 
   const chipsAtivos=()=>{
-    if(step==='subtipo'){
-      const t=dados.notification_type;
-      if(t==='ccih') return CHIPS_MAP.subtipo_ccih;
-      return CHIPS_MAP.subtipo_sp;
-    }
+    if(step==='subtipo') return CHIPS_MAP.subtipo_sp;
     return CHIPS_MAP[step]||[];
   };
 
@@ -3495,7 +3403,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const filtered=rawData.filter(n=>{const d=new Date(n.created_at);if(d.getFullYear()!==filterYear)return false;if(filterMonth!==0&&d.getMonth()!==filterMonth-1)return false;return true;});
 
   const exportCSV=()=>{
-    const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','Causa Raiz','Notivisa'];
+    const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','RCA','Notivisa'];
     const rows=filtered.map(n=>[n.id?.slice(0,8)||'',n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR'),n.event_time||'',n.notification_type||'',n.event_subtype||'',n.sector||'',n.shift||'',(n.description||'').replace(/"/g,'""'),(n.measures_taken||'').replace(/"/g,'""'),n.patient_outcome||'',n.rca_gerado?'Sim':'Não',n.notivisa_enviado?'Sim':'Não']);
     const csv=[header,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
@@ -3534,7 +3442,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     <div style={{display:'flex',alignItems:'baseline',gap:10}}>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
-      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?String.fromCodePoint(9989)+' Dados reais':sbUrl?String.fromCodePoint(9203)+' Carregando...':String.fromCodePoint(128203)+' Dados de exemplo'}</div>
+      <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'? Dados reais':sbUrl?'? Carregando...':'? Dados de exemplo'}</div>
     </div>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
       {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('cultura','Maturidade')}{tb('ia','IA')}{tb('relatorio','Relatório')}
@@ -3659,7 +3567,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?String.fromCodePoint(9203)+' Gerando análise...':String.fromCodePoint(129302)+' Gerar Interpretação do Mês'}
+          {loadingNarr?'Aguarde Gerando análise...':'? Gerar Interpretação do Mês'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
@@ -3734,31 +3642,6 @@ const TICKET_TYPES=[
   {id:'dieta',label:'Dieta Especial',icon:'food',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
   {id:'outro',label:'Outro Chamado',icon:'clipboard',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
 ];
-
-function ticketEmoji(icon){
-  var m={
-    'wrench':String.fromCodePoint(128295),
-    'ambulance':String.fromCodePoint(128657),
-    'bed':String.fromCodePoint(128719),
-    'box':String.fromCodePoint(128230),
-    'food':String.fromCodePoint(127869),
-    'clipboard':String.fromCodePoint(128203),
-    'ferramenta':String.fromCodePoint(128295),
-    'ambulancia':String.fromCodePoint(128657),
-    'lista':String.fromCodePoint(128203),
-    'chat':String.fromCodePoint(128172),
-    'remedios':String.fromCodePoint(128138),
-    'identificacao':String.fromCodePoint(128100),
-    'escudo':String.fromCodePoint(129405),
-    'curativo':String.fromCodePoint(129657),
-    'hospital':String.fromCodePoint(127973),
-    'medico':String.fromCodePoint(129658),
-    'ancora':String.fromCodePoint(9875),
-    'painel':String.fromCodePoint(128202),
-    'ambulancia':String.fromCodePoint(128657)
-  };
-  return m[icon]||icon;
-}
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
   visualizado:{label:'Visualizado',color:'#8B5CF6',bg:'#8B5CF622'},
@@ -3984,13 +3867,13 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
 
 // --- CENTRAL DE CONHECIMENTO -------------------------------------------------
 const KNOWLEDGE=[
-  {id:'cards',icon:String.fromCodePoint(128203),title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
+  {id:'cards',icon:'?',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
     {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança - essencial para identificar vulnerabilidades.'},
     {title:'Evento Sentinela',text:'Evento adverso grave que resulta em morte, perda permanente de função ou risco grave. Exige investigação imediata por Análise de Causa Raiz (ACR).'},
     {title:'Cultura Justa',text:'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema. Diferencia erro humano (acolher) de imprudência (responsabilizar).'},
   ]},
-  {id:'metas',icon:String.fromCodePoint(127919),title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
+  {id:'metas',icon:'?',title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
     {num:'1',title:'Identificar corretamente o paciente',text:'Usar pelo menos 2 identificadores. Verificar pulseira antes de qualquer procedimento, medicação ou coleta.'},
     {num:'2',title:'Comunicação efetiva',text:'Usar SBAR (Situação, Background, Avaliação, Recomendação) na passagem de plantão. Ler de volta prescrições verbais.'},
     {num:'3',title:'Medicamentos de alta vigilância',text:'Identificar, padronizar armazenagem e dupla checagem de medicamentos de alta vigilância (KCl, insulina, opioides, anticoagulantes).'},
@@ -3998,25 +3881,257 @@ const KNOWLEDGE=[
     {num:'5',title:'Reduzir risco de infecções',text:'Higienização das mãos nos 5 momentos da OMS. Precauções padrão e específicas. Bundles de IRAS.'},
     {num:'6',title:'Reduzir risco de quedas',text:'Avaliar risco (Morse, Humpty Dumpty). Sinalização visual. Grades, calçados antiderrapantes, iluminação.'},
   ]},
-  {id:'como',icon:String.fromCodePoint(128241),title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
+  {id:'como',icon:'?',title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
     {step:'01',title:'Acesse o NotificaAI',text:'Use o QR Code afixado no setor, leia com a câmera do celular ou acesse pelo computador da intranet.'},
     {step:'02',title:'Identifique-se',text:'Informe se é profissional, paciente ou familiar. O sistema adapta a linguagem ao seu perfil.'},
     {step:'03',title:'Relate com suas palavras',text:'Descreva o que aconteceu naturalmente. A IA conduz as perguntas - sem formulários.'},
     {step:'04',title:'Confirme o resumo',text:'Revise o resumo e toque em "Confirmar e Enviar" se estiver correto.'},
     {step:'05',title:'Pronto!',text:'O NSP recebe notificação automática por e-mail. Você pode notificar quantas vezes precisar.'},
   ]},
-  {id:'ccih',icon:String.fromCodePoint(129440),title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
+  {id:'ccih',icon:'?',title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
     {title:'5 Momentos da Higienização (OMS)',text:'1) Antes de tocar o paciente. 2) Antes de procedimento asséptico. 3) Após exposição a fluidos. 4) Após tocar o paciente. 5) Após tocar superfícies próximas.'},
     {title:'Bundle de CVC',text:'Higiene das mãos · Paramentação estéril completa · Antissepsia com clorexidina · Subclávia preferencial · Avaliação diária de necessidade.'},
     {title:'Bundle de PAV',text:'Cabeceira 30-45° · Higiene oral com clorexidina · Despertar diário e avaliação de extubação · Profilaxia de TVP.'},
     {title:'Bundle de ITU por SVD',text:'Indicação criteriosa · Inserção asséptica · Sistema fechado · Avaliação diária · Higiene íntima diária.'},
   ]},
-  {id:'vid_maos',icon:String.fromCodePoint(127909),title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
-  {id:'vid_quedas',icon:String.fromCodePoint(127909),title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
-  {id:'pdf_nsp',icon:String.fromCodePoint(128196),title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
-  {id:'pdf_riscos',icon:String.fromCodePoint(128196),title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
-  {id:'pdf_iras',icon:String.fromCodePoint(128196),title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
+  {id:'vid_maos',icon:'?',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
+  {id:'vid_quedas',icon:'?',title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
+  {id:'pdf_nsp',icon:'documento',title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
+  {id:'pdf_riscos',icon:'documento',title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
+  {id:'pdf_iras',icon:'documento',title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
 ];
+
+function ticketEmoji(icon){
+  var m={
+    'wrench':String.fromCodePoint(128295),
+    'ambulance':String.fromCodePoint(128657),
+    'bed':String.fromCodePoint(128719),
+    'box':String.fromCodePoint(128230),
+    'food':String.fromCodePoint(127869),
+    'clipboard':String.fromCodePoint(128203),
+    'ferramenta':String.fromCodePoint(128295),
+    'ambulancia':String.fromCodePoint(128657),
+    'lista':String.fromCodePoint(128203),
+    'chat':String.fromCodePoint(128172),
+    'remedios':String.fromCodePoint(128138),
+    'identificacao':String.fromCodePoint(128100),
+    'escudo':String.fromCodePoint(129405),
+    'curativo':String.fromCodePoint(129657),
+    'hospital':String.fromCodePoint(127973),
+    'medico':String.fromCodePoint(129658),
+    'ancora':String.fromCodePoint(9875),
+    'painel':String.fromCodePoint(128202),
+    'ambulancia':String.fromCodePoint(128657)
+  };
+  return m[icon]||icon;
+}
+function ListaMensal({sbUrl,sbKey,onSelect}) {
+  const C=useColors();
+  const hoje=new Date();
+  const [mes,setMes]=React.useState(hoje.getMonth()+1);
+  const [ano,setAno]=React.useState(hoje.getFullYear());
+  const [nots,setNots]=React.useState([]);
+  const [loading,setLoading]=React.useState(false);
+  const [aberta,setAberta]=React.useState(false);
+  const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const carregar=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    try{
+      const mesStr=String(mes).padStart(2,'0');
+      const inicio=`${ano}-${mesStr}-01`;
+      const ultimoDia=new Date(ano,mes,0).getDate();
+      const fim=`${ano}-${mesStr}-${ultimoDia}`;
+      const data=await sbSelect(sbUrl,sbKey,'notifications',
+        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`);
+      setNots(data||[]);
+    }catch(e){setNots([]);}
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{if(aberta)carregar();},[mes,ano,aberta,sbUrl,sbKey]);
+
+  const getTag=(n)=>{
+    if(n.notification_type==='seguranca_paciente') return{l:'SP',c:C.red};
+    if(n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')) return{l:'CCIH',c:'#7C3AED'};
+    return{l:'ADM',c:C.muted};
+  };
+
+  const navMes=(dir)=>{
+    let m=mes+dir, a=ano;
+    if(m>12){m=1;a++;}
+    if(m<1){m=12;a--;}
+    setMes(m);setAno(a);
+  };
+
+  const spCount=nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+  const admCount=nots.filter(n=>n.notification_type==='administrativa').length;
+
+  return(<div style={{marginBottom:12}}>
+    {/* Header clicável */}
+    <button onClick={()=>setAberta(a=>{if(!a)setTimeout(carregar,50);return!a;})}
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.text}}>
+        {String.fromCodePoint(128197)} Notificações do mês
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {!aberta&&nots.length>0&&<span style={{fontSize:11,color:C.muted}}>{nots.length} registros</span>}
+        <span style={{fontSize:14,color:C.muted}}>{aberta?String.fromCodePoint(9650):String.fromCodePoint(9660)}</span>
+      </div>
+    </button>
+
+    {aberta&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:'0 0 12px 12px',borderTop:'none',overflow:'hidden'}}>
+      {/* Navegação de mês */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
+        <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}>‹</button>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{MESES[mes-1]}/{ano}</div>
+        <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:mes===hoje.getMonth()+1&&ano===hoje.getFullYear()?C.muted:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}
+          disabled={mes===hoje.getMonth()+1&&ano===hoje.getFullYear()}>›</button>
+      </div>
+
+      {/* Resumo rápido */}
+      {nots.length>0&&<div style={{display:'flex',gap:8,padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
+        <span style={{fontSize:11,background:C.red+'15',color:C.red,borderRadius:6,padding:'2px 8px',fontWeight:700}}>SP+CCIH: {spCount}</span>
+        <span style={{fontSize:11,background:C.muted+'15',color:C.muted,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Adm: {admCount}</span>
+        <span style={{fontSize:11,background:C.teal+'15',color:C.teal,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Total: {nots.length}</span>
+      </div>}
+
+      {/* Tabela */}
+      {loading&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}><Dots/></div>}
+      {!loading&&nots.length===0&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}>Nenhuma notificação neste mês</div>}
+      {!loading&&nots.map((n,i)=>{
+        const tag=getTag(n);
+        const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'--';
+        const titulo=(n.event_subtype||n.description||'Notificação').slice(0,45);
+        const pacInfo=n.admission_reason?n.admission_reason.split('|')[0].trim():'';
+        return(<div key={n.id||i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderBottom:i<nots.length-1?'1px solid '+C.border+'55':'none',cursor:'pointer'}}
+          onClick={()=>onSelect&&onSelect(n)}>
+          <span style={{fontSize:10,background:tag.c+'20',color:tag.c,borderRadius:4,padding:'2px 5px',fontWeight:700,flexShrink:0,minWidth:34,textAlign:'center'}}>{tag.l}</span>
+          <span style={{fontSize:11,color:C.muted,flexShrink:0,fontFamily:'monospace',width:36}}>{data}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,color:C.text,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{titulo}</div>
+            {pacInfo&&<div style={{fontSize:10,color:C.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pacInfo}</div>}
+          </div>
+          <span style={{fontSize:10,color:C.muted,flexShrink:0}}>{n.sector||''}</span>
+        </div>);
+      })}
+    </div>)}
+  </div>);
+}
+function CartilhaPaciente() {
+  const C=useColors();
+  const [pag,setPag]=React.useState(0);
+  const PAGINAS=[
+    {id:'capa',titulo:null,cor:'#0D9488',icone:null,items:null},
+    {id:'identificacao',titulo:'1. Me identifique corretamente',cor:'#3B82F6',icone:String.fromCodePoint(128100),items:[
+      {t:'Confira sua pulseira',d:'Voce deve usar pulseira de identificacao com seu nome e data de nascimento durante toda a internacao.'},
+      {t:'Pergunte sempre',d:'Antes de qualquer medicamento, exame ou procedimento: o profissional confirma seu nome? Se nao perguntou, lembre-o!'},
+      {t:'Avise sobre alergias',d:'Informe toda alergia a medicamentos, alimentos ou materiais. Repita para cada profissional que te atender.'},
+    ]},
+    {id:'higiene',titulo:'2. Higienizacao das maos',cor:'#10B981',icone:String.fromCodePoint(129529),items:[
+      {t:'Peca para lavar as maos',d:'Todo profissional de saude deve higienizar as maos antes e depois de te tocar. Voce pode pedir isso educadamente.'},
+      {t:'Acompanhantes tambem',d:'Visitantes e acompanhantes devem higienizar as maos ao entrar e sair do quarto. Use o alcool em gel disponivel.'},
+      {t:'Voce mesmo',d:'Higienize suas proprias maos antes das refeicoes e apos usar o banheiro.'},
+      {t:'Por que importa',d:'40% das infeccoes hospitalares podem ser evitadas com higiene correta das maos.'},
+    ]},
+    {id:'queda',titulo:'3. Prevencao de quedas',cor:'#F59E0B',icone:String.fromCodePoint(129405),items:[
+      {t:'Pulseira amarela = risco',d:'Se voce usa pulseira amarela foi identificado com RISCO DE QUEDA. Chame a equipe antes de se levantar!'},
+      {t:'Mantenha as grades levantadas',d:'As grades laterais da cama sao sua protecao. So deite sem grades quando a equipe estiver presente.'},
+      {t:'Use a campainha',d:'Para ir ao banheiro ou sair da cama, toque a campainha e aguarde ajuda. Nao tente se levantar sozinho.'},
+      {t:'Avise tontura ou fraqueza',d:'Se sentir tontura, fraqueza ou desequilibrio, avise imediatamente a equipe de enfermagem.'},
+    ]},
+    {id:'medicamentos',titulo:'4. Seguranca com medicamentos',cor:'#8B5CF6',icone:String.fromCodePoint(128138),items:[
+      {t:'Confirme o medicamento',d:'Antes de tomar qualquer medicamento, pergunte: qual e o nome? Para que serve? Qual a dose?'},
+      {t:'Liste todos os seus remedios',d:'Informe todos os medicamentos que voce usa em casa, incluindo vitaminas e remedios sem receita.'},
+      {t:'Reporte efeitos incomuns',d:'Se sentir algo diferente apos tomar um medicamento (coceira, falta de ar), avise imediatamente.'},
+      {t:'Nao troque horarios',d:'Os horarios dos medicamentos sao calculados para sua seguranca. Nao pule nem antecipe doses.'},
+    ]},
+    {id:'notificar',titulo:'5. Voce pode notificar',cor:'#EF4444',icone:String.fromCodePoint(128226),items:[
+      {t:'Notificar nao e reclamar',d:'Notificacao e uma ferramenta de melhoria. Quando voce notifica, ajuda o hospital a corrigir processos e proteger outros pacientes.'},
+      {t:'O que voce pode notificar',d:'Queda, medicamento errado, falta de higiene, problema com identificacao, infeccao, qualquer coisa que te preocupe.'},
+      {t:'Como notificar',d:'Acesse o NotificaAI pelo celular, toque em + Nova Notificacao e responda as perguntas. Leva menos de 5 minutos.'},
+      {t:'Pode ser anonimo',d:'Sim. Voce pode notificar sem se identificar. O importante e o relato do evento.'},
+    ]},
+    {id:'direitos',titulo:'6. Seus direitos como paciente',cor:'#0D9488',icone:String.fromCodePoint(128196),items:[
+      {t:'Ser tratado com dignidade',d:'Voce tem direito a atendimento respeitoso, sem discriminacao, com privacidade e sigilo das suas informacoes.'},
+      {t:'Receber informacoes claras',d:'Todo procedimento, medicamento e diagnostico deve ser explicado em linguagem que voce entenda.'},
+      {t:'Consentir ou recusar',d:'Voce tem direito de consentir ou recusar procedimentos. Nada deve ser feito sem seu acordo, exceto em emergencias.'},
+      {t:'Fazer perguntas',d:'Questionar faz parte da sua seguranca. Nenhuma pergunta e bobagem quando o assunto e a sua saude.'},
+    ]},
+  ];
+
+  const pg=PAGINAS[pag];
+  const cor=pg.cor;
+  const isFirst=pag===0;
+  const isLast=pag===PAGINAS.length-1;
+
+  return(<div>
+    {/* Barra de progresso */}
+    {!isFirst&&<div style={{display:'flex',gap:3,marginBottom:12}}>
+      {PAGINAS.slice(1).map((_,i)=>(
+        <div key={i} onClick={()=>setPag(i+1)} style={{flex:1,height:3,borderRadius:2,background:i<pag?cor:C.border,cursor:'pointer'}}/>
+      ))}
+    </div>}
+
+    {/* Capa */}
+    {isFirst&&<div style={{textAlign:'center',padding:'20px 8px 16px'}}>
+      <div style={{width:72,height:72,borderRadius:'50%',background:'linear-gradient(135deg,#0A2342,#0D9488)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',fontSize:32}}>
+        {String.fromCodePoint(127973)}
+      </div>
+      <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
+      <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Seguranca do Paciente</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para voce e seus familiares</div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
+        {[
+          {e:String.fromCodePoint(128100),t:'Me identifique'},
+          {e:String.fromCodePoint(129529),t:'Maos limpas'},
+          {e:String.fromCodePoint(129405),t:'Sem quedas'},
+          {e:String.fromCodePoint(128138),t:'Medicamentos'},
+          {e:String.fromCodePoint(128226),t:'Notifique'},
+          {e:String.fromCodePoint(128196),t:'Seus direitos'},
+        ].map((item,i)=>(
+          <div key={i} onClick={()=>setPag(i+1)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 6px',cursor:'pointer',textAlign:'center'}}>
+            <div style={{fontSize:22,marginBottom:4}}>{item.e}</div>
+            <div style={{fontSize:9,color:C.muted,fontWeight:600}}>{item.t}</div>
+          </div>
+        ))}
+      </div>
+    </div>}
+
+    {/* Páginas de conteúdo */}
+    {!isFirst&&pg.items&&(<div>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
+        <div style={{width:36,height:36,borderRadius:10,background:cor+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{pg.icone}</div>
+        <div style={{fontSize:14,fontWeight:800,color:C.text}}>{pg.titulo}</div>
+      </div>
+      {pg.items.map((item,i)=>(
+        <div key={i} style={{display:'flex',gap:10,marginBottom:12}}>
+          <div style={{width:26,height:26,borderRadius:'50%',background:cor,color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:800,flexShrink:0}}>{i+1}</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:3}}>{item.t}</div>
+            <div style={{fontSize:12,color:C.muted,lineHeight:1.5}}>{item.d}</div>
+          </div>
+        </div>
+      ))}
+    </div>)}
+
+    {/* Navegação */}
+    <div style={{display:'flex',gap:8,marginTop:16}}>
+      {!isFirst&&<button onClick={()=>setPag(p=>p-1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'11px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>
+        {String.fromCodePoint(8592)+' Anterior'}
+      </button>}
+      {!isLast
+        ?<button onClick={()=>setPag(p=>p+1)} style={{flex:isFirst?1:2,background:cor,border:'none',borderRadius:12,padding:'11px',color:'#fff',fontSize:13,fontWeight:800,cursor:'pointer'}}>
+          {isFirst?'Comecar '+String.fromCodePoint(8594):'Proximo '+String.fromCodePoint(8594)}
+        </button>
+        :<div style={{flex:2,background:C.teal+'22',border:'1px solid '+C.teal,borderRadius:12,padding:'11px',color:C.teal,fontSize:12,fontWeight:700,textAlign:'center'}}>
+          {String.fromCodePoint(9989)+' Cartilha concluida!'}
+        </div>
+      }
+    </div>
+  </div>);
+}
 
 function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   const [selected,setSelected]=useState(null);
@@ -4034,6 +4149,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
       {item.type==='pdf'&&item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{display:'block',background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:12,padding:16,textAlign:'center',color:C.teal,fontWeight:700,fontSize:14,textDecoration:'none'}}>Doc Abrir documento oficial (ANVISA)</a>}
       {item.type==='cards'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+item.color,borderRadius:12,padding:14}}><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div>)}
       {item.type==='steps'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{fontSize:26,fontWeight:900,color:item.color,minWidth:32}}>{c.step}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
+        {item.type==='cartilha'&&<CartilhaPaciente/>}
       {item.type==='metas'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{minWidth:36,height:36,borderRadius:18,background:item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#06101F'}}>{c.num}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
     </div>
   </div>);
@@ -4068,7 +4184,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=2000');setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=200');setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };
@@ -4104,11 +4220,11 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     <div style={{background:testMode?C.yellow+'18':C.green+'18',border:'1px solid '+(testMode?C.yellow+'55':C.green+'55'),borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div>
-          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?String.fromCodePoint(129514)+' MODO TESTE':String.fromCodePoint(9989)+' MODO PRODUÇÃO'}</div>
+          <div style={{fontSize:13,fontWeight:800,color:testMode?C.yellow:C.green}}>{testMode?'teste MODO TESTE':'OK MODO PRODUÇÃO'}</div>
           <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5,maxWidth:220}}>{testMode?'Notificações marcadas como teste. Exclua em lote depois.':'Notificações tratadas como reais. E-mails serão enviados.'}</div>
         </div>
         <button onClick={onToggleTestMode} style={{background:testMode?C.yellow:C.green,border:'none',borderRadius:999,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:11,cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
-          {testMode?String.fromCodePoint(9989)+' Produção':String.fromCodePoint(129514)+' Teste'}
+          {testMode?'Ativar Produção':'Ativar Teste'}
         </button>
       </div>
     </div>
@@ -4128,12 +4244,12 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
     <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>📥</span>
+      <span style={{fontSize:22}}>Past</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.purple}}>Importar histórico CSV</div><div style={{fontSize:11,color:C.muted}}>Carregue planilhas do Google Sheets</div></div>
       <IconChev size={16} color={C.purple}/>
     </button>
     <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:'1px solid '+C.blue+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>📄</span>
+      <span style={{fontSize:22}}>Doc</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatório Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatório PDF para a diretoria</div></div>
       <IconChev size={16} color={C.blue}/>
     </button>
@@ -4345,6 +4461,7 @@ function NotificaAI() {
           <span style={{fontSize:9,fontWeight:showMenu?700:400}}>Menu</span>
         </button>
       </div>
+    </div>
     </div>
     </>
   );

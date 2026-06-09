@@ -2438,35 +2438,103 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 // --- PERFIL MEMBRO NSP --------------------------------------------------------
 function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
+  const C=useColors();
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
   const [filtroSub,setFiltroSub]=useState('todos');
+  const [mesSel,setMesSel]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
+  const [notsMes,setNotsMes]=useState([]);
+  const [loadingMes,setLoadingMes]=useState(false);
+  // Form de registro rápido de treinamento por subnúcleo
+  const [showFormTrein,setShowFormTrein]=useState(null); // sub.id
+  const [formTrein,setFormTrein]=useState({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10)});
+  const [savingTrein,setSavingTrein]=useState(false);
 
-  useEffect(()=>{
+  const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const carregar=()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=200'),
+      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000'),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
     ]).then(([nots,treins])=>{
       setNotifications(nots||[]);
       setStats({...computeStats(nots||[]),treins:treins||[]});
     }).catch(()=>showToast('Erro ao carregar','error')).finally(()=>setLoading(false));
-  },[sbUrl,sbKey]);
+  };
+
+  useEffect(()=>{carregar();},[sbUrl,sbKey]);
+
+  // Carregar notificações do mês selecionado
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoadingMes(true);
+    const [ano,mes]=mesSel.split('-').map(Number);
+    const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
+    const fim=new Date(ano,mes,0).toISOString().slice(0,10);
+    sbSelect(sbUrl,sbKey,'notifications',
+      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`
+    ).then(d=>setNotsMes(d||[])).catch(()=>[]).finally(()=>setLoadingMes(false));
+  },[mesSel,sbUrl,sbKey]);
+
+  const navMes=(dir)=>{
+    let [ano,mes]=mesSel.split('-').map(Number);
+    mes+=dir; if(mes>12){mes=1;ano++;} if(mes<1){mes=12;ano--;}
+    setMesSel(`${ano}-${String(mes).padStart(2,'0')}`);
+  };
+
+  const salvarTrein=async(subId)=>{
+    if(!formTrein.participantes) return showToast('Informe o numero de participantes','error');
+    setSavingTrein(true);
+    try{
+      await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{
+        hospital_id:h.id,
+        tipo:formTrein.tipo,
+        subnucleo:subId,
+        protocolo:formTrein.protocolo||null,
+        data:formTrein.data||null,
+        participantes:Number(formTrein.participantes)||0,
+        descricao:formTrein.protocolo||null,
+        responsavel:profileMode||'membro_nsp',
+      });
+      showToast('Registro salvo!','success');
+      setShowFormTrein(null);
+      setFormTrein({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10)});
+      carregar();
+    }catch{showToast('Erro ao salvar','error');}
+    setSavingTrein(false);
+  };
 
   if(loading) return(<div style={{display:'flex',justifyContent:'center',padding:60}}><Dots/></div>);
 
   const s=stats||{total:0,sp:0,ccih:0,adm:0,sentinela:0,culturaScore:0,sectorData:[],diasSemSentinela:null,treins:[]};
 
-  // Meu subnucleo (simplificado - gestor pode configurar depois)
-  const subNomes={comunicacao:'Comunicacao Efetiva',medicamentos:'Medicamentos',identificacao:'Identificacao Correta',queda:'Queda',lpp:'LPP',cirurgia:'Cirurgia Segura'};
+  // Panorama do mês
+  const spMes=notsMes.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+  const admMes=notsMes.filter(n=>n.notification_type==='administrativa').length;
+  const tiposMes=[
+    {label:'Quedas',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda')).length,cor:'#F59E0B'},
+    {label:'Perda AVP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('avp')||n.event_subtype?.toLowerCase().includes('acesso')).length,cor:'#3B82F6'},
+    {label:'LPP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')).length,cor:'#EF4444'},
+    {label:'Infecção',count:notsMes.filter(n=>n.notification_type==='ccih').length,cor:'#7C3AED'},
+    {label:'Medicação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
+    {label:'Identificação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
+  ].filter(t=>t.count>0).sort((a,b)=>b.count-a.count);
+
+  const maxTipo=tiposMes[0]?.count||1;
+
+  const setoresMes=[...new Set(notsMes.map(n=>n.sector).filter(Boolean))].map(setor=>({
+    setor,count:notsMes.filter(n=>n.sector===setor).length
+  })).sort((a,b)=>b.count-a.count).slice(0,5);
+  const maxSetor=setoresMes[0]?.count||1;
 
   return(<div style={{padding:'20px 16px 80px'}}>
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Painel Membro NSP</div>
-    <div style={{fontSize:11,color:C.muted,marginBottom:16}}>Visualizacao - HNSA</div>
+    <div style={{fontSize:11,color:C.muted,marginBottom:16}}>HNSA · Nucleo de Seguranca do Paciente</div>
 
-    {/* Metricas principais */}
+    {/* Métricas totais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
       <StatCard icon="📊" label="Total notificacoes" value={s.total} color={C.teal}/>
       <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
@@ -2475,90 +2543,182 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     </div>
 
     {/* Dias sem sentinela */}
-    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'14px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
       <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
+      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
+      <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {/* Indice de maturidade */}
+    {/* ── PANORAMA DO MÊS ── */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Indice de Maturidade</div>
-        <div style={{fontSize:22,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>‹</button>
+          <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>
+            {MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}
+          </span>
+          <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>›</button>
+        </div>
       </div>
-      <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden'}}>
-        <div style={{width:s.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3}}/>
-      </div>
-      <div style={{fontSize:11,color:C.muted,marginTop:6}}>{s.culturaScore>=70?'Maturidade avancada':s.culturaScore>=40?'Em desenvolvimento':'Estagio inicial'}</div>
+
+      {loadingMes&&<div style={{textAlign:'center',padding:16}}><Dots/></div>}
+
+      {!loadingMes&&(<div>
+        {/* Totais do mês */}
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <div style={{flex:1,background:C.red+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.red}}>{spMes}</div>
+            <div style={{fontSize:10,color:C.muted}}>SP + CCIH</div>
+          </div>
+          <div style={{flex:1,background:C.muted+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.muted}}>{admMes}</div>
+            <div style={{fontSize:10,color:C.muted}}>Administrativas</div>
+          </div>
+          <div style={{flex:1,background:C.teal+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.teal}}>{notsMes.length}</div>
+            <div style={{fontSize:10,color:C.muted}}>Total</div>
+          </div>
+        </div>
+
+        {/* Tipos mais frequentes */}
+        {tiposMes.length>0&&<div style={{marginBottom:12}}>
+          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Tipos mais frequentes</div>
+          {tiposMes.map((t,i)=>(
+            <div key={i} style={{marginBottom:5}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
+                <span style={{color:C.text}}>{t.label}</span>
+                <span style={{color:t.cor,fontWeight:700}}>{t.count}</span>
+              </div>
+              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:(t.count/maxTipo)*100+'%',height:'100%',background:t.cor,borderRadius:2}}/>
+              </div>
+            </div>
+          ))}
+        </div>}
+
+        {/* Setores */}
+        {setoresMes.length>0&&<div>
+          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Por setor</div>
+          {setoresMes.map((d,i)=>(
+            <div key={i} style={{marginBottom:5}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
+                <span style={{color:C.text}}>{d.setor}</span>
+                <span style={{color:C.teal,fontWeight:700}}>{d.count}</span>
+              </div>
+              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:(d.count/maxSetor)*100+'%',height:'100%',background:C.teal,borderRadius:2}}/>
+              </div>
+            </div>
+          ))}
+        </div>}
+
+        {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificacao neste mes</div>}
+      </div>)}
     </div>
 
-    {/* Distribuicao por setor */}
-    {s.sectorData.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Notificacoes por Setor</div>
-      {s.sectorData.map((d,i)=>{
-        const max=s.sectorData[0].eventos||1;
-        return(<div key={i} style={{marginBottom:8}}>
-          <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:3}}>
-            <span style={{color:C.text}}>{d.setor}</span>
-            <span style={{color:C.teal,fontWeight:700}}>{d.eventos}</span>
-          </div>
-          <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
-            <div style={{width:(d.eventos/max)*100+'%',height:'100%',background:C.teal,borderRadius:2}}/>
-          </div>
-        </div>);
-      })}
-    </div>}
-
-    {/* Subnucleo - treinamentos */}
-    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Atividades dos Subnucleos</div>
+    {/* ── SUBNÚCLEOS — REGISTRO DE TREINAMENTOS ── */}
+    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos — Treinamentos</div>
     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
-      <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:C.card,color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
+      <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:'transparent',color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
       {SUBNUCLEOS_HNSA.map(sub=>(
-        <button key={sub.id} onClick={()=>setFiltroSub(sub.id)} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub===sub.id?sub.color:C.card,color:filtroSub===sub.id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{sub.icon}</button>
+        <button key={sub.id} onClick={()=>setFiltroSub(sub.id)} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub===sub.id?sub.color:'transparent',color:filtroSub===sub.id?'#fff':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>
+          <span style={{fontSize:13}}>{sub.icon}</span> {sub.label.split(' ')[0]}
+        </button>
       ))}
     </div>
+
     {SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
       const regs=s.treins.filter(t=>t.subnucleo===sub.id);
       const treins=regs.filter(t=>t.tipo==='treinamento');
       const reunioes=regs.filter(t=>t.tipo==='reuniao');
+      const totalPart=regs.reduce((acc,r)=>acc+(r.participantes||0),0);
       return(<div key={sub.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:regs.length>0?8:0}}>
+        {/* Header do subnúcleo */}
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
           <span style={{fontSize:20}}>{sub.icon}</span>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{sub.label}</div>
-            <div style={{fontSize:10,color:C.muted}}>{treins.length} treinamento(s) | {reunioes.length} reuniao(oes) | {treins.reduce((a,t)=>a+(t.participantes||0),0)} participantes</div>
+            <div style={{fontSize:10,color:C.muted}}>
+              {treins.length} treinamento(s) · {reunioes.length} reuniao(oes) · {totalPart} participantes
+            </div>
           </div>
-          {regs.length===0&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
+          <button onClick={()=>setShowFormTrein(showFormTrein===sub.id?null:sub.id)}
+            style={{background:sub.color+'22',border:'1px solid '+sub.color+'44',borderRadius:8,padding:'4px 10px',color:sub.color,fontSize:11,fontWeight:700,cursor:'pointer',flexShrink:0}}>
+            {showFormTrein===sub.id?'Cancelar':'+ Registrar'}
+          </button>
         </div>
+
+        {/* Barrinhas rápidas */}
+        {regs.length>0&&<div style={{display:'flex',gap:8,marginBottom:showFormTrein===sub.id?8:0}}>
+          <div style={{flex:1,background:sub.color+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:800,color:sub.color}}>{treins.length}</div>
+            <div style={{fontSize:9,color:C.muted}}>Treinamentos</div>
+          </div>
+          <div style={{flex:1,background:C.teal+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:800,color:C.teal}}>{reunioes.length}</div>
+            <div style={{fontSize:9,color:C.muted}}>Reunioes</div>
+          </div>
+          <div style={{flex:1,background:C.blue+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
+            <div style={{fontSize:18,fontWeight:800,color:C.blue}}>{totalPart}</div>
+            <div style={{fontSize:9,color:C.muted}}>Participantes</div>
+          </div>
+        </div>}
+
+        {/* Form de registro */}
+        {showFormTrein===sub.id&&(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px',marginTop:8}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:8}}>Novo registro — {sub.label}</div>
+          {/* Tipo */}
+          <div style={{display:'flex',gap:6,marginBottom:8}}>
+            {['treinamento','reuniao'].map(t=>(
+              <button key={t} onClick={()=>setFormTrein(f=>({...f,tipo:t}))}
+                style={{flex:1,padding:'6px',borderRadius:8,border:'1px solid '+(formTrein.tipo===t?sub.color:C.border),background:formTrein.tipo===t?sub.color+'22':'transparent',color:formTrein.tipo===t?sub.color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer',textTransform:'capitalize'}}>
+                {t==='treinamento'?'Treinamento':'Reuniao NSP'}
+              </button>
+            ))}
+          </div>
+          {/* Data */}
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data</div>
+            <input type="date" value={formTrein.data} onChange={e=>setFormTrein(f=>({...f,data:e.target.value}))}
+              style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+          </div>
+          {/* Participantes */}
+          <div style={{marginBottom:8}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Numero de participantes *</div>
+            <input type="number" min="1" value={formTrein.participantes} onChange={e=>setFormTrein(f=>({...f,participantes:e.target.value}))}
+              placeholder="Ex: 12"
+              style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+          </div>
+          {/* Protocolo/tema */}
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema / Protocolo abordado</div>
+            <input type="text" value={formTrein.protocolo} onChange={e=>setFormTrein(f=>({...f,protocolo:e.target.value}))}
+              placeholder="Ex: Higienizacao das maos, Protocolo de queda..."
+              style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+          </div>
+          <button onClick={()=>salvarTrein(sub.id)} disabled={savingTrein}
+            style={{width:'100%',background:sub.color,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>
+            {savingTrein?'Salvando...':'Salvar registro'}
+          </button>
+        </div>)}
+
+        {/* Últimos registros */}
+        {regs.length===0&&showFormTrein!==sub.id&&<div style={{background:C.yellow+'15',color:C.yellow,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,display:'inline-block'}}>Sem registro</div>}
         {regs.slice(0,2).map((r,i)=>(
-          <div key={i} style={{borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginBottom:4}}>
-            <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||'-'}</div>
-            <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes</div>
+          <div key={i} style={{borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:6}}>
+            <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||r.tipo||'-'}</div>
+            <div style={{fontSize:10,color:C.muted}}>
+              {r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes
+            </div>
           </div>
         ))}
-      </div>);
-    })}
-
-    {/* Lista de notificacoes (somente leitura) */}
-    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10,marginTop:6}}>Notificacoes Recentes</div>
-    {notifications.slice(0,10).map((n,i)=>{
-      const tag=getTag(n);
-      return(<div key={n.id||i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
-        <div style={{display:'flex',alignItems:'center',gap:8}}>
-          <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 7px',fontSize:9,fontWeight:700}}>{tag.label}</div>
-          <div style={{flex:1,fontSize:12,color:C.text,fontWeight:600}}>{getTitle(n)}</div>
-          <div style={{fontSize:10,color:C.muted}}>{n.sector}</div>
-        </div>
-        <div style={{fontSize:10,color:C.muted,marginTop:3}}>{n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):formatTime(n.created_at)}</div>
       </div>);
     })}
   </div>);
 }
 
 
-
-// --- HOME VIEW --------------------------------------------------------------
-// --- LISTA MENSAL -------------------------------------------------------
 function ListaMensal({sbUrl,sbKey,onSelect}) {
   const C=useColors();
   const hoje=new Date();

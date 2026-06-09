@@ -1977,49 +1977,76 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     {/* Lista */}
     {loading&&<div style={{textAlign:'center',padding:40}}><Dots/></div>}
     {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificacao encontrada.</div>}
-    {pagAtual.map(n=>{
-      const tag=getTag(n);const title=getTitle(n);
-      const isSentinela=n.gravidade==='Evento sentinela';
-      const isSP=n.notification_type==='seguranca_paciente';
-      const riscoColor={'BAIXO':C.green,'MEDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted;
-      return(<div key={n.id} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:14,padding:'12px 14px',marginBottom:10}}>
-        {/* Header do card */}
-        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:8}}>
-          <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center',flexShrink:0}}>{tag.label}</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:700,color:C.text,textTransform:'capitalize'}}>{title}</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-              {n.sector&&<span>{n.sector} · </span>}
-              {n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR')}
-              {n.shift&&<span> · {n.shift}</span>}
+
+{(()=>{
+  // Agrupar por mês-ano ordenado decrescente
+  const grupos={};
+  filtered.forEach(n=>{
+    const d=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
+    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const label=d.toLocaleString('pt-BR',{month:'long',year:'numeric'});
+    if(!grupos[key]) grupos[key]={label,key,items:[]};
+    grupos[key].items.push(n);
+  });
+  const keys=Object.keys(grupos).sort((a,b)=>b.localeCompare(a));
+  if(keys.length===0) return null;
+  return keys.map(key=>{
+    const g=grupos[key];
+    const spCount=g.items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+    const admCount=g.items.filter(n=>n.notification_type==='administrativa').length;
+    const semRCA=g.items.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
+    return(<div key={key} style={{marginBottom:20}}>
+      {/* Header do mês */}
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,padding:'8px 10px',background:C.surface,borderRadius:10,border:'1px solid '+C.border}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text,textTransform:'capitalize',flex:1}}>{g.label}</div>
+        <span style={{fontSize:11,background:C.teal+'20',color:C.teal,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{g.items.length} total</span>
+        {spCount>0&&<span style={{fontSize:11,background:C.red+'20',color:C.red,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{spCount} SP</span>}
+        {admCount>0&&<span style={{fontSize:11,background:C.blue+'20',color:C.blue,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{admCount} Adm</span>}
+        {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} sem RCA</span>}
+      </div>
+      {/* Grid de cards compactos — 2 colunas mobile / 4 desktop */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        {g.items.map(n=>{
+          const tag=getTag(n);
+          const title=getTitle(n);
+          const isSP=n.notification_type==='seguranca_paciente'||n.notification_type==='ccih';
+          const isSentinela=n.gravidade==='Evento sentinela';
+          const cor=isSentinela?C.red:tag.color;
+          const d=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
+          const dataStr=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+          return(<div key={n.id} onClick={()=>{setRcaTarget(null);setNotiVisaTarget(null);setRiscoTarget(null);setPlanoTarget(null);}}
+            style={{background:C.card,border:'1px solid '+(isSentinela?C.red+'88':C.border),borderRadius:10,padding:'10px',cursor:'default',position:'relative',overflow:'hidden'}}>
+            {/* Barra colorida lateral */}
+            <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:cor,borderRadius:'10px 0 0 10px'}}/>
+            <div style={{paddingLeft:8}}>
+              {/* Badge tipo + data */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
+                <span style={{fontSize:9,background:tag.color+'22',color:tag.color,borderRadius:4,padding:'2px 6px',fontWeight:700,textTransform:'uppercase'}}>{tag.label}</span>
+                <span style={{fontSize:9,color:C.muted}}>{dataStr}</span>
+              </div>
+              {/* Título */}
+              <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.3,marginBottom:4,textTransform:'capitalize'}}>{title.length>32?title.slice(0,30)+String.fromCodePoint(8230):title}</div>
+              {/* Setor */}
+              {n.sector&&<div style={{fontSize:10,color:C.muted,marginBottom:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.sector}</div>}
+              {/* Status RCA + Notivisa */}
+              <div style={{display:'flex',gap:4,marginBottom:6,flexWrap:'wrap'}}>
+                <span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
+                {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>}
+                {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
+              </div>
+              {/* Botões ação */}
+              <div style={{display:'flex',gap:4}}>
+                {isSP&&!n.rca_gerado&&<button onClick={e=>{e.stopPropagation();setRcaTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.blue+'20',color:C.blue,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>RCA</button>}
+                {isSP&&!n.notivisa_enviado&&<button onClick={e=>{e.stopPropagation();setNotiVisaTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.purple+'20',color:C.purple,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Notivisa</button>}
+                <button onClick={e=>{e.stopPropagation();setRiscoTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.yellow+'20',color:C.yellow,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Risco</button>
+              </div>
             </div>
-          </div>
-          {isSentinela&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>SENTINELA</div>}
-        </div>
-
-        {/* Descricao */}
-        {n.description&&<div style={{fontSize:12,color:C.muted,marginBottom:8,lineHeight:1.5,borderLeft:'2px solid '+C.border,paddingLeft:8}}>{n.description.slice(0,150)}{n.description.length>150?'...':''}</div>}
-
-        {/* NIP / dados paciente */}
-        {n.admission_reason&&<div style={{fontSize:11,color:C.teal,marginBottom:8}}>Paciente: {n.admission_reason}</div>}
-
-        {/* Status badges */}
-        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
-          <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>
-          {n.risco_classificacao&&<span style={{fontSize:10,background:riscoColor+'20',color:riscoColor,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.risco_classificacao}</span>}
-          {n.gravidade&&<span style={{fontSize:10,background:C.surface,color:C.muted,borderRadius:4,padding:'2px 7px'}}>{n.gravidade}</span>}
-        </div>
-
-        {/* Botoes de acao */}
-        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
-          {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
-          <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:'1px solid '+C.yellow+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
-          <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Plano de Acao</button>
-        </div>
-      </div>);
-    })}
+          </div>);
+        })}
+      </div>
+    </div>);
+  });
+})()}
 
     {/* Paginacao */}
     {totalPags>1&&<div style={{display:'flex',justifyContent:'center',gap:8,marginTop:16,flexWrap:'wrap'}}>
@@ -3391,8 +3418,6 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [loadingNarr,setLoadingNarr]=useState(false);
   const [stats,setStats]=useState(null);
   const [rawData,setRawData]=useState([]);
-  const [filterYear,setFilterYear]=useState(new Date().getFullYear());
-  const [filterMonth,setFilterMonth]=useState(0);
 
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
@@ -3404,14 +3429,21 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const s=stats||{sectorData:MOCK_SECTORS,typeData:MOCK_TYPES,heatmap:MOCK_HEATMAP,monthly:MOCK_MONTHLY,total:0,heatmapPeak:null,culturaScore:0,ratioNM:0,txC:0,nSets:0,diasSemSentinela:null};
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const anos=[...new Set(rawData.map(n=>new Date(n.created_at).getFullYear()))].sort((a,b)=>b-a);
-  if(!anos.includes(filterYear)) anos.unshift(filterYear);
+  
 
   const byMonth=Array.from({length:12},(_,i)=>{
-    const items=rawData.filter(n=>{const d=new Date(n.created_at);return d.getFullYear()===filterYear&&d.getMonth()===i;});
+    const items=rawData.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===new Date().getFullYear()&&d.getMonth()===i;});
     return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:items.filter(n=>n.notification_type==='ccih').length,adm:items.filter(n=>n.notification_type==='administrativa').length};
   });
   const totalAno=byMonth.reduce((acc,m)=>acc+m.total,0);
-  const filtered=rawData.filter(n=>{const d=new Date(n.created_at);if(d.getFullYear()!==filterYear)return false;if(filterMonth!==0&&d.getMonth()!==filterMonth-1)return false;return true;});
+const filtered=rawData.filter(n=>{
+  if(!dateFrom&&!dateTo) return true;
+  const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);
+  const ds=d.toISOString().slice(0,10);
+  if(dateFrom&&ds<dateFrom) return false;
+  if(dateTo&&ds>dateTo) return false;
+  return true;
+});
 
   const exportCSV=()=>{
     const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','RCA','Notivisa'];
@@ -3419,7 +3451,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
     const csv=[header,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;
-    a.download=`notificacoes_hnsa_${filterYear}${filterMonth>0?'_'+String(filterMonth).padStart(2,'0'):''}.csv`;
+    a.download='notificacoes_hnsa_'+(dateFrom||'inicio')+'_a_'+(dateTo||'fim')+'.csv';
     a.click();URL.revokeObjectURL(url);
     setTimeout(()=>window.open('https://sheets.new','_blank'),600);
   };
@@ -3427,22 +3459,40 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const genNarrative=async()=>{
     setLoadingNarr(true);setNarrative('');
     try {
-      const text=await callWorker([{role:'user',content:`Você é o analista do NSP do Hospital Naval de Salvador (HNSA). Gere uma interpretação técnica em 4 parágrafos curtos, em português, tom de ata institucional.
+      const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'inicio';
+const mesFiltro=dateFrom||dateTo?fmt(dateFrom)+' a '+fmt(dateTo):'Historico completo';
+const fSP=filtered.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+const fAdm=filtered.filter(n=>n.notification_type==='administrativa').length;
+const fCCIH=filtered.filter(n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')).length;
+const fSemRCA=filtered.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
+const fSentinela=filtered.filter(n=>n.gravidade==='Evento sentinela').length;
+const fSetorCount=Object.entries(filtered.reduce((acc,n)=>{if(n.sector){acc[n.sector]=(acc[n.sector]||0)+1;}return acc;},{})).sort((a,b)=>b[1]-a[1]);
+const fSubtipoCount=Object.entries(filtered.reduce((acc,n)=>{if(n.event_subtype){acc[n.event_subtype]=(acc[n.event_subtype]||0)+1;}return acc;},{})).sort((a,b)=>b[1]-a[1]);
+const text=await callWorker([{role:'user',content:`Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere um relatorio narrativo tecnico do periodo indicado.
 
-DADOS DO PERÍODO:
-- Total de notificações: ${s.total} (${s.sp} Segurança do Paciente, ${s.ccih} CCIH/Infecções, ${s.adm} Administrativas)
-- Setores: ${s.sectorData.map(d=>`${d.setorNome||d.setor} com ${d.eventos} notificação(ões)`).join('; ')}
-- Tipos mais frequentes: ${s.typeData.slice(0,4).map(d=>`${d.name} (${d.value})`).join(', ')}
-- Índice de maturidade de notificação: ${s.culturaScore}/100
-- Dias sem evento sentinela: ${s.diasSemSentinela??'não disponível'}
+PERIODO DE ANALISE: ${mesFiltro} (somente este periodo — nao use dados de outros meses)
+TOTAL DE NOTIFICACOES DO PERIODO: ${filtered.length}
+- Seguranca do Paciente: ${fSP}
+- CCIH / Infeccoes hospitalares: ${fCCIH}
+- Administrativas: ${fAdm}
+- Sem analise de causa (RCA): ${fSemRCA}
+- Eventos sentinela: ${fSentinela}
 
-ESTRUTURA DOS 4 PARÁGRAFOS:
-1) Panorama geral do período
-2) Análise por setor e tipo de evento mais frequente
-3) Pontos de atenção e padrões identificados
-4) Recomendações prioritárias para o NSP
+DISTRIBUICAO POR SETOR: ${fSetorCount.map(([k,v])=>k+' ('+v+')').join('; ')||'nao disponivel'}
+SUBTIPOS MAIS FREQUENTES: ${fSubtipoCount.slice(0,5).map(([k,v])=>k+' ('+v+')').join(', ')||'nao disponivel'}
+INDICE DE MATURIDADE: ${s.culturaScore}/100
+DIAS SEM SENTINELA: ${s.diasSemSentinela??'nao disponivel'}
 
-Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você é analista gestor hospitalar. Responda em português, tom institucional.');
+INSTRUCOES:
+- Use siglas tecnicas normalmente: SNE, SNG, AVP, CCIH, ITU, PAV, ISC, IPCS, LPP, RCA, NIP. Nao traduza nem explique siglas clinicas.
+- Escreva em portugues tecnico hospitalar direto.
+- 4 paragrafos curtos e objetivos.
+
+ESTRUTURA:
+1) Panorama do periodo (total, tipos)
+2) Analise por setor e evento mais frequente
+3) Pontos de atencao identificados
+4) Recomendacoes prioritarias para o NSP`}],'Você é analista gestor hospitalar. Responda em português, tom institucional.');
       setNarrative(text);
     } catch { showToast('Erro ao gerar interpretação','error'); }
     setLoadingNarr(false);
@@ -3578,7 +3628,7 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
         <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?'Aguarde Gerando análise...':'? Gerar Interpretação do Mês'}
+          {loadingNarr?String.fromCodePoint(8987)+' Aguarde...':String.fromCodePoint(129504)+' Gerar relatorio do periodo'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
@@ -3588,24 +3638,52 @@ Use os nomes completos dos setores. Não use siglas sem explicação.`}],'Você 
     </div>}
 
     {tab==='relatorio'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-        <select value={filterYear} onChange={e=>{setFilterYear(Number(e.target.value));setFilterMonth(0);}} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
-          {(anos.length?anos:[new Date().getFullYear()]).map(a=><option key={a} value={a}>{a}</option>)}
-        </select>
-        <select value={filterMonth} onChange={e=>setFilterMonth(Number(e.target.value))} style={{flex:2,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}>
-          <option value={0}>Todos os meses</option>
-          {MESES.map((m,i)=><option key={i} value={i+1}>{m}</option>)}
-        </select>
-        <button onClick={exportCSV} disabled={filtered.length===0} style={{flexShrink:0,background:C.green,border:'none',borderRadius:8,padding:'8px 14px',color:'#06101F',fontSize:12,fontWeight:800,cursor:filtered.length>0?'pointer':'default',opacity:filtered.length>0?1:0.5}}> Sheets</button>
-      </div>
+<div style={{marginBottom:4}}>
+  {/* Intervalo de datas */}
+  <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
+    <div style={{flex:1}}>
+      <div style={{fontSize:10,color:C.muted,marginBottom:3,fontWeight:700}}>DE</div>
+      <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)}
+        style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12}}/>
+    </div>
+    <div style={{fontSize:14,color:C.muted,marginTop:14}}>-</div>
+    <div style={{flex:1}}>
+      <div style={{fontSize:10,color:C.muted,marginBottom:3,fontWeight:700}}>ATÉ</div>
+      <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)}
+        style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12}}/>
+    </div>
+    <button onClick={exportCSV} disabled={filtered.length===0}
+      style={{flexShrink:0,background:C.green,border:'none',borderRadius:8,padding:'7px 12px',color:'#fff',fontWeight:700,fontSize:11,cursor:'pointer',marginTop:14,opacity:filtered.length===0?.4:1}}>CSV</button>
+  </div>
+  {/* Atalhos rápidos */}
+  <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:8}}>
+    {[
+      {l:'Este mês',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
+      {l:'Mês anterior',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
+      {l:'1º Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},
+      {l:'2º Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},
+      {l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},
+      {l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}},
+    ].map((p,i)=>(
+      <button key={i} onClick={p.fn}
+        style={{padding:'5px 10px',borderRadius:6,border:'1px solid '+C.border,background:C.card,color:C.muted,fontSize:10,fontWeight:600,cursor:'pointer'}}>
+        {p.l}
+      </button>
+    ))}
+  </div>
+  {/* Resumo */}
+  <div style={{fontSize:11,color:C.muted}}>
+    {filtered.length} notificações{dateFrom||dateTo?' no intervalo selecionado':' (histórico completo)'}
+  </div>
+</div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Total {filterYear} - {totalAno} notificações</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição mensal — {new Date().getFullYear()} ({totalAno} notif.)</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>)}</tr></thead>
             <tbody>
               {byMonth.map((m,i)=>(
-                <tr key={i} onClick={()=>setFilterMonth(filterMonth===i+1?0:i+1)} style={{cursor:'pointer',background:filterMonth===i+1?C.teal+'15':'transparent'}}>
+                <tr key={i} onClick={()=>{const y=new Date().getFullYear();const m=String(i+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,i+1,0).getDate());}} style={{cursor:'pointer',background:'transparent'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontWeight:600,borderBottom:'1px solid '+C.border+'22'}}>{m.mes}</td>
                   <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.total||'-'}</td>
                   <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.sp||'-'}</td>

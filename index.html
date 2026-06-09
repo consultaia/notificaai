@@ -24,10 +24,22 @@ input::placeholder{color:#5A7AA0}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
 button:active{opacity:.85}
+
+  /* ── LAYOUT DESKTOP ≥ 900px ── */
+  @media (min-width: 900px) {
+    #app-container { max-width: 100% !important; margin: 0 !important; }
+    #main-content  { margin-left: 220px !important; max-width: calc(100% - 220px) !important; }
+    #bottom-nav    { left: 220px !important; width: calc(100% - 220px) !important; max-width: none !important; transform: none !important; }
+    #sidebar-desktop { display: flex !important; }
+  }
+  @media (max-width: 899px) {
+    #sidebar-desktop { display: none !important; }
+  }
 </style>
 </head>
 <body>
 <div id="root"></div>
+
 <script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
@@ -109,7 +121,7 @@ async function hashPin(pin) {
 // --- PERFIS LOCAIS (fallback) ----------------------------------------------
 const PROFILES = {
   gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{pin:'5555',label:'Membro NSP',icon:'escudo',color:'#00C9B8',perfil:'membro_nsp'},
+  membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
   dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
   motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
   enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
@@ -1262,7 +1274,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(false);
   const [mesRef,setMesRef]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
-  // Paciente-dia — persiste no Supabase (indicadores_mensais) + localStorage fallback
+  // Paciente-dia - persiste no Supabase (indicadores_mensais) + localStorage fallback
   const pdKey=(campo)=>`pd_${mesRef}_${campo}`;
   const [pdGeral,setPdGeralRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_geral`)||'');
   const [pdUPG,setPdUPGRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_upg`)||'');
@@ -1530,9 +1542,9 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       </div>}
 
       {/* Cards detalhados por setor */}
-      <SetorCard titulo="Hospital - Geral" cor={C.teal} dados={dados.geral} icon="🏥"/>
-      <SetorCard titulo="UPG - Unidade de Pacientes Graves" cor={C.red} dados={dados.upg} icon="🔴"/>
-      <SetorCard titulo="Ala A - Internacao Geral" cor={C.blue} dados={dados.alaA} icon="🔵"/>
+      <SetorCard titulo="Hospital - Geral" cor={C.teal} dados={dados.geral} icon={String.fromCodePoint(127973)}/>
+      <SetorCard titulo="UPG - Unidade de Pacientes Graves" cor={C.red} dados={dados.upg} icon={String.fromCodePoint(128308)}/>
+      <SetorCard titulo="Ala A - Internacao Geral" cor={C.blue} dados={dados.alaA} icon={String.fromCodePoint(128309)}/>
 
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>As taxas sao calculadas com base nas notificacoes registradas. A qualidade depende da completude das notificacoes. Indicadores subnotificados subestimam os valores reais.</div>
@@ -2021,12 +2033,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
 // --- MÓDULO TREINAMENTOS E REUNIOES ------------------------------------------
 const SUBNUCLEOS_HNSA=[
-  {id:'comunicacao',label:'Comunicacao Efetiva',icon:'chat',color:'#1D6FE8'},
-  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:'remedios',color:'#8B5CF6'},
-  {id:'identificacao',label:'Identificacao Correta',icon:'identificacao',color:'#00C9B8'},
-  {id:'queda',label:'Queda',icon:'escudo',color:'#F59E0B'},
-  {id:'lpp',label:'LPP - Lesao por Pressao',icon:'curativo',color:'#EF4444'},
-  {id:'cirurgia',label:'Cirurgia Segura',icon:'hospital',color:'#10B981'},
+  {id:'comunicacao',label:'Comunicacao Efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
+  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificacao Correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
+  {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
+  {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(128657),color:'#10B981'},
 ];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
@@ -2229,7 +2241,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
     const w=window.open('','_blank');
-    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+doc.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small></body></html>")
+    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+doc.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small><\/script></body></html>")
     w.document.close();w.print();
   };
 
@@ -2539,9 +2551,9 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
     {/* Métricas totais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
-      <StatCard icon="📊" label="Total notificacoes" value={s.total} color={C.teal}/>
-      <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
-      <StatCard icon="📋" label="Administrativas" value={s.adm} color={C.purple}/>
+      <StatCard icon={String.fromCodePoint(128202)} label="Total notificacoes" value={s.total} color={C.teal}/>
+      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={s.sp} color={C.red}/>
+      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={s.adm} color={C.purple}/>
       {s.ccih>0&&<div style={{gridColumn:'span 3',background:'#7C3AED10',border:'1px solid #7C3AED33',borderRadius:10,padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
         <span style={{fontSize:14}}>{String.fromCodePoint(129440)}</span>
         <span style={{fontSize:11,color:'#7C3AED',fontWeight:700}}>CCIH / Infecções: {s.ccih} notificações</span>
@@ -2555,16 +2567,16 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {/* ── PANORAMA DO MÊS ── */}
+    {/* PANORAMA DO MES */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>‹</button>
+          <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8249)}</button>
           <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>
             {MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}
           </span>
-          <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>›</button>
+          <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8250)}</button>
         </div>
       </div>
 
@@ -2623,8 +2635,8 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       </div>)}
     </div>
 
-    {/* ── SUBNÚCLEOS — REGISTRO DE TREINAMENTOS ── */}
-    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos — Treinamentos</div>
+    {/* SUBNUCLEOS - REGISTRO DE TREINAMENTOS */}
+    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos - Treinamentos</div>
     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
       <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:'transparent',color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
       {SUBNUCLEOS_HNSA.map(sub=>(
@@ -2673,7 +2685,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
         {/* Form de registro */}
         {showFormTrein===sub.id&&(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px',marginTop:8}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:8}}>Novo registro — {sub.label}</div>
+          <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:8}}>Novo registro - {sub.label}</div>
           {/* Tipo */}
           <div style={{display:'flex',gap:6,marginBottom:8}}>
             {['treinamento','reuniao'].map(t=>(
@@ -2786,10 +2798,10 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-      <StatCard icon="📅" label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon="🏥" label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon="🦠" label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
-      <StatCard icon="📋" label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
+      <StatCard icon={String.fromCodePoint(128197)} label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
+      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
+      <StatCard icon={String.fromCodePoint(129440)} label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
+      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
     </div>
 
     {/* Indicadores NSP */}
@@ -3982,10 +3994,10 @@ function ListaMensal({sbUrl,sbKey,onSelect}) {
     {aberta&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:'0 0 12px 12px',borderTop:'none',overflow:'hidden'}}>
       {/* Navegação de mês */}
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
-        <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}>‹</button>
+        <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}>{String.fromCodePoint(8249)}</button>
         <div style={{fontSize:13,fontWeight:700,color:C.text}}>{MESES[mes-1]}/{ano}</div>
         <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:mes===hoje.getMonth()+1&&ano===hoje.getFullYear()?C.muted:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}
-          disabled={mes===hoje.getMonth()+1&&ano===hoje.getFullYear()}>›</button>
+          disabled={mes===hoje.getMonth()+1&&ano===hoje.getFullYear()}>{String.fromCodePoint(8250)}</button>
       </div>
 
       {/* Resumo rápido */}
@@ -4297,7 +4309,7 @@ function Splash({leaving}) {
     <div style={{position:'absolute',bottom:0,left:0,right:0,height:3,background:'#0D1F3C'}}>
       <div style={{height:'100%',background:'linear-gradient(90deg,#00C9B1,#1D6FE8)',animation:'splashBar 1.6s ease-in-out forwards'}}/>
     </div>
-    <style>{`@keyframes splashBar{0%{width:0%}60%{width:75%}100%{width:100%}}`}</style>
+    {React.createElement('style',null,`@keyframes splashBar{0%{width:0%}60%{width:75%}100%{width:100%}}`)}
   </div>);
 }
 
@@ -4371,15 +4383,13 @@ function NotificaAI() {
 
   return(<>
     {splash&&<Splash leaving={splashLeaving}/>}
-    <style>{`
-      *{box-sizing:border-box;margin:0;padding:0}body{background:${C.bg}}
+    {React.createElement('style',null,`      *{box-sizing:border-box;margin:0;padding:0}body{background:${C.bg}}
       @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
       @keyframes sentinelaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.5)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
       input::placeholder{color:${C.muted}}::-webkit-scrollbar{width:3px}
       ::-webkit-scrollbar-thumb{background:${C.border};border-radius:2px}button:active{opacity:.85}
-      select option{background:${C.card};color:${C.text}}
-    `}</style>
-    <div style={{background:C.bg,minHeight:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
+      select option{background:${C.card};color:${C.text}}`)}
+    <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
         onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
@@ -4439,7 +4449,7 @@ function NotificaAI() {
         </div>
       </div>)}
 
-      <div style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
+      <div id='bottom-nav' style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
         {/* Abas fixas: as 4 primeiras do perfil ativo */}
         {tabs.slice(0,4).map(({id,label,icon:Icon})=>{
           const active=view===id;

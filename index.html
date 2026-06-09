@@ -124,7 +124,7 @@ function formatTime(iso){
 }
 function getTag(n){
   if(n.notification_type==='seguranca_paciente') return{label:'SP',color:C.red};
-  if(n.notification_type==='ccih') return{label:'CCIH',color:C.yellow};
+  if(n.notification_type==='ccih') return{label:'CCIH',color:'#7C3AED'};
   return{label:'ADM',color:C.purple};
 }
 function getTitle(n){
@@ -719,7 +719,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
     try {
       const text=await callWorker([{role:'user',content:prompt}],null);
       setRca(JSON.parse(text.replace(/```json|```/g,'').trim()));
-    } catch { showToast('Erro ao gerar RCA','error'); }
+    } catch { showToast('Erro ao gerar análise','error'); }
     setLoading(false);
   };
 
@@ -728,7 +728,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
     setSaving(true);
     try {
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true});
-      showToast('OK RCA salvo!','success');onClose();
+      showToast('Análise de Causa salva!','success');onClose();
     } catch { showToast('Erro ao salvar','error'); }
     setSaving(false);
   };
@@ -738,14 +738,14 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>🧠 Análise de Causa Raiz (RCA)</div>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>🧠 Análise de Causa Raiz</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.red,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
-      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Gerar RCA com IA</button>}
+      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Analisar Causa Raiz com IA</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
@@ -867,7 +867,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
           <button onClick={()=>setRca(r=>({...r,plano:[...(r.plano||[]),{acao:'',responsavel:'NSP',prazo:'30 dias'}]}))}
             style={{width:'100%',background:'none',border:'1px dashed '+C.teal+'66',borderRadius:8,padding:'6px',color:C.teal,fontSize:11,cursor:'pointer',marginTop:4}}>+ Ação</button>
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
-            {saving?'Salvando...':String.fromCodePoint(10003)+' Finalizar e salvar RCA'}
+            {saving?'Salvando...':String.fromCodePoint(10003)+' Finalizar e salvar Análise'}
           </button>
         </div>)}
       </div>)}
@@ -1383,7 +1383,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
         </div>);
       })}
       {d.sentinela>0&&<div style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'8px 12px',fontSize:11,color:C.red,fontWeight:700}}>
-        {d.sentinela} evento(s) sentinela - RCA obrigatorio
+        {d.sentinela} evento(s) sentinela - Análise de Causa obrigatória
       </div>}
     </div>);
   };
@@ -1766,9 +1766,9 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
             <table style={{width:'100%',borderCollapse:'collapse',marginBottom:16}}>
               <tbody>
                 {[
-                  ['Notificações com RCA concluído',dados.nots.filter(n=>n.rca_gerado).length],
+                  ['Notificações com Análise concluída',dados.nots.filter(n=>n.rca_gerado).length],
                   ['Notificações com Notivisa enviado',dados.nots.filter(n=>n.notivisa_enviado).length],
-                  ['Notificações pendentes de RCA',dados.nots.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length],
+                  ['Notificações pendentes de Análise de Causa',dados.nots.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.rca_gerado).length],
                   ['Notificações com status concluído',dados.nots.filter(n=>n.status==='concluido').length],
                 ].map(([l,v])=><tr key={l}><td style={{border:'1px solid #ddd',padding:'5px 10px'}}>{l}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',fontWeight:700,textAlign:'center'}}>{v}</td></tr>)}
               </tbody>
@@ -1847,9 +1847,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
   const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
 
-  const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.is_test).length;
-  const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&!n.is_test).length;
-  const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&!n.is_test).length;
+  const statsSP=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.is_test).length;
+  const statsSemRCA=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.rca_gerado&&!n.is_test).length;
+  const statsSemNotivisa=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&!n.notivisa_enviado&&!n.is_test).length;
 
   const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
 
@@ -1874,7 +1874,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Cards de resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-      {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
+      {[['Total SP',statsSP,C.red],['Sem Análise',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
         <div key={l} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
           <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
           <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>{l}</div>
@@ -1899,9 +1899,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
         {setores.map(s=><option key={s} value={s}>{s}</option>)}
       </select>
       <select value={filtroRCA} onChange={e=>{setFiltroRCA(e.target.value);setPagina(1);}} style={sel}>
-        <option value="todos">RCA: todos</option>
-        <option value="sem">Sem RCA</option>
-        <option value="com">Com RCA</option>
+        <option value="todos">Análise: todos</option>
+        <option value="sem">Sem Análise</option>
+        <option value="com">Com Análise</option>
       </select>
       <select value={filtroNotivisa} onChange={e=>{setFiltroNotivisa(e.target.value);setPagina(1);}} style={sel}>
         <option value="todos">Notivisa: todos</option>
@@ -1918,7 +1918,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     {pagAtual.map(n=>{
       const tag=getTag(n);const title=getTitle(n);
       const isSentinela=n.gravidade==='Evento sentinela';
-      const isSP=n.notification_type==='seguranca_paciente';
+      const isSP=(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
       const riscoColor={'BAIXO':C.green,'MEDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted;
       return(<div key={n.id} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:14,padding:'12px 14px',marginBottom:10}}>
         {/* Header do card */}
@@ -1943,7 +1943,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
         {/* Status badges */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
-          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
+          <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?'Causa Raiz':'Sem Análise'}</span>
           <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>
           {n.risco_classificacao&&<span style={{fontSize:10,background:riscoColor+'20',color:riscoColor,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.risco_classificacao}</span>}
           {n.gravidade&&<span style={{fontSize:10,background:C.surface,color:C.muted,borderRadius:4,padding:'2px 7px'}}>{n.gravidade}</span>}
@@ -1951,7 +1951,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
         {/* Botoes de acao */}
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>RCA</button>}
+          {isSP&&!n.rca_gerado&&<button onClick={()=>setRcaTarget(n)} style={{background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Análise</button>}
           {isSP&&!n.notivisa_enviado&&<button onClick={()=>setNotiVisaTarget(n)} style={{background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Notivisa</button>}
           <button onClick={()=>setRiscoTarget(n)} style={{background:C.yellow+'20',color:C.yellow,border:'1px solid '+C.yellow+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>{n.risco_classificacao?'Risco: '+n.risco_classificacao:'Avaliar Risco'}</button>
           <button onClick={()=>setPlanoTarget(n)} style={{background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:7,padding:'5px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>📋 Plano de Ação</button>
@@ -2170,7 +2170,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Protocolos
       const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
 
-      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')).length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
@@ -2294,7 +2294,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             <tbody>
               <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
               <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
-              <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
+              <tr><td>Notificacoes com Análise concluída</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
               <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
             </tbody>
           </table>
@@ -2512,6 +2512,102 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
 
 // --- HOME VIEW --------------------------------------------------------------
+// --- LISTA MENSAL -------------------------------------------------------
+function ListaMensal({sbUrl,sbKey,onSelect}) {
+  const C=useColors();
+  const hoje=new Date();
+  const [mes,setMes]=React.useState(hoje.getMonth()+1);
+  const [ano,setAno]=React.useState(hoje.getFullYear());
+  const [nots,setNots]=React.useState([]);
+  const [loading,setLoading]=React.useState(false);
+  const [aberta,setAberta]=React.useState(false);
+  const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const carregar=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    try{
+      const mesStr=String(mes).padStart(2,'0');
+      const inicio=`${ano}-${mesStr}-01`;
+      const ultimoDia=new Date(ano,mes,0).getDate();
+      const fim=`${ano}-${mesStr}-${ultimoDia}`;
+      const data=await sbSelect(sbUrl,sbKey,'notifications',
+        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`);
+      setNots(data||[]);
+    }catch(e){setNots([]);}
+    setLoading(false);
+  };
+
+  React.useEffect(()=>{if(aberta)carregar();},[mes,ano,aberta,sbUrl,sbKey]);
+
+  const getTag=(n)=>{
+    if(n.notification_type==='seguranca_paciente') return{l:'SP',c:C.red};
+    if(n.notification_type==='ccih') return{l:'CCIH',c:'#7C3AED'};
+    return{l:'ADM',c:C.muted};
+  };
+
+  const navMes=(dir)=>{
+    let m=mes+dir, a=ano;
+    if(m>12){m=1;a++;}
+    if(m<1){m=12;a--;}
+    setMes(m);setAno(a);
+  };
+
+  const spCount=nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+  const admCount=nots.filter(n=>n.notification_type==='administrativa').length;
+
+  return(<div style={{marginBottom:12}}>
+    {/* Header clicável */}
+    <button onClick={()=>setAberta(a=>{if(!a)setTimeout(carregar,50);return!a;})}
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.text}}>
+        {String.fromCodePoint(128197)} Notificações do mês
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {!aberta&&nots.length>0&&<span style={{fontSize:11,color:C.muted}}>{nots.length} registros</span>}
+        <span style={{fontSize:14,color:C.muted}}>{aberta?String.fromCodePoint(9650):String.fromCodePoint(9660)}</span>
+      </div>
+    </button>
+
+    {aberta&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:'0 0 12px 12px',borderTop:'none',overflow:'hidden'}}>
+      {/* Navegação de mês */}
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
+        <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}>‹</button>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{MESES[mes-1]}/{ano}</div>
+        <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:mes===hoje.getMonth()+1&&ano===hoje.getFullYear()?C.muted:C.teal,fontSize:18,cursor:'pointer',padding:'0 4px'}}
+          disabled={mes===hoje.getMonth()+1&&ano===hoje.getFullYear()}>›</button>
+      </div>
+
+      {/* Resumo rápido */}
+      {nots.length>0&&<div style={{display:'flex',gap:8,padding:'8px 14px',borderBottom:'1px solid '+C.border}}>
+        <span style={{fontSize:11,background:C.red+'15',color:C.red,borderRadius:6,padding:'2px 8px',fontWeight:700}}>SP+CCIH: {spCount}</span>
+        <span style={{fontSize:11,background:C.muted+'15',color:C.muted,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Adm: {admCount}</span>
+        <span style={{fontSize:11,background:C.teal+'15',color:C.teal,borderRadius:6,padding:'2px 8px',fontWeight:700}}>Total: {nots.length}</span>
+      </div>}
+
+      {/* Tabela */}
+      {loading&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}><Dots/></div>}
+      {!loading&&nots.length===0&&<div style={{textAlign:'center',padding:16,color:C.muted,fontSize:12}}>Nenhuma notificação neste mês</div>}
+      {!loading&&nots.map((n,i)=>{
+        const tag=getTag(n);
+        const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}):'--';
+        const titulo=(n.event_subtype||n.description||'Notificação').slice(0,45);
+        const pacInfo=n.admission_reason?n.admission_reason.split('|')[0].trim():'';
+        return(<div key={n.id||i} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 14px',borderBottom:i<nots.length-1?'1px solid '+C.border+'55':'none',cursor:'pointer'}}
+          onClick={()=>onSelect&&onSelect(n)}>
+          <span style={{fontSize:10,background:tag.c+'20',color:tag.c,borderRadius:4,padding:'2px 5px',fontWeight:700,flexShrink:0,minWidth:34,textAlign:'center'}}>{tag.l}</span>
+          <span style={{fontSize:11,color:C.muted,flexShrink:0,fontFamily:'monospace',width:36}}>{data}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,color:C.text,fontWeight:600,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{titulo}</div>
+            {pacInfo&&<div style={{fontSize:10,color:C.muted,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{pacInfo}</div>}
+          </div>
+          <span style={{fontSize:10,color:C.muted,flexShrink:0}}>{n.sector||''}</span>
+        </div>);
+      })}
+    </div>)}
+  </div>);
+}
+
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital}) {
   const [stats,setStats]=useState(null);
   const [recent,setRecent]=useState(MOCK_RECENT);
@@ -2585,7 +2681,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       </div>
       <div style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem RCA</div>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
       <div style={{background:C.card,border:'1px solid '+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
@@ -2622,11 +2718,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           </div>
           {/* Badges + botões RCA / Notivisa */}
           <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?String.fromCodePoint(9989)+' RCA':String.fromCodePoint(9888)+' Sem RCA'}</span>
+            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?String.fromCodePoint(9989)+' Causa Raiz':String.fromCodePoint(9888)+' Sem Análise'}</span>
             <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?String.fromCodePoint(9989)+' Notivisa':'- Notivisa'}</span>
-            {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&
+            {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&
               <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}> Gerar RCA</button>}
-            {!n.notivisa_enviado&&n.notification_type==='seguranca_paciente'&&
+            {!n.notivisa_enviado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&
               <button onClick={()=>setNotiVisaTarget(n)} style={{fontSize:10,background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>List Notivisa</button>}
             <button onClick={()=>setRiscoTarget(n)} style={{fontSize:10,background:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted)+'20':C.muted+'20',color:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted):C.muted,border:'1px solid transparent',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>
               {n.risco_classificacao?`Atencao ${n.risco_classificacao}`:'ATENCAO Risco'}
@@ -2671,7 +2767,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     setStep(proximoStep);
   };
 
-  const isSP=(d)=>(d.notification_type||dados.notification_type)==='seguranca_paciente';
+  const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type);
   const isADM=(d)=>(d.notification_type||dados.notification_type)==='administrativa';
   const isCCIH=(d)=>(d.notification_type||dados.notification_type)==='ccih';
 
@@ -2768,12 +2864,18 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
       case 'nip':{
         if(valor!=='nao_informar') d.patient_nip=valor;
-        avancar(d,'idade','Idade aproximada do paciente:');
+        avancar(d,'nome_pac','Nome completo do paciente (ou deixe em branco):');
+        break;
+      }
+
+      case 'nome_pac':{
+        if(valor&&valor.toLowerCase()!=='não informar'&&valor.toLowerCase()!=='nao informar') d.patient_name=valor;
+        avancar(d,'idade','Idade do paciente (em anos):');
         break;
       }
 
       case 'idade':{
-        if(valor!=='nao_informar') d.patient_age_range=valor;
+        if(valor&&valor!=='nao_informar'&&valor!=='Não informar') d.patient_age=parseInt(valor)||valor;
         avancar(d,'sexo','Sexo do paciente:');
         break;
       }
@@ -2829,6 +2931,8 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
       d.description?`Descrição: ${d.description}`:'',
       d.measures_taken?`Medidas: ${d.measures_taken}`:'',
       d.patient_nip?`NIP: ${d.patient_nip}`:'',
+d.patient_name?`Paciente: ${d.patient_name}`:'',
+d.patient_age?`Idade: ${d.patient_age} anos`:'',
       d.patient_age_range?`Idade: ${d.patient_age_range}`:'',
       d.patient_sex?`Sexo: ${d.patient_sex}`:'',
       d.patient_outcome?`Desfecho: ${d.patient_outcome}`:'',
@@ -2863,8 +2967,8 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
         patient_outcome:dados.patient_outcome||null,
         was_preventable:dados.was_preventable===true?true:dados.was_preventable===false?false:null,
         occurrence_subtype:dados.notification_type!=='seguranca_paciente'?(dados.event_subtype||null):null,
-        patient_age:null,
-        admission_reason:[dados.patient_nip?'NIP: '+dados.patient_nip:'', dados.patient_age_range||'', dados.patient_sex||''].filter(Boolean).join(' | ')||null,
+        patient_age:dados.patient_age||null,
+        admission_reason:[dados.patient_nip?'NIP: '+dados.patient_nip:'', dados.patient_name?dados.patient_name:'', dados.patient_age?dados.patient_age+' anos':'', dados.patient_sex||''].filter(Boolean).join(' | ')||null,
         ai_summary:dados.ai_summary||null,
         is_test:testMode||false,
         hospital_id:h.id,
@@ -2995,9 +3099,9 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   };
 
   // -- PROGRESSO ---------------------------------------------------------
-  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','idade','sexo','desfecho','preventivel','resumo'];
+  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','desfecho','preventivel','resumo'];
   const ORDEM_ADM=['perfil','tipo','subtipo_adm','setor','data','relato','medidas','resumo'];
-  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','idade','sexo','desfecho','preventivel','resumo'];
+  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','desfecho','preventivel','resumo'];
 
   const getOrdem=()=>{
     const t=dados.notification_type;
@@ -3023,6 +3127,8 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     relato:'Descrição do evento',
     medidas:'Medidas tomadas',
     nip:'Identificação do paciente',
+nome_pac:'Nome do paciente',
+idade:'Idade do paciente',
     idade:'Idade do paciente',
     sexo:'Sexo do paciente',
     desfecho:'Desfecho',
@@ -3033,9 +3139,9 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
   const chips=chipsAtivos();
   const prog=step!=='done'?getProgresso():{atual:1,total:1};
-  const inputSteps=['relato','medidas','nip','setor','data'];
+  const inputSteps=['relato','medidas','nip','nome_pac','idade','setor','data'];
   const showInput=inputSteps.includes(step)&&!loading&&!saving;
-  const showPular=['nip','idade','sexo'].includes(step)&&!loading&&!saving;
+  const showPular=['nip','nome_pac','idade','sexo'].includes(step)&&!loading&&!saving;
   const showConfirm=step==='resumo'&&!loading&&!saving;
 
   // -- MENSAGEM INICIAL ---------------------------------------------------
@@ -3183,7 +3289,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const filtered=rawData.filter(n=>{const d=new Date(n.created_at);if(d.getFullYear()!==filterYear)return false;if(filterMonth!==0&&d.getMonth()!==filterMonth-1)return false;return true;});
 
   const exportCSV=()=>{
-    const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','RCA','Notivisa'];
+    const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','Causa Raiz','Notivisa'];
     const rows=filtered.map(n=>[n.id?.slice(0,8)||'',n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR'),n.event_time||'',n.notification_type||'',n.event_subtype||'',n.sector||'',n.shift||'',(n.description||'').replace(/"/g,'""'),(n.measures_taken||'').replace(/"/g,'""'),n.patient_outcome||'',n.rca_gerado?'Sim':'Não',n.notivisa_enviado?'Sim':'Não']);
     const csv=[header,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
     const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});

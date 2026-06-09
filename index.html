@@ -1258,14 +1258,53 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(false);
   const [mesRef,setMesRef]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
-  // Paciente-dia geral e por setor
-  const [pdGeral,setPdGeral]=useState('');
-  const [pdUPG,setPdUPG]=useState('');
-  const [pdAlaA,setPdAlaA]=useState('');
+  // Paciente-dia — persiste no Supabase (indicadores_mensais) + localStorage fallback
+  const pdKey=(campo)=>`pd_${mesRef}_${campo}`;
+  const [pdGeral,setPdGeralRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_geral`)||'');
+  const [pdUPG,setPdUPGRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_upg`)||'');
+  const [pdAlaA,setPdAlaARaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_alaa`)||'');
+  const [pdSalvo,setPdSalvo]=useState(false);
+
+  const salvarPD=async(g,u,a)=>{
+    localStorage.setItem(pdKey('geral'),g);localStorage.setItem(pdKey('upg'),u);localStorage.setItem(pdKey('alaa'),a);
+    if(!sbUrl||!sbKey) return;
+    try{
+      await fetch(`${sbUrl}/rest/v1/indicadores_mensais`,{
+        method:'POST',
+        headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_geral:Number(g)||null,pd_upg:Number(u)||null,pd_alaa:Number(a)||null,updated_at:new Date().toISOString()})
+      });
+      setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
+    }catch(err){console.warn('Erro ao salvar PD:',err);}
+  };
+
+  const setPdGeral=v=>{setPdGeralRaw(v);};
+  const setPdUPG=v=>{setPdUPGRaw(v);};
+  const setPdAlaA=v=>{setPdAlaARaw(v);};
+
+  // Ao mudar mês: carregar do Supabase, fallback localStorage
+  React.useEffect(()=>{
+    setPdGeralRaw(localStorage.getItem(pdKey('geral'))||'');
+    setPdUPGRaw(localStorage.getItem(pdKey('upg'))||'');
+    setPdAlaARaw(localStorage.getItem(pdKey('alaa'))||'');
+    if(!sbUrl||!sbKey) return;
+    fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mesRef}&select=*`,{
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
+    }).then(r=>r.json()).then(data=>{
+      if(data&&data[0]){
+        const d=data[0];
+        if(d.pd_geral){setPdGeralRaw(String(d.pd_geral));localStorage.setItem(pdKey('geral'),String(d.pd_geral));}
+        if(d.pd_upg){setPdUPGRaw(String(d.pd_upg));localStorage.setItem(pdKey('upg'),String(d.pd_upg));}
+        if(d.pd_alaa){setPdAlaARaw(String(d.pd_alaa));localStorage.setItem(pdKey('alaa'),String(d.pd_alaa));}
+      }
+    }).catch(()=>{});
+  },[mesRef,sbUrl,sbKey]);
 
   const calcular=async()=>{
     if(!sbUrl||!sbKey) return;
     if(!pdGeral&&!pdUPG&&!pdAlaA){showToast('Informe ao menos um total de paciente-dia','error');return;}
+    // Salvar paciente-dia no Supabase antes de calcular
+    await salvarPD(pdGeral,pdUPG,pdAlaA);
     setLoading(true);
     try{
       const [ano,mes]=mesRef.split('-').map(Number);
@@ -1273,9 +1312,10 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
       const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&select=*`);
 
-      const pd=Number(pdGeral)||1;
       const pdU=Number(pdUPG)||0;
       const pdA=Number(pdAlaA)||0;
+      // Se Hospital Geral vazio: soma UPG + Ala A
+      const pd=Number(pdGeral)||(pdU+pdA)||1;
 
       // Filtros por tipo de evento
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
@@ -1351,10 +1391,10 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
   const INDICADORES_DEF=[
     {key:'txQueda',label:'Taxa de quedas',unidade:'/1000 p-d',meta:1.5,menor:true,desc:'Quedas / paciente-dia x 1000'},
-    {key:'txLP',label:'Taxa de LPP',unidade:'/1000 p-d',meta:0.8,menor:true,desc:'LPP adquirida / paciente-dia x 1000'},
-    {key:'txIRAS',label:'Taxa de IRAS',unidade:'/1000 p-d',meta:2.0,menor:true,desc:'Infeccoes / paciente-dia x 1000'},
-    {key:'txMed',label:'Erros de medicacao',unidade:'/1000 p-d',meta:0.5,menor:true,desc:'Erros medicacao / paciente-dia x 1000'},
-    {key:'txNearMiss',label:'Taxa de near miss',unidade:'%',meta:20,menor:false,desc:'Near miss / total notificacoes x 100'},
+    {key:'txLP',label:'Taxa de LPP adquirida',unidade:'/1000 p-d',meta:0.8,menor:true,desc:'LPP adquirida no hospital / paciente-dia x 1000 - Meta ONA < 0.8'},
+    {key:'txIRAS',label:'Taxa de IRAS',unidade:'/1000 p-d',meta:2.0,menor:true,desc:'Infeccoes relacionadas a assistencia / paciente-dia x 1000 - Meta < 2'},
+    {key:'txMed',label:'Erros de medicação notif.',unidade:'/1000 p-d',meta:0.5,menor:true,desc:'Erros de medicação notificados / paciente-dia x 1000'},
+    {key:'txNearMiss',label:'Near miss / Total notif.',unidade:'%',meta:20,menor:false,desc:'% de near miss sobre total - meta > 20% indica boa cultura de notificacao'},
   ];
 
   const SetorCard=({titulo,cor,dados:d,icon})=>{
@@ -1409,7 +1449,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
               <span style={{width:10,height:10,borderRadius:'50%',background:C.teal,display:'inline-block'}}/>
               Hospital (geral)
             </label>
-            <input type="number" value={pdGeral} onChange={e=>setPdGeral(e.target.value)} placeholder="Ex: 620 (total hospital)"
+            <input type="number" value={pdGeral} onChange={e=>setPdGeral(e.target.value)} placeholder="Deixe vazio para usar UPG + Ala Aital)"
               style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
           </div>
           <div>
@@ -1430,10 +1470,16 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
           </div>
         </div>
         <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6,borderTop:'1px solid '+C.border,paddingTop:8}}>
-          Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME.
-        </div>
+          Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME. Se Hospital Geral vazio, usa soma UPG + Ala A.</div>
       </div>
 
+      {pdSalvo&&<div style={{textAlign:'center',fontSize:11,color:'#22C55E',marginBottom:6}}>
+        {String.fromCodePoint(9989)} Paciente-dia salvo no banco
+      </div>}
+      <button onClick={()=>salvarPD(pdGeral,pdUPG,pdAlaA)} disabled={!pdGeral&&!pdUPG&&!pdAlaA}
+        style={{width:'100%',background:'transparent',border:'1px solid #0D9488',borderRadius:10,padding:'8px',color:'#0D9488',fontSize:12,fontWeight:600,cursor:'pointer',marginBottom:6}}>
+        Salvar paciente-dia sem calcular
+      </button>
       <button onClick={calcular} disabled={loading||(!pdGeral&&!pdUPG&&!pdAlaA)}
         style={{width:'100%',background:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?C.border:C.teal,border:'none',borderRadius:10,padding:'12px',color:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?'default':'pointer'}}>
         {loading?'Calculando...':'Calcular Indicadores'}

@@ -2442,7 +2442,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 // --- PERFIL MEMBRO NSP --------------------------------------------------------
 function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
-  const C=useColors();
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -3926,7 +3925,6 @@ function ticketEmoji(icon){
   return m[icon]||icon;
 }
 function ListaMensal({sbUrl,sbKey,onSelect}) {
-  const C=useColors();
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
   const [ano,setAno]=React.useState(hoje.getFullYear());
@@ -4020,7 +4018,6 @@ function ListaMensal({sbUrl,sbKey,onSelect}) {
   </div>);
 }
 function CartilhaPaciente() {
-  const C=useColors();
   const [pag,setPag]=React.useState(0);
   const PAGINAS=[
     {id:'capa',titulo:null,cor:'#0D9488',icone:null,items:null},

@@ -124,7 +124,7 @@ function formatTime(iso){
 }
 function getTag(n){
   if(n.notification_type==='seguranca_paciente') return{label:'SP',color:C.red};
-  if(n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')) return{label:'CCIH',color:'#7C3AED'};
+  if(n.notification_type==='ccih') return{label:'CCIH',color:'#7C3AED'};
   return{label:'ADM',color:C.purple};
 }
 function getTitle(n){
@@ -153,7 +153,7 @@ function computeStats(notifications) {
   const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
   const total=thisM.length,totalPrev=prevM.length;
   const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente').length;
-  const ccih=thisM.filter(n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')).length;
+  const ccih=thisM.filter(n=>n.notification_type==='ccih').length;
   const adm=thisM.filter(n=>n.notification_type==='administrativa').length;
   const sentinela=notifications.filter(n=>n.gravidade==='Evento sentinela').length;
   const semRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
@@ -980,7 +980,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Editar</button>
-          <button onClick={()=>{const b=new Blob(['<!DOCTYPE html><html><head><meta charset=UTF-8><title>Notivisa</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#1a1a1a;}h1{background:#c8102e;color:#fff;padding:14px;border-radius:6px;font-size:16px;}h2{font-size:10px;color:#666;text-transform:uppercase;margin:12px 0 3px;}p{background:#f5f5f5;border-radius:4px;padding:8px;font-size:12px;margin:0 0 6px;}</style></head><body><h1>Formulario Notivisa - HNSA<br><small>'+new Date().toLocaleString('pt-BR')+'</small></h1>'+[['Data',(form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-')+' '+(form.hora_evento||'')],['Turno',form.turno||'-'],['Tipo',form.tipo||'-'],['Gravidade',form.gravidade||'-'],['Setor',form.setor||'-'],['Paciente',(form.idade?form.idade+' anos':'')+' '+(form.sexo||'')],['Descricao',form.descricao||'-'],['Acao imediata',form.acao_imediata||'-'],['Dano',form.dano||'-'],['Acao corretiva',form.acao_corretiva||'-']].map(([l,v])=>'<h2>'+l+'</h2><p>'+v+'</p>').join('')+'</body></html>'],{type:'text/html'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='Notivisa_'+(form.setor||'HNSA')+'_'+(form.data_evento||'')+'_'+((notification.id||'').slice(0,8).toUpperCase())+'.html';a.click();URL.revokeObjectURL(u);}} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
+          <button onClick={()=>window.print()} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
           <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar →</button>
         </div>
       </div>)}
@@ -1320,7 +1320,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       // Filtros por tipo de evento
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
-      const isIRAS=n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH');
+      const isIRAS=n=>n.notification_type==='ccih';
       const isMed=n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic');
       const isNearMiss=n=>n.gravidade==='Near miss';
       const isSentinela=n=>n.gravidade==='Evento sentinela';
@@ -2518,7 +2518,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {label:'Quedas',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda')).length,cor:'#F59E0B'},
     {label:'Perda AVP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('avp')||n.event_subtype?.toLowerCase().includes('acesso')).length,cor:'#3B82F6'},
     {label:'LPP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')).length,cor:'#EF4444'},
-    {label:'Infecção (CCIH)',count:notsMes.filter(n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')).length,cor:'#7C3AED'},
+    {label:'Infecção',count:notsMes.filter(n=>n.notification_type==='ccih').length,cor:'#7C3AED'},
     {label:'Medicação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
     {label:'Identificação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
   ].filter(t=>t.count>0).sort((a,b)=>b.count-a.count);
@@ -2535,14 +2535,11 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     <div style={{fontSize:11,color:C.muted,marginBottom:16}}>HNSA · Nucleo de Seguranca do Paciente</div>
 
     {/* Métricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:14}}>
       <StatCard icon="📊" label="Total notificacoes" value={s.total} color={C.teal}/>
       <StatCard icon="🏥" label="Seg. Paciente" value={s.sp} color={C.red}/>
+      <StatCard icon="🦠" label="CCIH" value={s.ccih} color={C.yellow}/>
       <StatCard icon="📋" label="Administrativas" value={s.adm} color={C.purple}/>
-      {s.ccih>0&&<div style={{gridColumn:'span 3',background:'#7C3AED10',border:'1px solid #7C3AED33',borderRadius:10,padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
-        <span style={{fontSize:14}}>{String.fromCodePoint(129440)}</span>
-        <span style={{fontSize:11,color:'#7C3AED',fontWeight:700}}>CCIH / Infecções: {s.ccih} notificações</span>
-      </div>}
     </div>
 
     {/* Dias sem sentinela */}
@@ -2751,7 +2748,7 @@ function ListaMensal({sbUrl,sbKey,onSelect}) {
 
   const getTag=(n)=>{
     if(n.notification_type==='seguranca_paciente') return{l:'SP',c:C.red};
-    if(n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')) return{l:'CCIH',c:'#7C3AED'};
+    if(n.notification_type==='ccih') return{l:'CCIH',c:'#7C3AED'};
     return{l:'ADM',c:C.muted};
   };
 
@@ -2976,7 +2973,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
     setStep(proximoStep);
   };
 
-  const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type||'seguranca_paciente');
+  const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type);
   const isADM=(d)=>(d.notification_type||dados.notification_type)==='administrativa';
   const isCCIH=(d)=>(d.notification_type||dados.notification_type)==='ccih';
 
@@ -3003,7 +3000,9 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
       case 'tipo':{
         d.notification_type=valor;
         if(valor==='seguranca_paciente'){
-          avancar(d,'subtipo','Qual foi o tipo de evento de segurança do paciente?');
+          avancar(d,'subtipo','Qual foi o tipo de evento?');
+        } else if(valor==='ccih'){
+          avancar(d,'subtipo','Qual o foco da infecção?');
         } else {
           avancar(d,'subtipo_adm','Qual o tipo de ocorrência administrativa?');
         }
@@ -3297,7 +3296,11 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
   };
 
   const chipsAtivos=()=>{
-    if(step==='subtipo') return CHIPS_MAP.subtipo_sp;
+    if(step==='subtipo'){
+      const t=dados.notification_type;
+      if(t==='ccih') return CHIPS_MAP.subtipo_ccih;
+      return CHIPS_MAP.subtipo_sp;
+    }
     return CHIPS_MAP[step]||[];
   };
 
@@ -4012,352 +4015,8 @@ const KNOWLEDGE=[
   {id:'vid_quedas',icon:String.fromCodePoint(127909),title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
   {id:'pdf_nsp',icon:String.fromCodePoint(128196),title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
   {id:'pdf_riscos',icon:String.fromCodePoint(128196),title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
-  {id:'pdf_iras',icon:String.fromCodePoint(128196),title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},,
-  {id:'cartilha_paciente',icon:String.fromCodePoint(128216),title:'Cartilha do Paciente e Familiar',desc:'Guia de seguranca do paciente · HNSA · Linguagem acessivel',type:'cartilha',color:'#0D9488'},
+  {id:'pdf_iras',icon:String.fromCodePoint(128196),title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
 ];
-
-
-// --- CARTILHA PACIENTE -------------------------------------------------------
-function CartilhaPaciente() {
-  const C=useColors();
-  const [pagina,setPagina]=React.useState(0);
-
-  const PAGINAS=[
-    {
-      id:'capa',
-      render:()=>(
-        <div style={{textAlign:'center',padding:'24px 16px 16px'}}>
-          {/* Logo HNSA simulado */}
-          <div style={{width:80,height:80,borderRadius:'50%',background:'linear-gradient(135deg,#0A2342,#0D9488)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',boxShadow:'0 4px 16px #0D948844'}}>
-            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-              <path d="M22 6 L22 38 M6 22 L38 22" stroke="#fff" strokeWidth="5" strokeLinecap="round"/>
-              <circle cx="22" cy="22" r="18" stroke="#14B8A6" strokeWidth="2.5" fill="none"/>
-            </svg>
-          </div>
-          <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
-          <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de{'
-'}Seguranca do Paciente</div>
-          <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para voce e seus familiares</div>
-          {/* Ilustração capa */}
-          <svg width="200" height="130" viewBox="0 0 200 130" style={{display:'block',margin:'0 auto 16px'}}>
-            {/* Fundo */}
-            <rect x="10" y="70" width="180" height="55" rx="8" fill="#F0FDFA"/>
-            {/* Cama */}
-            <rect x="25" y="80" width="90" height="12" rx="4" fill="#0D9488" opacity="0.3"/>
-            <rect x="25" y="72" width="30" height="20" rx="3" fill="#0D9488" opacity="0.5"/>
-            <rect x="25" y="90" width="90" height="4" rx="2" fill="#0A2342" opacity="0.15"/>
-            {/* Paciente deitado */}
-            <ellipse cx="70" cy="78" rx="10" ry="10" fill="#FBBF24"/>
-            <rect x="45" y="82" width="50" height="10" rx="3" fill="#E0F2FE"/>
-            {/* Profissional */}
-            <circle cx="145" cy="75" r="11" fill="#BFDBFE"/>
-            <ellipse cx="145" cy="60" rx="8" ry="8" fill="#FCD34D"/>
-            <rect x="138" y="68" width="14" height="3" rx="1" fill="#fff" opacity="0.8"/>
-            {/* Cruz médica no jaleco */}
-            <path d="M143 73 L147 73 M145 71 L145 75" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round"/>
-            {/* Coração */}
-            <path d="M95 45 C95 40 88 38 88 44 C88 48 95 54 95 54 C95 54 102 48 102 44 C102 38 95 40 95 45Z" fill="#EF4444" opacity="0.7"/>
-            {/* Texto central */}
-            <text x="100" y="25" textAnchor="middle" fontSize="11" fill="#0A2342" fontWeight="bold">Voce e parte</text>
-            <text x="100" y="38" textAnchor="middle" fontSize="11" fill="#0D9488" fontWeight="bold">da sua seguranca!</text>
-          </svg>
-          <div style={{background:'#0D9488',borderRadius:20,padding:'8px 20px',color:'#fff',fontSize:12,fontWeight:700,display:'inline-block'}}>
-            Toque em Proximo para comecar
-          </div>
-        </div>
-      )
-    },
-    {
-      id:'identificacao',
-      titulo:'1. Me identifique corretamente',
-      cor:'#3B82F6',
-      icone:String.fromCodePoint(128100),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="100" viewBox="0 0 320 100" style={{display:'block',marginBottom:12}}>
-            {/* Pulseira */}
-            <rect x="60" y="30" width="200" height="40" rx="20" fill="#BFDBFE"/>
-            <rect x="70" y="38" width="180" height="24" rx="12" fill="#fff" stroke="#3B82F6" strokeWidth="1.5"/>
-            <text x="160" y="48" textAnchor="middle" fontSize="9" fill="#1E40AF" fontWeight="bold">NOME DO PACIENTE</text>
-            <text x="160" y="58" textAnchor="middle" fontSize="8" fill="#64748B">Data de nascimento · NIP</text>
-            {/* Seta verificacao */}
-            <path d="M40 50 L55 50" stroke="#3B82F6" strokeWidth="2" strokeDasharray="3,2"/>
-            <circle cx="35" cy="50" r="12" fill="#DBEAFE"/>
-            <path d="M30 50 L34 54 L42 46" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {[
-            {t:'Confira sua pulseira',d:'Voce deve usar pulseira de identificacao com seu nome e data de nascimento durante toda internacao.'},
-            {t:'Pergunte sempre',d:'Antes de qualquer medicamento, exame ou procedimento: o profissional confirma seu nome? Se nao perguntou, lembre-o!'},
-            {t:'Avise sobre alergias',d:'Informe toda alergia a medicamentos, alimentos ou materiais. Repita isso para cada profissional que te atender.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#3B82F6',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      id:'higiene',
-      titulo:'2. Higienizacao das maos',
-      cor:'#10B981',
-      icone:String.fromCodePoint(129529),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="90" viewBox="0 0 320 90" style={{display:'block',marginBottom:12}}>
-            {/* Torneira */}
-            <rect x="130" y="10" width="8" height="25" rx="4" fill="#94A3B8"/>
-            <path d="M126 35 Q134 45 142 35" stroke="#94A3B8" strokeWidth="3" fill="none"/>
-            {/* Agua */}
-            <ellipse cx="134" cy="52" rx="3" ry="6" fill="#BAE6FD" opacity="0.8"/>
-            <ellipse cx="134" cy="62" rx="2" ry="4" fill="#7DD3FC" opacity="0.6"/>
-            {/* Maos */}
-            <ellipse cx="134" cy="74" rx="22" ry="12" fill="#FED7AA"/>
-            <rect x="116" y="64" width="8" height="16" rx="4" fill="#FED7AA"/>
-            <rect x="124" y="60" width="8" height="20" rx="4" fill="#FED7AA"/>
-            <rect x="132" y="60" width="8" height="20" rx="4" fill="#FED7AA"/>
-            <rect x="140" y="62" width="8" height="18" rx="4" fill="#FED7AA"/>
-            {/* Bolhas sabao */}
-            <circle cx="105" cy="55" r="5" fill="none" stroke="#10B981" strokeWidth="1.5" opacity="0.7"/>
-            <circle cx="115" cy="45" r="4" fill="none" stroke="#10B981" strokeWidth="1.5" opacity="0.5"/>
-            <circle cx="160" cy="50" r="6" fill="none" stroke="#10B981" strokeWidth="1.5" opacity="0.6"/>
-            <circle cx="170" cy="40" r="3" fill="none" stroke="#10B981" strokeWidth="1.5" opacity="0.4"/>
-          </svg>
-          <div style={{background:'#DCFCE7',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#166534',marginBottom:4}}>Por que e importante?</div>
-            <div style={{fontSize:11,color:'#15803D',lineHeight:1.5}}>40% das infeccoes hospitalares podem ser evitadas com higiene correta das maos.</div>
-          </div>
-          {[
-            {t:'Peca para lavar as maos',d:'Todo profissional de saude deve higienizar as maos antes e depois de te tocar. Voce pode pedir isso educadamente.'},
-            {t:'Acompanhantes tambem',d:'Visitantes e acompanhantes devem higienizar as maos ao entrar e sair do quarto. Use o alcool em gel disponivel no corredor.'},
-            {t:'Voce mesmo',d:'Higienize suas proprias maos antes das refeicoes e apos usar o banheiro.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#10B981',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      id:'queda',
-      titulo:'3. Prevencao de quedas',
-      cor:'#F59E0B',
-      icone:String.fromCodePoint(129405),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="100" viewBox="0 0 320 100" style={{display:'block',marginBottom:12}}>
-            {/* Cama com grades */}
-            <rect x="40" y="50" width="240" height="40" rx="6" fill="#FEF3C7"/>
-            <rect x="40" y="44" width="240" height="8" rx="4" fill="#F59E0B" opacity="0.6"/>
-            {/* Grade levantada */}
-            <rect x="50" y="30" width="6" height="22" rx="3" fill="#F59E0B"/>
-            <rect x="62" y="30" width="6" height="22" rx="3" fill="#F59E0B"/>
-            <rect x="74" y="30" width="6" height="22" rx="3" fill="#F59E0B"/>
-            <rect x="47" y="29" width="36" height="4" rx="2" fill="#D97706"/>
-            {/* Paciente na cama */}
-            <ellipse cx="160" cy="54" rx="12" ry="12" fill="#FCD34D"/>
-            <rect x="130" y="60" width="60" height="16" rx="6" fill="#BFDBFE"/>
-            {/* Campainha */}
-            <circle cx="250" cy="55" r="14" fill="#FEF9C3" stroke="#F59E0B" strokeWidth="2"/>
-            <text x="250" y="59" textAnchor="middle" fontSize="14">🔔</text>
-            {/* Seta */}
-            <path d="M220 55 L232 55" stroke="#F59E0B" strokeWidth="2" strokeDasharray="3,2" markerEnd="url(#arrow)"/>
-          </svg>
-          <div style={{background:'#FEF3C7',borderRadius:10,padding:'10px 12px',marginBottom:10}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#92400E',marginBottom:4}}>{String.fromCodePoint(9888)} Atencao: pulseira amarela</div>
-            <div style={{fontSize:11,color:'#B45309',lineHeight:1.5}}>Se voce usa pulseira amarela, voce foi identificado com RISCO DE QUEDA. Chame a equipe antes de se levantar!</div>
-          </div>
-          {[
-            {t:'Mantenha as grades levantadas',d:'As grades laterais da cama sao sua protecao. So deite sem grades quando a equipe estiver presente.'},
-            {t:'Use a campainha',d:'Para ir ao banheiro ou sair da cama, toque a campainha e aguarde ajuda. Nao tente se levantar sozinho.'},
-            {t:'Calcados adequados',d:'Use calcados antiderrapantes ou meias especiais. Evite andar descalco ou de meia comum no hospital.'},
-            {t:'Avise tontura',d:'Se sentir tontura, fraqueza ou desequilibrio, avise imediatamente a equipe de enfermagem.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#F59E0B',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      id:'medicamentos',
-      titulo:'4. Seguranca com medicamentos',
-      cor:'#8B5CF6',
-      icone:String.fromCodePoint(128138),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="90" viewBox="0 0 320 90" style={{display:'block',marginBottom:12}}>
-            {/* Cartela de remedio */}
-            <rect x="80" y="15" width="160" height="60" rx="8" fill="#EDE9FE"/>
-            <circle cx="120" cy="35" r="10" fill="#8B5CF6"/>
-            <circle cx="160" cy="35" r="10" fill="#A78BFA"/>
-            <circle cx="200" cy="35" r="10" fill="#8B5CF6"/>
-            <circle cx="120" cy="60" r="10" fill="#C4B5FD"/>
-            <circle cx="160" cy="60" r="10" fill="#8B5CF6"/>
-            <circle cx="200" cy="60" r="10" fill="#A78BFA"/>
-            {/* Comprimidos destacados */}
-            <rect x="108" y="23" width="24" height="24" rx="12" fill="#8B5CF6" opacity="0.3" stroke="#8B5CF6" strokeWidth="1"/>
-            {/* Prescricao */}
-            <rect x="250" y="20" width="55" height="55" rx="6" fill="#F5F3FF" stroke="#8B5CF6" strokeWidth="1.5"/>
-            <text x="277" y="38" textAnchor="middle" fontSize="7" fill="#5B21B6" fontWeight="bold">PRESCRICAO</text>
-            <line x1="257" y1="45" x2="298" y2="45" stroke="#C4B5FD" strokeWidth="1"/>
-            <line x1="257" y1="52" x2="298" y2="52" stroke="#C4B5FD" strokeWidth="1"/>
-            <line x1="257" y1="59" x2="285" y2="59" stroke="#C4B5FD" strokeWidth="1"/>
-          </svg>
-          {[
-            {t:'Confirme o medicamento',d:'Antes de tomar qualquer medicamento, pergunte: qual e o nome? Para que serve? Qual a dose? Isso e um direito seu.'},
-            {t:'Liste todos os seus remedios',d:'Informe todos os medicamentos que voce usa em casa, incluindo fitoterapicos, vitaminas e remedios sem receita.'},
-            {t:'Reporte efeitos incomuns',d:'Se sentir algo diferente apos tomar um medicamento (coceira, falta de ar, batimento acelerado), avise imediatamente.'},
-            {t:'Nao troque horarios',d:'Os horarios dos medicamentos sao calculados para sua seguranca. Nao pule nem antecipe doses por conta propria.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#8B5CF6',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      id:'notificar',
-      titulo:'5. Voce pode notificar',
-      cor:'#EF4444',
-      icone:String.fromCodePoint(128226),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="90" viewBox="0 0 320 90" style={{display:'block',marginBottom:12}}>
-            {/* Celular */}
-            <rect x="120" y="10" width="50" height="75" rx="8" fill="#1E293B"/>
-            <rect x="124" y="16" width="42" height="55" rx="4" fill="#0F172A"/>
-            <circle cx="145" cy="80" r="3" fill="#334155"/>
-            {/* Tela com notificacao */}
-            <rect x="128" y="20" width="34" height="10" rx="3" fill="#0D9488"/>
-            <text x="145" y="27" textAnchor="middle" fontSize="5" fill="#fff" fontWeight="bold">NotificaAI</text>
-            <rect x="128" y="33" width="34" height="6" rx="2" fill="#1E293B"/>
-            <rect x="128" y="41" width="34" height="6" rx="2" fill="#1E293B"/>
-            <rect x="128" y="55" width="34" height="8" rx="4" fill="#0D9488"/>
-            <text x="145" y="61" textAnchor="middle" fontSize="5" fill="#fff">Notificar</text>
-            {/* Setas de fluxo */}
-            <path d="M80 40 L115 45" stroke="#EF4444" strokeWidth="2" strokeDasharray="4,2"/>
-            <circle cx="65" cy="38" r="18" fill="#FEF2F2"/>
-            <text x="65" y="34" textAnchor="middle" fontSize="8" fill="#991B1B">Algo</text>
-            <text x="65" y="44" textAnchor="middle" fontSize="8" fill="#991B1B">errado?</text>
-            {/* Resultado */}
-            <path d="M175 45 L195 42" stroke="#10B981" strokeWidth="2" strokeDasharray="4,2"/>
-            <circle cx="215" cy="40" r="22" fill="#F0FDF4"/>
-            <path d="M205 40 L213 48 L228 32" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'10px 12px',marginBottom:12}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#991B1B',marginBottom:4}}>Notificar NAO e reclamar!</div>
-            <div style={{fontSize:11,color:'#B91C1C',lineHeight:1.5}}>Notificacao e uma ferramenta de melhoria. Quando voce notifica, ajuda o hospital a corrigir processos e proteger outros pacientes.</div>
-          </div>
-          {[
-            {t:'O que voce pode notificar',d:'Queda, medicamento errado, falta de higiene, problema com identificacao, infeccao, qualquer coisa que te preocupe.'},
-            {t:'Como notificar',d:'Acesse o NotificaAI pelo celular, toque em + Nova Notificacao e responda as perguntas. Leva menos de 5 minutos.'},
-            {t:'Pode ser anonimo?',d:'Sim. Voce pode notificar sem se identificar. O importante e o relato do evento.'},
-            {t:'O que acontece depois?',d:'O NSP recebe o relato, investiga e toma medidas. Voce recebe um numero de protocolo para acompanhar.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#EF4444',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      id:'direitos',
-      titulo:'6. Seus direitos como paciente',
-      cor:'#0D9488',
-      icone:String.fromCodePoint(128196),
-      render:()=>(
-        <div style={{padding:'8px 4px'}}>
-          <svg width="100%" height="80" viewBox="0 0 320 80" style={{display:'block',marginBottom:12}}>
-            {/* Documento */}
-            <rect x="100" y="8" width="120" height="64" rx="6" fill="#F0FDFA" stroke="#0D9488" strokeWidth="1.5"/>
-            <rect x="110" y="18" width="100" height="4" rx="2" fill="#0D9488" opacity="0.4"/>
-            <rect x="110" y="26" width="80" height="3" rx="1.5" fill="#94A3B8"/>
-            <rect x="110" y="32" width="90" height="3" rx="1.5" fill="#94A3B8"/>
-            <rect x="110" y="38" width="70" height="3" rx="1.5" fill="#94A3B8"/>
-            <rect x="110" y="44" width="85" height="3" rx="1.5" fill="#94A3B8"/>
-            <rect x="110" y="50" width="60" height="3" rx="1.5" fill="#94A3B8"/>
-            {/* Estrelas de qualidade */}
-            <text x="55" y="35" textAnchor="middle" fontSize="22">⭐</text>
-            <text x="265" y="35" textAnchor="middle" fontSize="22">⭐</text>
-            {/* Verificacao */}
-            <circle cx="195" cy="62" r="10" fill="#0D9488"/>
-            <path d="M190 62 L194 66 L202 56" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          {[
-            {t:'Ser tratado com dignidade',d:'Voce tem direito a atendimento respeitoso, sem discriminacao, com privacidade e sigilo das suas informacoes.'},
-            {t:'Receber informacoes claras',d:'Todo procedimento, medicamento e diagnostico deve ser explicado em linguagem que voce entenda. Pergunte sempre que tiver duvida.'},
-            {t:'Consentir ou recusar',d:'Voce tem direito de consentir ou recusar procedimentos. Exceto em emergencias que risco sua vida, nada deve ser feito sem seu acordo.'},
-            {t:'Ter acompanhante',d:'Nos termos da lei, voce tem direito a acompanhante durante a internacao. Converse com a equipe sobre as regras do setor.'},
-            {t:'Fazer perguntas',d:'Questionar faz parte da sua seguranca. Nenhuma pergunta e bobagem quando o assunto e a sua saude.'},
-          ].map((item,i)=>(
-            <div key={i} style={{display:'flex',gap:10,marginBottom:10}}>
-              <div style={{width:24,height:24,borderRadius:'50%',background:'#0D9488',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:800,flexShrink:0}}>{i+1}</div>
-              <div><div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{item.t}</div>
-              <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{item.d}</div></div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-  ];
-
-  const pag=PAGINAS[pagina];
-  const isUltima=pagina===PAGINAS.length-1;
-  const isPrimeira=pagina===0;
-  const corAtual=pag.cor||'#0D9488';
-
-  return(<div>
-    {/* Barra de progresso */}
-    {!isPrimeira&&<div style={{display:'flex',gap:4,padding:'0 0 12px'}}>
-      {PAGINAS.slice(1).map((_,i)=>(
-        <div key={i} onClick={()=>setPagina(i+1)}
-          style={{flex:1,height:3,borderRadius:2,background:i<pagina?corAtual:C.border,cursor:'pointer',transition:'background 0.2s'}}/>
-      ))}
-    </div>}
-
-    {/* Header da página (exceto capa) */}
-    {!isPrimeira&&pag.titulo&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-      <div style={{width:36,height:36,borderRadius:10,background:corAtual+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{pag.icone}</div>
-      <div style={{fontSize:14,fontWeight:800,color:C.text,lineHeight:1.2}}>{pag.titulo}</div>
-    </div>}
-
-    {/* Conteúdo da página */}
-    {pag.render()}
-
-    {/* Navegação */}
-    <div style={{display:'flex',gap:8,marginTop:16}}>
-      {!isPrimeira&&<button onClick={()=>setPagina(p=>p-1)}
-        style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'11px',color:C.muted,fontSize:13,fontWeight:700,cursor:'pointer'}}>
-        ← Anterior
-      </button>}
-      {!isUltima?
-        <button onClick={()=>setPagina(p=>p+1)}
-          style={{flex:isPrimeira?1:2,background:corAtual,border:'none',borderRadius:12,padding:'11px',color:'#fff',fontSize:13,fontWeight:800,cursor:'pointer'}}>
-          {isPrimeira?'Comecar '+ String.fromCodePoint(8594):'Proximo '+ String.fromCodePoint(8594)}
-        </button>
-        :
-        <div style={{flex:2,background:'#0D9488'+'22',border:'1px solid #0D9488',borderRadius:12,padding:'11px',color:'#0D9488',fontSize:12,fontWeight:700,textAlign:'center'}}>
-          {String.fromCodePoint(9989)} Voce concluiu a cartilha!
-        </div>
-      }
-    </div>
-  </div>);
-}
 
 function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   const [selected,setSelected]=useState(null);
@@ -4375,7 +4034,6 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
       {item.type==='pdf'&&item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{display:'block',background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:12,padding:16,textAlign:'center',color:C.teal,fontWeight:700,fontSize:14,textDecoration:'none'}}>Doc Abrir documento oficial (ANVISA)</a>}
       {item.type==='cards'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+item.color,borderRadius:12,padding:14}}><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div>)}
       {item.type==='steps'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{fontSize:26,fontWeight:900,color:item.color,minWidth:32}}>{c.step}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
-        {item.type==='cartilha'&&<CartilhaPaciente/>}
       {item.type==='metas'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{minWidth:36,height:36,borderRadius:18,background:item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#06101F'}}>{c.num}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
     </div>
   </div>);

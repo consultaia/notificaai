@@ -751,15 +751,28 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
           {tb('porques','5 Porquês')}{tb('ishikawa','Ishikawa')}{tb('fatores','Fatores')}{tb('plano','Plano')}
         </div>
-        {tab==='porques'&&rca.cinco_porques?.map((p,i)=>(
-          <div key={i} style={{display:'grid',gridTemplateColumns:'36px 1fr',gap:10,alignItems:'flex-start',marginBottom:12}}>
-            <div style={{width:36,height:36,borderRadius:'50%',background:C.card,border:'1px solid '+C.border,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'monospace',fontSize:13,color:C.teal}}>P{i+1}</div>
-            <div>
-              <div style={{fontSize:10,color:C.muted,marginBottom:4,textTransform:'uppercase'}}>{p.pergunta}</div>
-              <div style={{fontSize:13,color:C.text,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',lineHeight:1.5}}>{p.resposta}</div>
+        {tab==='porques'&&(<div>
+          {rca.cinco_porques?.map((p,i)=>(
+            <div key={i} style={{display:'grid',gridTemplateColumns:'36px 1fr',gap:10,alignItems:'flex-start',marginBottom:12}}>
+              <div style={{width:36,height:36,borderRadius:'50%',background:C.card,border:'1px solid '+C.border,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'monospace',fontSize:13,color:C.teal}}>P{i+1}</div>
+              <div>
+                <input
+                  value={p.pergunta}
+                  onChange={e=>{const n=[...rca.cinco_porques];n[i]={...n[i],pergunta:e.target.value};setRca(r=>({...r,cinco_porques:n}));}}
+                  style={{fontSize:10,color:C.muted,background:'transparent',border:'none',borderBottom:'1px solid '+C.border+'66',width:'100%',marginBottom:4,padding:'1px 2px',outline:'none',textTransform:'uppercase'}}
+                />
+                <textarea
+                  value={p.resposta}
+                  onChange={e=>{const n=[...rca.cinco_porques];n[i]={...n[i],resposta:e.target.value};setRca(r=>({...r,cinco_porques:n}));}}
+                  rows={2}
+                  style={{fontSize:13,color:C.text,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',lineHeight:1.5,width:'100%',resize:'vertical',outline:'none',fontFamily:'inherit'}}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+          <button onClick={()=>setRca(r=>({...r,cinco_porques:[...(r.cinco_porques||[]),{pergunta:'Por que isso ocorreu?',resposta:''}]}))}
+            style={{width:'100%',background:'none',border:'1px dashed '+C.teal+'66',borderRadius:8,padding:'6px',color:C.teal,fontSize:11,cursor:'pointer',marginTop:4}}>+ Por quê</button>
+        </div>)}
         {tab==='ishikawa'&&rca.ishikawa?.map((cat,i)=>(
           <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8}}>
             <div style={{fontSize:11,fontWeight:700,color:cat.cor,marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
@@ -792,20 +805,67 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
             }} style={{background:'none',border:'1px dashed '+cat.cor+'66',borderRadius:6,padding:'3px 10px',color:cat.cor,fontSize:11,cursor:'pointer',marginTop:4,width:'100%'}}>+ causa</button>
           </div>
         ))}
-        {tab==='fatores'&&rca.fatores?.map((f,i)=>(
-          <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'flex',gap:10}}>
-            <span style={{fontSize:20}}>{f.icone}</span>
-            <div><div style={{fontSize:11,color:C.muted,fontWeight:700}}>{f.tipo}</div><div style={{fontSize:12,color:C.text,marginTop:3,lineHeight:1.5}}>{f.descricao}</div></div>
-          </div>
-        ))}
-        {tab==='plano'&&(<div>
-          {rca.plano?.map((a,i)=>(
-            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'grid',gridTemplateColumns:'1fr auto auto',gap:8,alignItems:'center'}}>
-              <div style={{fontSize:12,color:C.text}}>{a.acao}</div>
-              <div style={{fontSize:10,color:C.teal,background:C.teal+'15',borderRadius:20,padding:'2px 8px',whiteSpace:'nowrap'}}>👤 {a.responsavel}</div>
-              <div style={{fontSize:10,color:C.muted,fontFamily:'monospace',whiteSpace:'nowrap'}}>⏱ {a.prazo}</div>
+        {tab==='fatores'&&(<div>
+          {rca.fatores?.map((f,i)=>(
+            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8,display:'flex',gap:10,alignItems:'flex-start'}}>
+              <span style={{fontSize:20,flexShrink:0}}>{f.icone}</span>
+              <div style={{flex:1}}>
+                <input
+                  value={f.tipo}
+                  onChange={e=>{const n=[...rca.fatores];n[i]={...n[i],tipo:e.target.value};setRca(r=>({...r,fatores:n}));}}
+                  style={{fontSize:11,color:C.muted,fontWeight:700,background:'transparent',border:'none',borderBottom:'1px solid '+C.border+'66',width:'100%',marginBottom:4,padding:'1px 2px',outline:'none'}}
+                />
+                <textarea
+                  value={f.descricao}
+                  onChange={e=>{const n=[...rca.fatores];n[i]={...n[i],descricao:e.target.value};setRca(r=>({...r,fatores:n}));}}
+                  rows={2}
+                  style={{fontSize:12,color:C.text,background:'transparent',border:'none',borderBottom:'1px solid '+C.border+'66',width:'100%',resize:'vertical',outline:'none',fontFamily:'inherit',lineHeight:1.5}}
+                />
+              </div>
+              <button onClick={()=>setRca(r=>({...r,fatores:r.fatores.filter((_,k)=>k!==i)}))}
+                style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
             </div>
           ))}
+          <button onClick={()=>setRca(r=>({...r,fatores:[...(r.fatores||[]),{icone:String.fromCodePoint(128203),tipo:'Novo fator',descricao:''}]}))}
+            style={{width:'100%',background:'none',border:'1px dashed '+C.teal+'66',borderRadius:8,padding:'6px',color:C.teal,fontSize:11,cursor:'pointer',marginTop:4}}>+ Fator</button>
+        </div>)}
+        {tab==='plano'&&(<div>
+          {rca.plano?.map((a,i)=>(
+            <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Ação {i+1}</div>
+                <button onClick={()=>setRca(r=>({...r,plano:r.plano.filter((_,k)=>k!==i)}))}
+                  style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:13}}>✕</button>
+              </div>
+              <textarea
+                value={a.acao}
+                onChange={e=>{const n=[...rca.plano];n[i]={...n[i],acao:e.target.value};setRca(r=>({...r,plano:n}));}}
+                rows={2}
+                placeholder="Descreva a ação corretiva..."
+                style={{width:'100%',fontSize:12,color:C.text,background:'transparent',border:'none',borderBottom:'1px solid '+C.border,resize:'vertical',outline:'none',fontFamily:'inherit',lineHeight:1.5,marginBottom:8}}
+              />
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                <div>
+                  <div style={{fontSize:9,color:C.muted,marginBottom:2}}>RESPONSÁVEL</div>
+                  <input
+                    value={a.responsavel}
+                    onChange={e=>{const n=[...rca.plano];n[i]={...n[i],responsavel:e.target.value};setRca(r=>({...r,plano:n}));}}
+                    style={{width:'100%',fontSize:11,color:C.teal,background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:6,padding:'4px 8px',outline:'none'}}
+                  />
+                </div>
+                <div>
+                  <div style={{fontSize:9,color:C.muted,marginBottom:2}}>PRAZO</div>
+                  <input
+                    value={a.prazo}
+                    onChange={e=>{const n=[...rca.plano];n[i]={...n[i],prazo:e.target.value};setRca(r=>({...r,plano:n}));}}
+                    style={{width:'100%',fontSize:11,color:C.muted,background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'4px 8px',outline:'none',fontFamily:'monospace'}}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+          <button onClick={()=>setRca(r=>({...r,plano:[...(r.plano||[]),{acao:'',responsavel:'NSP',prazo:'30 dias'}]}))}
+            style={{width:'100%',background:'none',border:'1px dashed '+C.teal+'66',borderRadius:8,padding:'6px',color:C.teal,fontSize:11,cursor:'pointer',marginTop:4}}>+ Ação</button>
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
             {saving?'Salvando...':String.fromCodePoint(10003)+' Finalizar e salvar RCA'}
           </button>

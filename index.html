@@ -1148,11 +1148,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
       {!showForm&&<button onClick={()=>setShowForm(true)} style={{width:'100%',background:C.teal+'15',border:'1px dashed '+C.teal,borderRadius:12,padding:'12px',color:C.teal,fontSize:13,fontWeight:700,cursor:'pointer',marginTop:4}}>+ Nova ação</button>}
 
-      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
-        <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>⚠ Para persistir o plano de ação, execute no Supabase SQL Editor:<br/>
-          <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ);</span>
-        </div>
-      </div>
+
     </div>
   </div>);
 }

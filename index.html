@@ -1326,7 +1326,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const [ano,mes]=mesRef.split('-').map(Number);
       const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
 
       const pdU=Number(pdUPG)||0;
       const pdA=Number(pdAlaA)||0;
@@ -1718,7 +1718,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       const mesCorr=m===0?{a:ano-1,m:12}:{a:ano,m};
       const inicio=new Date(mesCorr.a,mesCorr.m-1,1).toISOString().slice(0,10);
       const fim=new Date(mesCorr.a,mesCorr.m,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
       const s=computeStats(nots);
       setDados({nots,s,inicio,fim,mesCorr,total:nots.length});
     }catch{showToast('Erro ao gerar relatório','error');}
@@ -1878,7 +1878,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000');
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000');
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificações','error');}
     setLoading(false);
@@ -1909,9 +1909,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
   const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
 
-  const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.is_test).length;
-  const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&!n.is_test).length;
-  const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&!n.is_test).length;
+  const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&n.is_test!==true).length;
+  const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&n.is_test!==true).length;
+  const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&n.is_test!==true).length;
 
   const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
 
@@ -2227,7 +2227,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const {inicio,fim,nums}=getSemestreDatas();
       const [nots,treinamentos,protocolos]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&select=*`),
+        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
       ]);
@@ -2499,7 +2499,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000'),
+      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000'),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
     ]).then(([nots,treins])=>{
       setNotifications(nots||[]);
@@ -2517,7 +2517,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
     const fim=new Date(ano,mes,0).toISOString().slice(0,10);
     sbSelect(sbUrl,sbKey,'notifications',
-      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`
+      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
     ).then(d=>setNotsMes(d||[])).catch(()=>[]).finally(()=>setLoadingMes(false));
   },[mesSel,sbUrl,sbKey]);
 
@@ -4035,7 +4035,7 @@ function ListaMensal({sbUrl,sbKey,onSelect}) {
       const ultimoDia=new Date(ano,mes,0).getDate();
       const fim=`${ano}-${mesStr}-${ultimoDia}`;
       const data=await sbSelect(sbUrl,sbKey,'notifications',
-        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=eq.false&order=event_date.asc&limit=200`);
+        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
       setNots(data||[]);
     }catch(e){setNots([]);}
     setLoading(false);
@@ -4289,11 +4289,11 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   };
   const clearTests=async()=>{
     if(!confirmClear){setConfirmClear(true);setTimeout(()=>setConfirmClear(false),2000);return;}
-    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>!n.is_test));showToast('OK Testes limpos','success');setConfirmClear(false);}
+    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>n.is_test!==true));showToast('OK Testes limpos','success');setConfirmClear(false);}
     catch{showToast('Erro','error');}
   };
 
-  const filtered=notifications.filter(n=>filterTest==='test'?n.is_test:filterTest==='prod'?!n.is_test:true);
+  const filtered=notifications.filter(n=>filterTest==='test'?n.is_test:filterTest==='prod'?n.is_test!==true:true);
   const testCount=notifications.filter(n=>n.is_test).length;
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
 
@@ -4413,7 +4413,7 @@ function NotificaAI() {
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
   const [nspEmail,setNspEmail]=useState('');
-  const [testMode,setTestMode]=useState(true);
+  const [testMode,setTestMode]=useState(false);
   const [hospital,setHospital]=useState(DEFAULT_HOSPITAL);
 
   const HNSA={

@@ -1878,7 +1878,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=500');
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=eq.false&order=created_at.desc&limit=2000');
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificações','error');}
     setLoading(false);
@@ -3418,10 +3418,13 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [loadingNarr,setLoadingNarr]=useState(false);
   const [stats,setStats]=useState(null);
   const [rawData,setRawData]=useState([]);
+  const hoje2=new Date();
+  const [dateFrom,setDateFrom]=useState(()=>{const d=new Date();d.setDate(1);return d.toISOString().slice(0,10);});
+  const [dateTo,setDateTo]=useState(()=>new Date().toISOString().slice(0,10));
 
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
-    sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=500')
+    sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=2000')
       .then(data=>{setStats(computeStats(data));setRawData(data||[]);})
       .catch(()=>showToast('Erro ao carregar analytics','error'));
   },[sbUrl,sbKey]);
@@ -3432,7 +3435,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   
 
   const byMonth=Array.from({length:12},(_,i)=>{
-    const items=rawData.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===new Date().getFullYear()&&d.getMonth()===i;});
+    const anoAtual=new Date().getFullYear();const items=rawData.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===anoAtual&&d.getMonth()===i;});
     return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:items.filter(n=>n.notification_type==='ccih').length,adm:items.filter(n=>n.notification_type==='administrativa').length};
   });
   const totalAno=byMonth.reduce((acc,m)=>acc+m.total,0);
@@ -4271,7 +4274,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=200');setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=1000');setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };

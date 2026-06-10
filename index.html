@@ -341,10 +341,11 @@ function PieChart({data,size=160}) {
     </div>
   </div>);
 }
-function HeatCell({value}) {
-  const t=Math.min((value||0)/8,1);
-  const bg=t<0.12?C.surface:t<0.35?'#0E3D5B':t<0.6?'#0369A1':t<0.8?'#0891B2':C.teal;
-  return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,color:t>0.55?'#06101F':C.muted,border:'1px solid '+C.border}}>{value||0}</div>);
+function HeatCell({value,maxVal}) {
+  const t=maxVal>0?Math.min((value||0)/maxVal,1):0;
+  const bg=t===0?C.surface:t<0.2?'#D1FAE5':t<0.4?'#6EE7B7':t<0.6?'#FCD34D':t<0.8?'#F97316':'#EF4444';
+  const tc=t===0?C.muted:t<0.4?'#065F46':t<0.6?'#78350F':'#fff';
+  return(<div style={{background:bg,borderRadius:6,height:40,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:tc}}>{value||0}</div>);
 }
 
 // --- CONFIG PANEL ----------------------------------------------------------
@@ -1797,8 +1798,8 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
                   ['Segurança do Paciente',dados.s.sp,dados.total?Math.round(dados.s.sp/dados.total*100)+'%':'-'],
                   ['CCIH / Infecções',dados.s.ccih,dados.total?Math.round(dados.s.ccih/dados.total*100)+'%':'-'],
                   ['Administrativa',dados.s.adm,dados.total?Math.round(dados.s.adm/dados.total*100)+'%':'-'],
-                  ['Eventos sentinela',dados.s.sentinela,dados.total?Math.round(dados.s.sentinela/dados.total*100)+'%':'-'],
-                  ['Near miss',dados.s.semRCA||0,dados.total?'-':'-'],
+                  ['Eventos sentinela',dados.sf.sentinela,dados.total?Math.round(dados.sf.sentinela/dados.total*100)+'%':'-'],
+                  ['Near miss',dados.sf.semRCA||0,dados.total?'-':'-'],
                 ].map(([l,v,p])=><tr key={l}><td style={{border:'1px solid #ddd',padding:'5px 10px'}}>{l}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',fontWeight:700,textAlign:'center'}}>{v}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',textAlign:'center',color:'#666'}}>{p}</td></tr>)}
               </tbody>
             </table>
@@ -1917,22 +1918,13 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
   const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'};
 
-  return(<div style={{padding:'0 0 80px'}}>
+  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);updateNot(rcaTarget.id,{rca_gerado:true});}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);updateNot(notiVisaTarget.id,{notivisa_enviado:true});}}/>}
     {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={n=>updateNot(n.id,{risco_classificacao:n.risco_classificacao,risco_score:n.risco_score})}/>}
     {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setPlanoTarget(null)}/>}
-
-    {/* Header */}
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-      <div>
-        <div style={{fontSize:17,fontWeight:900,color:C.text}}>Notificacoes</div>
-        <div style={{fontSize:11,color:C.muted}}>{filtered.length} resultado(s) de {notifications.length} total</div>
-      </div>
-      <button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
-    </div>
 
     {/* Cards de resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
@@ -2117,7 +2109,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
 
-  return(<div style={{padding:'0 0 80px'}}>
+  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     <BackHeader title='Treinamentos e Reunioes' subtitle={filtered.length+' registro(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
@@ -2275,7 +2267,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const {label,meses,nums}=getSemestreDatas();
   const tb=(id,l)=><button onClick={()=>setTab(id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:tab===id?C.teal:'transparent',color:tab===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>;
 
-  return(<div style={{padding:'0 0 80px'}}>
+  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
@@ -2381,7 +2373,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           <table>
             <thead><tr><th>Indicador</th><th>Quantidade</th><th>Observacao</th></tr></thead>
             <tbody>
-              <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
+              <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dadosf.sentinela>0?'#dc2626':'#059669'}}>{dadosf.sentinela}</td><td>{dadosf.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
               <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
               <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
               <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
@@ -2588,9 +2580,9 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     </div>
 
     {/* Dias sem sentinela */}
-    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
+    {sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:36,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
       <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
@@ -2833,24 +2825,24 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Indicadores NSP */}
     {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:s.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:s.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
+      <div style={{background:C.card,border:'1px solid '+(sf.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:sf.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:sf.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
+        <div style={{fontSize:20,fontWeight:900,color:sf.sentinela>0?C.red:C.muted}}>{sf.sentinela}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
+      <div style={{background:C.card,border:'1px solid '+(sf.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div style={{fontSize:20,fontWeight:900,color:sf.semRCA>0?C.yellow:C.muted}}>{sf.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
+      <div style={{background:C.card,border:'1px solid '+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div style={{fontSize:20,fontWeight:900,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red}}>{sf.culturaScore}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Maturidade</div>
       </div>
     </div>}
 
     {/* Dias sem sentinela */}
-    {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
+    {gestorMode&&sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:32,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
     {/* Botão notificar */}
@@ -3430,6 +3422,8 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   },[sbUrl,sbKey]);
 
   const s=stats||{sectorData:MOCK_SECTORS,typeData:MOCK_TYPES,heatmap:MOCK_HEATMAP,monthly:MOCK_MONTHLY,total:0,heatmapPeak:null,culturaScore:0,ratioNM:0,txC:0,nSets:0,diasSemSentinela:null};
+  const filteredStats=React.useMemo(()=>filtered.length?computeStats(filtered):null,[filtered]);
+  const sf=filteredStats||s;
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const anos=[...new Set(rawData.map(n=>new Date(n.created_at).getFullYear()))].sort((a,b)=>b-a);
   
@@ -3483,8 +3477,8 @@ TOTAL DE NOTIFICACOES DO PERIODO: ${filtered.length}
 
 DISTRIBUICAO POR SETOR: ${fSetorCount.map(([k,v])=>k+' ('+v+')').join('; ')||'nao disponivel'}
 SUBTIPOS MAIS FREQUENTES: ${fSubtipoCount.slice(0,5).map(([k,v])=>k+' ('+v+')').join(', ')||'nao disponivel'}
-INDICE DE MATURIDADE: ${s.culturaScore}/100
-DIAS SEM SENTINELA: ${s.diasSemSentinela??'nao disponivel'}
+INDICE DE MATURIDADE: ${sf.culturaScore}/100
+DIAS SEM SENTINELA: ${sf.diasSemSentinela??'nao disponivel'}
 
 INSTRUCOES:
 - Use siglas tecnicas normalmente: SNE, SNG, AVP, CCIH, ITU, PAV, ISC, IPCS, LPP, RCA, NIP. Nao traduza nem explique siglas clinicas.
@@ -3518,15 +3512,15 @@ ESTRUTURA:
         <div style={{display:'flex',gap:14,marginBottom:10}}>
           {[['SP',C.teal],['Adm',C.purple]].map(([l,c])=><div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.muted}}><div style={{width:10,height:10,borderRadius:2,background:c}}/>{l}</div>)}
         </div>
-        <LineChart data={s.monthly?.length?s.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={150}/>
+        <LineChart data={sf.monthly?.length?sf.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={150}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Eventos por Setor</div>
-        <BarChart data={s.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={150}/>
+        <BarChart data={sf.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={150}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição por Tipo</div>
-        <PieChart data={s.typeData} size={180}/>
+        <PieChart data={sf.typeData} size={180}/>
       </div>
     </div>}
 
@@ -3536,19 +3530,19 @@ ESTRUTURA:
       <div style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr)',gap:3,marginBottom:4}}>
         <div/>{DIAS.map(d=><div key={d} style={{textAlign:'center',fontSize:10,color:C.muted,fontWeight:700}}>{d}</div>)}
       </div>
-      {s.heatmap.map(row=>(
+      {sf.heatmap.map(row=>(
         <div key={row.turno} style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr)',gap:3,marginBottom:3}}>
           <div style={{fontSize:10,color:C.muted,fontWeight:700,display:'flex',alignItems:'center'}}>{row.turno}</div>
-          {row.v.map((val,i)=><HeatCell key={i} value={val}/>)}
+          {(()=>{const maxV=Math.max(...(sf.heatmap||[]).flatMap(r=>r.v));return row.v.map((val,i)=><HeatCell key={i} value={val} maxVal={maxV}/>);})()}
         </div>
       ))}
-      {s.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.red}}>
+      {sf.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.red}}>
         <div style={{fontSize:12,fontWeight:700,color:C.text}}>Atencao Ponto crítico identificado</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {s.heatmapPeak.turno} de {s.heatmapPeak.dia} - {s.heatmapPeak.val} evento(s). Atenção recomendada.</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {sf.heatmapPeak.turno} de {sf.heatmapPeak.dia} - {sf.heatmapPeak.val} evento(s). Atenção recomendada.</div>
       </div>}
       <div style={{display:'flex',alignItems:'center',gap:8,marginTop:14,justifyContent:'center'}}>
         <span style={{fontSize:10,color:C.muted}}>Menos</span>
-        {[C.surface,'#0E3D5B','#0369A1','#0891B2',C.teal].map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:'1px solid '+C.border}}/>)}
+        {['#D1FAE5','#6EE7B7','#FCD34D','#F97316','#EF4444'].map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:'1px solid '+C.border}}/>)}
         <span style={{fontSize:10,color:C.muted}}>Mais</span>
       </div>
     </div>}
@@ -3565,23 +3559,23 @@ ESTRUTURA:
           Indicador operacional interno - mede a maturidade do <strong style={{color:C.text}}>sistema de notificação</strong>, não a cultura de segurança clínica (que exige instrumentos validados como SAQ ou HSOPSC).
         </div>
         <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:14}}>
-          <div style={{width:72,height:72,borderRadius:'50%',background:'conic-gradient('+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+' '+(s.culturaScore*3.6)+'deg,'+C.border+' 0deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <div style={{width:72,height:72,borderRadius:'50%',background:'conic-gradient('+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red)+' '+(sf.culturaScore*3.6)+'deg,'+C.border+' 0deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
             <div style={{width:56,height:56,borderRadius:'50%',background:C.card,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
-              <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red,lineHeight:1}}>{s.culturaScore}</div>
+              <div style={{fontSize:20,fontWeight:900,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red,lineHeight:1}}>{sf.culturaScore}</div>
               <div style={{fontSize:8,color:C.muted,fontWeight:700}}>pts</div>
             </div>
           </div>
           <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:800,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red,marginBottom:4}}>
-              {s.culturaScore>=70?'verde Maturidade avançada':s.culturaScore>=40?'amarelo Em desenvolvimento':'vermelho Estágio inicial'}
+            <div style={{fontSize:15,fontWeight:800,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red,marginBottom:4}}>
+              {sf.culturaScore>=70?'verde Maturidade avançada':sf.culturaScore>=40?'amarelo Em desenvolvimento':'vermelho Estágio inicial'}
             </div>
             <div style={{fontSize:11,color:C.muted,lineHeight:1.6}}>
-              {s.culturaScore>=70?'Sistema de notificação consolidado. Near miss sendo reportado, ciclos fechados, boa abrangência setorial.':s.culturaScore>=40?'Sistema em evolução. Há oportunidades de melhoria na taxa de near miss e no fechamento dos ciclos.':'Sistema inicial. Foco em incentivar notificações de near miss e fechar ciclos das ocorrências registradas.'}
+              {sf.culturaScore>=70?'Sistema de notificação consolidado. Near miss sendo reportado, ciclos fechados, boa abrangência setorial.':sf.culturaScore>=40?'Sistema em evolução. Há oportunidades de melhoria na taxa de near miss e no fechamento dos ciclos.':'Sistema inicial. Foco em incentivar notificações de near miss e fechar ciclos das ocorrências registradas.'}
             </div>
           </div>
         </div>
         <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
-          <div style={{width:s.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3,transition:'width .6s'}}/>
+          <div style={{width:sf.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3,transition:'width .6s'}}/>
         </div>
         <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:C.muted,marginBottom:16}}>
           <span>Inicial (0)</span><span>Desenvolvimento (40)</span><span>Avançado (70+)</span>
@@ -3619,9 +3613,9 @@ ESTRUTURA:
       </div>
 
       {/* Dias sem sentinela */}
-      {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'16px',textAlign:'center'}}>
-        <div style={{fontSize:40,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-        <div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow,marginTop:6}}>dias sem evento sentinela</div>
+      {sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'16px',textAlign:'center'}}>
+        <div style={{fontSize:40,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
+        <div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow,marginTop:6}}>dias sem evento sentinela</div>
         <div style={{fontSize:11,color:C.muted,marginTop:4}}>Meta ONA: 90 dias contínuos</div>
       </div>}
     </div>}
@@ -3892,7 +3886,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
     <div style={{fontSize:13,color:C.muted,maxWidth:260}}>Faça login para abrir ou visualizar chamados operacionais.</div>
   </div>);
 
-  return(<div style={{padding:'0 0 80px'}}>
+  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     <BackHeader title='Chamados' subtitle={filtered.length+' chamado(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>

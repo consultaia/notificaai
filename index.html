@@ -905,7 +905,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)}+' Formulário Notivisa</div>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)+' Formulario Notivisa'}</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{display:'flex',background:C.card,borderRadius:8,padding:2,gap:2,marginBottom:14}}>
@@ -1158,7 +1158,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)}+' Plano de Ação</div>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)+' Plano de Acao'}</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.blue,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
@@ -1930,7 +1930,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     try{
       const patch={
         notification_type:editForm.notification_type,
-        event_subtype:editForm.event_subtype||null,
+        event_subtype:editForm.event_subtype||editTarget.event_subtype||null,
         sector:editForm.sector||editTarget.sector,
         gravidade:editForm.gravidade||editTarget.gravidade||null,
       };
@@ -2025,12 +2025,13 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
           <option value="">-- Selecione --</option>
+          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Acidente com perfurocortante','Outro','Seguranca Organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
           {editForm.notification_type==='seguranca_paciente'&&[
             'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
-            'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro'
+            'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Acidente com perfurocortante','Outro'
           ].map(v=><option key={v} value={v}>{v}</option>)}
           {editForm.notification_type==='administrativa'&&[
-            'Seguranca organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
+            'Seguranca Organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
             'Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao','Outro'
           ].map(v=><option key={v} value={v}>{v}</option>)}
           {editForm.notification_type==='ccih'&&[
@@ -2194,7 +2195,7 @@ const SUBNUCLEOS_HNSA=[
   {id:'identificacao',label:'Identificacao Correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
   {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
   {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
-  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(128657),color:'#10B981'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
 ];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {

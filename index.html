@@ -2252,48 +2252,6 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,maxHeight:'80vh',overflowY:'auto'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:800,color:C.text}}>Corrigir notificacao</div>
-          <button onClick={()=>setEditTarget(null)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer'}}>x</button>
-        </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Notificacao: {editTarget.description?.slice(0,50)||'sem descricao'}</div>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Tipo</label>
-        <select value={editForm.notification_type||''} onChange={e=>setEditForm(f=>({...f,notification_type:e.target.value,event_subtype:''}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="seguranca_paciente">Seguranca do Paciente (SP)</option>
-          <option value="administrativa">Administrativa</option>
-          <option value="ccih">CCIH / Infeccao Hospitalar</option>
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Subtipo</label>
-        <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="">-- Selecione --</option>
-          {editForm.notification_type==='seguranca_paciente'&&[
-            'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
-            'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='administrativa'&&[
-            'Seguranca organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
-            'Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='ccih'&&[
-            'ITU','PAV','ISC','IPCS','Outro foco'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Setor</label>
-        <select value={editForm.sector||''} onChange={e=>setEditForm(f=>({...f,sector:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:16,appearance:'none'}}>
-          <option value="">-- Manter atual ({editTarget.sector||'nao informado'}) --</option>
-          {h.sectors.map(sec=><option key={sec} value={sec}>{sec}</option>)}
-        </select>
-        <button onClick={salvarEdicao} disabled={salvandoEdit||!editForm.notification_type}
-          style={{width:'100%',background:salvandoEdit||!editForm.notification_type?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
-          {salvandoEdit?'Salvando...':'Salvar correcao'}
-        </button>
-      </div>
-    </div>}
     <BackHeader title='Treinamentos e Reunioes' subtitle={filtered.length+' registro(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
@@ -2453,48 +2411,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,maxHeight:'80vh',overflowY:'auto'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:800,color:C.text}}>Corrigir notificacao</div>
-          <button onClick={()=>setEditTarget(null)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer'}}>x</button>
-        </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Notificacao: {editTarget.description?.slice(0,50)||'sem descricao'}</div>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Tipo</label>
-        <select value={editForm.notification_type||''} onChange={e=>setEditForm(f=>({...f,notification_type:e.target.value,event_subtype:''}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="seguranca_paciente">Seguranca do Paciente (SP)</option>
-          <option value="administrativa">Administrativa</option>
-          <option value="ccih">CCIH / Infeccao Hospitalar</option>
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Subtipo</label>
-        <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="">-- Selecione --</option>
-          {editForm.notification_type==='seguranca_paciente'&&[
-            'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
-            'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='administrativa'&&[
-            'Seguranca organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
-            'Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='ccih'&&[
-            'ITU','PAV','ISC','IPCS','Outro foco'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Setor</label>
-        <select value={editForm.sector||''} onChange={e=>setEditForm(f=>({...f,sector:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:16,appearance:'none'}}>
-          <option value="">-- Manter atual ({editTarget.sector||'nao informado'}) --</option>
-          {h.sectors.map(sec=><option key={sec} value={sec}>{sec}</option>)}
-        </select>
-        <button onClick={salvarEdicao} disabled={salvandoEdit||!editForm.notification_type}
-          style={{width:'100%',background:salvandoEdit||!editForm.notification_type?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
-          {salvandoEdit?'Salvando...':'Salvar correcao'}
-        </button>
-      </div>
-    </div>}
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
@@ -4131,48 +4047,6 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,maxHeight:'80vh',overflowY:'auto'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:800,color:C.text}}>Corrigir notificacao</div>
-          <button onClick={()=>setEditTarget(null)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer'}}>x</button>
-        </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Notificacao: {editTarget.description?.slice(0,50)||'sem descricao'}</div>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Tipo</label>
-        <select value={editForm.notification_type||''} onChange={e=>setEditForm(f=>({...f,notification_type:e.target.value,event_subtype:''}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="seguranca_paciente">Seguranca do Paciente (SP)</option>
-          <option value="administrativa">Administrativa</option>
-          <option value="ccih">CCIH / Infeccao Hospitalar</option>
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Subtipo</label>
-        <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="">-- Selecione --</option>
-          {editForm.notification_type==='seguranca_paciente'&&[
-            'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
-            'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='administrativa'&&[
-            'Seguranca organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
-            'Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao','Outro'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-          {editForm.notification_type==='ccih'&&[
-            'ITU','PAV','ISC','IPCS','Outro foco'
-          ].map(v=><option key={v} value={v}>{v}</option>)}
-        </select>
-        <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Setor</label>
-        <select value={editForm.sector||''} onChange={e=>setEditForm(f=>({...f,sector:e.target.value}))}
-          style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:16,appearance:'none'}}>
-          <option value="">-- Manter atual ({editTarget.sector||'nao informado'}) --</option>
-          {h.sectors.map(sec=><option key={sec} value={sec}>{sec}</option>)}
-        </select>
-        <button onClick={salvarEdicao} disabled={salvandoEdit||!editForm.notification_type}
-          style={{width:'100%',background:salvandoEdit||!editForm.notification_type?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
-          {salvandoEdit?'Salvando...':'Salvar correcao'}
-        </button>
-      </div>
-    </div>}
     <BackHeader title='Chamados' subtitle={filtered.length+' chamado(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>

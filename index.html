@@ -2906,7 +2906,12 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     if(!configured) return;
     setLoading(true);
     sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
-      .then(data=>{setStats(computeStats(data));setRecent(data.slice(0,6));})
+      .then(data=>{
+      setStats(computeStats(data));
+      const valid=data.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa');
+      const sorted=[...valid].sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
+      setRecent(sorted.slice(0,6));
+    })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
   },[sbUrl,sbKey,refreshKey]);

@@ -1940,7 +1940,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     try{
       const patch={
         notification_type:editForm.notification_type,
-        event_subtype:editForm.event_subtype||editTarget.event_subtype||null,
+        event_subtype:editForm.event_subtype||null,
+        occurrence_subtype:null,
         sector:editForm.sector||editTarget.sector,
         gravidade:editForm.gravidade||editTarget.gravidade||null,
       };
@@ -2183,7 +2184,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                     {n.patient_admission&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Data de admissao</div><div style={{fontSize:11,color:C.text}}>{new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')}</div></div>}
                     {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
-                      <button onClick={ev=>{ev.stopPropagation();setEditForm({notification_type:n.notification_type,event_subtype:n.event_subtype||'',sector:n.sector||''});setEditTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:6,cursor:'pointer',fontWeight:700}}>Corrigir tipo</button>
+                      <button onClick={ev=>{ev.stopPropagation();setEditForm({notification_type:n.notification_type,event_subtype:n.event_subtype||n.occurrence_subtype||'',sector:n.sector||''});setEditTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:6,cursor:'pointer',fontWeight:700}}>Corrigir tipo</button>
                   {isSP&&<button onClick={ev=>{ev.stopPropagation();setNotiVisaTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.teal,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Formulario Notivisa completo</button>}
                       {isSP&&<button onClick={ev=>{ev.stopPropagation();setPlanoTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.green+'20',color:C.green,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Plano de Acao</button>}
                       <button onClick={ev=>{ev.stopPropagation();deletar(n);}} disabled={deletando===n.id} style={{fontSize:10,padding:'5px 10px',background:C.red+'15',color:C.red,border:'1px solid '+C.red+'33',borderRadius:6,cursor:'pointer',fontWeight:700,marginLeft:'auto'}}>{deletando===n.id?'Excluindo...':'Excluir'}</button>

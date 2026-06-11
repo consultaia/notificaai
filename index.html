@@ -2857,24 +2857,24 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Indicadores NSP */}
     {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div style={{background:C.card,border:'1px solid '+(sf.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:sf.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:sf.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
-        <div style={{fontSize:20,fontWeight:900,color:sf.sentinela>0?C.red:C.muted}}>{sf.sentinela}</div>
+      <div style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:s.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:s.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
+        <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(sf.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-        <div style={{fontSize:20,fontWeight:900,color:sf.semRCA>0?C.yellow:C.muted}}>{sf.semRCA}</div>
+      <div style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-        <div style={{fontSize:20,fontWeight:900,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red}}>{sf.culturaScore}</div>
+      <div style={{background:C.card,border:'1px solid '+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+        <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Maturidade</div>
       </div>
     </div>}
 
     {/* Dias sem sentinela */}
-    {gestorMode&&sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:32,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
+    {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
     {/* Botão notificar */}

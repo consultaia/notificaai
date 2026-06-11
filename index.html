@@ -164,8 +164,8 @@ function computeStats(notifications) {
   const isPM=n=>{const d=new Date(n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
   const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
   const total=thisM.length,totalPrev=prevM.length;
-  const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente').length;
-  const ccih=thisM.filter(n=>n.notification_type==='ccih').length;
+  const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+  const ccih=0;
   const adm=thisM.filter(n=>n.notification_type==='administrativa').length;
   const sentinela=notifications.filter(n=>n.gravidade==='Evento sentinela').length;
   const semRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
@@ -196,8 +196,7 @@ function computeStats(notifications) {
     const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const label=d.toLocaleDateString('pt-BR',{month:'short'});
     if(!mm[k]) mm[k]={mes:label,sp:0,adm:0,ccih:0};
-    if(n.notification_type==='seguranca_paciente') mm[k].sp++;
-    else if(n.notification_type==='ccih') mm[k].ccih++;
+    if(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih') mm[k].sp++;
     else mm[k].adm++;
   });
   const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
@@ -1889,7 +1888,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 
 
 // --- ABA NOTIFICAÇÕES COMPLETA ------------------------------------------------
-function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
+function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -1928,7 +1927,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       await sbDelete(sbUrl,sbKey,'notifications','id=eq.'+n.id);
       setNotifications(prev=>prev.filter(x=>x.id!==n.id));
       setDetalhe(null);
-      showToast('Notificacao excluida','success');
+      showToast('Notificacao excluida','success');if(onMutate)onMutate();
     }catch{showToast('Erro ao excluir','error');}
     setDeletando(null);
   };
@@ -1947,7 +1946,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       setNotifications(prev=>prev.map(x=>x.id===editTarget.id?{...x,...patch}:x));
       setEditTarget(null);
       setDetalhe(null);
-      showToast('Notificacao atualizada!','success');
+      showToast('Notificacao atualizada!','success');if(onMutate)onMutate();
     }catch(err){showToast('Erro: '+(err?.message||'falha ao salvar'),'error');console.error('salvarEdicao:',err);}
     setSalvandoEdit(false);
   };
@@ -2368,7 +2367,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Notificacoes por mes
       const porMes=nums.map(m=>{
         const mes=nots.filter(n=>{const d=new Date(n.event_date+'T12:00:00');return d.getMonth()+1===m;});
-        return{m,total:mes.length,sp:mes.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:mes.filter(n=>n.notification_type==='ccih').length,quedas:mes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')).length,lpp:mes.filter(n=>n.event_subtype?.toLowerCase().includes('press')).length};
+        return{m,total:mes.length,sp:mes.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,quedas:mes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')).length,lpp:mes.filter(n=>n.event_subtype?.toLowerCase().includes('press')).length};
       });
 
       // Reunioes NSP
@@ -2392,7 +2391,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Protocolos
       const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
 
-      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:nots.filter(n=>n.notification_type==='ccih').length,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
@@ -2895,7 +2894,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
 
 // --- HOME VIEW --------------------------------------------------------------
-function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital}) {
+function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey}) {
   const [stats,setStats]=useState(null);
   const [recent,setRecent]=useState(MOCK_RECENT);
   const [loading,setLoading]=useState(false);
@@ -2908,11 +2907,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   useEffect(()=>{
     if(!configured) return;
     setLoading(true);
-    sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=2000')
+    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
       .then(data=>{setStats(computeStats(data));setRecent(data.slice(0,6));})
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
-  },[sbUrl,sbKey]);
+  },[sbUrl,sbKey,refreshKey]);
 
   const s=stats||{total:0,totalPrev:0,sp:0,ccih:0,adm:0,sentinela:0,semRCA:0,culturaScore:0,diasSemSentinela:null};
   const diff=s.total-(s.totalPrev||0);
@@ -3584,7 +3583,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
 
   const byMonth=Array.from({length:12},(_,i)=>{
     const anoAtual=new Date().getFullYear();const items=rawData.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===anoAtual&&d.getMonth()===i;});
-    return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente').length,ccih:items.filter(n=>n.notification_type==='ccih').length,adm:items.filter(n=>n.notification_type==='administrativa').length};
+    return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,adm:items.filter(n=>n.notification_type==='administrativa').length};
   });
   const totalAno=byMonth.reduce((acc,m)=>acc+m.total,0);
 const filtered=rawData.filter(n=>{
@@ -4565,6 +4564,8 @@ function NotificaAI() {
   const [nspEmail,setNspEmail]=useState('');
   const [testMode,setTestMode]=useState(false);
   const [hospital,setHospital]=useState(DEFAULT_HOSPITAL);
+  const [refreshKey,setRefreshKey]=useState(0);
+  const triggerRefresh=()=>setRefreshKey(k=>k+1);
 
   const HNSA={
     url:'https://lnzvkfbcpnfmfvbdafab.supabase.co',
@@ -4628,7 +4629,7 @@ function NotificaAI() {
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
       <div style={{flex:1,overflowY:'auto',paddingBottom:68}}>
-        {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital}/>}
+        {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey}/>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
@@ -4636,7 +4637,7 @@ function NotificaAI() {
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}

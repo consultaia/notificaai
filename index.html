@@ -99,7 +99,17 @@ async function sbReq(url,key,path,opts={}) {
 }
 const sbInsert=(u,k,tb,d)=>sbReq(u,k,`/${tb}`,{method:'POST',body:JSON.stringify(d)});
 const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
-const sbPatch=(u,k,tb,f,d)=>sbReq(u,k,`/${tb}?${f}`,{method:'PATCH',body:JSON.stringify(d),headers:{'Prefer':'return=minimal'}});
+async function sbPatch(u,k,tb,f,d){
+  console.log('[sbPatch] PATCH',tb,f,JSON.stringify(d));
+  const res=await fetch(u+'/rest/v1/'+tb+'?'+f,{
+    method:'PATCH',
+    headers:{'Content-Type':'application/json','apikey':k,'Authorization':'Bearer '+k,'Prefer':'return=minimal'},
+    body:JSON.stringify(d)
+  });
+  console.log('[sbPatch] status',res.status);
+  if(!res.ok){const t=await res.text();console.error('[sbPatch] erro',t);throw new Error('Supabase PATCH '+res.status+': '+t);}
+  return [];
+}
 const sbDelete=(u,k,tb,f)=>sbReq(u,k,`/${tb}?${f}`,{method:'DELETE'});
 
 // --- SHA-256 PIN -----------------------------------------------------------
@@ -1939,7 +1949,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
       setEditTarget(null);
       setDetalhe(null);
       showToast('Notificacao atualizada!','success');if(onMutate)onMutate();
-    }catch(err){showToast('Erro: '+(err?.message||'falha ao salvar'),'error');console.error('salvarEdicao:',err);}
+    }catch(err){console.error('[salvarEdicao] ERRO:',err);showToast('Erro: '+(err?.message||'falha ao salvar'),'error');}
     setSalvandoEdit(false);
   };
 

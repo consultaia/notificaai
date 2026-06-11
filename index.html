@@ -130,14 +130,14 @@ const PROFILES = {
 
 // --- HELPERS ---------------------------------------------------------------
 function formatTime(iso){
+  if(!iso) return '-';
   const diff=Date.now()-new Date(iso).getTime();
-  if(diff<3600000) return `${Math.floor(diff/60000)}min`;
+  if(diff<3600000) return Math.floor(diff/60000)+'min';
   if(diff<86400000) return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  return 'ontem';
+  return new Date(iso).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
 }
 function getTag(n){
-  if(n.notification_type==='seguranca_paciente') return{label:'SP',color:C.red};
-  if(n.notification_type==='ccih') return{label:'CCIH',color:C.yellow};
+  if(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih') return{label:'SP',color:C.red};
   return{label:'ADM',color:C.purple};
 }
 function getTitle(n){
@@ -1822,8 +1822,8 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
                   ['Total de notificações',dados.total,'100%'],
                   ['Segurança do Paciente',dados.s.sp,dados.total?Math.round(dados.s.sp/dados.total*100)+'%':'-'],
                   ['Administrativa',dados.s.adm,dados.total?Math.round(dados.s.adm/dados.total*100)+'%':'-'],
-                  ['Eventos sentinela',dados.sf.sentinela,dados.total?Math.round(dados.sf.sentinela/dados.total*100)+'%':'-'],
-                  ['Near miss',dados.sf.semRCA||0,dados.total?'-':'-'],
+                  ['Eventos sentinela',dados.s.sentinela,dados.total?Math.round(dados.s.sentinela/dados.total*100)+'%':'-'],
+                  
                 ].map(([l,v,p])=><tr key={l}><td style={{border:'1px solid #ddd',padding:'5px 10px'}}>{l}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',fontWeight:700,textAlign:'center'}}>{v}</td><td style={{border:'1px solid #ddd',padding:'5px 10px',textAlign:'center',color:'#666'}}>{p}</td></tr>)}
               </tbody>
             </table>
@@ -2398,7 +2398,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
     const w=window.open('','_blank');
-    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+doc.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small><\/script></body></html>")
+    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+el.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small><\/script></body></html>")
     w.document.close();w.print();
   };
 
@@ -2512,7 +2512,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           <table>
             <thead><tr><th>Indicador</th><th>Quantidade</th><th>Observacao</th></tr></thead>
             <tbody>
-              <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dadosf.sentinela>0?'#dc2626':'#059669'}}>{dadosf.sentinela}</td><td>{dadosf.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
+              <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
               <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
               <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
               <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
@@ -2714,9 +2714,9 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     </div>
 
     {/* Dias sem sentinela */}
-    {sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:36,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
       <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
@@ -3000,7 +3000,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
             <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,textTransform:'capitalize'}}>{title}</div>
-              <div style={{fontSize:11,color:C.muted}}>{n.sector} · {formatTime(n.created_at)}</div>
+              <div style={{fontSize:11,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
             </div>
             {isSentinela&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700}}>Atencao SENTINELA</div>}
           </div>
@@ -4517,7 +4517,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
           {n.is_test&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700}}>TESTE</div>}
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:12,fontWeight:600,color:C.text,textTransform:'capitalize',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
-            <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.created_at)}</div>
+            <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
           </div>
           <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex'}}>
             <IconTrash size={14} color={deleting===n.id?C.muted:C.red}/>
@@ -4612,7 +4612,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconBook},{id:'relatorio_dsm',label:'DSM/ANVISA',icon:IconShield},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -4639,10 +4639,10 @@ function NotificaAI() {
         {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
-        {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
       </div>
 

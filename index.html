@@ -4452,20 +4452,20 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
     <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>Past</span>
+      <span style={{fontSize:22}}>{String.fromCodePoint(128190)}</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.purple}}>Importar histórico CSV</div><div style={{fontSize:11,color:C.muted}}>Carregue planilhas do Google Sheets</div></div>
       <IconChev size={16} color={C.purple}/>
     </button>
     <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:'1px solid '+C.blue+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-          <span style={{fontSize:22}}>{String.fromCodePoint(128190)}</span>
-      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatório Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatório PDF para a diretoria</div></div>
+      <span style={{fontSize:22}}>{String.fromCodePoint(128196)}</span>
+      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatorio Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatorio PDF para a diretoria</div></div>
       <IconChev size={16} color={C.blue}/>
     </button>
 
-          <span style={{fontSize:22}}>{String.fromCodePoint(128196)}</span>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12}}>
-        <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>List Notificações</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total · {testCount} teste</div></div>
-        <button onClick={loadNots} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}></button>
+        <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total</div></div>
+        <button onClick={loadNots} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:12}}>
         {[['all','Todas',notifications.length],['test','Teste',testCount],['prod','Prod',notifications.length-testCount]].map(([id,label,count])=>(
@@ -4473,16 +4473,16 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
         ))}
       </div>
       {testCount>0&&<button onClick={clearTests} style={{width:'100%',background:confirmClear?C.red:C.red+'22',border:'1px solid '+C.red+'55',borderRadius:10,padding:'10px',color:confirmClear?'#fff':C.red,fontWeight:700,fontSize:12,cursor:'pointer',marginBottom:12}}>
-        {confirmClear?`Atencao CLIQUE NOVAMENTE para excluir ${testCount} testes`:` Limpar ${testCount} notificações de teste`}
+        {confirmClear?'CLIQUE NOVAMENTE para excluir '+testCount+' testes':'Limpar '+testCount+' notificacoes de teste'}
       </button>}
       {loading&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Carregando...</div>}
-      {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificação</div>}
+      {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificacao</div>}
       {filtered.slice(0,20).map(n=>{const tag=getTag(n);const title=getTitle(n);return(
         <div key={n.id} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
           <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
           {n.is_test&&<div style={{background:C.yellow+'22',color:C.yellow,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700}}>TESTE</div>}
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontSize:12,fontWeight:600,color:C.text,textTransform:'capitalize',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
+            <div style={{fontSize:12,fontWeight:600,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
             <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
           </div>
           <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex'}}>

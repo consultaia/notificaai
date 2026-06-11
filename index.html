@@ -516,7 +516,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
 
   if(!sbUrl||!sbKey) return(
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{String.fromCodePoint(128272)}+' Usuários e PINs</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{String.fromCodePoint(128272)+' Usuários e PINs'}</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários. PINs locais ativos:<br/>
         {Object.entries(PROFILES).map(([k,p])=><span key={k} style={{display:'inline-block',background:p.color+'15',color:p.color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,margin:'2px'}}>{p.icon} {p.label}: {p.pin}</span>)}
       </div>
@@ -525,7 +525,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
 
   return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text}}>{String.fromCodePoint(128272)}+' Usuários e PINs</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.text}}>{String.fromCodePoint(128272)+' Usuários e PINs'}</div>
       <button onClick={()=>openForm()} style={{background:C.teal,border:'none',borderRadius:8,padding:'6px 12px',color:'#06101F',fontWeight:700,fontSize:12,cursor:'pointer'}}>+ Novo</button>
     </div>
     {showForm&&(
@@ -685,7 +685,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
-          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)}+' Importar {regs.length} registros</button>
+          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)+' Importar {regs.length} registros'}</button>
         </div>
       </div>);
     })()}
@@ -740,14 +740,14 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(129504)}+' Análise de Causa Raiz</div>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(129504)+' Análise de Causa Raiz'}</div>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.red,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
-      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{String.fromCodePoint(129504)}+' Analisar Causa Raiz com IA</button>}
+      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{String.fromCodePoint(129504)+' Analisar Causa Raiz com IA'}</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
@@ -1190,7 +1190,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
-                <span>{String.fromCodePoint(128100)}+' {a.responsavel}</span>
+                <span>{String.fromCodePoint(128100)+' {a.responsavel}'}</span>
                 <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
@@ -1609,11 +1609,11 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Alertas */}
     {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>{String.fromCodePoint(128308)}+' {vencidos.length} protocolo(s) com revisão vencida</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>{String.fromCodePoint(128308)+' {vencidos.length} protocolo(s) com revisão vencida'}</div>
       {vencidos.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · venceu em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
     {proximos60.length>0&&<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'12px 14px'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>{String.fromCodePoint(128993)}+' {proximos60.length} protocolo(s) vencem em 60 dias</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>{String.fromCodePoint(128993)+' {proximos60.length} protocolo(s) vencem em 60 dias'}</div>
       {proximos60.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · vence em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
 
@@ -2025,7 +2025,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
           <option value="">-- Selecione --</option>
-          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Acidente com perfurocortante','Outro','Seguranca Organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
+          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro','Seguranca Organica','Acidente de trabalho','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
           {editForm.notification_type==='seguranca_paciente'&&[
             'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
             'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Acidente com perfurocortante','Outro'
@@ -3308,6 +3308,8 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
     ],
     subtipo_adm:[
       {v:'Segurança orgânica',l:'Segurança orgânica'},
+{v:'Acidente de trabalho',l:'Acidente de trabalho'},
+{v:'Perfurocortante',l:'Acidente com perfurocortante'},
       {v:'Laboratório',l:'Laboratório'},
       {v:'Hotelaria / limpeza',l:'Hotelaria / limpeza'},
       {v:'Nutrição / dieta',l:'Nutrição / dieta'},
@@ -3843,8 +3845,8 @@ ESTRUTURA:
 
 // --- TICKETS -----------------------------------------------------------------
 const TICKET_TYPES=[
-  {id:'manutencao',label:'Manutencao / DSG',icon:String.fromCodePoint(128295),color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, instalacoes, reparos'},
-  {id:'transporte',label:'Transporte / Ambulancia',icon:String.fromCodePoint(128657),color:'#EF4444',dest:'Transporte HNSA',desc:'Saida por ambulancia, transporte de paciente para unidade externa'},
+  {id:'manutencao',label:'Manutencao / DSG',icon:'wrench',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, instalacoes, reparos'},
+  {id:'transporte',label:'Transporte / Ambulancia',icon:'ambulancia',color:'#EF4444',dest:'Transporte HNSA',desc:'Saida por ambulancia, transporte de paciente para unidade externa'},
 ];
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
@@ -3902,7 +3904,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   return(<div style={{padding:'20px 16px'}}>
     <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}>←</button>
     <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-      <div style={{width:44,height:44,borderRadius:12,background:tt?.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{tt?.icon}</div>
+      <div style={{width:44,height:44,borderRadius:12,background:tt?.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{ticketEmoji(tt?.icon)}</div>
       <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{tt?.label}</div><div style={{fontSize:11,color:C.muted}}>-> {tt?.dest}</div></div>
     </div>
     <label style={lbl}>Setor de origem</label>
@@ -4592,7 +4594,7 @@ function NotificaAI() {
       input::placeholder{color:${C.muted}}::-webkit-scrollbar{width:3px}
       ::-webkit-scrollbar-thumb{background:${C.border};border-radius:2px}button:active{opacity:.85}
       select option{background:${C.card};color:${C.text}}`)}
-    <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
+    <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
         onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}

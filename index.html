@@ -1822,7 +1822,6 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
                 {[
                   ['Total de notificações',dados.total,'100%'],
                   ['Segurança do Paciente',dados.s.sp,dados.total?Math.round(dados.s.sp/dados.total*100)+'%':'-'],
-                  ['CCIH / Infecções',dados.s.ccih,dados.total?Math.round(dados.s.ccih/dados.total*100)+'%':'-'],
                   ['Administrativa',dados.s.adm,dados.total?Math.round(dados.s.adm/dados.total*100)+'%':'-'],
                   ['Eventos sentinela',dados.sf.sentinela,dados.total?Math.round(dados.sf.sentinela/dados.total*100)+'%':'-'],
                   ['Near miss',dados.sf.semRCA||0,dados.total?'-':'-'],
@@ -2695,7 +2694,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {label:'Quedas',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda')).length,cor:'#F59E0B'},
     {label:'Perda AVP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('avp')||n.event_subtype?.toLowerCase().includes('acesso')).length,cor:'#3B82F6'},
     {label:'LPP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')).length,cor:'#EF4444'},
-    {label:'Infecção (CCIH)',count:notsMes.filter(n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH')).length,cor:'#7C3AED'},
     {label:'Medicação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
     {label:'Identificação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
   ].filter(t=>t.count>0).sort((a,b)=>b.count-a.count);
@@ -2716,10 +2714,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       <StatCard icon={String.fromCodePoint(128202)} label="Total notificacoes" value={s.total} color={C.teal}/>
       <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={s.sp} color={C.red}/>
       <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={s.adm} color={C.purple}/>
-      {s.ccih>0&&<div style={{gridColumn:'span 3',background:'#7C3AED10',border:'1px solid #7C3AED33',borderRadius:10,padding:'6px 12px',display:'flex',alignItems:'center',gap:8}}>
-        <span style={{fontSize:14}}>{String.fromCodePoint(129440)}</span>
-        <span style={{fontSize:11,color:'#7C3AED',fontWeight:700}}>CCIH / Infecções: {s.ccih} notificações</span>
-      </div>}
     </div>
 
     {/* Dias sem sentinela */}
@@ -3837,14 +3831,13 @@ ESTRUTURA:
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição mensal - {new Date().getFullYear()} ({totalAno} notif.)</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
-            <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>)}</tr></thead>
+            <thead><tr>{['Mês','Total','SP','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>)}</tr></thead>
             <tbody>
               {byMonth.map((m,i)=>(
                 <tr key={i} onClick={()=>{const y=new Date().getFullYear();const m=String(i+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,i+1,0).getDate());}} style={{cursor:'pointer',background:'transparent'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontWeight:600,borderBottom:'1px solid '+C.border+'22'}}>{m.mes}</td>
                   <td style={{padding:'6px 8px',textAlign:'center',fontWeight:900,color:m.total>0?C.text:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.total||'-'}</td>
                   <td style={{padding:'6px 8px',textAlign:'center',color:m.sp>0?C.red:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.sp||'-'}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',color:m.ccih>0?C.purple:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.ccih||'-'}</td>
                   <td style={{padding:'6px 8px',textAlign:'center',color:m.adm>0?C.blue:C.muted,borderBottom:'1px solid '+C.border+'22'}}>{m.adm||'-'}</td>
                 </tr>
               ))}

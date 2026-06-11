@@ -163,7 +163,7 @@ function computeStats(notifications) {
   const isTM=n=>{const d=new Date(n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
   const isPM=n=>{const d=new Date(n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
   const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
-  const total=thisM.length,totalPrev=prevM.length;
+  const isValid=n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa';const total=thisM.filter(isValid).length,totalPrev=prevM.filter(isValid).length;
   const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
   const ccih=0;
   const adm=thisM.filter(n=>n.notification_type==='administrativa').length;

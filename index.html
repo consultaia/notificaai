@@ -101,7 +101,7 @@ const sbInsert=(u,k,tb,d)=>sbReq(u,k,`/${tb}`,{method:'POST',body:JSON.stringify
 const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
 async function sbPatch(u,k,tb,f,d){
   console.log('[sbPatch] PATCH',tb,f,JSON.stringify(d));
-  const res=await fetch(u+'/rest/v1/'+tb+'?'+f,{
+  const res=await fetch(u.replace(/\/+$/,'')+'/rest/v1/'+tb+'?'+f,{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':k,'Authorization':'Bearer '+k,'Prefer':'return=minimal'},
     body:JSON.stringify(d)
@@ -3674,6 +3674,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [stats,setStats]=useState(null);
   const [rawData,setRawData]=useState([]);
   const hoje2=new Date();
+  const mesAtual=hoje2.toLocaleDateString('pt-BR',{month:'long'});
   const [dateFrom,setDateFrom]=useState(()=>{const d=new Date();d.setDate(1);return d.toISOString().slice(0,10);});
   const [dateTo,setDateTo]=useState(()=>new Date().toISOString().slice(0,10));
 
@@ -3740,7 +3741,6 @@ TOTAL DE NOTIFICACOES DO PERIODO: ${filtered.length}
 
 DISTRIBUICAO POR SETOR: ${fSetorCount.map(([k,v])=>k+' ('+v+')').join('; ')||'nao disponivel'}
 SUBTIPOS MAIS FREQUENTES: ${fSubtipoCount.slice(0,5).map(([k,v])=>k+' ('+v+')').join(', ')||'nao disponivel'}
-INDICE DE MATURIDADE: ${sf.culturaScore}/100
 DIAS SEM SENTINELA: ${sf.diasSemSentinela??'nao disponivel'}
 
 INSTRUCOES:

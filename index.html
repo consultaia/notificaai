@@ -3771,7 +3771,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   const [form,setForm]=useState({sector:'',responsavel:'',description:'',priority:'normal',patient_name:'',destination:'',scheduled_at:'',requester_name:''});
   const [saving,setSaving]=useState(false);
   const h=hospital||DEFAULT_HOSPITAL;
-  const tt=TICKET_TYPES.find(t=>t.id===type);
+  const tt=TICKET_TYPES.find(t=>t.id===type)||TICKET_TYPES[0];
 
   const submit=async()=>{
     if(!form.description.trim()){showToast('Descreva o chamado','error');return;}
@@ -3936,7 +3936,7 @@ function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Carregando...</div>}
     {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Nenhum chamado{filter!=='todos'?' com este filtro':''}.</div>}
     {filtered.map(ticket=>{
-      const tt=TICKET_TYPES.find(t=>t.id===ticket.ticket_type)||TICKET_TYPES[5];
+      const tt=TICKET_TYPES.find(t=>t.id===ticket.ticket_type)||{id:'outro',label:ticket.ticket_type||'Chamado',icon:String.fromCodePoint(128203),color:'#5A7AA0',dest:'Gestao',desc:''};
       const st=TICKET_STATUS[ticket.status]||TICKET_STATUS.aberto;
       return(<div key={ticket.id} style={{background:C.card,border:'1px solid '+(ticket.status==='aberto'?'#F59E0B55':C.border),borderRadius:14,padding:14,marginBottom:10}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:8}}>

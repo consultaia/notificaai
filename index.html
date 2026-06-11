@@ -4113,6 +4113,7 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
 
 // --- CENTRAL DE CONHECIMENTO -------------------------------------------------
 const KNOWLEDGE=[
+  {id:'cartilha_pac',icon:String.fromCodePoint(128216),title:'Cartilha do Paciente',desc:'Seus direitos e como participar da sua segurança',color:'#0D9488',type:'cartilha'},
   {id:'cards',icon:String.fromCodePoint(128218),title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
     {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança - essencial para identificar vulnerabilidades.'},
@@ -4145,7 +4146,6 @@ const KNOWLEDGE=[
   {id:'pdf_nsp',icon:String.fromCodePoint(128196),title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
   {id:'pdf_riscos',icon:String.fromCodePoint(128196),title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
   {id:'pdf_iras',icon:String.fromCodePoint(128196),title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},
-{id:'cartilha_pac',icon:String.fromCodePoint(128216),title:'Cartilha do Paciente',desc:'Seus direitos e como participar da sua seguranca',color:'#0D9488',type:'cartilha'},
 ];
 
 function ticketEmoji(icon){
@@ -4270,7 +4270,9 @@ function CartilhaPaciente() {
   const PAGINAS=[
     {id:'capa',titulo:null,cor:'#0D9488',icone:null,items:null},
     {id:'identificacao',titulo:'1. Me identifique corretamente',cor:'#3B82F6',icone:String.fromCodePoint(128100),items:[
-      {t:'Confira sua pulseira',d:'Você deve usar pulseira de identificação com seu nome e data de nascimento durante toda a internação.'},
+      {t:'Pulseira de identificação é obrigatória',d:'Todo paciente internado deve usar a pulseira de identificação durante toda a internação, inclusive no banho e em procedimentos. Nunca a remova por conta própria.'},
+      {t:'Verifique se está legível',d:'A pulseira deve estar com nome completo e data de nascimento visíveis e legíveis. Se estiver apagada, rasgada ou solta, solicite imediatamente a troca à equipe de enfermagem.'},
+      {t:'O profissional deve confirmar seus dados',d:'Antes de qualquer medicamento, exame, procedimento ou cirurgia, o profissional deve ler sua pulseira e confirmar seu nome e data de nascimento com você. Se não fizer isso, peça que confirme.'},
       {t:'Pergunte sempre',d:'Antes de qualquer medicamento, exame ou procedimento, o profissional confirma seu nome? Se não perguntou, lembre-o!'},
       {t:'Avise sobre alergias',d:'Informe toda alergia a medicamentos, alimentos ou materiais. Repita para cada profissional que te atender.'},
     ]},
@@ -4281,6 +4283,7 @@ function CartilhaPaciente() {
       {t:'Por que importa',d:'40% das infecções hospitalares podem ser evitadas com a higiene correta das mãos.'},
     ]},
     {id:'queda',titulo:'3. Prevenção de quedas',cor:'#F59E0B',icone:String.fromCodePoint(129405),items:[
+      {t:'Pulseira verde = risco baixo de queda',d:'A pulseira verde indica risco baixo, mas atenção: cuidado com piso molhado ou escorregadio, use calçado fechado e antiderrapante, e avise a equipe imediatamente se sentir tontura, fraqueza ou qualquer sintoma novo.'},
       {t:'Pulseira amarela = risco de queda',d:'Se você usa pulseira amarela, foi identificado com RISCO DE QUEDA. Chame a equipe antes de se levantar!'},
       {t:'Pulseira vermelha = risco aumentado de queda',d:'A pulseira vermelha indica RISCO AUMENTADO DE QUEDA. Não se levante sem ajuda da enfermagem ou sem a presença constante de um familiar acompanhante.'},
       {t:'Mantenha as grades levantadas',d:'As grades laterais da cama são sua proteção. Só deite sem grades quando a equipe estiver presente.'},

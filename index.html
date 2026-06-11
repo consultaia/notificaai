@@ -2989,38 +2989,6 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <IconMsg size={26} color={C.teal}/>
     </button>
 
-    {/* Notificações recentes (NSP) */}
-    {gestorMode&&recent.length>0&&<div>
-      <div style={{fontSize:11,color:C.muted,textTransform:'uppercase',letterSpacing:'0.1em',fontWeight:600,marginBottom:10}}>Notificações recentes</div>
-      {recent.map((n,i)=>{
-        const tag=getTag(n);const title=getTitle(n);
-        const isSentinela=n.gravidade==='Evento sentinela';
-        return(<div key={n.id||i} style={{background:C.card,border:'1px solid '+(isSentinela?C.red:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8}}>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-            <div style={{background:tag.color+'22',color:tag.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:C.text,textTransform:'capitalize'}}>{title}</div>
-              <div style={{fontSize:11,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
-            </div>
-            {isSentinela&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700}}>Atencao SENTINELA</div>}
-          </div>
-          {/* Badges + botões RCA / Notivisa */}
-          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-            <span style={{fontSize:10,background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.rca_gerado?String.fromCodePoint(9989)+' Causa Raiz':String.fromCodePoint(9888)+' Sem Análise'}</span>
-            <span style={{fontSize:10,background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,borderRadius:4,padding:'2px 7px',fontWeight:700}}>{n.notivisa_enviado?String.fromCodePoint(9989)+' Notivisa':'- Notivisa'}</span>
-            {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&
-              <button onClick={()=>setRcaTarget(n)} style={{fontSize:10,background:C.blue+'20',color:C.blue,border:'1px solid '+C.blue+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}> Gerar RCA</button>}
-            {!n.notivisa_enviado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&
-              <button onClick={()=>setNotiVisaTarget(n)} style={{fontSize:10,background:C.purple+'20',color:C.purple,border:'1px solid '+C.purple+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>List Notivisa</button>}
-            <button onClick={()=>setRiscoTarget(n)} style={{fontSize:10,background:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted)+'20':C.muted+'20',color:n.risco_classificacao?({'BAIXO':C.green,'MÉDIO':C.yellow,'ALTO':C.red,'EXTREMO':'#7C0000'}[n.risco_classificacao]||C.muted):C.muted,border:'1px solid transparent',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>
-              {n.risco_classificacao?`Atencao ${n.risco_classificacao}`:'ATENCAO Risco'}
-            </button>
-            <button onClick={()=>setPlanoTarget(n)} style={{fontSize:10,background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'44',borderRadius:4,padding:'2px 7px',fontWeight:700,cursor:'pointer'}}>List Plano</button>
-          </div>
-        </div>);
-      })}
-    </div>}
-  {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} onSelect={()=>{}}/>}
   </div>);
 }
 

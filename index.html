@@ -160,8 +160,8 @@ const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 function computeStats(notifications) {
   const now=new Date(),tm=now.getMonth(),ty=now.getFullYear();
   const pm=tm===0?11:tm-1,py=tm===0?ty-1:ty;
-  const isTM=n=>{const d=new Date(n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
-  const isPM=n=>{const d=new Date(n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
+  const isTM=n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
+  const isPM=n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
   const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
   const isValid=n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa';const total=thisM.filter(isValid).length,totalPrev=prevM.filter(isValid).length;
   const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;

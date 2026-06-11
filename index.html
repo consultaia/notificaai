@@ -4396,39 +4396,40 @@ function CartilhaPaciente() {
   const PAGINAS=[
     {id:'capa',titulo:null,cor:'#0D9488',icone:null,items:null},
     {id:'identificacao',titulo:'1. Me identifique corretamente',cor:'#3B82F6',icone:String.fromCodePoint(128100),items:[
-      {t:'Confira sua pulseira',d:'Voce deve usar pulseira de identificacao com seu nome e data de nascimento durante toda a internacao.'},
-      {t:'Pergunte sempre',d:'Antes de qualquer medicamento, exame ou procedimento: o profissional confirma seu nome? Se nao perguntou, lembre-o!'},
+      {t:'Confira sua pulseira',d:'Você deve usar pulseira de identificação com seu nome e data de nascimento durante toda a internação.'},
+      {t:'Pergunte sempre',d:'Antes de qualquer medicamento, exame ou procedimento, o profissional confirma seu nome? Se não perguntou, lembre-o!'},
       {t:'Avise sobre alergias',d:'Informe toda alergia a medicamentos, alimentos ou materiais. Repita para cada profissional que te atender.'},
     ]},
-    {id:'higiene',titulo:'2. Higienizacao das maos',cor:'#10B981',icone:String.fromCodePoint(129529),items:[
-      {t:'Peca para lavar as maos',d:'Todo profissional de saude deve higienizar as maos antes e depois de te tocar. Voce pode pedir isso educadamente.'},
-      {t:'Acompanhantes tambem',d:'Visitantes e acompanhantes devem higienizar as maos ao entrar e sair do quarto. Use o alcool em gel disponivel.'},
-      {t:'Voce mesmo',d:'Higienize suas proprias maos antes das refeicoes e apos usar o banheiro.'},
-      {t:'Por que importa',d:'40% das infeccoes hospitalares podem ser evitadas com higiene correta das maos.'},
+    {id:'higiene',titulo:'2. Higienização das mãos',cor:'#10B981',icone:String.fromCodePoint(129529),items:[
+      {t:'Peça para lavar as mãos',d:'Todo profissional de saúde deve higienizar as mãos antes e depois de te tocar. Você pode pedir isso educadamente.'},
+      {t:'Acompanhantes também',d:'Visitantes e acompanhantes devem higienizar as mãos ao entrar e sair do quarto. Use o álcool em gel disponível.'},
+      {t:'Você mesmo',d:'Higienize suas próprias mãos antes das refeições e após usar o banheiro.'},
+      {t:'Por que importa',d:'40% das infecções hospitalares podem ser evitadas com a higiene correta das mãos.'},
     ]},
-    {id:'queda',titulo:'3. Prevencao de quedas',cor:'#F59E0B',icone:String.fromCodePoint(129405),items:[
-      {t:'Pulseira amarela = risco',d:'Se voce usa pulseira amarela foi identificado com RISCO DE QUEDA. Chame a equipe antes de se levantar!'},
-      {t:'Mantenha as grades levantadas',d:'As grades laterais da cama sao sua protecao. So deite sem grades quando a equipe estiver presente.'},
-      {t:'Use a campainha',d:'Para ir ao banheiro ou sair da cama, toque a campainha e aguarde ajuda. Nao tente se levantar sozinho.'},
-      {t:'Avise tontura ou fraqueza',d:'Se sentir tontura, fraqueza ou desequilibrio, avise imediatamente a equipe de enfermagem.'},
+    {id:'queda',titulo:'3. Prevenção de quedas',cor:'#F59E0B',icone:String.fromCodePoint(129405),items:[
+      {t:'Pulseira amarela = risco de queda',d:'Se você usa pulseira amarela, foi identificado com RISCO DE QUEDA. Chame a equipe antes de se levantar!'},
+      {t:'Pulseira vermelha = alergia',d:'A pulseira vermelha indica alergia registrada. Todo profissional deve confirmar com você antes de administrar qualquer medicamento ou material.'},
+      {t:'Mantenha as grades levantadas',d:'As grades laterais da cama são sua proteção. Só deite sem grades quando a equipe estiver presente.'},
+      {t:'Use a campainha',d:'Para ir ao banheiro ou sair da cama, toque a campainha e aguarde ajuda. Não tente se levantar sozinho.'},
+      {t:'Avise tontura ou fraqueza',d:'Se sentir tontura, fraqueza ou desequilíbrio, avise imediatamente a equipe de enfermagem.'},
     ]},
-    {id:'medicamentos',titulo:'4. Seguranca com medicamentos',cor:'#8B5CF6',icone:String.fromCodePoint(128138),items:[
-      {t:'Confirme o medicamento',d:'Antes de tomar qualquer medicamento, pergunte: qual e o nome? Para que serve? Qual a dose?'},
-      {t:'Liste todos os seus remedios',d:'Informe todos os medicamentos que voce usa em casa, incluindo vitaminas e remedios sem receita.'},
-      {t:'Reporte efeitos incomuns',d:'Se sentir algo diferente apos tomar um medicamento (coceira, falta de ar), avise imediatamente.'},
-      {t:'Nao troque horarios',d:'Os horarios dos medicamentos sao calculados para sua seguranca. Nao pule nem antecipe doses.'},
+    {id:'medicamentos',titulo:'4. Segurança com medicamentos',cor:'#8B5CF6',icone:String.fromCodePoint(128138),items:[
+      {t:'Confirme o medicamento',d:'Antes de tomar qualquer medicamento, pergunte: qual é o nome? Para que serve? Qual a dose?'},
+      {t:'Liste todos os seus remédios',d:'Informe todos os medicamentos que você usa em casa, incluindo vitaminas e remédios sem receita.'},
+      {t:'Reporte efeitos incomuns',d:'Se sentir algo diferente após tomar um medicamento (coceira, falta de ar), avise imediatamente.'},
+      {t:'Não troque horários',d:'Os horários dos medicamentos são calculados para sua segurança. Não pule nem antecipe doses.'},
     ]},
-    {id:'notificar',titulo:'5. Voce pode notificar',cor:'#EF4444',icone:String.fromCodePoint(128226),items:[
-      {t:'Notificar nao e reclamar',d:'Notificacao e uma ferramenta de melhoria. Quando voce notifica, ajuda o hospital a corrigir processos e proteger outros pacientes.'},
-      {t:'O que voce pode notificar',d:'Queda, medicamento errado, falta de higiene, problema com identificacao, infeccao, qualquer coisa que te preocupe.'},
-      {t:'Como notificar',d:'Acesse o NotificaAI pelo celular, toque em + Nova Notificacao e responda as perguntas. Leva menos de 5 minutos.'},
-      {t:'Pode ser anonimo',d:'Sim. Voce pode notificar sem se identificar. O importante e o relato do evento.'},
+    {id:'notificar',titulo:'5. Você pode notificar',cor:'#EF4444',icone:String.fromCodePoint(128226),items:[
+      {t:'Notificar não é reclamar',d:'Notificação é uma ferramenta de melhoria. Quando você notifica, ajuda o hospital a corrigir processos e proteger outros pacientes.'},
+      {t:'O que você pode notificar',d:'Queda, medicamento errado, falta de higiene, problema com identificação, infecção, qualquer coisa que te preocupe.'},
+      {t:'Como notificar',d:'Acesse o NotificaAI pelo celular, toque em + Nova Notificação e responda as perguntas. Leva menos de 5 minutos.'},
+      {t:'Pode ser anônimo',d:'Sim. Você pode notificar sem se identificar. O importante é o relato do evento.'},
     ]},
     {id:'direitos',titulo:'6. Seus direitos como paciente',cor:'#0D9488',icone:String.fromCodePoint(128196),items:[
-      {t:'Ser tratado com dignidade',d:'Voce tem direito a atendimento respeitoso, sem discriminacao, com privacidade e sigilo das suas informacoes.'},
-      {t:'Receber informacoes claras',d:'Todo procedimento, medicamento e diagnostico deve ser explicado em linguagem que voce entenda.'},
-      {t:'Consentir ou recusar',d:'Voce tem direito de consentir ou recusar procedimentos. Nada deve ser feito sem seu acordo, exceto em emergencias.'},
-      {t:'Fazer perguntas',d:'Questionar faz parte da sua seguranca. Nenhuma pergunta e bobagem quando o assunto e a sua saude.'},
+      {t:'Ser tratado com dignidade',d:'Você tem direito a atendimento respeitoso, sem discriminação, com privacidade e sigilo das suas informações.'},
+      {t:'Receber informações claras',d:'Todo procedimento, medicamento e diagnóstico deve ser explicado em linguagem que você entenda.'},
+      {t:'Consentir ou recusar',d:'Você tem direito de consentir ou recusar procedimentos. Nada deve ser feito sem seu acordo, exceto em emergências.'},
+      {t:'Fazer perguntas',d:'Questionar faz parte da sua segurança. Nenhuma pergunta é bobagem quando o assunto é a sua saúde.'},
     ]},
   ];
 
@@ -4451,12 +4452,12 @@ function CartilhaPaciente() {
         {String.fromCodePoint(127973)}
       </div>
       <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
-      <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Seguranca do Paciente</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para voce e seus familiares</div>
+      <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Segurança do Paciente</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para você e seus familiares</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
         {[
           {e:String.fromCodePoint(128100),t:'Me identifique'},
-          {e:String.fromCodePoint(129529),t:'Maos limpas'},
+          {e:String.fromCodePoint(129529),t:'Mãos limpas'},
           {e:String.fromCodePoint(129405),t:'Sem quedas'},
           {e:String.fromCodePoint(128138),t:'Medicamentos'},
           {e:String.fromCodePoint(128226),t:'Notifique'},
@@ -4494,16 +4495,15 @@ function CartilhaPaciente() {
       </button>}
       {!isLast
         ?<button onClick={()=>setPag(p=>p+1)} style={{flex:isFirst?1:2,background:cor,border:'none',borderRadius:12,padding:'11px',color:'#fff',fontSize:13,fontWeight:800,cursor:'pointer'}}>
-          {isFirst?'Comecar '+String.fromCodePoint(8594):'Proximo '+String.fromCodePoint(8594)}
+          {isFirst?'Começar '+String.fromCodePoint(8594):'Próximo '+String.fromCodePoint(8594)}
         </button>
         :<div style={{flex:2,background:C.teal+'22',border:'1px solid '+C.teal,borderRadius:12,padding:'11px',color:C.teal,fontSize:12,fontWeight:700,textAlign:'center'}}>
-          {String.fromCodePoint(9989)+' Cartilha concluida!'}
+          {String.fromCodePoint(9989)+' Cartilha concluída!'}
         </div>
       }
     </div>
   </div>);
 }
-
 function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   const [selected,setSelected]=useState(null);
   const [items,setItems]=useState(KNOWLEDGE);

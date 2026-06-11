@@ -2894,7 +2894,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 // --- HOME VIEW --------------------------------------------------------------
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey}) {
   const [stats,setStats]=useState(null);
-  const [recent,setRecent]=useState(MOCK_RECENT);
   const [loading,setLoading]=useState(false);
   const [rcaTarget,setRcaTarget]=useState(null);
   const [notiVisaTarget,setNotiVisaTarget]=useState(null);
@@ -2908,9 +2907,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
       .then(data=>{
       setStats(computeStats(data));
-      const valid=data.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa');
-      const sorted=[...valid].sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
-      setRecent(sorted.slice(0,6));
+
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -2925,7 +2922,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   return(<div style={{padding:'24px 16px 16px',display:'flex',flexDirection:'column',gap:16}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaTarget(null)}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaTarget(null)}/>}
-    {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={(n)=>setRecent(prev=>prev.map(r=>r.id===n.id?n:r))}/>}
+    {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={()=>{}}/>}
     {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setPlanoTarget(null)}/>}
 
     {/* Header */}
@@ -2983,6 +2980,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
+
+    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')}/>}
     {/* Botão notificar */}
     <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
       <div style={{textAlign:'left'}}><div style={{fontSize:16,fontWeight:800,color:C.teal}}>+ Nova Notificação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Registre um evento agora</div></div>
@@ -4134,7 +4133,7 @@ function ticketEmoji(icon){
   };
   return m[icon]||icon;
 }
-function ListaMensal({sbUrl,sbKey,onSelect}) {
+function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
   const [ano,setAno]=React.useState(hoje.getFullYear());

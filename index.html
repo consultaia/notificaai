@@ -1,46 +1,3 @@
-<!DOCTYPE html>
-<!-- NotificaAI v2026-06-08 04:49:12 FIXED -->
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-<title>NotificaAI - HNSA</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{background:#06101F;height:100%}
-@keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
-@keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-@keyframes splashFadeOut{from{opacity:1}to{opacity:0}}
-@keyframes splashLogoAnim{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-@keyframes sentinelaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
-.splash-in{animation:splashFadeIn .45s ease forwards}
-.splash-out{animation:splashFadeOut .4s ease forwards}
-input::placeholder{color:#5A7AA0}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
-button:active{opacity:.85}
-
-  /* ── LAYOUT DESKTOP ≥ 900px ── */
-  @media (min-width: 900px) {
-    #app-container { max-width: 100% !important; margin: 0 !important; }
-    #main-content  { margin-left: 220px !important; max-width: calc(100% - 220px) !important; }
-    #bottom-nav    { left: 220px !important; width: calc(100% - 220px) !important; max-width: none !important; transform: none !important; }
-    #sidebar-desktop { display: flex !important; }
-  }
-  @media (max-width: 899px) {
-    #sidebar-desktop { display: none !important; }
-  }
-</style>
-</head>
-<body>
-<div id="root"></div>
-
-<script type="text/babel">
 const { useState, useRef, useEffect } = React;
 
 window.storage = {
@@ -1888,7 +1845,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 
 
 // --- ABA NOTIFICAÇÕES COMPLETA ------------------------------------------------
-function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate}) {
+function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial,onClearFiltro}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -1897,6 +1854,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate}) {
   const [filtroRCA,setFiltroRCA]=useState('todos');
   const [filtroNotivisa,setFiltroNotivisa]=useState('todos');
   const [filtroPeriodo,setFiltroPeriodo]=useState('');
+  const [filtroGravidade,setFiltroGravidade]=useState(filtroInicial==='sentinela'?'Evento sentinela':'');
+  const [filtroSemRCA,setFiltroSemRCA]=useState(filtroInicial==='semRCA');
+  React.useEffect(()=>{if(filtroInicial&&onClearFiltro)onClearFiltro();},[]);
   const [pagina,setPagina]=useState(1);
   const POR_PAGINA=20;
   const [rcaTarget,setRcaTarget]=useState(null);
@@ -1992,6 +1952,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate}) {
     if(filtroSetor!=='todos'&&n.sector!==filtroSetor) return false;
     if(filtroRCA==='sim'&&n.rca_gerado) return false;
     if(filtroRCA==='nao'&&!n.rca_gerado) return false;
+    if(filtroGravidade&&n.gravidade!==filtroGravidade) return false;
+    if(filtroSemRCA&&n.rca_gerado) return false;
     if(filtroNotivisa==='sim'&&n.notivisa_enviado) return false;
     if(filtroNotivisa==='nao'&&!n.notivisa_enviado) return false;
     if(filtroPeriodo){const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);const ds=d.toISOString().slice(0,7);if(ds!==filtroPeriodo)return false;}
@@ -2008,6 +1970,10 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate}) {
   const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,appearance:'none',cursor:'pointer'};
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
+    {(filtroGravidade||filtroSemRCA)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':'Sem Analise - RCA pendente'}</span>
+      <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
+    </div>}
     {/* Modal de edicao */}
     {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
       <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,maxHeight:'80vh',overflowY:'auto'}}>
@@ -2892,7 +2858,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
 
 // --- HOME VIEW --------------------------------------------------------------
-function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey}) {
+function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey,setFiltroNotif}) {
   const [stats,setStats]=useState(null);
   const [loading,setLoading]=useState(false);
   const [rcaTarget,setRcaTarget]=useState(null);
@@ -2960,11 +2926,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Indicadores NSP */}
     {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',boxShadow:s.sentinela>0?'0 0 0 0 '+C.red+'66':undefined,animation:s.sentinela>0?'sentinelaPulse 1.5s ease-in-out infinite':undefined}}>
+      <div onClick={()=>{setFiltroNotif('sentinela');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+      <div onClick={()=>{setFiltroNotif('semRCA');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
         <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
@@ -2982,6 +2948,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
 
     {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')}/>}
+
     {/* Botão notificar */}
     <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
       <div style={{textAlign:'left'}}><div style={{fontSize:16,fontWeight:800,color:C.teal}}>+ Nova Notificação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Registre um evento agora</div></div>
@@ -3545,8 +3512,6 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   },[sbUrl,sbKey]);
 
   const s=stats||{sectorData:MOCK_SECTORS,typeData:MOCK_TYPES,heatmap:MOCK_HEATMAP,monthly:MOCK_MONTHLY,total:0,heatmapPeak:null,culturaScore:0,ratioNM:0,txC:0,nSets:0,diasSemSentinela:null};
-  const filteredStats=React.useMemo(()=>filtered.length?computeStats(filtered):null,[filtered]);
-  const sf=filteredStats||s;
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const anos=[...new Set(rawData.map(n=>new Date(n.created_at).getFullYear()))].sort((a,b)=>b-a);
   
@@ -3564,6 +3529,8 @@ const filtered=rawData.filter(n=>{
   if(dateTo&&ds>dateTo) return false;
   return true;
 });
+  const filteredStats=React.useMemo(()=>filtered.length?computeStats(filtered):null,[filtered]);
+  const sf=filteredStats||s;
 
   const exportCSV=()=>{
     const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','RCA','Notivisa'];
@@ -4458,12 +4425,12 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       <IconChev size={16} color={C.purple}/>
     </button>
     <button onClick={()=>setShowRelatorio(true)} style={{background:C.blue+'18',border:'1px solid '+C.blue+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
-      <span style={{fontSize:22}}>Doc</span>
+          <span style={{fontSize:22}}>{String.fromCodePoint(128190)}</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.blue}}>Relatório Mensal NSP</div><div style={{fontSize:11,color:C.muted}}>Gerar relatório PDF para a diretoria</div></div>
       <IconChev size={16} color={C.blue}/>
     </button>
 
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+          <span style={{fontSize:22}}>{String.fromCodePoint(128196)}</span>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12}}>
         <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>List Notificações</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total · {testCount} teste</div></div>
         <button onClick={loadNots} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}></button>
@@ -4536,6 +4503,7 @@ function NotificaAI() {
   const [hospital,setHospital]=useState(DEFAULT_HOSPITAL);
   const [refreshKey,setRefreshKey]=useState(0);
   const triggerRefresh=()=>setRefreshKey(k=>k+1);
+  const [filtroNotif,setFiltroNotif]=useState(null);
 
   const HNSA={
     url:'https://lnzvkfbcpnfmfvbdafab.supabase.co',
@@ -4599,7 +4567,7 @@ function NotificaAI() {
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
       <div style={{flex:1,overflowY:'auto',paddingBottom:68}}>
-        {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey}/>}
+        {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
@@ -4607,7 +4575,7 @@ function NotificaAI() {
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
-        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh}/>}
+        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}

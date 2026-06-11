@@ -3832,14 +3832,45 @@ ESTRUTURA:
 {tab==='cultura'&&<SAQView showToast={showToast}/>}
 {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>
-        <button onClick={genNarrative} disabled={loadingNarr} style={{width:'100%',background:loadingNarr?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr?'default':'pointer'}}>
-          {loadingNarr?String.fromCodePoint(8987)+' Aguarde...':String.fromCodePoint(129504)+' Gerar relatorio do periodo'}
+        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Analise por IA</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12,lineHeight:1.6}}>Narrativa pronta para ata ou relatorio mensal. Escolha o periodo antes de gerar.</div>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,marginBottom:6}}>Periodo rapido</div>
+        <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
+          {[
+            {l:'Este mes',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
+            {l:'Mes anterior',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
+            {l:'1o semestre',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},
+            {l:'2o semestre',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},
+            {l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},
+            {l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}},
+          ].map(({l,fn})=>(
+            <button key={l} onClick={fn} style={{padding:'5px 10px',borderRadius:7,border:'1px solid '+C.border,background:C.surface,color:C.muted,fontSize:10,fontWeight:700,cursor:'pointer'}}>{l}</button>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3,fontWeight:700}}>DE</div>
+            <input type='date' value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12}}/>
+          </div>
+          <div style={{fontSize:14,color:C.muted,marginTop:20}}>-</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3,fontWeight:700}}>ATE</div>
+            <input type='date' value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12}}/>
+          </div>
+        </div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:10}}>
+          {filtered.length} notificacoes no periodo selecionado
+          {(dateFrom||dateTo)&&<span style={{color:C.teal,fontWeight:700}}> ({dateFrom?new Date(dateFrom+'T12:00:00').toLocaleDateString('pt-BR'):'-'} a {dateTo?new Date(dateTo+'T12:00:00').toLocaleDateString('pt-BR'):'-'})</span>}
+        </div>
+        <button onClick={genNarrative} disabled={loadingNarr||filtered.length===0} style={{width:'100%',background:loadingNarr?C.border:filtered.length===0?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:loadingNarr||filtered.length===0?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingNarr||filtered.length===0?'default':'pointer'}}>
+          {loadingNarr?String.fromCodePoint(8987)+' Gerando analise...':filtered.length===0?'Sem dados no periodo':String.fromCodePoint(129504)+' Gerar analise do periodo'}
         </button>
       </div>
       {narrative&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:11,color:C.muted,marginBottom:10,fontStyle:'italic'}}>Gerado por IA - revisar antes de publicação oficial</div>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+          <div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Gerado por IA - revisar antes de publicacao oficial</div>
+          <button onClick={()=>{const el=document.createElement('textarea');el.value=narrative;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);showToast('Copiado!','success');}} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'4px 10px',color:C.muted,fontSize:10,fontWeight:700,cursor:'pointer'}}>Copiar</button>
+        </div>
         <div style={{fontSize:13,color:C.text,lineHeight:1.85,whiteSpace:'pre-wrap'}}>{narrative}</div>
       </div>}
     </div>}

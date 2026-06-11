@@ -3393,7 +3393,7 @@ idade:'Idade do paciente',
     <div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:step!=='done'?6:0}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text}}>Registrar Notificação</div>
-        {step!=='done'&&<div style={{display:'flex',alignItems:'center',gap:8}}>{historico.length>0&&<button onClick={voltar} style={{background:'none',border:'none',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 6px',borderRadius:6,border:'1px solid '+C.teal+'44'}}>Voltar</button>}<div style={{fontSize:11,color:C.muted,fontWeight:600}}>Passo {prog.atual}/{prog.total}</div>}
+        {step!=='done'&&<div style={{display:'flex',alignItems:'center',gap:8}}>{historico.length>0&&<button onClick={voltar} style={{background:'none',border:'none',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 6px',borderRadius:6,border:'1px solid '+C.teal+'44'}}>Voltar</button>}<div style={{fontSize:11,color:C.muted,fontWeight:600}}>Passo {prog.atual}/{prog.total}</div></div>}
       </div>
       {step!=='done'&&<div>
         <div style={{height:3,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:4}}>

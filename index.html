@@ -2962,7 +2962,6 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
       <StatCard icon={String.fromCodePoint(128197)} label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
       <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon={String.fromCodePoint(129440)} label="CCIH / Infecção" value={loading?'...':(s.ccih||0)} sub="notificações" color={C.yellow}/>
       <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
     </div>
 

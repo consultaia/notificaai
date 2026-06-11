@@ -1906,6 +1906,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
   const [riscoTarget,setRiscoTarget]=useState(null);
   const [planoTarget,setPlanoTarget]=useState(null);
   const [busca,setBusca]=useState('');
+  const [detalhe,setDetalhe]=useState(null);
+  const [deletando,setDeletando]=useState(null);
 
   const load=async()=>{
     if(!sbUrl||!sbKey) return;
@@ -1913,52 +1915,84 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000');
       setNotifications(data||[]);
-    }catch{showToast('Erro ao carregar notificações','error');}
+    }catch{showToast('Erro ao carregar notificacoes','error');}
     setLoading(false);
   };
+
+  const deletar=async(n)=>{
+    if(!window.confirm('Confirma exclusao desta notificacao?')) return;
+    setDeletando(n.id);
+    try{
+      await sbDelete(sbUrl,sbKey,'notifications','id=eq.'+n.id);
+      setNotifications(prev=>prev.filter(x=>x.id!==n.id));
+      setDetalhe(null);
+      showToast('Notificacao excluida','success');
+    }catch{showToast('Erro ao excluir','error');}
+    setDeletando(null);
+  };
+
+  const downloadNotivisa=(n)=>{
+    const tag=getTag(n);
+    const html='<!DOCTYPE html><html><head><meta charset=UTF-8><title>Notivisa</title>'
+      +'<style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;color:#1a1a1a;}'
+      +'h1{background:#c8102e;color:#fff;padding:14px;border-radius:6px;font-size:15px;margin-bottom:20px;}'
+      +'h2{font-size:10px;color:#666;text-transform:uppercase;margin:12px 0 3px;font-weight:700;}'
+      +'p{background:#f5f5f5;border-radius:4px;padding:8px;font-size:12px;margin:0 0 6px;line-height:1.5;}'
+      +'.ft{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;font-size:11px;color:#856404;margin-top:20px;}'
+      +'</style></head><body>'
+      +'<h1>Formulario Notivisa - HNSA<br><small style="font-size:11px;opacity:.8;">'+new Date().toLocaleString('pt-BR')+'</small></h1>'
+      +'<h2>Tipo</h2><p>'+(tag.label||'-')+(n.event_subtype?' - '+n.event_subtype:'')+'</p>'
+      +'<h2>Data / Turno</h2><p>'+(n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(n.shift?' - '+n.shift:'')+'</p>'
+      +'<h2>Setor</h2><p>'+(n.sector||'-')+'</p>'
+      +'<h2>Paciente</h2><p>'+(n.patient_age?n.patient_age+' anos':'')+(n.admission_reason?' - '+n.admission_reason:'')+'</p>'
+      +'<h2>Descricao</h2><p>'+(n.description||'-')+'</p>'
+      +'<h2>Medidas tomadas</h2><p>'+(n.measures_taken||'-')+'</p>'
+      +'<h2>Desfecho</h2><p>'+(n.patient_outcome||'-')+'</p>'
+      +'<h2>Evitavel</h2><p>'+(n.was_preventable===true?'Sim':n.was_preventable===false?'Nao':'Nao informado')+'</p>'
+      +'<h2>Gravidade</h2><p>'+(n.gravidade||'-')+'</p>'
+      +'<div class="ft">Guia de preenchimento. Acesse notivisa.anvisa.gov.br para envio oficial.</div>'
+      +'</body></html>';
+    const b=new Blob([html],{type:'text/html'});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement('a');
+    a.href=u;
+    a.download='Notivisa_'+(n.sector||'HNSA')+'_'+(n.event_date||new Date().toISOString().slice(0,10))+'_'+((n.id||'').slice(0,8).toUpperCase())+'.html';
+    a.click();
+    URL.revokeObjectURL(u);
+    showToast('Notivisa baixado!','success');
+  };
+
   useEffect(()=>{load();},[sbUrl,sbKey]);
 
   const filtered=notifications.filter(n=>{
     if(filtroTipo!=='todos'&&n.notification_type!==filtroTipo) return false;
     if(filtroSetor!=='todos'&&n.sector!==filtroSetor) return false;
-    if(filtroRCA==='sem'&&n.rca_gerado) return false;
-    if(filtroRCA==='com'&&!n.rca_gerado) return false;
-    if(filtroNotivisa==='sem'&&n.notivisa_enviado) return false;
-    if(filtroNotivisa==='com'&&!n.notivisa_enviado) return false;
-    if(filtroPeriodo){
-      const [ano,mes]=filtroPeriodo.split('-');
-      const d=new Date(n.created_at);
-      if(d.getFullYear()!==Number(ano)||d.getMonth()+1!==Number(mes)) return false;
-    }
-    if(busca){
-      const b=busca.toLowerCase();
-      const txt=((n.description||'')+(n.event_subtype||'')+(n.sector||'')+(n.ai_summary||'')).toLowerCase();
-      if(!txt.includes(b)) return false;
-    }
+    if(filtroRCA==='sim'&&n.rca_gerado) return false;
+    if(filtroRCA==='nao'&&!n.rca_gerado) return false;
+    if(filtroNotivisa==='sim'&&n.notivisa_enviado) return false;
+    if(filtroNotivisa==='nao'&&!n.notivisa_enviado) return false;
+    if(filtroPeriodo){const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);const ds=d.toISOString().slice(0,7);if(ds!==filtroPeriodo)return false;}
+    if(busca){const b=busca.toLowerCase();if(!n.description?.toLowerCase().includes(b)&&!getTitle(n).toLowerCase().includes(b)&&!n.event_subtype?.toLowerCase().includes(b)&&!n.sector?.toLowerCase().includes(b)&&!n.ai_summary?.toLowerCase().includes(b))return false;}
     return true;
   });
 
   const totalPags=Math.ceil(filtered.length/POR_PAGINA);
   const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
   const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
-
   const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&n.is_test!==true).length;
   const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&n.is_test!==true).length;
   const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&n.is_test!==true).length;
-
-  const updateNot=(id,patch)=>setNotifications(prev=>prev.map(n=>n.id===id?{...n,...patch}:n));
-
-  const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'};
+  const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,appearance:'none',cursor:'pointer'};
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
-    {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);updateNot(rcaTarget.id,{rca_gerado:true});}}/>}
-    {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);updateNot(notiVisaTarget.id,{notivisa_enviado:true});}}/>}
-    {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={n=>updateNot(n.id,{risco_classificacao:n.risco_classificacao,risco_score:n.risco_score})}/>}
-    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setPlanoTarget(null)}/>}
+    {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaTarget(null)} onSaved={()=>{setRcaTarget(null);load();}}/>}
+    {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);load();}}/>}
+    {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRiscoTarget(null);load();}}/>}
+    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);load();}}/>}
 
-    {/* Cards de resumo */}
+    {/* Cards resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
       {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
         <div key={l} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
@@ -1970,107 +2004,111 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Busca */}
     <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder="Buscar por descricao, tipo, setor..."
-      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.text,fontSize:13,outline:'none',marginBottom:10}}/>
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.text,fontSize:12,marginBottom:10,boxSizing:'border-box'}}/>
 
     {/* Filtros */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:10}}>
-      <select value={filtroTipo} onChange={e=>{setFiltroTipo(e.target.value);setPagina(1);}} style={sel}>
+      <select value={filtroTipo} onChange={e=>{setFiltroTipo(e.target.value);setPagina(1);}} style={{...sel,appearance:'none'}}>
         <option value="todos">Todos os tipos</option>
         <option value="seguranca_paciente">Seguranca do Paciente</option>
         <option value="ccih">CCIH / Infeccao</option>
         <option value="administrativa">Administrativa</option>
       </select>
-      <select value={filtroSetor} onChange={e=>{setFiltroSetor(e.target.value);setPagina(1);}} style={sel}>
+      <select value={filtroSetor} onChange={e=>{setFiltroSetor(e.target.value);setPagina(1);}} style={{...sel,appearance:'none'}}>
         <option value="todos">Todos os setores</option>
         {setores.map(s=><option key={s} value={s}>{s}</option>)}
       </select>
-      <select value={filtroRCA} onChange={e=>{setFiltroRCA(e.target.value);setPagina(1);}} style={sel}>
+      <select value={filtroRCA} onChange={e=>{setFiltroRCA(e.target.value);setPagina(1);}} style={{...sel,appearance:'none'}}>
         <option value="todos">RCA: todos</option>
-        <option value="sem">Sem RCA</option>
-        <option value="com">Com RCA</option>
+        <option value="nao">Sem RCA</option>
+        <option value="sim">Com RCA</option>
       </select>
-      <select value={filtroNotivisa} onChange={e=>{setFiltroNotivisa(e.target.value);setPagina(1);}} style={sel}>
+      <select value={filtroNotivisa} onChange={e=>{setFiltroNotivisa(e.target.value);setPagina(1);}} style={{...sel,appearance:'none'}}>
         <option value="todos">Notivisa: todos</option>
-        <option value="sem">Sem Notivisa</option>
-        <option value="com">Com Notivisa</option>
+        <option value="nao">Sem Notivisa</option>
+        <option value="sim">Com Notivisa</option>
       </select>
     </div>
-    <input type="month" value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}}
-      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:12}}/>
+    <input type="month" value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}} style={{...sel,width:'100%',marginBottom:14}}/>
 
-    {/* Lista */}
     {loading&&<div style={{textAlign:'center',padding:40}}><Dots/></div>}
-    {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificacao encontrada.</div>}
+    {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificacao encontrada</div>}
 
-{(()=>{
-  // Agrupar por mês-ano ordenado decrescente
-  const grupos={};
-  filtered.forEach(n=>{
-    const d=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
-    const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const label=d.toLocaleString('pt-BR',{month:'long',year:'numeric'});
-    if(!grupos[key]) grupos[key]={label,key,items:[]};
-    grupos[key].items.push(n);
-  });
-  const keys=Object.keys(grupos).sort((a,b)=>b.localeCompare(a));
-  if(keys.length===0) return null;
-  return keys.map(key=>{
-    const g=grupos[key];
-    const spCount=g.items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
-    const admCount=g.items.filter(n=>n.notification_type==='administrativa').length;
-    const semRCA=g.items.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
-    return(<div key={key} style={{marginBottom:20}}>
-      {/* Header do mês */}
-      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10,padding:'8px 10px',background:C.surface,borderRadius:10,border:'1px solid '+C.border}}>
-        <div style={{fontSize:13,fontWeight:800,color:C.text,textTransform:'capitalize',flex:1}}>{g.label}</div>
-        <span style={{fontSize:11,background:C.teal+'20',color:C.teal,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{g.items.length} total</span>
-        {spCount>0&&<span style={{fontSize:11,background:C.red+'20',color:C.red,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{spCount} SP</span>}
-        {admCount>0&&<span style={{fontSize:11,background:C.blue+'20',color:C.blue,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{admCount} Adm</span>}
-        {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} sem RCA</span>}
-      </div>
-      {/* Grid de cards compactos - 2 colunas mobile */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-        {g.items.map(n=>{
-          const tag=getTag(n);
-          const title=getTitle(n);
-          const isSP=n.notification_type==='seguranca_paciente'||n.notification_type==='ccih';
-          const isSentinela=n.gravidade==='Evento sentinela';
-          const cor=isSentinela?C.red:tag.color;
-          const d=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
-          const dataStr=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-          return(<div key={n.id} onClick={()=>{setRcaTarget(null);setNotiVisaTarget(null);setRiscoTarget(null);setPlanoTarget(null);}}
-            style={{background:C.card,border:'1px solid '+(isSentinela?C.red+'88':C.border),borderRadius:10,padding:'10px',cursor:'default',position:'relative',overflow:'hidden'}}>
-            {/* Barra colorida lateral */}
-            <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:cor,borderRadius:'10px 0 0 10px'}}/>
-            <div style={{paddingLeft:8}}>
-              {/* Badge tipo + data */}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:5}}>
-                <span style={{fontSize:9,background:tag.color+'22',color:tag.color,borderRadius:4,padding:'2px 6px',fontWeight:700,textTransform:'uppercase'}}>{tag.label}</span>
-                <span style={{fontSize:9,color:C.muted}}>{dataStr}</span>
-              </div>
-              {/* Título */}
-              <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.3,marginBottom:4,textTransform:'capitalize'}}>{title.length>32?title.slice(0,30)+String.fromCodePoint(8230):title}</div>
-              {/* Setor */}
-              {n.sector&&<div style={{fontSize:10,color:C.muted,marginBottom:5,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{n.sector}</div>}
-              {/* Status RCA + Notivisa */}
-              <div style={{display:'flex',gap:4,marginBottom:6,flexWrap:'wrap'}}>
-                <span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}}>{n.rca_gerado?'RCA':'Sem RCA'}</span>
-                {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa':'Sem Notivisa'}</span>}
-                {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
-              </div>
-              {/* Botões ação */}
-              <div style={{display:'flex',gap:4}}>
-                {isSP&&!n.rca_gerado&&<button onClick={e=>{e.stopPropagation();setRcaTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.blue+'20',color:C.blue,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>RCA</button>}
-                {isSP&&!n.notivisa_enviado&&<button onClick={e=>{e.stopPropagation();setNotiVisaTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.purple+'20',color:C.purple,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Notivisa</button>}
-                <button onClick={e=>{e.stopPropagation();setRiscoTarget(n);}} style={{flex:1,fontSize:9,padding:'4px 2px',background:C.yellow+'20',color:C.yellow,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Risco</button>
-              </div>
-            </div>
-          </div>);
-        })}
-      </div>
-    </div>);
-  });
-})()}
+    {/* Grid agrupado por mes */}
+    {!loading&&pagAtual.length>0&&(()=>{
+      const grupos={};
+      filtered.forEach(n=>{
+        const d=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
+        const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+        const label=d.toLocaleString('pt-BR',{month:'long',year:'numeric'});
+        if(!grupos[key]) grupos[key]={label,key,items:[]};
+        grupos[key].items.push(n);
+      });
+      const keys=Object.keys(grupos).sort((a,b)=>b.localeCompare(a));
+      if(keys.length===0) return null;
+      return(<div>{keys.map(key=>{
+        const g=grupos[key];
+        const spCount=g.items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+        const admCount=g.items.filter(n=>n.notification_type==='administrativa').length;
+        const semRCA=g.items.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
+        return(<div key={key} style={{marginBottom:20}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'7px 10px',background:C.surface,borderRadius:10,border:'1px solid '+C.border}}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,textTransform:'capitalize',flex:1}}>{g.label}</div>
+            <span style={{fontSize:11,background:C.teal+'20',color:C.teal,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{g.items.length} total</span>
+            {spCount>0&&<span style={{fontSize:11,background:C.red+'20',color:C.red,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{spCount} SP</span>}
+            {admCount>0&&<span style={{fontSize:11,background:C.blue+'20',color:C.blue,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{admCount} Adm</span>}
+            {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} sem RCA</span>}
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {g.items.map(n=>{
+              const tag=getTag(n);
+              const title=getTitle(n);
+              const isSP=n.notification_type==='seguranca_paciente'||n.notification_type==='ccih';
+              const isSentinela=n.gravidade==='Evento sentinela';
+              const cor=isSentinela?C.red:tag.color;
+              const d2=new Date((n.event_date?n.event_date+'T12:00:00':n.created_at));
+              const ds=d2.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+              const aberto=detalhe?.id===n.id;
+              return(<div key={n.id}
+                style={{background:C.card,border:'1px solid '+(isSentinela?C.red+'88':aberto?C.teal:C.border),borderRadius:10,padding:'10px',cursor:'pointer',position:'relative',overflow:'hidden',transition:'border-color .2s'}}
+                onClick={ev=>{if(ev.target.tagName!=='BUTTON')setDetalhe(aberto?null:n);}}>
+                <div style={{position:'absolute',left:0,top:0,bottom:0,width:3,background:cor,borderRadius:'10px 0 0 10px'}}/>
+                <div style={{paddingLeft:8}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{fontSize:9,background:tag.color+'22',color:tag.color,borderRadius:4,padding:'2px 6px',fontWeight:700,textTransform:'uppercase'}}>{tag.label}</span>
+                    <span style={{fontSize:9,color:C.muted}}>{ds}</span>
+                  </div>
+                  <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.3,marginBottom:3,textTransform:'capitalize'}}>{title.length>34?title.slice(0,32)+'...':title}</div>
+                  {n.sector&&<div style={{fontSize:10,color:C.muted,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.sector}</div>}
+                  <div style={{display:'flex',gap:3,marginBottom:5,flexWrap:'wrap'}}>
+                    {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}}>{n.rca_gerado?'RCA feito':'Sem RCA'}</span>}
+                    {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa OK':'Notivisa pendente'}</span>}
+                    {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
+                  </div>
+                  <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+                    {isSP&&!n.rca_gerado&&<button onClick={ev=>{ev.stopPropagation();setRcaTarget(n);}} style={{fontSize:9,padding:'4px 7px',background:C.blue+'20',color:C.blue,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Fazer RCA</button>}
+                    {isSP&&<button onClick={ev=>{ev.stopPropagation();downloadNotivisa(n);}} style={{fontSize:9,padding:'4px 7px',background:'#7C3AED20',color:'#7C3AED',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Baixar Notivisa</button>}
+                    {isSP&&<button onClick={ev=>{ev.stopPropagation();setRiscoTarget(n);}} style={{fontSize:9,padding:'4px 7px',background:C.yellow+'20',color:C.yellow,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Avaliar risco</button>}
+                  </div>
+                  {aberto&&<div style={{marginTop:10,paddingTop:10,borderTop:'1px solid '+C.border}}>
+                    {n.description&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Relato</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.description}</div></div>}
+                    {n.measures_taken&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Medidas tomadas</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.measures_taken}</div></div>}
+                    {n.patient_outcome&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Desfecho</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.patient_outcome}</div></div>}
+                    {n.ai_summary&&<div style={{marginBottom:8,background:C.teal+'10',borderRadius:6,padding:'6px 8px'}}><div style={{fontSize:9,color:C.teal,fontWeight:700,marginBottom:2}}>Resumo IA</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.ai_summary}</div></div>}
+                    {n.admission_reason&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Paciente / NIP</div><div style={{fontSize:11,color:C.text}}>{n.admission_reason}</div></div>}
+                    <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
+                      {isSP&&<button onClick={ev=>{ev.stopPropagation();setNotiVisaTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.teal,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Formulario Notivisa completo</button>}
+                      {isSP&&<button onClick={ev=>{ev.stopPropagation();setPlanoTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.green+'20',color:C.green,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Plano de Acao</button>}
+                      <button onClick={ev=>{ev.stopPropagation();deletar(n);}} disabled={deletando===n.id} style={{fontSize:10,padding:'5px 10px',background:C.red+'15',color:C.red,border:'1px solid '+C.red+'33',borderRadius:6,cursor:'pointer',fontWeight:700,marginLeft:'auto'}}>{deletando===n.id?'Excluindo...':'Excluir'}</button>
+                    </div>
+                  </div>}
+                </div>
+              </div>);
+            })}
+          </div>
+        </div>);
+      })}</div>);
+    })()}
 
     {/* Paginacao */}
     {totalPags>1&&<div style={{display:'flex',justifyContent:'center',gap:8,marginTop:16,flexWrap:'wrap'}}>

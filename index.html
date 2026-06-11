@@ -3670,102 +3670,169 @@ ESTRUTURA:
     </div>}
 
     {tab==='calor'&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>Mapa de Calor</div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:16}}>Eventos por turno × dia da semana</div>
-      <div style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr)',gap:3,marginBottom:4}}>
-        <div/>{DIAS.map(d=><div key={d} style={{textAlign:'center',fontSize:10,color:C.muted,fontWeight:700}}>{d}</div>)}
+      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:2}}>Distribuição por Turno e Dia</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:14}}>{mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} - notificações por turno × dia da semana</div>
+      <div style={{display:'grid',gridTemplateColumns:'58px repeat(7,1fr)',gap:4,marginBottom:4,alignItems:'center'}}>
+        <div style={{fontSize:10,color:C.muted,fontWeight:700}}>Turno</div>
+        {DIAS.map(d=><div key={d} style={{textAlign:'center',fontSize:10,color:C.muted,fontWeight:700}}>{d}</div>)}
       </div>
-      {sf.heatmap.map(row=>(
-        <div key={row.turno} style={{display:'grid',gridTemplateColumns:'52px repeat(7,1fr)',gap:3,marginBottom:3}}>
-          <div style={{fontSize:10,color:C.muted,fontWeight:700,display:'flex',alignItems:'center'}}>{row.turno}</div>
-          {(()=>{const maxV=Math.max(...(sf.heatmap||[]).flatMap(r=>r.v));return row.v.map((val,i)=><HeatCell key={i} value={val} maxVal={maxV}/>);})()}
+      {(()=>{const maxV=Math.max(1,...(sf.heatmap||[]).flatMap(r=>r.v));return(sf.heatmap||[]).map(row=>{
+        const total=row.v.reduce((a,b)=>a+b,0);
+        return(<div key={row.turno} style={{display:'grid',gridTemplateColumns:'58px repeat(7,1fr)',gap:4,marginBottom:4,alignItems:'center'}}>
+          <div style={{fontSize:10,color:C.muted,fontWeight:700,lineHeight:1.2}}>
+            <div>{row.turno}</div>
+            <div style={{fontSize:9,color:C.teal,fontWeight:700}}>{total} total</div>
+          </div>
+          {row.v.map((val,i)=>(
+            <div key={i} title={DIAS[i]+' '+row.turno+': '+val+' evento(s)'} style={{
+              height:36,borderRadius:6,
+              background:val===0?C.surface:val/maxV<0.2?'#D1FAE5':val/maxV<0.4?'#6EE7B7':val/maxV<0.6?'#FCD34D':val/maxV<0.8?'#F97316':'#EF4444',
+              display:'flex',alignItems:'center',justifyContent:'center',cursor:'default',
+              color:val===0?C.muted:val/maxV<0.4?'#065F46':'#fff',
+              fontSize:val>0?11:9,fontWeight:700
+            }}>{val>0?val:''}</div>
+          ))}
+        </div>);
+      });})()}
+      <div style={{display:'grid',gridTemplateColumns:'58px repeat(7,1fr)',gap:4,marginTop:4}}>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700}}>Total</div>
+        {[0,1,2,3,4,5,6].map(di=>{
+          const tot=(sf.heatmap||[]).reduce((a,r)=>a+(r.v[di]||0),0);
+          return(<div key={di} style={{textAlign:'center',fontSize:10,fontWeight:700,color:tot>0?C.teal:C.muted}}>{tot||'-'}</div>);
+        })}
+      </div>
+      {sf.heatmapPeak&&<div style={{marginTop:14,background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'10px 14px',display:'flex',gap:10,alignItems:'center'}}>
+        <span style={{fontSize:20}}>{String.fromCodePoint(9888)}</span>
+        <div>
+          <div style={{fontSize:12,fontWeight:700,color:C.text}}>Pico: {sf.heatmapPeak.dia} de {sf.heatmapPeak.turno}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{sf.heatmapPeak.val} evento(s) - maior concentracao do periodo</div>
         </div>
-      ))}
-      {sf.heatmapPeak&&<div style={{marginTop:14,background:C.surface,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.red}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text}}>Atencao Ponto crítico identificado</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.6}}>Turno da {sf.heatmapPeak.turno} de {sf.heatmapPeak.dia} - {sf.heatmapPeak.val} evento(s). Atenção recomendada.</div>
       </div>}
-      <div style={{display:'flex',alignItems:'center',gap:8,marginTop:14,justifyContent:'center'}}>
-        <span style={{fontSize:10,color:C.muted}}>Menos</span>
-        {['#D1FAE5','#6EE7B7','#FCD34D','#F97316','#EF4444'].map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:'1px solid '+C.border}}/>)}
-        <span style={{fontSize:10,color:C.muted}}>Mais</span>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginTop:12,justifyContent:'center'}}>
+        <span style={{fontSize:10,color:C.muted}}>Baixo</span>
+        {['#D1FAE5','#6EE7B7','#FCD34D','#F97316','#EF4444'].map((c,i)=><div key={i} style={{width:16,height:16,borderRadius:3,background:c}}/>)}
+        <span style={{fontSize:10,color:C.muted}}>Alto</span>
       </div>
     </div>}
-
-    {tab==='cultura'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
-
-      {/* Score principal */}
-      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
-          <div style={{fontSize:14,fontWeight:700,color:C.text}}>Índice de Maturidade de Notificação</div>
-          <div style={{fontSize:10,color:C.muted,background:C.surface,borderRadius:6,padding:'3px 8px',fontWeight:600}}>0-100</div>
+{tab==='cultura'&&(()=>{
+  const SAQ_DOMINIOS=[
+    {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
+      'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
+      'Os profissionais se apoiam mutuamente neste setor.',
+      'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
+      'Discordancias neste setor sao resolvidas de forma adequada.',
+      'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
+    ]},
+    {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
+      'A cultura neste setor torna facil aprender com os erros dos outros.',
+      'Eu me sentiria seguro sendo tratado aqui como paciente.',
+      'Erros sao tratados de forma adequada neste setor.',
+      'Neste setor e dificil discutir sobre erros (invertido).',
+      'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
+    ]},
+    {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
+      'Eu gosto do meu trabalho.',
+      'Trabalhar aqui e como fazer parte de uma grande familia.',
+      'Este setor e um bom lugar para trabalhar.',
+      'Estou orgulhoso de trabalhar neste setor.',
+      'O moral neste setor e alto.',
+    ]},
+    {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
+      'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
+      'Sou menos eficiente no trabalho quando estou com muito estresse.',
+      'Fico exausto quando penso no trabalho que preciso fazer.',
+      'Trabalho com mais cuidado quando estou cansado.',
+    ]},
+    {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
+      'A administracao apoia meus esforgos diarios.',
+      'A administracao nao compromete conscientemente a seguranca do paciente.',
+      'A administracao esta fazendo um bom trabalho.',
+      'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
+    ]},
+    {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
+      'Este setor e bem equipado para lidar com novos pacientes.',
+      'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
+      'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
+      'O treinamento que recebi foi adequado para o trabalho que executo.',
+    ]},
+  ];
+  const SAQ_LABELS=['Discordo totalmente','Discordo parcialmente','Neutro','Concordo parcialmente','Concordo totalmente'];
+  const [saqResp,setSaqResp]=React.useState({});
+  const [saqEnviado,setSaqEnviado]=React.useState(false);
+  const totalItens=SAQ_DOMINIOS.reduce((a,d)=>a+d.itens.length,0);
+  const respondidos=Object.keys(saqResp).length;
+  const scores=SAQ_DOMINIOS.map(dom=>{
+    const vals=dom.itens.map((_,i)=>saqResp[dom.id+'_'+i]).filter(v=>v!==undefined);
+    if(!vals.length) return{...dom,score:null,pct:null};
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const pct=Math.round((avg/4)*100);
+    return{...dom,score:avg.toFixed(1),pct};
+  });
+  const scoreGeral=scores.every(s=>s.pct!==null)?Math.round(scores.reduce((a,s)=>a+s.pct,0)/scores.length):null;
+  const enviarSAQ=async()=>{
+    if(respondidos<totalItens) return;
+    setSaqEnviado(true);
+    showToast('SAQ registrado com sucesso!','success');
+  };
+  return(<div style={{display:'flex',flexDirection:'column',gap:12}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>SAQ - Safety Attitudes Questionnaire</div>
+      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:8}}>Instrumento validado internacionalmente (Sexton et al., 2006). Versao adaptada para o HNSA. Responda com base na sua experiencia nos ultimos 30 dias neste setor.</div>
+      {scoreGeral!==null&&<div style={{background:C.teal+'15',border:'1px solid '+C.teal+'44',borderRadius:10,padding:'12px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
+        <div style={{textAlign:'center',flexShrink:0}}>
+          <div style={{fontSize:28,fontWeight:900,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral}</div>
+          <div style={{fontSize:9,color:C.muted,fontWeight:700}}>pts / 100</div>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:16,lineHeight:1.6}}>
-          Indicador operacional interno - mede a maturidade do <strong style={{color:C.text}}>sistema de notificação</strong>, não a cultura de segurança clínica (que exige instrumentos validados como SAQ ou HSOPSC).
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral>=75?'Cultura positiva de seguranca':scoreGeral>=60?'Em desenvolvimento':'Necessita intervencao'}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Score geral SAQ. Corte de positividade: 75 pts (Sexton et al.)</div>
         </div>
-        <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:14}}>
-          <div style={{width:72,height:72,borderRadius:'50%',background:'conic-gradient('+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red)+' '+(sf.culturaScore*3.6)+'deg,'+C.border+' 0deg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-            <div style={{width:56,height:56,borderRadius:'50%',background:C.card,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column'}}>
-              <div style={{fontSize:20,fontWeight:900,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red,lineHeight:1}}>{sf.culturaScore}</div>
-              <div style={{fontSize:8,color:C.muted,fontWeight:700}}>pts</div>
-            </div>
-          </div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:15,fontWeight:800,color:sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red,marginBottom:4}}>
-              {sf.culturaScore>=70?'verde Maturidade avançada':sf.culturaScore>=40?'amarelo Em desenvolvimento':'vermelho Estágio inicial'}
-            </div>
-            <div style={{fontSize:11,color:C.muted,lineHeight:1.6}}>
-              {sf.culturaScore>=70?'Sistema de notificação consolidado. Near miss sendo reportado, ciclos fechados, boa abrangência setorial.':sf.culturaScore>=40?'Sistema em evolução. Há oportunidades de melhoria na taxa de near miss e no fechamento dos ciclos.':'Sistema inicial. Foco em incentivar notificações de near miss e fechar ciclos das ocorrências registradas.'}
-            </div>
-          </div>
-        </div>
-        <div style={{height:6,background:C.border,borderRadius:3,overflow:'hidden',marginBottom:6}}>
-          <div style={{width:sf.culturaScore+'%',height:'100%',background:'linear-gradient(90deg,'+(sf.culturaScore>=70?C.green:sf.culturaScore>=40?C.yellow:C.red)+','+C.teal+')',borderRadius:3,transition:'width .6s'}}/>
-        </div>
-        <div style={{display:'flex',justifyContent:'space-between',fontSize:9,color:C.muted,marginBottom:16}}>
-          <span>Inicial (0)</span><span>Desenvolvimento (40)</span><span>Avançado (70+)</span>
-        </div>
-
-        {/* Componentes do score */}
-        <div style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8}}>Como o score é calculado</div>
-        {[
-          {label:'Near miss notificados',desc:'% de notificações classificadas como near miss - indicador de cultura proativa',valor:s.ratioNM,sufixo:'%',peso:'40%',color:C.teal,dica:'Profissionais de hospitais com cultura madura reportam mais near miss porque se sentem seguros para fazê-lo.'},
-          {label:'Ciclos concluídos',desc:'% de notificações com status "concluído" - indica que o NSP fecha os casos',valor:s.txC,sufixo:'%',peso:'40%',color:C.green,dica:'Notificações sem resposta visível desmotivam futuros reportes. Fechar o ciclo é essencial.'},
-          {label:'Setores ativos',desc:'Setores distintos que já notificaram (máx. 5 para pontuação plena)',valor:s.nSets,sufixo:'',peso:'20%',color:C.blue,dica:'Abrangência ampla indica que a cultura de notificação se espalhou pelo hospital, não ficou restrita a um setor.'},
-        ].map((item,i)=>(
-          <div key={i} style={{background:C.surface,borderRadius:10,padding:'12px 14px',marginBottom:8}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.text}}>{item.label}</div>
-                <div style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>{item.desc}</div>
+      </div>}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+        {scores.map(dom=>(
+          <div key={dom.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:dom.cor,marginBottom:6}}>{dom.label}</div>
+            {dom.pct!==null?<>
+              <div style={{fontSize:18,fontWeight:900,color:dom.cor}}>{dom.pct}<span style={{fontSize:10,color:C.muted}}> pts</span></div>
+              <div style={{height:4,background:C.border,borderRadius:2,marginTop:6,overflow:'hidden'}}>
+                <div style={{width:dom.pct+'%',height:'100%',background:dom.cor,borderRadius:2}}/>
               </div>
-              <div style={{textAlign:'right',flexShrink:0,marginLeft:10}}>
-                <div style={{fontSize:18,fontWeight:900,color:item.color}}>{item.valor}{item.sufixo}</div>
-                <div style={{fontSize:9,color:C.muted}}>peso {item.peso}</div>
-              </div>
-            </div>
-            <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:6}}>
-              <div style={{width:Math.min(item.valor/(item.sufixo==='%'?100:5)*100,100)+'%',height:'100%',background:item.color,borderRadius:2}}/>
-            </div>
-            <div style={{fontSize:10,color:C.muted,lineHeight:1.5,borderLeft:'2px solid '+item.color+'44',paddingLeft:8}}>Dica {item.dica}</div>
+            </>:<div style={{fontSize:10,color:C.muted}}>Nao respondido</div>}
           </div>
         ))}
-
-        <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:4}}>
-          <div style={{fontSize:10,color:C.yellow,fontWeight:700,marginBottom:3}}>Atencao Limitação do indicador</div>
-          <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>Este índice é um proxy operacional, não um instrumento validado cientificamente. Para avaliação formal da cultura de segurança, utilize o <strong style={{color:C.text}}>SAQ (Safety Attitudes Questionnaire)</strong> ou o <strong style={{color:C.text}}>HSOPSC</strong> (AHRQ), ambos disponíveis em português.</div>
-        </div>
       </div>
-
-      {/* Dias sem sentinela */}
-      {sf.diasSemSentinela!==null&&<div style={{background:sf.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(sf.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'16px',textAlign:'center'}}>
-        <div style={{fontSize:40,fontWeight:900,color:sf.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{sf.diasSemSentinela}</div>
-        <div style={{fontSize:13,fontWeight:700,color:sf.diasSemSentinela>=30?C.green:C.yellow,marginTop:6}}>dias sem evento sentinela</div>
-        <div style={{fontSize:11,color:C.muted,marginTop:4}}>Meta ONA: 90 dias contínuos</div>
-      </div>}
-    </div>}
-
-    {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{respondidos}/{totalItens} itens respondidos</div>
+      {SAQ_DOMINIOS.map(dom=>(
+        <div key={dom.id} style={{background:C.surface,borderRadius:12,padding:'14px',marginBottom:10}}>
+          <div style={{fontSize:12,fontWeight:800,color:dom.cor,marginBottom:10,borderBottom:'1px solid '+dom.cor+'33',paddingBottom:6}}>{dom.label}</div>
+          {dom.itens.map((item,ii)=>(
+            <div key={ii} style={{marginBottom:12}}>
+              <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item}</div>
+              <div style={{display:'flex',gap:4}}>
+                {[0,1,2,3,4].map(v=>(
+                  <button key={v} onClick={()=>setSaqResp(r=>({...r,[dom.id+'_'+ii]:v}))}
+                    style={{flex:1,padding:'6px 2px',borderRadius:6,border:'1px solid '+(saqResp[dom.id+'_'+ii]===v?dom.cor:C.border),
+                    background:saqResp[dom.id+'_'+ii]===v?dom.cor+'22':C.card,
+                    color:saqResp[dom.id+'_'+ii]===v?dom.cor:C.muted,
+                    fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center',lineHeight:1.2}}>
+                    {v+1}
+                    <div style={{fontSize:7,marginTop:2}}>{['DT','DP','N','CP','CT'][v]}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <button onClick={enviarSAQ} disabled={respondidos<totalItens}
+        style={{width:'100%',background:respondidos<totalItens?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:respondidos<totalItens?C.muted:'#06101F',fontSize:13,fontWeight:800,cursor:respondidos<totalItens?'not-allowed':'pointer',marginTop:4}}>
+        {respondidos<totalItens?'Responda todos os itens ('+respondidos+'/'+totalItens+')':'Registrar SAQ'}
+      </button>
+      {saqEnviado&&<div style={{textAlign:'center',fontSize:12,color:C.green,marginTop:8,fontWeight:700}}>SAQ registrado! Obrigado pela participacao.</div>}
+    </div>
+  </div>);
+})()}
+{tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Análise narrativa dos dados, pronta para ata ou relatório mensal do gestor.</div>

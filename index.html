@@ -2987,9 +2987,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
-      <div style={{background:C.card,border:'1px solid '+(s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red),borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.culturaScore>=70?C.green:s.culturaScore>=40?C.yellow:C.red}}>{s.culturaScore}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Maturidade</div>
+      <div onClick={()=>setView('analytics')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+      <div style={{fontSize:13,fontWeight:900,color:C.teal}}>{String.fromCodePoint(128203)}</div>
+      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>SAQ</div>
       </div>
     </div>}
 
@@ -3549,6 +3549,124 @@ idade:'Idade do paciente',
 
 
 // --- ANALYTICS VIEW ----------------------------------------------------------
+function SAQView({showToast}) {
+  const SAQ_DOMINIOS=[
+    {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
+      'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
+      'Os profissionais se apoiam mutuamente neste setor.',
+      'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
+      'Discordancias neste setor sao resolvidas de forma adequada.',
+      'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
+    ]},
+    {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
+      'A cultura neste setor torna facil aprender com os erros dos outros.',
+      'Eu me sentiria seguro sendo tratado aqui como paciente.',
+      'Erros sao tratados de forma adequada neste setor.',
+      'Neste setor e dificil discutir sobre erros (invertido).',
+      'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
+    ]},
+    {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
+      'Eu gosto do meu trabalho.',
+      'Trabalhar aqui e como fazer parte de uma grande familia.',
+      'Este setor e um bom lugar para trabalhar.',
+      'Estou orgulhoso de trabalhar neste setor.',
+      'O moral neste setor e alto.',
+    ]},
+    {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
+      'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
+      'Sou menos eficiente no trabalho quando estou com muito estresse.',
+      'Fico exausto quando penso no trabalho que preciso fazer.',
+      'Trabalho com mais cuidado quando estou cansado.',
+    ]},
+    {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
+      'A administracao apoia meus esforgos diarios.',
+      'A administracao nao compromete conscientemente a seguranca do paciente.',
+      'A administracao esta fazendo um bom trabalho.',
+      'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
+    ]},
+    {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
+      'Este setor e bem equipado para lidar com novos pacientes.',
+      'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
+      'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
+      'O treinamento que recebi foi adequado para o trabalho que executo.',
+    ]},
+  ];
+  const [saqResp,setSaqResp]=React.useState({});
+  const [saqEnviado,setSaqEnviado]=React.useState(false);
+  const totalItens=SAQ_DOMINIOS.reduce((a,d)=>a+d.itens.length,0);
+  const respondidos=Object.keys(saqResp).length;
+  const scores=SAQ_DOMINIOS.map(dom=>{
+    const vals=dom.itens.map((_,i)=>saqResp[dom.id+'_'+i]).filter(v=>v!==undefined);
+    if(!vals.length) return{...dom,score:null,pct:null};
+    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+    const pct=Math.round((avg/4)*100);
+    return{...dom,score:avg.toFixed(1),pct};
+  });
+  const scoreGeral=scores.every(s=>s.pct!==null)?Math.round(scores.reduce((a,s)=>a+s.pct,0)/scores.length):null;
+  const enviarSAQ=()=>{
+    if(respondidos<totalItens) return;
+    setSaqEnviado(true);
+    showToast('SAQ registrado com sucesso!','success');
+  };
+  return(<div style={{display:'flex',flexDirection:'column',gap:12}}>
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>SAQ - Safety Attitudes Questionnaire</div>
+      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:8}}>Instrumento validado internacionalmente (Sexton et al., 2006). Versao adaptada para o HNSA. Responda com base na sua experiencia nos ultimos 30 dias neste setor.</div>
+      {scoreGeral!==null&&<div style={{background:C.teal+'15',border:'1px solid '+C.teal+'44',borderRadius:10,padding:'12px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
+        <div style={{textAlign:'center',flexShrink:0}}>
+          <div style={{fontSize:28,fontWeight:900,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral}</div>
+          <div style={{fontSize:9,color:C.muted,fontWeight:700}}>pts / 100</div>
+        </div>
+        <div>
+          <div style={{fontSize:13,fontWeight:800,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral>=75?'Cultura positiva de seguranca':scoreGeral>=60?'Em desenvolvimento':'Necessita intervencao'}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Score geral SAQ. Corte de positividade: 75 pts (Sexton et al.)</div>
+        </div>
+      </div>}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+        {scores.map(dom=>(
+          <div key={dom.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:dom.cor,marginBottom:6}}>{dom.label}</div>
+            {dom.pct!==null?<div>
+              <div style={{fontSize:18,fontWeight:900,color:dom.cor}}>{dom.pct}<span style={{fontSize:10,color:C.muted}}> pts</span></div>
+              <div style={{height:4,background:C.border,borderRadius:2,marginTop:6,overflow:'hidden'}}>
+                <div style={{width:dom.pct+'%',height:'100%',background:dom.cor,borderRadius:2}}/>
+              </div>
+            </div>:<div style={{fontSize:10,color:C.muted}}>Nao respondido</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{respondidos}/{totalItens} itens respondidos</div>
+      {SAQ_DOMINIOS.map(dom=>(
+        <div key={dom.id} style={{background:C.surface,borderRadius:12,padding:'14px',marginBottom:10}}>
+          <div style={{fontSize:12,fontWeight:800,color:dom.cor,marginBottom:10,borderBottom:'1px solid '+dom.cor+'33',paddingBottom:6}}>{dom.label}</div>
+          {dom.itens.map((item,ii)=>(
+            <div key={ii} style={{marginBottom:12}}>
+              <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item}</div>
+              <div style={{display:'flex',gap:4}}>
+                {[0,1,2,3,4].map(v=>(
+                  <button key={v} onClick={()=>setSaqResp(r=>({...r,[dom.id+'_'+ii]:v}))}
+                    style={{flex:1,padding:'6px 2px',borderRadius:6,border:'1px solid '+(saqResp[dom.id+'_'+ii]===v?dom.cor:C.border),
+                    background:saqResp[dom.id+'_'+ii]===v?dom.cor+'22':C.card,
+                    color:saqResp[dom.id+'_'+ii]===v?dom.cor:C.muted,
+                    fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center',lineHeight:1.2}}>
+                    {v+1}
+                    <div style={{fontSize:7,marginTop:2}}>{['DT','DP','N','CP','CT'][v]}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+      <button onClick={enviarSAQ} disabled={respondidos<totalItens}
+        style={{width:'100%',background:respondidos<totalItens?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:respondidos<totalItens?C.muted:'#06101F',fontSize:13,fontWeight:800,cursor:respondidos<totalItens?'not-allowed':'pointer',marginTop:4}}>
+        {respondidos<totalItens?'Responda todos os itens ('+respondidos+'/'+totalItens+')':'Registrar SAQ'}
+      </button>
+      {saqEnviado&&<div style={{textAlign:'center',fontSize:12,color:C.green,marginTop:8,fontWeight:700}}>SAQ registrado! Obrigado pela participacao.</div>}
+    </div>
+  </div>);
+}
+
 function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [tab,setTab]=useState('graficos');
   const [narrative,setNarrative]=useState('');
@@ -3714,124 +3832,7 @@ ESTRUTURA:
         <span style={{fontSize:10,color:C.muted}}>Alto</span>
       </div>
     </div>}
-{tab==='cultura'&&(()=>{
-  const SAQ_DOMINIOS=[
-    {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
-      'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
-      'Os profissionais se apoiam mutuamente neste setor.',
-      'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
-      'Discordancias neste setor sao resolvidas de forma adequada.',
-      'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
-    ]},
-    {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
-      'A cultura neste setor torna facil aprender com os erros dos outros.',
-      'Eu me sentiria seguro sendo tratado aqui como paciente.',
-      'Erros sao tratados de forma adequada neste setor.',
-      'Neste setor e dificil discutir sobre erros (invertido).',
-      'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
-    ]},
-    {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
-      'Eu gosto do meu trabalho.',
-      'Trabalhar aqui e como fazer parte de uma grande familia.',
-      'Este setor e um bom lugar para trabalhar.',
-      'Estou orgulhoso de trabalhar neste setor.',
-      'O moral neste setor e alto.',
-    ]},
-    {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
-      'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
-      'Sou menos eficiente no trabalho quando estou com muito estresse.',
-      'Fico exausto quando penso no trabalho que preciso fazer.',
-      'Trabalho com mais cuidado quando estou cansado.',
-    ]},
-    {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
-      'A administracao apoia meus esforgos diarios.',
-      'A administracao nao compromete conscientemente a seguranca do paciente.',
-      'A administracao esta fazendo um bom trabalho.',
-      'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
-    ]},
-    {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
-      'Este setor e bem equipado para lidar com novos pacientes.',
-      'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
-      'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
-      'O treinamento que recebi foi adequado para o trabalho que executo.',
-    ]},
-  ];
-  const SAQ_LABELS=['Discordo totalmente','Discordo parcialmente','Neutro','Concordo parcialmente','Concordo totalmente'];
-  const [saqResp,setSaqResp]=React.useState({});
-  const [saqEnviado,setSaqEnviado]=React.useState(false);
-  const totalItens=SAQ_DOMINIOS.reduce((a,d)=>a+d.itens.length,0);
-  const respondidos=Object.keys(saqResp).length;
-  const scores=SAQ_DOMINIOS.map(dom=>{
-    const vals=dom.itens.map((_,i)=>saqResp[dom.id+'_'+i]).filter(v=>v!==undefined);
-    if(!vals.length) return{...dom,score:null,pct:null};
-    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-    const pct=Math.round((avg/4)*100);
-    return{...dom,score:avg.toFixed(1),pct};
-  });
-  const scoreGeral=scores.every(s=>s.pct!==null)?Math.round(scores.reduce((a,s)=>a+s.pct,0)/scores.length):null;
-  const enviarSAQ=async()=>{
-    if(respondidos<totalItens) return;
-    setSaqEnviado(true);
-    showToast('SAQ registrado com sucesso!','success');
-  };
-  return(<div style={{display:'flex',flexDirection:'column',gap:12}}>
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>SAQ - Safety Attitudes Questionnaire</div>
-      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:8}}>Instrumento validado internacionalmente (Sexton et al., 2006). Versao adaptada para o HNSA. Responda com base na sua experiencia nos ultimos 30 dias neste setor.</div>
-      {scoreGeral!==null&&<div style={{background:C.teal+'15',border:'1px solid '+C.teal+'44',borderRadius:10,padding:'12px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
-        <div style={{textAlign:'center',flexShrink:0}}>
-          <div style={{fontSize:28,fontWeight:900,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral}</div>
-          <div style={{fontSize:9,color:C.muted,fontWeight:700}}>pts / 100</div>
-        </div>
-        <div>
-          <div style={{fontSize:13,fontWeight:800,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral>=75?'Cultura positiva de seguranca':scoreGeral>=60?'Em desenvolvimento':'Necessita intervencao'}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Score geral SAQ. Corte de positividade: 75 pts (Sexton et al.)</div>
-        </div>
-      </div>}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
-        {scores.map(dom=>(
-          <div key={dom.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px'}}>
-            <div style={{fontSize:11,fontWeight:700,color:dom.cor,marginBottom:6}}>{dom.label}</div>
-            {dom.pct!==null?<>
-              <div style={{fontSize:18,fontWeight:900,color:dom.cor}}>{dom.pct}<span style={{fontSize:10,color:C.muted}}> pts</span></div>
-              <div style={{height:4,background:C.border,borderRadius:2,marginTop:6,overflow:'hidden'}}>
-                <div style={{width:dom.pct+'%',height:'100%',background:dom.cor,borderRadius:2}}/>
-              </div>
-            </>:<div style={{fontSize:10,color:C.muted}}>Nao respondido</div>}
-          </div>
-        ))}
-      </div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{respondidos}/{totalItens} itens respondidos</div>
-      {SAQ_DOMINIOS.map(dom=>(
-        <div key={dom.id} style={{background:C.surface,borderRadius:12,padding:'14px',marginBottom:10}}>
-          <div style={{fontSize:12,fontWeight:800,color:dom.cor,marginBottom:10,borderBottom:'1px solid '+dom.cor+'33',paddingBottom:6}}>{dom.label}</div>
-          {dom.itens.map((item,ii)=>(
-            <div key={ii} style={{marginBottom:12}}>
-              <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item}</div>
-              <div style={{display:'flex',gap:4}}>
-                {[0,1,2,3,4].map(v=>(
-                  <button key={v} onClick={()=>setSaqResp(r=>({...r,[dom.id+'_'+ii]:v}))}
-                    style={{flex:1,padding:'6px 2px',borderRadius:6,border:'1px solid '+(saqResp[dom.id+'_'+ii]===v?dom.cor:C.border),
-                    background:saqResp[dom.id+'_'+ii]===v?dom.cor+'22':C.card,
-                    color:saqResp[dom.id+'_'+ii]===v?dom.cor:C.muted,
-                    fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center',lineHeight:1.2}}>
-                    {v+1}
-                    <div style={{fontSize:7,marginTop:2}}>{['DT','DP','N','CP','CT'][v]}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-      <button onClick={enviarSAQ} disabled={respondidos<totalItens}
-        style={{width:'100%',background:respondidos<totalItens?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:respondidos<totalItens?C.muted:'#06101F',fontSize:13,fontWeight:800,cursor:respondidos<totalItens?'not-allowed':'pointer',marginTop:4}}>
-        {respondidos<totalItens?'Responda todos os itens ('+respondidos+'/'+totalItens+')':'Registrar SAQ'}
-      </button>
-      {saqEnviado&&<div style={{textAlign:'center',fontSize:12,color:C.green,marginTop:8,fontWeight:700}}>SAQ registrado! Obrigado pela participacao.</div>}
-    </div>
-  </div>);
-})()}
+{tab==='cultura'&&<SAQView showToast={showToast}/>}
 {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Interpretação por IA</div>

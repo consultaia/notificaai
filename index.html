@@ -151,10 +151,7 @@ const MOCK_MONTHLY=[{mes:'Jan',sp:4,adm:7},{mes:'Fev',sp:6,adm:5},{mes:'Mar',sp:
 const MOCK_SECTORS=[{setor:'UPG',eventos:8},{setor:'Ala A',eventos:14},{setor:'CC',eventos:5},{setor:'SEP',eventos:11}];
 const MOCK_TYPES=[{name:'Queda',value:35,color:'#EF4444'},{name:'Medicação',value:25,color:'#F59E0B'},{name:'Acesso',value:20,color:'#8B5CF6'},{name:'Hotelaria',value:15,color:'#1D6FE8'},{name:'Outros',value:5,color:'#5A7AA0'}];
 const MOCK_HEATMAP=[{turno:'Manhã',v:[1,2,2,3,2,2,1]},{turno:'Tarde',v:[2,4,5,3,4,5,2]},{turno:'Noite',v:[4,6,5,7,5,4,3]}];
-const MOCK_RECENT=[
-  {id:'1',event_subtype:'queda',notification_type:'seguranca_paciente',sector:'Ala A',created_at:new Date().toISOString(),rca_gerado:false,notivisa_enviado:false,gravidade:''},
-  {id:'2',occurrence_subtype:'hotelaria',notification_type:'administrativa',sector:'SEP',created_at:new Date(Date.now()-3600000).toISOString(),rca_gerado:false,notivisa_enviado:false},
-];
+// MOCK_RECENT removido
 const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 function computeStats(notifications) {
@@ -202,8 +199,8 @@ function computeStats(notifications) {
   const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
   const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'-',eventos:0});
   // Dias sem sentinela
-  const sevts=notifications.filter(n=>n.gravidade==='Evento sentinela').sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
-  const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].created_at))/86400000):null;
+  const sevts=notifications.filter(n=>n.gravidade==='Evento sentinela').sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
+  const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].event_date||sevts[0].created_at))/86400000):null;
   // Índice de cultura
   const nmCount=notifications.filter(n=>n.gravidade==='Near miss').length;
   const concl=notifications.filter(n=>n.status==='concluido').length;
@@ -2032,7 +2029,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
           <option value="seguranca_paciente">Seguranca do Paciente (SP)</option>
           <option value="administrativa">Administrativa</option>
-          <option value="ccih">CCIH / Infeccao Hospitalar</option>
+          
         </select>
         <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Subtipo</label>
         <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}

@@ -1944,7 +1944,10 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       +'<h2>Tipo</h2><p>'+(tag.label||'-')+(n.event_subtype?' - '+n.event_subtype:'')+'</p>'
       +'<h2>Data / Turno</h2><p>'+(n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(n.shift?' - '+n.shift:'')+'</p>'
       +'<h2>Setor</h2><p>'+(n.sector||'-')+'</p>'
-      +'<h2>Paciente</h2><p>'+(n.patient_age?n.patient_age+' anos':'')+(n.admission_reason?' - '+n.admission_reason:'')+'</p>'
+      +'<h2>Paciente</h2><p>'+(n.patient_age?n.patient_age+' anos':'')+(n.patient_sex?' - '+n.patient_sex:'')+'</p>'
+      +(n.admission_reason?'<h2>NIP / Identificacao</h2><p>'+n.admission_reason+'</p>':'')
+      +(n.event_subtype==='Perda de AVP'&&n.avp_motivo?'<h2>Motivo da perda do AVP</h2><p>'+n.avp_motivo+'</p>':'')
+      +(n.patient_admission?'<h2>Data de Admissao</h2><p>'+new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')+'</p>':'')
       +'<h2>Descricao</h2><p>'+(n.description||'-')+'</p>'
       +'<h2>Medidas tomadas</h2><p>'+(n.measures_taken||'-')+'</p>'
       +'<h2>Desfecho</h2><p>'+(n.patient_outcome||'-')+'</p>'
@@ -2096,6 +2099,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
                     {n.patient_outcome&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Desfecho</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.patient_outcome}</div></div>}
                     {n.ai_summary&&<div style={{marginBottom:8,background:C.teal+'10',borderRadius:6,padding:'6px 8px'}}><div style={{fontSize:9,color:C.teal,fontWeight:700,marginBottom:2}}>Resumo IA</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.ai_summary}</div></div>}
                     {n.admission_reason&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Paciente / NIP</div><div style={{fontSize:11,color:C.text}}>{n.admission_reason}</div></div>}
+                    {n.patient_admission&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Data de admissao</div><div style={{fontSize:11,color:C.text}}>{new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')}</div></div>}
+                    {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
                       {isSP&&<button onClick={ev=>{ev.stopPropagation();setNotiVisaTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.teal,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Formulario Notivisa completo</button>}
                       {isSP&&<button onClick={ev=>{ev.stopPropagation();setPlanoTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.green+'20',color:C.green,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Plano de Acao</button>}
@@ -3101,6 +3106,12 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
       case 'sexo':{
         if(valor!=='nao_informar') d.patient_sex=valor;
+        avancar(d,'data_admissao','Data de admissao do paciente (ou "nao informar"):');
+        break;
+      }
+
+      case 'data_admissao':{
+        if(valor&&valor!=='nao informar'&&valor!=='nao_informar') d.patient_admission=valor;
         avancar(d,'desfecho','Qual foi o desfecho para o paciente?');
         break;
       }
@@ -3187,7 +3198,9 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         was_preventable:dados.was_preventable===true?true:dados.was_preventable===false?false:null,
         occurrence_subtype:dados.notification_type!=='seguranca_paciente'?(dados.event_subtype||null):null,
         patient_age:dados.patient_age||null,
+        patient_admission:dados.patient_admission||null,
         admission_reason:[dados.patient_nip?'NIP: '+dados.patient_nip:'', dados.patient_name?dados.patient_name:'', dados.patient_age?dados.patient_age+' anos':'', dados.patient_sex||''].filter(Boolean).join(' | ')||null,
+        avp_motivo:dados.event_subtype==='Perda de AVP'?(dados.avp_motivo||null):null,
         ai_summary:dados.ai_summary||null,
         is_test:testMode||false,
         hospital_id:h.id,
@@ -3313,9 +3326,9 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
   };
 
   // -- PROGRESSO ---------------------------------------------------------
-  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','desfecho','preventivel','resumo'];
+  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','desfecho','preventivel','resumo'];
   const ORDEM_ADM=['perfil','tipo','subtipo_adm','setor','data','relato','medidas','resumo'];
-  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','desfecho','preventivel','resumo'];
+  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','desfecho','preventivel','resumo'];
 
   const getOrdem=()=>{
     const t=dados.notification_type;
@@ -3347,6 +3360,7 @@ idade:'Idade do paciente',
     sexo:'Sexo do paciente',
     desfecho:'Desfecho',
     preventivel:'Evitabilidade',
+        data_admissao:'Data de admissao',
     resumo:'Confirmação',
     done:'Concluído',
   };
@@ -3435,7 +3449,7 @@ idade:'Idade do paciente',
         {/* Campo texto livre */}
         {showInput&&(
           <div style={{padding:'8px 14px 12px',display:'flex',gap:10}}>
-            <input value={input} onChange={e=>setInput(e.target.value)}
+            <input type={(step==='data'||step==='data_admissao')?'date':'text'} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&input.trim()&&(responder(input.trim(),input.trim()),setInput(''))}
               placeholder={
                 step==='nip'?'Digite o NIP do paciente...' :
@@ -3456,7 +3470,7 @@ idade:'Idade do paciente',
         {/* NIP - só texto (sem chips) */}
         {step==='nip'&&!loading&&!saving&&chips.length===0&&(
           <div style={{padding:'8px 14px 12px',display:'flex',gap:10}}>
-            <input value={input} onChange={e=>setInput(e.target.value)}
+            <input type={(step==='data'||step==='data_admissao')?'date':'text'} value={input} onChange={e=>setInput(e.target.value)}
               onKeyDown={e=>e.key==='Enter'&&input.trim()&&(responder(input.trim(),input.trim()),setInput(''))}
               placeholder="Digite o NIP do paciente..."
               style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>

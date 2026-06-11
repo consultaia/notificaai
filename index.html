@@ -2973,6 +2973,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
   const [step,setStep]=useState('perfil');
   const [dados,setDados]=useState({});
   const [messages,setMessages]=useState([]);
+  const [historico,setHistorico]=useState([]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
   const [saving,setSaving]=useState(false);
@@ -2988,9 +2989,20 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
 
   // -- AVANÇAR PASSO ------------------------------------------------------
   const avancar=(novosDados,proximoStep,pergunta)=>{
+    setHistorico(h=>[...h,{step,dados:{...dados},msgCount:messages.length}]);
     setDados(novosDados);
     if(pergunta) addMsg('assistant',pergunta);
     setStep(proximoStep);
+  };
+
+  const voltar=()=>{
+    if(historico.length===0) return;
+    const prev=historico[historico.length-1];
+    setHistorico(h=>h.slice(0,-1));
+    setStep(prev.step);
+    setDados(prev.dados);
+    setMessages(m=>m.slice(0,prev.msgCount));
+    setInput('');
   };
 
   const isSP=(d)=>['seguranca_paciente','ccih'].includes(d.notification_type||dados.notification_type||'seguranca_paciente');
@@ -3364,7 +3376,7 @@ idade:'Idade do paciente',
 
   const chips=chipsAtivos();
   const prog=step!=='done'?getProgresso():{atual:1,total:1};
-  const inputSteps=['relato','medidas','nip','nome_pac','idade','setor','data'];
+  const inputSteps=['relato','medidas','nip','nome_pac','idade','setor','data','data_admissao'];
   const showInput=inputSteps.includes(step)&&!loading&&!saving;
   const showPular=['nip','nome_pac','idade','sexo'].includes(step)&&!loading&&!saving;
   const showConfirm=step==='resumo'&&!loading&&!saving;
@@ -3381,7 +3393,7 @@ idade:'Idade do paciente',
     <div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:step!=='done'?6:0}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text}}>Registrar Notificação</div>
-        {step!=='done'&&<div style={{fontSize:11,color:C.muted,fontWeight:600}}>Passo {prog.atual}/{prog.total}</div>}
+        {step!=='done'&&<div style={{display:'flex',alignItems:'center',gap:8}}>{historico.length>0&&<button onClick={voltar} style={{background:'none',border:'none',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer',padding:'2px 6px',borderRadius:6,border:'1px solid '+C.teal+'44'}}>Voltar</button>}<div style={{fontSize:11,color:C.muted,fontWeight:600}}>Passo {prog.atual}/{prog.total}</div>}
       </div>
       {step!=='done'&&<div>
         <div style={{height:3,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:4}}>

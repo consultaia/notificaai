@@ -1949,7 +1949,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
       setEditTarget(null);
       setDetalhe(null);
       showToast('Notificacao atualizada!','success');
-    }catch{showToast('Erro ao salvar','error');}
+    }catch(err){showToast('Erro: '+(err?.message||'falha ao salvar'),'error');console.error('salvarEdicao:',err);}
     setSalvandoEdit(false);
   };
 
@@ -2047,8 +2047,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
           <option value="">-- Manter atual ({editTarget.sector||'nao informado'}) --</option>
           {h.sectors.map(sec=><option key={sec} value={sec}>{sec}</option>)}
         </select>
-        <button onClick={salvarEdicao} disabled={salvandoEdit||!editForm.notification_type}
-          style={{width:'100%',background:salvandoEdit||!editForm.notification_type?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
+        <button onClick={salvarEdicao} disabled={salvandoEdit}
+          style={{width:'100%',background:salvandoEdit?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#fff',fontWeight:700,fontSize:14,cursor:'pointer'}}>
           {salvandoEdit?'Salvando...':'Salvar correcao'}
         </button>
       </div>

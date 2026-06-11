@@ -993,7 +993,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(1)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>← Editar</button>
-          <button onClick={()=>window.print()} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
+          <button onClick={()=>{const b=new Blob(['<!DOCTYPE html><html><head><meta charset=UTF-8><title>Notivisa</title><style>body{font-family:Arial,sans-serif;max-width:700px;margin:40px auto;}h1{background:#c8102e;color:#fff;padding:14px;border-radius:6px;font-size:15px;}h2{font-size:10px;color:#666;text-transform:uppercase;margin:12px 0 3px;}p{background:#f5f5f5;border-radius:4px;padding:8px;font-size:12px;margin:0 0 6px;}.footer{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;font-size:11px;color:#856404;margin-top:20px;}</style></head><body><h1>Notivisa HNSA<br><small>'+new Date().toLocaleString('pt-BR')+'</small></h1>'+[['Data',(form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-')+' '+(form.hora_evento||'')],['Turno',form.turno||'-'],['Tipo',form.tipo||'-'],['Gravidade',form.gravidade||'-'],['Setor',form.setor||'-'],['Descricao',form.descricao||'-'],['Acao imediata',form.acao_imediata||'-'],['Dano',form.dano||'-'],['Acao corretiva',form.acao_corretiva||'-']].map(([l,v])=>'<h2>'+l+'</h2><p>'+v+'</p>').join('')+'<div class=footer>Nao substitui envio oficial em notivisa.anvisa.gov.br</div></body></html>'],{type:'text/html'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download='Notivisa_'+(form.setor||'HNSA')+'_'+(form.data_evento||new Date().toISOString().slice(0,10))+'_'+((notification.id||'').slice(0,8).toUpperCase())+'.html';a.click();URL.revokeObjectURL(u);}} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>⬇ PDF</button>
           <button onClick={()=>setStep(3)} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar →</button>
         </div>
       </div>)}
@@ -1426,17 +1426,18 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       </div>
       {INDICADORES_DEF.map((ind,i)=>{
         const val=Number(d[ind.key]);
-        const ok=ind.menor?val<ind.meta:val>=ind.meta;
+const ok=ind.menor?val<=ind.meta:val>=ind.meta;
+const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
         return(<div key={i} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{ind.label}</div>
             <div style={{fontSize:10,color:C.muted}}>{ind.desc} · Meta: {ind.menor?'< ':'> '}{ind.meta}{ind.unidade}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:20,fontWeight:900,color:ok?C.green:C.red,lineHeight:1}}>{d[ind.key]}{ind.unidade==='%'?'%':''}</div>
+            <div style={{fontSize:20,fontWeight:900,color:ok?C.green:warn?C.yellow:C.red,lineHeight:1}}>{d[ind.key]}{ind.unidade==='%'?'%':''}</div>
             <div style={{fontSize:9,color:C.muted}}>{ind.unidade!=='%'?ind.unidade:''}</div>
           </div>
-          <div style={{background:ok?C.green+'22':C.red+'22',color:ok?C.green:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>{ok?'Meta':'Alerta'}</div>
+          <div style={{background:ok?C.green+'22':C.red+'22',color:ok?C.green:warn?C.yellow:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>{ok?'Meta':'Alerta'}</div>
         </div>);
       })}
       {d.sentinela>0&&<div style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'8px 12px',fontSize:11,color:C.red,fontWeight:700}}>
@@ -1528,7 +1529,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
                 const vG=Number(dados.geral?.[ind.key]||0);
                 const vU=dados.upg?Number(dados.upg[ind.key]||0):null;
                 const vA=dados.alaA?Number(dados.alaA[ind.key]||0):null;
-                const cor=(v)=>{if(v===null)return C.muted;const ok=ind.menor?v<ind.meta:v>=ind.meta;return ok?C.green:C.red;};
+                const cor=(v)=>{if(v===null)return C.muted;const pct=ind.menor?(v/ind.meta):(ind.meta/v);const ok=ind.menor?v<=ind.meta:v>=ind.meta;const close=ind.menor?v<=ind.meta*1.3:v>=ind.meta*0.7;return ok?C.green:close?C.yellow:C.red;};
                 return(<tr key={i} style={{borderBottom:'1px solid '+C.border+'22'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontSize:11}}>{ind.label}</td>
                   {dados.geral&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>}
@@ -1705,8 +1706,11 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
 // --- RELATÓRIO MENSAL PDF -----------------------------------------------------
 function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
   const [loading,setLoading]=useState(false);
+  const [loadingIA,setLoadingIA]=useState(false);
+  const [narrativaIA,setNarrativaIA]=useState('');
   const [dados,setDados]=useState(null);
   const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')||'01'}`;});
+  const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const [gestor,setGestor]=useState('');
   const [diretoria,setDiretoria]=useState('');
   const h=hospital||DEFAULT_HOSPITAL;
@@ -1726,6 +1730,28 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     setLoading(false);
   };
 
+  const gerarNarrativaIA=async()=>{
+    if(!dados)return;
+    setLoadingIA(true);
+    try{
+      const fSP=dados.nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
+      const fAdm=dados.nots.filter(n=>n.notification_type==='administrativa').length;
+      const fCCIH=dados.nots.filter(n=>n.event_subtype?.startsWith('CCIH')||n.notification_type==='ccih').length;
+      const fSemRCA=dados.nots.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
+      const fSentinela=dados.nots.filter(n=>n.gravidade==='Evento sentinela').length;
+      const fSetores=Object.entries(dados.nots.reduce((acc,n)=>{if(n.sector)acc[n.sector]=(acc[n.sector]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]);
+      const fSubtipos=Object.entries(dados.nots.reduce((acc,n)=>{if(n.event_subtype)acc[n.event_subtype]=(acc[n.event_subtype]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]);
+      const workerUrl='https://notificaai.janan-almeida.workers.dev';
+      const prompt='Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere relatorio narrativo tecnico em 4 paragrafos. PERIODO: '+MESES_PT[(dados.mesCorr.m-1)]+' de '+dados.mesCorr.a+'. TOTAL: '+dados.total+'. SP: '+fSP+' CCIH: '+fCCIH+' ADM: '+fAdm+' SEM RCA: '+fSemRCA+' SENTINELAS: '+fSentinela+'. SETORES: '+fSetores.map(([k,v])=>k+' ('+v+')').join('; ')+'. SUBTIPOS: '+fSubtipos.slice(0,5).map(([k,v])=>k+' ('+v+')').join(', ')+'. DIAS SEM SENTINELA: '+(dados.s.diasSemSentinela??'nd')+'. USE siglas (SNE,LPP,AVP,CCIH,RCA) sem explicar. 4 paragrafos: 1)Panorama 2)Setorial 3)Atencao 4)Recomendacoes NSP.';
+      const resp=await fetch(workerUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
+      const r=await resp.json();
+      const txt=r.choices?.[0]?.message?.content||r.content?.[0]?.text||'Erro ao gerar';
+      setNarrativaIA(txt);
+      showToast('Narrativa IA gerada!','success');
+    }catch(err){showToast('Erro IA: '+err.message,'error');}
+    setLoadingIA(false);
+  };
+
   const imprimir=()=>{
     const el=document.getElementById('relatorio-pdf');
     if(!el)return;
@@ -1734,7 +1760,6 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     w.document.close();w.print();
   };
 
-  const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'94vh',overflowY:'auto'}}>
@@ -1763,6 +1788,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 
       {dados&&(<div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
+        <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{flex:1,background:loadingIA?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}}>{loadingIA?'Gerando...':String.fromCodePoint(129504)+' Narrativa IA'}</button>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}> Imprimir / PDF</button>
           <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Voltar</button>
         </div>
@@ -1837,7 +1863,13 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
               </tbody>
             </table>
 
-            {/* 5. Assinaturas */}
+            {/* 5. Narrativa IA */}
+        {narrativaIA&&<div style={{marginBottom:16}}>
+          <h2 style={{fontSize:14,borderBottom:'2px solid #c8102e',paddingBottom:4,marginBottom:10,color:'#1a1a1a'}}>5. Analise Narrativa</h2>
+          <div style={{background:'#f9f9f9',borderRadius:6,padding:'12px 14px',fontSize:12,lineHeight:1.7,color:'#1a1a1a',whiteSpace:'pre-wrap'}}>{narrativaIA}</div>
+          <div style={{fontSize:10,color:'#999',marginTop:6,textAlign:'right'}}>Gerado por IA - NotificaAI NSP</div>
+        </div>}
+        {/* 6. Assinaturas */}
             <h2 style={{fontSize:14,borderBottom:'2px solid #c8102e',paddingBottom:4,marginBottom:16,color:'#1a1a1a'}}>5. Assinaturas</h2>
             <div style={{display:'flex',gap:40,marginTop:32}}>
               <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
@@ -1996,7 +2028,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital}) {
         {admCount>0&&<span style={{fontSize:11,background:C.blue+'20',color:C.blue,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{admCount} Adm</span>}
         {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} sem RCA</span>}
       </div>
-      {/* Grid de cards compactos — 2 colunas mobile / 4 desktop */}
+      {/* Grid de cards compactos - 2 colunas mobile */}
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
         {g.items.map(n=>{
           const tag=getTag(n);
@@ -2882,6 +2914,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         </div>);
       })}
     </div>}
+  {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} onSelect={()=>{}}/>}
   </div>);
 }
 
@@ -3160,7 +3193,6 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
     tipo:[
       {v:'seguranca_paciente',l:'Relacionado ao paciente'},
       {v:'administrativa',l:'Ocorrência administrativa'},
-      {v:'ccih',l:'Infecção hospitalar (CCIH)'},
     ],
     subtipo_sp:[
       {v:'Queda',l:'Queda'},
@@ -3467,7 +3499,7 @@ const fSetorCount=Object.entries(filtered.reduce((acc,n)=>{if(n.sector){acc[n.se
 const fSubtipoCount=Object.entries(filtered.reduce((acc,n)=>{if(n.event_subtype){acc[n.event_subtype]=(acc[n.event_subtype]||0)+1;}return acc;},{})).sort((a,b)=>b[1]-a[1]);
 const text=await callWorker([{role:'user',content:`Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere um relatorio narrativo tecnico do periodo indicado.
 
-PERIODO DE ANALISE: ${mesFiltro} (somente este periodo — nao use dados de outros meses)
+PERIODO DE ANALISE: ${mesFiltro} (somente este periodo - nao use dados de outros meses)
 TOTAL DE NOTIFICACOES DO PERIODO: ${filtered.length}
 - Seguranca do Paciente: ${fSP}
 - CCIH / Infeccoes hospitalares: ${fCCIH}
@@ -3657,8 +3689,8 @@ ESTRUTURA:
     {[
       {l:'Este mês',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
       {l:'Mês anterior',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
-      {l:'1º Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},
-      {l:'2º Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},
+      {l:'1o Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},
+      {l:'2o Sem',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},
       {l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},
       {l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}},
     ].map((p,i)=>(
@@ -3674,7 +3706,7 @@ ESTRUTURA:
   </div>
 </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição mensal — {new Date().getFullYear()} ({totalAno} notif.)</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição mensal - {new Date().getFullYear()} ({totalAno} notif.)</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead><tr>{['Mês','Total','SP','CCIH','Adm'].map(h=><th key={h} style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>)}</tr></thead>
@@ -3721,12 +3753,8 @@ ESTRUTURA:
 
 // --- TICKETS -----------------------------------------------------------------
 const TICKET_TYPES=[
-  {id:'manutencao',label:'Manutenção / DSG',icon:'wrench',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, elétrica'},
-  {id:'ambulancia',label:'Saída por Ambulância',icon:'ambulance',color:'#EF4444',dest:'Garagem',desc:'Transporte de paciente para outra unidade'},
-  {id:'leito',label:'Solicitação de Leito',icon:'bed',color:'#1D6FE8',dest:'Enfermagem',desc:'Transferência interna entre setores'},
-  {id:'material',label:'Solicitação de Material',icon:'box',color:'#10B981',dest:'Almoxarifado',desc:'Equipamentos, insumos, materiais médicos'},
-  {id:'dieta',label:'Dieta Especial',icon:'food',color:'#8B5CF6',dest:'Nutrição',desc:'Mudança ou solicitação de dieta'},
-  {id:'outro',label:'Outro Chamado',icon:'clipboard',color:'#5A7AA0',dest:'Gestão',desc:'Outros chamados administrativos'},
+  {id:'manutencao',label:'Manutencao / DSG',icon:String.fromCodePoint(128295),color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, instalacoes, reparos'},
+  {id:'transporte',label:'Transporte / Ambulancia',icon:String.fromCodePoint(128657),color:'#EF4444',dest:'Transporte HNSA',desc:'Saida por ambulancia, transporte de paciente para unidade externa'},
 ];
 const TICKET_STATUS={
   aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
@@ -3740,7 +3768,7 @@ const TICKET_STATUS={
 function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
   const [step,setStep]=useState('type');
   const [type,setType]=useState(null);
-  const [form,setForm]=useState({sector:'',description:'',priority:'normal',patient_name:'',destination:'',scheduled_at:'',requester_name:''});
+  const [form,setForm]=useState({sector:'',responsavel:'',description:'',priority:'normal',patient_name:'',destination:'',scheduled_at:'',requester_name:''});
   const [saving,setSaving]=useState(false);
   const h=hospital||DEFAULT_HOSPITAL;
   const tt=TICKET_TYPES.find(t=>t.id===type);
@@ -3749,7 +3777,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     if(!form.description.trim()){showToast('Descreva o chamado','error');return;}
     setSaving(true);
     try {
-      const payload={hospital_id:h.id,ticket_type:type,origin_sector:form.sector,description:form.description,priority:form.priority,patient_name:form.patient_name||null,requester_name:form.requester_name||null,destination_sector:tt?.dest||null,scheduled_at:form.scheduled_at||null,status:'aberto',opened_at:new Date().toISOString()};
+      const payload={hospital_id:h.id,ticket_type:type,responsavel:form.responsavel||null,origin_sector:form.sector,description:form.description,priority:form.priority,patient_name:form.patient_name||null,requester_name:form.requester_name||null,destination_sector:tt?.dest||null,scheduled_at:form.scheduled_at||null,status:'aberto',opened_at:new Date().toISOString()};
       if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'tickets',payload);
       showToast('OK Chamado aberto! '+tt?.dest+' foi notificado.','success');
       setStep('done');
@@ -3794,7 +3822,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
     </select>
     <label style={lbl}>Solicitante (opcional)</label>
     <input value={form.requester_name} onChange={e=>setForm({...form,requester_name:e.target.value})} placeholder="Nome" style={inp}/>
-    {type==='ambulancia'&&<>
+    {type==='transporte'&&<>
       <label style={lbl}>Nome do paciente</label>
       <input value={form.patient_name} onChange={e=>setForm({...form,patient_name:e.target.value})} placeholder="Nome completo (opcional)" style={inp}/>
       <label style={lbl}>Destino / Unidade de referência</label>
@@ -3802,7 +3830,9 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
       <label style={lbl}>Horário previsto</label>
       <input type="datetime-local" value={form.scheduled_at} onChange={e=>setForm({...form,scheduled_at:e.target.value})} style={inp}/>
     </>}
-    <label style={lbl}>Descrição *</label>
+    <label style={lbl}>Responsável (opcional)</label>
+      <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Ex: 1T Almeida, Enf. Costa..." style={{...inp,marginBottom:16}}/>
+      <label style={lbl}>Descrição *</label>
     <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Descreva o chamado..." style={{...inp,height:90,resize:'none',fontFamily:'inherit'}}/>
     <label style={lbl}>Prioridade</label>
     <div style={{display:'flex',gap:8,marginBottom:16}}>

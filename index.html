@@ -2025,13 +2025,13 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
           <option value="">-- Selecione --</option>
-          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro','Seguranca Organica','Acidente de trabalho','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
+          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Outro','Seguranca Organica','Acidente de trabalho','Acidente com perfurocortante','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
           {editForm.notification_type==='seguranca_paciente'&&[
             'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
             'Cirurgia segura','Perda de SNE','Near miss','Evento sentinela','Acidente com perfurocortante','Outro'
           ].map(v=><option key={v} value={v}>{v}</option>)}
           {editForm.notification_type==='administrativa'&&[
-            'Seguranca Organica','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
+            'Seguranca Organica','Acidente de trabalho','Acidente com perfurocortante','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
             'Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao','Outro'
           ].map(v=><option key={v} value={v}>{v}</option>)}
           {editForm.notification_type==='ccih'&&[
@@ -3307,16 +3307,16 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       {v:'Outro foco',l:'Outro foco de infecção'},
     ],
     subtipo_adm:[
-      {v:'Segurança orgânica',l:'Segurança orgânica'},
+      {v:'Seguranca Organica',l:'Segurança orgânica'},
 {v:'Acidente de trabalho',l:'Acidente de trabalho'},
-{v:'Perfurocortante',l:'Acidente com perfurocortante'},
-      {v:'Laboratório',l:'Laboratório'},
+{v:'Acidente com perfurocortante',l:'Acidente com perfurocortante'},
+      {v:'Laboratorio',l:'Laboratório'},
       {v:'Hotelaria / limpeza',l:'Hotelaria / limpeza'},
-      {v:'Nutrição / dieta',l:'Nutrição / dieta'},
+      {v:'Nutricao / dieta',l:'Nutrição / dieta'},
       {v:'Vestimenta / adornos',l:'Vestimenta inadequada / adornos'},
-      {v:'Farmácia',l:'Farmácia'},
-      {v:'Infraestrutura / manutenção',l:'Infraestrutura / manutenção'},
-      {v:'Comunicação / documentação',l:'Comunicação / documentação'},
+      {v:'Farmacia',l:'Farmácia'},
+      {v:'Infraestrutura / manutencao',l:'Infraestrutura / manutenção'},
+      {v:'Comunicacao / documentacao',l:'Comunicação / documentação'},
       {v:'Outro',l:'Outro'},
     ],
     avp_motivo:[

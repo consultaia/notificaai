@@ -1,3 +1,35 @@
+<!DOCTYPE html>
+<!-- NotificaAI v2026-06-08 04:49:12 FIXED -->
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>NotificaAI - HNSA</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#06101F;height:100%}
+@keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
+@keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splashFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes splashLogoAnim{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+@keyframes sentinelaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.splash-in{animation:splashFadeIn .45s ease forwards}
+.splash-out{animation:splashFadeOut .4s ease forwards}
+input::placeholder{color:#5A7AA0}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
+button:active{opacity:.85}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
 const { useState, useRef, useEffect } = React;
 
 window.storage = {
@@ -315,8 +347,8 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'24px 20px 36px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:18}}>
-        <div style={{fontSize:16,fontWeight:800,color:C.text}}>⚙️ Configurar Supabase</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <div style={{fontSize:16,fontWeight:800,color:C.text}}>{String.fromCodePoint(9881)}️ Configurar Supabase</div>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:1.7,background:C.card,borderRadius:10,padding:'12px 14px',borderLeft:'3px solid '+C.teal}}>
         Supabase: <strong style={{color:C.teal}}>Project Settings → API</strong><br/>
@@ -409,7 +441,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
 
   return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
-      <div style={{fontSize:36,marginBottom:12}}>🔐</div>
+      <div style={{fontSize:36,marginBottom:12}}>{String.fromCodePoint(128272)}</div>
       <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
       <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
       <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
@@ -484,7 +516,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
 
   if(!sbUrl||!sbKey) return(
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>🔐 Usuários e PINs</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{String.fromCodePoint(128272)}+' Usuários e PINs</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários. PINs locais ativos:<br/>
         {Object.entries(PROFILES).map(([k,p])=><span key={k} style={{display:'inline-block',background:p.color+'15',color:p.color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,margin:'2px'}}>{p.icon} {p.label}: {p.pin}</span>)}
       </div>
@@ -493,7 +525,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
 
   return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text}}>🔐 Usuários e PINs</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.text}}>{String.fromCodePoint(128272)}+' Usuários e PINs</div>
       <button onClick={()=>openForm()} style={{background:C.teal,border:'none',borderRadius:8,padding:'6px 12px',color:'#06101F',fontWeight:700,fontSize:12,cursor:'pointer'}}>+ Novo</button>
     </div>
     {showForm&&(
@@ -522,7 +554,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
     {!loading&&users.length===0&&<div style={{textAlign:'center',color:C.muted,padding:16,fontSize:12}}>Nenhum usuário. Clique em "+ Novo".</div>}
     {users.map(u=>(
       <div key={u.id} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
-        <div style={{width:34,height:34,borderRadius:'50%',background:C.teal+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>🔐</div>
+        <div style={{width:34,height:34,borderRadius:'50%',background:C.teal+'15',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{String.fromCodePoint(128272)}</div>
         <div style={{flex:1}}>
           <div style={{fontSize:13,fontWeight:600,color:C.text}}>{u.nome}</div>
           <div style={{fontSize:10,color:C.muted,marginTop:2,display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -532,7 +564,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
           </div>
         </div>
         <div style={{display:'flex',gap:4}}>
-          <button onClick={()=>openForm(u)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>✎</button>
+          <button onClick={()=>openForm(u)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'5px 9px',color:C.muted,fontSize:11,cursor:'pointer'}}>{String.fromCodePoint(9998)}</button>
           <button onClick={()=>sbPatch(sbUrl,sbKey,'nsp_usuarios','id=eq.'+u.id,{ativo:!u.ativo}).then(load)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'5px 9px',color:u.ativo!==false?C.yellow:C.green,fontSize:11,cursor:'pointer'}}>{u.ativo!==false?'Off':'On'}</button>
           <button onClick={()=>del(u.id)} disabled={deleting===u.id} style={{background:'none',border:'none',cursor:'pointer',padding:5,color:C.red,fontSize:14}}>{deleting===u.id?'...':'X'}</button>
         </div>
@@ -600,7 +632,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
       </div>
       <div onClick={()=>document.getElementById('csvInput').click()} style={{border:'2px dashed '+C.border,borderRadius:12,padding:'36px 24px',textAlign:'center',cursor:'pointer'}}
         onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0]);}}>
-        <div style={{fontSize:32,marginBottom:8}}>📂</div>
+        <div style={{fontSize:32,marginBottom:8}}>{String.fromCodePoint(128194)}</div>
         <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:4}}>Clique ou arraste o arquivo CSV</div>
         <div style={{fontSize:12,color:C.muted}}>Exportado do Google Sheets ou outro sistema</div>
         <input id="csvInput" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{if(e.target.files[0])processFile(e.target.files[0]);}}/>
@@ -653,12 +685,12 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
-          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>⬆ Importar {regs.length} registros</button>
+          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)}+' Importar {regs.length} registros</button>
         </div>
       </div>);
     })()}
     {step===4&&(<div style={{textAlign:'center',padding:'32px 16px'}}>
-      <div style={{fontSize:48,marginBottom:12}}>✅</div>
+      <div style={{fontSize:48,marginBottom:12}}>{String.fromCodePoint(9989)}</div>
       <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:6}}>Importação concluída!</div>
       <div style={{fontSize:13,color:C.muted,marginBottom:20}}>{importados+' registros importados'+(periodo?' - '+periodo:'')}</div>
       <div style={{display:'flex',gap:8,justifyContent:'center'}}>
@@ -685,7 +717,7 @@ Setor: ${notification.sector}
 Descrição: ${notification.description}
 Desfecho: ${notification.patient_outcome||'não informado'}
 
-JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Causa raiz:","resposta":"..."}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["...","..."]},{"categoria":"Processo","cor":"#F59E0B","causas":["...","..."]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["...","..."]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["...","..."]},{"categoria":"Gestão","cor":"#00C9B8","causas":["...","..."]}],"fatores":[{"icone":"👤","tipo":"Fator humano","descricao":"..."},{"icone":"🔄","tipo":"Fator de processo","descricao":"..."},{"icone":"🏥","tipo":"Fator ambiental","descricao":"..."},{"icone":"📋","tipo":"Fator organizacional","descricao":"..."}],"plano":[{"acao":"...","responsavel":"Gestor","prazo":"7 dias"},{"acao":"...","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"...","responsavel":"Gestão","prazo":"30 dias"}]}`;
+JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Causa raiz:","resposta":"..."}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["...","..."]},{"categoria":"Processo","cor":"#F59E0B","causas":["...","..."]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["...","..."]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["...","..."]},{"categoria":"Gestão","cor":"#00C9B8","causas":["...","..."]}],"fatores":[{"icone":"{String.fromCodePoint(128100)}","tipo":"Fator humano","descricao":"..."},{"icone":"{String.fromCodePoint(128260)}","tipo":"Fator de processo","descricao":"..."},{"icone":"{String.fromCodePoint(127973)}","tipo":"Fator ambiental","descricao":"..."},{"icone":"{String.fromCodePoint(128203)}","tipo":"Fator organizacional","descricao":"..."}],"plano":[{"acao":"...","responsavel":"Gestor","prazo":"7 dias"},{"acao":"...","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"...","responsavel":"Gestão","prazo":"30 dias"}]}`;
     try {
       const text=await callWorker([{role:'user',content:prompt}],null);
       setRca(JSON.parse(text.replace(/```json|```/g,'').trim()));
@@ -708,14 +740,14 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>🧠 Análise de Causa Raiz</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(129504)}+' Análise de Causa Raiz</div>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.red,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
-      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>🧠 Analisar Causa Raiz com IA</button>}
+      {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{String.fromCodePoint(129504)}+' Analisar Causa Raiz com IA</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
@@ -765,7 +797,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
                   const novo=[...rca.ishikawa];
                   novo[i]={...novo[i],causas:novo[i].causas.filter((_,k)=>k!==j)};
                   setRca(r=>({...r,ishikawa:novo}));
-                }} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>✕</button>
+                }} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,padding:'0 2px',flexShrink:0}}>{String.fromCodePoint(10005)}</button>
               </div>
             ))}
             <button onClick={()=>{
@@ -793,7 +825,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
                 />
               </div>
               <button onClick={()=>setRca(r=>({...r,fatores:r.fatores.filter((_,k)=>k!==i)}))}
-                style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,flexShrink:0}}>✕</button>
+                style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:14,flexShrink:0}}>{String.fromCodePoint(10005)}</button>
             </div>
           ))}
           <button onClick={()=>setRca(r=>({...r,fatores:[...(r.fatores||[]),{icone:String.fromCodePoint(128203),tipo:'Novo fator',descricao:''}]}))}
@@ -805,7 +837,7 @@ JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergu
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
                 <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Ação {i+1}</div>
                 <button onClick={()=>setRca(r=>({...r,plano:r.plano.filter((_,k)=>k!==i)}))}
-                  style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:13}}>✕</button>
+                  style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:13}}>{String.fromCodePoint(10005)}</button>
               </div>
               <textarea
                 value={a.acao}
@@ -873,8 +905,8 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>📋 Formulário Notivisa</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)}+' Formulário Notivisa</div>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{display:'flex',background:C.card,borderRadius:8,padding:2,gap:2,marginBottom:14}}>
         {['Campos','Revisão','Envio'].map((l,i)=><div key={i} style={{flex:1,textAlign:'center',padding:'7px',borderRadius:6,fontSize:11,fontWeight:700,background:step===i+1?C.teal:'transparent',color:step===i+1?'#06101F':step>i+1?C.green:C.muted}}>{step>i+1?'Ok ':''}{l}</div>)}
@@ -969,7 +1001,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
           ))}
         </div>
         <div style={{display:'flex',gap:8}}>
-          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>🌐 Abrir Notivisa</a>
+          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>{String.fromCodePoint(127760)} Abrir Notivisa</a>
           <button onClick={marcarEnviado} disabled={marking} style={{flex:2,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
             {marking?'Salvando...':'Ok Marcar como enviado'}
           </button>
@@ -1029,7 +1061,7 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div style={{fontSize:15,fontWeight:800,color:C.text}}>⚠️ Matriz de Risco</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.yellow,borderRadius:10,padding:'10px 14px',marginBottom:16}}>
         <div style={{fontSize:11,color:C.yellow,fontWeight:700,marginBottom:2}}>Notificação</div>
@@ -1126,8 +1158,8 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>📋 Plano de Ação</div>
-        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>✕</button>
+        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)}+' Plano de Ação</div>
+        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.blue,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
         <div style={{fontSize:11,color:C.blue,fontWeight:700,marginBottom:2}}>Notificação</div>
@@ -1158,14 +1190,14 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
-                <span>👤 {a.responsavel}</span>
+                <span>{String.fromCodePoint(128100)}+' {a.responsavel}</span>
                 <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
               <div style={{background:st.color+'22',color:st.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700}}>{st.label}</div>
-              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>🗑</button>
+              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>{String.fromCodePoint(128465)}</button>
             </div>
           </div>
           {a.status!=='concluido'&&a.status!=='cancelado'&&(
@@ -1577,11 +1609,11 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
 
     {/* Alertas */}
     {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>🔴 {vencidos.length} protocolo(s) com revisão vencida</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>{String.fromCodePoint(128308)}+' {vencidos.length} protocolo(s) com revisão vencida</div>
       {vencidos.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · venceu em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
     {proximos60.length>0&&<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'12px 14px'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>🟡 {proximos60.length} protocolo(s) vencem em 60 dias</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.yellow,marginBottom:4}}>{String.fromCodePoint(128993)}+' {proximos60.length} protocolo(s) vencem em 60 dias</div>
       {proximos60.map(p=><div key={p.id} style={{fontSize:12,color:C.muted}}>→ {p.nome} · vence em {new Date(p.proxima_revisao).toLocaleDateString('pt-BR')}</div>)}
     </div>}
 
@@ -1653,7 +1685,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
           <span>Aprovado: {p.aprovado_em?new Date(p.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
           <span style={{color:stColor}}>Revisão: {p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
         </div>
-        {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>📄 Abrir documento →</a>}
+        {p.link&&<a href={p.link} target="_blank" rel="noreferrer" style={{display:'inline-block',marginTop:6,fontSize:11,color:C.teal,fontWeight:600}}>{String.fromCodePoint(128196)} Abrir documento →</a>}
       </div>);
     })}
   </div>);
@@ -2911,7 +2943,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
     {configured&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
-      <span>✅</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
+      <span>{String.fromCodePoint(9989)}</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
     </div>}
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
@@ -4592,7 +4624,7 @@ function NotificaAI() {
               <div style={{fontSize:10,color:C.muted}}>Hospital Naval de Salvador</div>
             </div>
           </div>
-          <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>✕</button>
+          <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>{String.fromCodePoint(10005)}</button>
         </div>
         {tabs.map(({id,label,icon:Icon})=>{
           const active=view===id;
@@ -4605,7 +4637,7 @@ function NotificaAI() {
         <div style={{borderTop:'1px solid '+C.border,paddingTop:10,marginTop:6}}>
           {!profileMode
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:20}}>🔐</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
+              <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
             :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
@@ -4643,3 +4675,6 @@ function NotificaAI() {
   );
 }
 ReactDOM.createRoot(document.getElementById('root')).render(<NotificaAI/>);
+    </script>
+  </body>
+</html>

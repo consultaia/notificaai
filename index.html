@@ -1997,6 +1997,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const pagAtual=filtered.slice((pagina-1)*POR_PAGINA,pagina*POR_PAGINA);
   const setores=[...new Set(notifications.map(n=>n.sector).filter(Boolean))].sort();
   const statsSP=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&n.is_test!==true).length;
+  const statsAdm=notifications.filter(n=>n.notification_type==='administrativa'&&n.is_test!==true).length;
+  const statsTotal=notifications.filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa')&&n.is_test!==true).length;
   const statsSemRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&n.is_test!==true).length;
   const statsSemNotivisa=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.notivisa_enviado&&n.is_test!==true).length;
   const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,appearance:'none',cursor:'pointer'};
@@ -2059,7 +2061,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
 
     {/* Cards resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-      {[['Total SP',statsSP,C.red],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.purple]].map(([l,v,c])=>(
+      {[['Total',statsTotal,C.teal],['SP',statsSP,C.red],['ADM',statsAdm,C.purple],['Sem RCA',statsSemRCA,C.yellow],['Sem Notivisa',statsSemNotivisa,C.blue]].map(([l,v,c])=>(
         <div key={l} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
           <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
           <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>{l}</div>

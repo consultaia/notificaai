@@ -104,12 +104,13 @@ async function sbReq(url,key,path,opts={}) {
   const res=await fetch(`${url}/rest/v1${path}`,{...opts,headers:{
     'Content-Type':'application/json',apikey:key,Authorization:`Bearer ${key}`,Prefer:'return=representation',...(opts.headers||{})
   }});
-  if(!res.ok) throw new Error(`Supabase ${res.status}`);
+  if(!res.ok){const t=await res.text();throw new Error(`Supabase ${res.status}: ${t}`);}
+  if(res.status===204) return [];
   const t=await res.text(); return t?JSON.parse(t):[];
 }
 const sbInsert=(u,k,tb,d)=>sbReq(u,k,`/${tb}`,{method:'POST',body:JSON.stringify(d)});
 const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
-const sbPatch=(u,k,tb,f,d)=>sbReq(u,k,`/${tb}?${f}`,{method:'PATCH',body:JSON.stringify(d)});
+const sbPatch=(u,k,tb,f,d)=>sbReq(u,k,`/${tb}?${f}`,{method:'PATCH',body:JSON.stringify(d),headers:{'Prefer':'return=minimal'}});
 const sbDelete=(u,k,tb,f)=>sbReq(u,k,`/${tb}?${f}`,{method:'DELETE'});
 
 // --- SHA-256 PIN -----------------------------------------------------------
@@ -1674,7 +1675,6 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Cadastrar'}</button>
       </div>
-      <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6}}>⚠ Execute no Supabase: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS protocolos (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, nome TEXT, numero TEXT, categoria TEXT, responsavel TEXT, aprovado_em DATE, validade_anos INT DEFAULT 3, proxima_revisao DATE, link TEXT, status TEXT DEFAULT 'ativo');</span></div>
     </div>}
 
     {/* Lista */}
@@ -2301,9 +2301,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
       <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
       <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
-      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'8px 12px',marginBottom:10,fontSize:10,color:C.muted}}>
-        Execute no Supabase SQL Editor: <span style={{fontFamily:'monospace',color:'#9ECFFF'}}>CREATE TABLE IF NOT EXISTS treinamentos_nsp (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, tipo TEXT, subnucleo TEXT, protocolo TEXT, data DATE, participantes INT, descricao TEXT, responsavel TEXT, link_gdrive TEXT); ALTER TABLE treinamentos_nsp ENABLE ROW LEVEL SECURITY; CREATE POLICY "allow_all_treinamentos" ON treinamentos_nsp FOR ALL USING (true) WITH CHECK (true);</span>
-      </div>
+
       <div style={{display:'flex',gap:8}}>
         <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
         <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Salvar registro'}</button>

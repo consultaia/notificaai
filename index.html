@@ -3295,9 +3295,6 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       {v:'Noite de ontem',l:'Noite de ontem'},
     ],
     idade:[
-      {v:'Menor de 18 anos',l:'Menor de 18 anos'},
-      {v:'18 a 60 anos',l:'18 a 60 anos'},
-      {v:'Maior de 60 anos',l:'Maior de 60 anos'},
       {v:'nao_informar',l:'Não informar'},
     ],
     sexo:[
@@ -4035,13 +4032,13 @@ function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
 
 // --- CENTRAL DE CONHECIMENTO -------------------------------------------------
 const KNOWLEDGE=[
-  {id:'cards',icon:'?',title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
+  {id:'cards',icon:String.fromCodePoint(128218),title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
     {title:'Evento Adverso',text:'Incidente que resulta em dano ao paciente decorrente da assistência. Exemplos: queda com fratura, reação adversa medicamentosa, infecção pós-cirúrgica.'},
     {title:'Near Miss (Quase Erro)',text:'Incidente que NÃO atingiu o paciente, mas poderia. Notificar near miss é cultura proativa de segurança - essencial para identificar vulnerabilidades.'},
     {title:'Evento Sentinela',text:'Evento adverso grave que resulta em morte, perda permanente de função ou risco grave. Exige investigação imediata por Análise de Causa Raiz (ACR).'},
     {title:'Cultura Justa',text:'Ambiente onde profissionais notificam erros sem medo de punição, focando na melhoria do sistema. Diferencia erro humano (acolher) de imprudência (responsabilizar).'},
   ]},
-  {id:'metas',icon:'?',title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
+  {id:'metas',icon:String.fromCodePoint(127919),title:'6 Metas Internacionais',desc:'Metas OMS/Joint Commission de segurança do paciente',color:'#1D6FE8',type:'metas',items:[
     {num:'1',title:'Identificar corretamente o paciente',text:'Usar pelo menos 2 identificadores. Verificar pulseira antes de qualquer procedimento, medicação ou coleta.'},
     {num:'2',title:'Comunicação efetiva',text:'Usar SBAR (Situação, Background, Avaliação, Recomendação) na passagem de plantão. Ler de volta prescrições verbais.'},
     {num:'3',title:'Medicamentos de alta vigilância',text:'Identificar, padronizar armazenagem e dupla checagem de medicamentos de alta vigilância (KCl, insulina, opioides, anticoagulantes).'},
@@ -4049,21 +4046,21 @@ const KNOWLEDGE=[
     {num:'5',title:'Reduzir risco de infecções',text:'Higienização das mãos nos 5 momentos da OMS. Precauções padrão e específicas. Bundles de IRAS.'},
     {num:'6',title:'Reduzir risco de quedas',text:'Avaliar risco (Morse, Humpty Dumpty). Sinalização visual. Grades, calçados antiderrapantes, iluminação.'},
   ]},
-  {id:'como',icon:'?',title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
+  {id:'como',icon:String.fromCodePoint(128214),title:'Como Notificar',desc:'Guia passo a passo da notificação no NotificaAI',color:'#10B981',type:'steps',items:[
     {step:'01',title:'Acesse o NotificaAI',text:'Use o QR Code afixado no setor, leia com a câmera do celular ou acesse pelo computador da intranet.'},
     {step:'02',title:'Identifique-se',text:'Informe se é profissional, paciente ou familiar. O sistema adapta a linguagem ao seu perfil.'},
     {step:'03',title:'Relate com suas palavras',text:'Descreva o que aconteceu naturalmente. A IA conduz as perguntas - sem formulários.'},
     {step:'04',title:'Confirme o resumo',text:'Revise o resumo e toque em "Confirmar e Enviar" se estiver correto.'},
     {step:'05',title:'Pronto!',text:'O NSP recebe notificação automática por e-mail. Você pode notificar quantas vezes precisar.'},
   ]},
-  {id:'ccih',icon:'?',title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
+  {id:'ccih',icon:String.fromCodePoint(129440),title:'CCIH - Controle de Infecção',desc:'Conceitos e protocolos essenciais para CCIH',color:'#8B5CF6',type:'cards',items:[
     {title:'5 Momentos da Higienização (OMS)',text:'1) Antes de tocar o paciente. 2) Antes de procedimento asséptico. 3) Após exposição a fluidos. 4) Após tocar o paciente. 5) Após tocar superfícies próximas.'},
     {title:'Bundle de CVC',text:'Higiene das mãos · Paramentação estéril completa · Antissepsia com clorexidina · Subclávia preferencial · Avaliação diária de necessidade.'},
     {title:'Bundle de PAV',text:'Cabeceira 30-45° · Higiene oral com clorexidina · Despertar diário e avaliação de extubação · Profilaxia de TVP.'},
     {title:'Bundle de ITU por SVD',text:'Indicação criteriosa · Inserção asséptica · Sistema fechado · Avaliação diária · Higiene íntima diária.'},
   ]},
-  {id:'vid_maos',icon:'?',title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
-  {id:'vid_quedas',icon:'?',title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
+  {id:'vid_maos',icon:String.fromCodePoint(128196),title:'Vídeo: Higienização das Mãos',desc:'Técnica correta nos 5 momentos - OMS/ANVISA',color:'#00C9B8',type:'video',url:'https://www.youtube.com/watch?v=IisgnbMfKvI'},
+  {id:'vid_quedas',icon:String.fromCodePoint(128196),title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
   {id:'pdf_nsp',icon:'documento',title:'Caderno 6 - Implantação do NSP',desc:'ANVISA · Guia completo para estruturação do NSP · 2025',color:'#1D6FE8',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-6-implantacao-do-nucleo-de-seguranca-do-paciente-em-servicos-de-saude.pdf'},
   {id:'pdf_riscos',icon:'documento',title:'Caderno 7 - Gestão de Riscos',desc:'ANVISA · Investigação de eventos adversos · 2025',color:'#F59E0B',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-7-gestao-de-riscos-e-investigacao-de-eventos-adversos-relacionados-a-assistencia-a-saude.pdf'},
   {id:'pdf_iras',icon:'documento',title:'Caderno 4 - Prevenção de IRAS',desc:'ANVISA · Medidas de prevenção, bundles, precauções',color:'#8B5CF6',type:'pdf',url:'https://www.gov.br/anvisa/pt-br/centraisdeconteudo/publicacoes/servicosdesaude/publicacoes/caderno-4-medidas-de-prevencao-de-infeccao-relacionada-a-assistencia-a-saude.pdf'},

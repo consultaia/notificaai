@@ -227,7 +227,7 @@ async function callWorker(messages,system) {
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
     return data.choices?.[0]?.message?.content||'Erro ao processar.';
-  } catch(e) { console.error('Worker:',e); return 'Erro ao processar. Tente novamente.'; }
+  } catch(e) { console.error('Worker:',e); if(e.message?.includes('fetch')||e.name==='TypeError') return 'Erro: Worker IA indisponivel. Verifique se o Cloudflare Worker esta ativo em https://dash.cloudflare.com'; return 'Erro ao processar: '+e.message; }
 }
 async function extractData(chatMsgs,hospital) {
   const hoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -1737,7 +1737,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       const fSentinela=dados.nots.filter(n=>n.gravidade==='Evento sentinela').length;
       const fSetores=Object.entries(dados.nots.reduce((acc,n)=>{if(n.sector)acc[n.sector]=(acc[n.sector]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]);
       const fSubtipos=Object.entries(dados.nots.reduce((acc,n)=>{if(n.event_subtype)acc[n.event_subtype]=(acc[n.event_subtype]||0)+1;return acc;},{})).sort((a,b)=>b[1]-a[1]);
-      const workerUrl='https://notificaai.janan-almeida.workers.dev';
+      const workerUrl=WORKER_URL;
       const prompt='Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere relatorio narrativo tecnico em 4 paragrafos. PERIODO: '+MESES_PT[(dados.mesCorr.m-1)]+' de '+dados.mesCorr.a+'. TOTAL: '+dados.total+'. SP: '+fSP+' CCIH: '+fCCIH+' ADM: '+fAdm+' SEM RCA: '+fSemRCA+' SENTINELAS: '+fSentinela+'. SETORES: '+fSetores.map(([k,v])=>k+' ('+v+')').join('; ')+'. SUBTIPOS: '+fSubtipos.slice(0,5).map(([k,v])=>k+' ('+v+')').join(', ')+'. DIAS SEM SENTINELA: '+(dados.s.diasSemSentinela??'nd')+'. USE siglas (SNE,LPP,AVP,CCIH,RCA) sem explicar. 4 paragrafos: 1)Panorama 2)Setorial 3)Atencao 4)Recomendacoes NSP.';
       const resp=await fetch(workerUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'user',content:prompt}]})});
       const r=await resp.json();
@@ -2216,7 +2216,7 @@ const SUBNUCLEOS_HNSA=[
   {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
 ];
 
-function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,driveUrl,onSaveDrive}) {
+function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode,driveUrl,onSaveDrive}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -2225,7 +2225,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,driveUrl,o
   const [subnucleoAtivo,setSubnucleoAtivo]=useState('todos');
   const [form,setForm]=useState({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
 
-  const canEdit=profileMode==='gestor'||profileMode==='membro_nsp';
+  const canEdit=gestorMode||profileMode==='gestor'||profileMode==='membro_nsp';
 
   const load=async()=>{
     if(!sbUrl||!sbKey) return;
@@ -4804,7 +4804,7 @@ function NotificaAI() {
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
-        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
+        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
       </div>

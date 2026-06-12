@@ -199,7 +199,8 @@ function computeStats(notifications) {
   const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
   const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'-',eventos:0});
   // Dias sem sentinela
-  const sevts=notifications.filter(n=>n.gravidade==='Evento sentinela').sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
+  const isSentinela=n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela'||n.occurrence_subtype==='Evento sentinela';
+  const sevts=notifications.filter(isSentinela).sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
   const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].event_date||sevts[0].created_at))/86400000):null;
   // Índice de cultura
   const nmCount=notifications.filter(n=>n.gravidade==='Near miss').length;
@@ -3261,6 +3262,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         admission_reason:[dados.patient_nip?'NIP: '+dados.patient_nip:'', dados.patient_name?dados.patient_name:'', dados.patient_age?dados.patient_age+' anos':'', dados.patient_sex||''].filter(Boolean).join(' | ')||null,
         avp_motivo:dados.event_subtype==='Perda de AVP'?(dados.avp_motivo||null):null,
         ai_summary:dados.ai_summary||null,
+        gravidade:dados.event_subtype==='Evento sentinela'?'Evento sentinela':dados.event_subtype==='Near miss'?'Near miss':null,
         is_test:testMode||false,
         hospital_id:h.id,
         chat_history:messages,

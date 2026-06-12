@@ -2216,7 +2216,7 @@ const SUBNUCLEOS_HNSA=[
   {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
 ];
 
-function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
+function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,driveUrl,onSaveDrive}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -2252,6 +2252,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
   const filtered=subnucleoAtivo==='todos'?registros:registros.filter(r=>r.subnucleo===subnucleoAtivo);
 
+  const reunioesNSP=registros.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
   // Calculo de totais por subnucleo
   const totaisPorSub={};
   SUBNUCLEOS_HNSA.forEach(s=>{
@@ -2269,8 +2270,39 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {/* Modal de edicao */}
     <BackHeader title='Treinamentos e Reunioes' subtitle={filtered.length+' registro(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:18}}>{String.fromCodePoint(128194)}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.text}}>Repositorio NSP (Google Drive)</div>
+          {driveUrl?<a href={driveUrl} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.teal,fontWeight:700}}>{driveUrl.length>45?driveUrl.slice(0,45)+'...':driveUrl}</a>:<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Nenhum link configurado</div>}
+        </div>
+        {canEdit&&<button onClick={()=>{const u=window.prompt('Cole o link da pasta do Google Drive:',driveUrl||'');if(u!==null&&onSaveDrive)onSaveDrive(u.trim());}} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.muted,fontSize:10,fontWeight:700,cursor:'pointer',flexShrink:0}}>Configurar</button>}
+      </div>
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
 
+      {/* Reunioes NSP */}
+      <div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:12,padding:'12px 14px',marginBottom:4}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <div>
+            <div style={{fontSize:12,fontWeight:800,color:C.teal}}>Reunioes do NSP (Nucleo Pleno)</div>
+            <div style={{fontSize:10,color:C.muted,marginTop:2}}>Mensais + extraordinarias · todos os membros</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:18,fontWeight:900,color:C.teal}}>{reunioesNSP.length}</div>
+            <div style={{fontSize:9,color:C.muted}}>reuniao(oes)</div>
+          </div>
+        </div>
+        {reunioesNSP.length===0?<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Nenhuma reuniao registrada</div>:reunioesNSP.slice(0,3).map(r=>(
+          <div key={r.id} style={{background:C.surface,borderRadius:8,padding:'8px 10px',marginBottom:4,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:C.text}}>{r.tipo==='reuniao_mensal'?'Reuniao Mensal':'Reuniao Extraordinaria'} {r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):''}</div>
+              <div style={{fontSize:10,color:C.muted,marginTop:1}}>{r.participantes||0} participante(s){r.descricao?' · '+r.descricao.slice(0,40):''}</div>
+            </div>
+            {r.link_gdrive&&<a href={r.link_gdrive} target='_blank' rel='noreferrer' style={{fontSize:10,color:C.teal,fontWeight:700}}>Ata</a>}
+          </div>
+        ))}
+        {reunioesNSP.length>3&&<div style={{fontSize:10,color:C.muted,textAlign:'center',marginTop:4}}>+{reunioesNSP.length-3} mais. Filtre por tipo para ver todas.</div>}
+      </div>
     {/* Cards por subnucleo */}
     <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
       {SUBNUCLEOS_HNSA.map(s=>{
@@ -2292,15 +2324,15 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
       <div style={{display:'flex',gap:8,marginBottom:10}}>
-        {[['treinamento','Treinamento'],['reuniao','Reuniao']].map(([v,l])=>(
-          <button key={v} onClick={()=>setForm({...form,tipo:v})} style={{flex:1,padding:'8px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.surface,color:form.tipo===v?C.teal:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{l}</button>
+        {[['treinamento','Treinamento'],['reuniao','Reuniao subnucleo'],['reuniao_mensal','Reuniao NSP Mensal'],['reuniao_extraordinaria','Reuniao Extraordinaria']].map(([v,l])=>(
+          <button key={v} onClick={()=>setForm(f=>({...f,tipo:v,subnucleo:(v==='reuniao_mensal'||v==='reuniao_extraordinaria')?'nsp_pleno':f.subnucleo}))} style={{flex:1,padding:'7px 4px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.card,color:form.tipo===v?C.teal:C.muted,fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center'}}>{l}</button>
         ))}
       </div>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo *</label>
-      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
-        {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
-      </select>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Protocolo / Tema</label>
+      {(form.tipo==='treinamento'||form.tipo==='reuniao')&&<div>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnucleo *</label>
+      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:10}}>
+        {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+      </select></div>}
       <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <div>
@@ -2336,7 +2368,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode}) {
           <div style={{flex:1}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{fontSize:12,fontWeight:700,color:C.text}}>{r.protocolo||sub.label}</div>
-              <div style={{background:r.tipo==='treinamento'?C.blue+'22':C.green+'22',color:r.tipo==='treinamento'?C.blue:C.green,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>{r.tipo==='treinamento'?'Treinamento':'Reuniao'}</div>
+              <div style={{background:r.tipo==='treinamento'?C.blue+'22':r.tipo==='reuniao_mensal'?C.teal+'22':r.tipo==='reuniao_extraordinaria'?C.orange+'22':C.green+'22',color:r.tipo==='treinamento'?C.blue:r.tipo==='reuniao_mensal'?C.teal:r.tipo==='reuniao_extraordinaria'?C.orange:C.green,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>{r.tipo==='treinamento'?'Treinamento':r.tipo==='reuniao_mensal'?'NSP Mensal':r.tipo==='reuniao_extraordinaria'?'NSP Extra':'Reuniao'}</div>
             </div>
             <div style={{fontSize:11,color:C.muted,marginTop:2}}>
               {r.data&&new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR')}
@@ -4653,6 +4685,7 @@ function NotificaAI() {
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
   const [nspEmail,setNspEmail]=useState('');
+  const [driveUrl,setDriveUrl]=useState('');
   const [testMode,setTestMode]=useState(false);
   const [hospital,setHospital]=useState(DEFAULT_HOSPITAL);
   const [refreshKey,setRefreshKey]=useState(0);
@@ -4673,7 +4706,7 @@ function NotificaAI() {
         const r=await window.storage.get('notificai-sb');
         const c=r?.value?JSON.parse(r.value):HNSA;
         setSbUrl(c.url||HNSA.url);setSbKey(c.key||HNSA.key);
-        setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');
+        setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');setDriveUrl(c.driveUrl||'');
         setTestMode(c.testMode!==undefined?c.testMode:true);
         const hId=getHospitalIdFromUrl()||'hnsa';
         const h=await loadHospital(c.url||HNSA.url,c.key||HNSA.key,hId);
@@ -4684,7 +4717,7 @@ function NotificaAI() {
   },[]);
 
   const saveAll=async(overrides={})=>{
-    const d={url:sbUrl,key:sbKey,webhook:webhookUrl,email:nspEmail,testMode,...overrides};
+    const d={url:sbUrl,key:sbKey,webhook:webhookUrl,email:nspEmail,testMode,driveUrl,...overrides};
     try{await window.storage.set('notificai-sb',JSON.stringify(d));}catch{}
   };
   const handleSaveConfig=async(url,key,wh)=>{
@@ -4696,6 +4729,7 @@ function NotificaAI() {
     setHospital(h);
   };
   const handleSaveEmail=email=>{setNspEmail(email);saveAll({email});};
+  const handleSaveDrive=url=>{setDriveUrl(url);saveAll({driveUrl:url});};
   const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'teste Modo TESTE ativado':'OK Modo PRODUÇÃO ativado','success');};
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
@@ -4730,7 +4764,7 @@ function NotificaAI() {
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
-        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
+        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
       </div>

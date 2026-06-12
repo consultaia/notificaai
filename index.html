@@ -2712,6 +2712,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   const [showFormTrein,setShowFormTrein]=useState(null); // sub.id
   const [formTrein,setFormTrein]=useState({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10)});
   const [savingTrein,setSavingTrein]=useState(false);
+  const [rcaMembro,setRcaMembro]=useState(null);
 
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -2793,6 +2794,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
 
   return(<div style={{padding:'20px 16px 80px'}}>
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Painel Membro NSP</div>
+      {rcaMembro&&<RCAPanel notification={rcaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaMembro(null)}/>}
     <div style={{fontSize:11,color:C.muted,marginBottom:16}}>HNSA · Nucleo de Seguranca do Paciente</div>
 
     {/* Métricas totais */}
@@ -2975,6 +2977,58 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
         ))}
       </div>);
     })}
+
+      {/* Notificações do meu subnucleo */}
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>Somente leitura · filtradas pelo seu subnucleo</div>
+          </div>
+          <select value={filtroSub} onChange={e=>setFiltroSub(e.target.value)}
+            style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:11}}>
+            <option value='todos'>Todos os subnucleos</option>
+            {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+          </select>
+        </div>
+        {(()=>{
+          const visíveis=notifications.filter(n=>{
+            if(n.is_test) return false;
+            if(filtroSub==='todos') return true;
+            const sub=SUBNUCLEOS_HNSA.find(s=>s.id===filtroSub);
+            if(!sub) return true;
+            const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
+            if(filtroSub==='queda') return subtype.includes('queda');
+            if(filtroSub==='lpp') return subtype.includes('press')||subtype.includes('lpp');
+            if(filtroSub==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac')||subtype.includes('prescri');
+            if(filtroSub==='identificacao') return subtype.includes('identif')||subtype.includes('pulseira');
+            if(filtroSub==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
+            if(filtroSub==='cirurgia') return subtype.includes('cirurg');
+            return true;
+          }).slice(0,30);
+          if(visíveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
+          return visíveis.map((n,i)=>{
+            const tag=getTag(n);
+            const titulo=getTitle(n);
+            const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR');
+            return(<div key={n.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
+              <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
+                  <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} · {data}</div>
+                  {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0,alignItems:'flex-end'}}>
+                  {n.rca_gerado&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.green+'22',color:C.green,borderRadius:4,padding:'3px 7px',fontWeight:700,border:'1px solid '+C.green+'44',cursor:'pointer'}}>Ver RCA</button>}
+                  {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                  {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
+                </div>
+              </div>
+            </div>);
+          });
+        })()}
+      </div>
   </div>);
 }
 

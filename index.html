@@ -3820,11 +3820,6 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const anos=[...new Set(rawData.map(n=>new Date(n.created_at).getFullYear()))].sort((a,b)=>b-a);
   
 
-  const byMonth=Array.from({length:12},(_,i)=>{
-    const anoAtual=new Date().getFullYear();const items=rawData.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===anoAtual&&d.getMonth()===i;});
-    return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,adm:items.filter(n=>n.notification_type==='administrativa').length};
-  });
-  const totalAno=byMonth.reduce((acc,m)=>acc+m.total,0);
 const filtered=rawData.filter(n=>{
   if(!dateFrom&&!dateTo) return true;
   const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);
@@ -3834,6 +3829,11 @@ const filtered=rawData.filter(n=>{
   return true;
 });
   const filteredStats=React.useMemo(()=>filtered.length?computeStats(filtered):null,[filtered]);
+  const byMonth=Array.from({length:12},(_,i)=>{
+    const anoAtual=new Date().getFullYear();const items=filtered.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===anoAtual&&d.getMonth()===i;});
+    return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,adm:items.filter(n=>n.notification_type==='administrativa').length};
+  });
+  const totalAno=byMonth.reduce((acc,m)=>acc+m.total,0);
   const sf=filteredStats||s;
 
   const exportCSV=()=>{
@@ -3844,7 +3844,7 @@ const filtered=rawData.filter(n=>{
       n.id?.slice(0,8)||'',
       n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR'),
       n.event_time||'',
-      n.notification_type||'',
+      (n.notification_type==='seguranca_paciente'?'SP':n.notification_type==='administrativa'?'ADM':n.notification_type||''),
       n.event_subtype||n.occurrence_subtype||'',
       n.sector||'',
       n.shift||'',

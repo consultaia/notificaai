@@ -727,13 +727,14 @@ Descrição: ${notification.description}
 Desfecho: ${notification.patient_outcome||'não informado'}
 
 JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Causa raiz:","resposta":"..."}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["...","..."]},{"categoria":"Processo","cor":"#F59E0B","causas":["...","..."]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["...","..."]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["...","..."]},{"categoria":"Gestão","cor":"#00C9B8","causas":["...","..."]}],"fatores":[{"icone":"{String.fromCodePoint(128100)}","tipo":"Fator humano","descricao":"..."},{"icone":"{String.fromCodePoint(128260)}","tipo":"Fator de processo","descricao":"..."},{"icone":"{String.fromCodePoint(127973)}","tipo":"Fator ambiental","descricao":"..."},{"icone":"{String.fromCodePoint(128203)}","tipo":"Fator organizacional","descricao":"..."}],"plano":[{"acao":"...","responsavel":"Gestor","prazo":"7 dias"},{"acao":"...","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"...","responsavel":"Gestão","prazo":"30 dias"}]}`;
+    let text='';
     try {
-      const text=await callWorker([{role:'user',content:prompt}],null);
+      text=await callWorker([{role:'user',content:prompt}],null);
       const cleaned=text.replace(/```json|```/g,'').trim();
       const jsonMatch=cleaned.match(/\{[\s\S]*\}/);
       if(!jsonMatch) throw new Error('Resposta invalida: '+cleaned.slice(0,100));
       setRca(JSON.parse(jsonMatch[0]));
-    } catch(e) { console.error('RCA parse error:',e,text); showToast('Erro ao gerar: '+e.message,'error'); }
+    } catch(e) { console.error('RCA parse error:',e); showToast('Erro ao gerar: '+e.message,'error'); }
     setLoading(false);
   };
 

@@ -2393,6 +2393,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(false);
   const [gestor,setGestor]=useState('');
+  const [boasPraticasNSP,setBoasPraticasNSP]=useState('Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, possibilitando notificacao digital pelos profissionais, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema promoveu melhora na cultura de notificacao e reducao do tempo de resposta aos eventos adversos.');
 
   const getSemestreDatas=()=>{
     const [ano,sem]=semestre.split('-').map(Number);
@@ -2469,6 +2470,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,appearance:'none'}}>
           {[2024,2025,2026].flatMap(a=>[`${a}-1`,`${a}-2`]).map(s=>{const[a,sem]=s.split('-');return(<option key={s} value={s}>{sem}o semestre de {a}</option>);})}
         </select>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Boas praticas gerais do NSP (sera incluido no relatorio)</label>
+        <textarea value={boasPraticasNSP} onChange={e=>setBoasPraticasNSP(e.target.value)} rows={3}
+          defaultValue={'Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, permitindo notificacao digital, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema possibilitou reducao do tempo de resposta aos incidentes e melhora na cultura de notificacao.'}
+          placeholder='Boas praticas gerais do NSP...'
+          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,width:'100%',resize:'vertical',marginBottom:10}}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
         <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
         <button onClick={gerar} disabled={loading} style={{width:'100%',background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
@@ -2595,6 +2601,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             </tbody>
           </table>
 
+          {/* Boas praticas gerais */}
+          {boasPraticasNSP&&<div style={{marginBottom:20,padding:'10px 14px',background:'#f0f9ff',borderLeft:'4px solid #003087',borderRadius:4}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#003087',marginBottom:4}}>Boas Praticas Implementadas pelo NSP - {label}</div>
+            <div style={{fontSize:11,color:'#1a1a1a',lineHeight:1.6}}>{boasPraticasNSP}</div>
+          </div>}
           {/* Assinatura */}
           <div style={{marginTop:32,display:'flex',gap:60}}>
             <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
@@ -2610,61 +2621,80 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       </div>
     </div>}
 
-    {tab==='anvisa'&&dados&&<div>
-      <div style={{display:'flex',gap:8,marginBottom:14}}>
-        <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
-        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
-      </div>
+{tab==='anvisa'&&dados&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{display:'flex',gap:8,marginBottom:4}}>
+          <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Imprimir</button>
+          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo</button>
+        </div>
 
-      {/* Score ANVISA */}
-      {(()=>{
-        const checks={
-          nsp_instituido:true,
-          reunioes_ok:dados.reunioes.length>=2,
-          protocolos_ok:dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length>=4,
-          treinamentos_ok:SUBNUCLEOS_HNSA.every(s=>dados.porSubnucleo[s.id].treinamentos>0),
-          notivisa_ok:dados.nots.filter(n=>n.notivisa_enviado).length>0,
-          indicadores_ok:dados.total>0,
-        };
-        const score=Object.values(checks).filter(Boolean).length;
-        const pct=Math.round(score/Object.keys(checks).length*100);
-        const nivel=pct>=67?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=34?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
+        {/* Score geral */}
+        {(()=>{
+          const hoje=new Date().toISOString().slice(0,10);
+          const psp_ok=dados.protocolos.length>=7;
+          const protAtual=(sub)=>dados.protocolos.some(p=>(p.subnucleo===sub||p.nome?.toLowerCase().includes(sub))&&p.proxima_revisao>=hoje);
+          const treinoOk=(sub)=>dados.porSubnucleo[sub]?.treinamentos>0;
 
-        return(<div>
-          <div style={{background:nivel.color+'18',border:'1px solid '+nivel.color+'44',borderRadius:14,padding:16,marginBottom:14,textAlign:'center'}}>
-            <div style={{fontSize:28,fontWeight:900,color:nivel.color,lineHeight:1}}>{pct}%</div>
-            <div style={{fontSize:14,fontWeight:800,color:nivel.color,marginTop:4}}>{nivel.label}</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:4}}>{score} de {Object.keys(checks).length} indicadores conformes</div>
-          </div>
+          const criterios=[
+            {cod:'C.1', desc:'NSP instituido com 2+ reunioes no semestre', ok:dados.reunioes.length>=2, obs:dados.reunioes.length+' reunioes registradas', req:true},
+            {cod:'C.2', desc:'Plano de Seguranca do Paciente implantado e atualizado', ok:psp_ok, obs:dados.protocolos.length+' de 7 protocolos obrigatorios cadastrados', req:false},
+            {cod:'C.3', desc:'Protocolo higienizacao maos + treinamento no semestre', ok:protAtual('comunicacao')&&treinoOk('comunicacao'), obs:'Treinamentos: '+dados.porSubnucleo['comunicacao']?.treinamentos, req:true},
+            {cod:'C.4', desc:'Protocolo identificacao do paciente + treinamento', ok:protAtual('identificacao')&&treinoOk('identificacao'), obs:'Treinamentos: '+dados.porSubnucleo['identificacao']?.treinamentos, req:true},
+            {cod:'C.5', desc:'Protocolo comunicacao efetiva + treinamento', ok:protAtual('comunicacao')&&treinoOk('comunicacao'), obs:'Treinamentos: '+dados.porSubnucleo['comunicacao']?.treinamentos, req:false},
+            {cod:'C.6', desc:'Protocolo cirurgia segura + treinamento', ok:protAtual('cirurgia')&&treinoOk('cirurgia'), obs:'Treinamentos: '+dados.porSubnucleo['cirurgia']?.treinamentos, req:false},
+            {cod:'C.7', desc:'Protocolo prevencao LPP + treinamento', ok:protAtual('lpp')&&treinoOk('lpp'), obs:'Treinamentos: '+dados.porSubnucleo['lpp']?.treinamentos, req:true},
+            {cod:'C.8', desc:'Protocolo prevencao quedas + treinamento', ok:protAtual('queda')&&treinoOk('queda'), obs:'Treinamentos: '+dados.porSubnucleo['queda']?.treinamentos, req:true},
+            {cod:'C.9', desc:'Protocolo seguranca medicamentos + treinamento', ok:protAtual('medicamentos')&&treinoOk('medicamentos'), obs:'Treinamentos: '+dados.porSubnucleo['medicamentos']?.treinamentos, req:true},
+            {cod:'C.15',desc:'Notificacao regular incidentes + envio ao Notivisa', ok:dados.nots.filter(n=>n.notivisa_enviado).length>0&&dados.total>0, obs:dados.total+' notificacoes | '+dados.nots.filter(n=>n.notivisa_enviado).length+' no Notivisa', req:true},
+          ];
 
-          <div style={{display:'flex',flexDirection:'column',gap:8}}>
-            {[
-              ['NSP instituido com portaria',checks.nsp_instituido,'Portaria vigente no sistema'],
-              ['Minimo 2 reunioes no semestre',checks.reunioes_ok,`${dados.reunioes.length} reunioes registradas`],
-              ['Protocolos atualizados (4+)',checks.protocolos_ok,dados.protocolos.filter(p=>p.proxima_revisao>=new Date().toISOString().slice(0,10)).length+' protocolos validos'],
-              ['Treinamento em todos os subnucleos',checks.treinamentos_ok,SUBNUCLEOS_HNSA.filter(s=>dados.porSubnucleo[s.id].treinamentos===0).map(s=>s.label).join(', ')||'Todos realizaram'],
-              ['Notificacoes enviadas ao Notivisa',checks.notivisa_ok,`${dados.nots.filter(n=>n.notivisa_enviado).length} notificacoes enviadas`],
-              ['Indicadores monitorados',checks.indicadores_ok,`${dados.total} eventos registrados no periodo`],
-            ].map(([l,ok,obs],i)=>(
-              <div key={i} style={{background:C.card,border:'1px solid '+(ok?C.green:C.red)+'44',borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'center',gap:10}}>
-                <div style={{fontSize:18,flexShrink:0}}>{ok?'OK':'X'}</div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l}</div>
-                  <div style={{fontSize:11,color:ok?C.green:C.red,marginTop:2}}>{obs}</div>
-                </div>
+          const score=criterios.filter(c=>c.ok).length;
+          const pct=Math.round(score/criterios.length*100);
+          const reqOk=criterios.filter(c=>c.req&&!c.ok).length===0;
+          const nivel=pct>=80&&reqOk?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=60?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
+
+          return(<div>
+            <div style={{background:nivel.color+'15',border:'2px solid '+nivel.color+'55',borderRadius:14,padding:16,marginBottom:14,display:'flex',alignItems:'center',gap:16}}>
+              <div style={{textAlign:'center',flexShrink:0}}>
+                <div style={{fontSize:36,fontWeight:900,color:nivel.color,lineHeight:1}}>{pct}%</div>
+                <div style={{fontSize:10,color:C.muted,fontWeight:700}}>conformidade</div>
               </div>
-            ))}
-          </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:16,fontWeight:900,color:nivel.color}}>{nivel.label}</div>
+                <div style={{fontSize:12,color:C.muted,marginTop:4}}>{score} de {criterios.length} criterios atendidos · {label}</div>
+                {!reqOk&&<div style={{fontSize:11,color:C.red,fontWeight:700,marginTop:4}}>Criterios obrigatorios pendentes - risco de nao conformidade na avaliacao ANVISA</div>}
+              </div>
+            </div>
 
-          {!checks.reunioes_ok&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'33',borderRadius:10,padding:'10px 14px',marginTop:12,fontSize:11,color:C.red,fontWeight:700}}>
-            ATENCAO: Reunioes insuficientes. O indicador 1 (NSP com 2 reunioes) e requisito minimo - sem ele o HNSA e classificado automaticamente como BAIXA CONFORMIDADE.
-          </div>}
-          {!checks.notivisa_ok&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'33',borderRadius:10,padding:'10px 14px',marginTop:8,fontSize:11,color:C.red,fontWeight:700}}>
-            ATENCAO: Nenhuma notificacao enviada ao Notivisa. O indicador 18 tambem e requisito minimo. Em 2023 o HNSA notificou apenas em fevereiro e marco, resultando em baixa conformidade.
-          </div>}
-        </div>);
-      })()}
-    </div>}
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {criterios.map((c,i)=>(
+                <div key={i} style={{background:C.card,border:'1px solid '+(c.ok?C.green:c.req?C.red:C.yellow)+'55',borderRadius:10,padding:'10px 14px',display:'flex',gap:10,alignItems:'flex-start'}}>
+                  <div style={{width:28,height:28,borderRadius:'50%',background:c.ok?C.green:c.req?C.red:C.yellow,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:14,fontWeight:900,color:'#fff'}}>
+                    {c.ok?String.fromCodePoint(10003):'!'}
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+                      <span style={{fontSize:10,fontWeight:800,color:C.muted,background:C.surface,borderRadius:4,padding:'1px 5px'}}>{c.cod}</span>
+                      {c.req&&<span style={{fontSize:9,color:C.red,fontWeight:700,background:C.red+'15',borderRadius:4,padding:'1px 5px'}}>OBRIGATORIO</span>}
+                    </div>
+                    <div style={{fontSize:12,fontWeight:700,color:C.text}}>{c.desc}</div>
+                    <div style={{fontSize:11,color:c.ok?C.green:c.req?C.red:C.yellow,marginTop:2}}>{c.obs}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:14,marginTop:8}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>Indicadores que requerem lancamento manual</div>
+              <div style={{fontSize:11,color:C.muted,lineHeight:1.7}}>
+                Os indicadores abaixo nao sao calculados automaticamente. Lance-os na aba <strong>Indicadores</strong> para completar a avaliacao:<br/>
+                C.3.1 Consumo alcool gel (mL/1000 p-d) · C.3.2 Consumo sabonete · C.3.3 Adesao HM % ·
+                C.4.1 Pulseira identificacao % · C.4.2 EA falha identificacao ·
+                C.6.1 Adesao LVCS % · C.7.4 Incidencia LPP · C.8.2 Quedas com dano %
+              </div>
+            </div>
+          </div>);
+        })()}
+      </div>}
   </div>);
 }
 

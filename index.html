@@ -3837,14 +3837,32 @@ const filtered=rawData.filter(n=>{
   const sf=filteredStats||s;
 
   const exportCSV=()=>{
-    const header=['ID','Data','Hora','Tipo','Subtipo','Setor','Turno','Descrição','Medidas','Desfecho','RCA','Notivisa'];
-    const rows=filtered.map(n=>[n.id?.slice(0,8)||'',n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR'),n.event_time||'',n.notification_type||'',n.event_subtype||'',n.sector||'',n.shift||'',(n.description||'').replace(/"/g,'""'),(n.measures_taken||'').replace(/"/g,'""'),n.patient_outcome||'',n.rca_gerado?'Sim':'Não',n.notivisa_enviado?'Sim':'Não']);
-    const csv=[header,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
-    const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;
+    if(!filtered.length){showToast('Nenhuma notificacao no periodo selecionado','error');return;}
+    const esc=v=>(''+( v??'')).replace(/"/g,'""');
+    const header='ID,Data,Hora,Tipo,Subtipo,Setor,Turno,Descricao,Medidas,Desfecho,RCA,Notivisa';
+    const rows=filtered.map(n=>[
+      n.id?.slice(0,8)||'',
+      n.event_date||new Date(n.created_at).toLocaleDateString('pt-BR'),
+      n.event_time||'',
+      n.notification_type||'',
+      n.event_subtype||n.occurrence_subtype||'',
+      n.sector||'',
+      n.shift||'',
+      esc(n.description),
+      esc(n.measures_taken),
+      n.patient_outcome||'',
+      n.rca_gerado?'Sim':'Nao',
+      n.notivisa_enviado?'Sim':'Nao'
+    ].map(v=>'"'+esc(v)+'"').join(','));
+    const csv='\uFEFF'+header+'\n'+rows.join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
     a.download='notificacoes_hnsa_'+(dateFrom||'inicio')+'_a_'+(dateTo||'fim')+'.csv';
-    a.click();URL.revokeObjectURL(url);
-    setTimeout(()=>window.open('https://sheets.new','_blank'),600);
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(filtered.length+' registros exportados!','success');
   };
 
   const genNarrative=async()=>{

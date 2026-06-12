@@ -2399,6 +2399,26 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const [loading,setLoading]=useState(false);
   const [gestor,setGestor]=useState('');
   const [boasPraticasNSP,setBoasPraticasNSP]=useState('Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, possibilitando notificacao digital pelos profissionais, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema promoveu melhora na cultura de notificacao e reducao do tempo de resposta aos eventos adversos.');
+  const [narrativaIA,setNarrativaIA]=useState('');
+  const [loadingIA,setLoadingIA]=useState(false);
+  const gerarNarrativaIA=async()=>{
+    if(!dados) return;
+    setLoadingIA(true);
+    try{
+      const {label}=getSemestreDatas();
+      const resumoSubs=SUBNUCLEOS_HNSA.map(s=>{
+        const sub=dados.porSubnucleo[s.id];
+        return s.label+': '+sub.treinamentos+' treinamentos, '+sub.participantes+' participantes';
+      }).join('; ');
+      const reunioesList=dados.reunioes.map(r=>{
+        const tipo=r.tipo==='reuniao_mensal'?'Mensal':r.tipo==='reuniao_extraordinaria'?'Extraordinaria':'Reuniao';
+        return tipo+' em '+(r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(r.descricao?' ('+r.descricao.slice(0,60)+')':'');
+      }).join('; ')||'Nenhuma reuniao registrada';
+      const text=await callWorker([{role:'user',content:'Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere um texto narrativo formal para o Relatorio Semestral DSM.\n\nPERIODO: '+label+'\nTOTAL NOTIFICACOES: '+dados.total+' (SP: '+dados.sp+', ADM: '+dados.adm+')\nEVENTOS SENTINELA: '+dados.sentinela+'\nREUNIOES NSP ('+dados.reunioes.length+'): '+reunioesList+'\nTREINAMENTOS: '+resumoSubs+'\nBOAS PRATICAS: '+boasPraticasNSP+'\n\nGere 5 paragrafos formais: 1) Apresentacao do periodo 2) Notificacoes 3) Reunioes e educacao 4) Conformidade ANVISA 5) Conclusao e recomendacoes. Assine como: '+(gestor||'Coordenador NSP - HNSA')}],'Analista hospitalar NSP. Responda em portugues formal.');
+      setNarrativaIA(text);
+    }catch(e){showToast('Erro IA: '+e.message,'error');}
+    setLoadingIA(false);
+  };
 
   const getSemestreDatas=()=>{
     const [ano,sem]=semestre.split('-').map(Number);

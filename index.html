@@ -2414,7 +2414,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Notificacoes por mes
       const porMes=nums.map(m=>{
         const mes=nots.filter(n=>{const d=new Date(n.event_date+'T12:00:00');return d.getMonth()+1===m;});
-        return{m,total:mes.length,sp:mes.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,quedas:mes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')).length,lpp:mes.filter(n=>n.event_subtype?.toLowerCase().includes('press')).length};
+        return{m,total:mes.length,sp:mes.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,adm:mes.filter(n=>n.notification_type==='administrativa').length,quedas:mes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')).length,lpp:mes.filter(n=>n.event_subtype?.toLowerCase().includes('press')).length,sentinela:mes.filter(n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela').length,nearmiss:mes.filter(n=>n.gravidade==='Near miss'||n.event_subtype==='Near miss').length};
       });
 
       // Reunioes NSP
@@ -2438,7 +2438,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       // Protocolos
       const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
 
-      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela').length,getProtocolo});
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela').length,getProtocolo});
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
@@ -2491,6 +2491,16 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
         <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
       </div>
+      <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{width:'100%',background:loadingIA?C.border:C.purple,border:'none',borderRadius:10,padding:'11px',color:loadingIA?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:loadingIA?'default':'pointer',marginBottom:14}}>
+        {loadingIA?String.fromCodePoint(8987)+' Gerando narrativa...':String.fromCodePoint(129504)+' Gerar narrativa com IA'}
+      </button>
+      {narrativaIA&&<div style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:12,padding:16,marginBottom:14}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.purple}}>Narrativa gerada por IA</div>
+          <button onClick={()=>{const el=document.createElement('textarea');el.value=narrativaIA;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);showToast('Copiado!','success');}} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'4px 10px',color:C.muted,fontSize:10,fontWeight:700,cursor:'pointer'}}>Copiar</button>
+        </div>
+        <div style={{fontSize:12,color:C.text,lineHeight:1.85,whiteSpace:'pre-wrap'}}>{narrativaIA}</div>
+      </div>}
 
       <div id="relatorio-dsm-pdf" style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',fontSize:11}}>
         {/* Cabecalho */}

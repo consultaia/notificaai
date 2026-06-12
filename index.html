@@ -4124,7 +4124,7 @@ function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
       ))}
     </div>
     <button onClick={submit} disabled={saving||!form.description.trim()} style={{width:'100%',background:tt?.color||C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',opacity:saving?0.7:1}}>
-      {saving?'Aguarde Enviando...':`${tt?.icon} Abrir para ${tt?.dest}`}
+      {saving?'Aguarde Enviando...':`${ticketEmoji(tt?.icon)} Abrir para ${tt?.dest}`}
     </button>
   </div>);
 }

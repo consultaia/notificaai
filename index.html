@@ -694,21 +694,78 @@ function RCAPanel({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
 
   const gerar=async()=>{
     setLoading(true);
-    const prompt=`Você é especialista em segurança do paciente (ANVISA/ONA). Analise este incidente e gere RCA em JSON puro (sem markdown):
-Tipo: ${notification.notification_type}
-Evento: ${notification.event_subtype||notification.occurrence_subtype||'não especificado'}
-Setor: ${notification.sector}
-Descrição: ${notification.description}
-Desfecho: ${notification.patient_outcome||'não informado'}
+    const prompt=`Voce e especialista em seguranca do paciente (ANVISA/ONA). Analise este incidente hospitalar e gere uma Analise de Causa Raiz (RCA) completa.
 
-JSON: {"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Por que isso aconteceu?","resposta":"..."},{"pergunta":"Causa raiz:","resposta":"..."}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["...","..."]},{"categoria":"Processo","cor":"#F59E0B","causas":["...","..."]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["...","..."]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["...","..."]},{"categoria":"Gestão","cor":"#00C9B8","causas":["...","..."]}],"fatores":[{"icone":"humano","tipo":"Fator humano","descricao":"..."},{"icone":"processo","tipo":"Fator de processo","descricao":"..."},{"icone":"ambiente","tipo":"Fator ambiental","descricao":"..."},{"icone":"gestao","tipo":"Fator organizacional","descricao":"..."}],"plano":[{"acao":"...","responsavel":"Gestor","prazo":"7 dias"},{"acao":"...","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"...","responsavel":"Gestão","prazo":"30 dias"}]}`;
+INCIDENTE:
+- Tipo: ${notification.notification_type}
+- Evento: ${notification.event_subtype||notification.occurrence_subtype||'nao especificado'}
+- Setor: ${notification.sector}
+- Descricao: ${(notification.description||'').replace(/"/g,"'")}
+- Desfecho: ${notification.patient_outcome||'nao informado'}
+
+RETORNE APENAS um objeto JSON valido, sem markdown, sem explicacoes, sem texto antes ou depois.
+Use aspas duplas em todas as chaves e valores string.
+NAO use aspas duplas dentro dos textos dos valores - use aspas simples se necessario.
+
+Formato exato:
+{"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Causa raiz identificada:","resposta":"TEXTO"}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["CAUSA1","CAUSA2"]},{"categoria":"Processo","cor":"#F59E0B","causas":["CAUSA1","CAUSA2"]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["CAUSA1"]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["CAUSA1"]},{"categoria":"Gestao","cor":"#00C9B8","causas":["CAUSA1"]}],"fatores":[{"icone":"humano","tipo":"Fator humano","descricao":"TEXTO"},{"icone":"processo","tipo":"Fator de processo","descricao":"TEXTO"},{"icone":"ambiente","tipo":"Fator ambiental","descricao":"TEXTO"},{"icone":"gestao","tipo":"Fator organizacional","descricao":"TEXTO"}],"plano":[{"acao":"TEXTO","responsavel":"Coordenador NSP","prazo":"7 dias"},{"acao":"TEXTO","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"TEXTO","responsavel":"Gestao","prazo":"30 dias"}]}`;
     let text='';
     try {
       text=await callWorker([{role:'user',content:prompt}],null);
-      const cleaned=text.replace(/```json|```/g,'').trim();
+      // Limpar markdown e extrair bloco JSON
+      let cleaned=text.replace(/```json\s*/gi,'').replace(/```\s*/g,'').trim();
+      // Tentar extrair o maior bloco JSON possível
       const jsonMatch=cleaned.match(/\{[\s\S]*\}/);
-      if(!jsonMatch) throw new Error('Resposta invalida: '+cleaned.slice(0,100));
-      setRca(JSON.parse(jsonMatch[0]));
+      if(!jsonMatch) throw new Error('Sem JSON na resposta');
+      let jsonStr=jsonMatch[0];
+      // Sanitizar: remover caracteres de controle que quebram o parse
+      jsonStr=jsonStr.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g,'');
+      // Tentar parse direto
+      let parsed=null;
+      try { parsed=JSON.parse(jsonStr); }
+      catch(e1) {
+        // Fallback 1: tentar reparar aspas duplas dentro de strings
+        try {
+          // Substituir aspas duplas não escapadas dentro de valores de string
+          const repaired=jsonStr.replace(/:(\s*)"((?:[^"\\]|\\.)*)"/g,(m,sp,val)=>{
+            const fixed=val.replace(/(?<!\\)"/g,'\\"');
+            return ':'+sp+'"'+fixed+'"';
+          });
+          parsed=JSON.parse(repaired);
+        } catch(e2) {
+          // Fallback 2: montar RCA básico com texto da resposta
+          console.warn('RCA JSON parse falhou, usando fallback estrutural');
+          parsed={
+            cinco_porques:[
+              {pergunta:'Por que ocorreu?',resposta:'Análise gerada. Edite conforme necessário.'},
+              {pergunta:'Por que isso aconteceu?',resposta:'Fator identificado pela IA.'},
+              {pergunta:'Por que isso aconteceu?',resposta:'Processo ou protocolo envolvido.'},
+              {pergunta:'Por que isso aconteceu?',resposta:'Fator organizacional ou de gestão.'},
+              {pergunta:'Causa raiz:',resposta:'Revisar o relato e editar esta causa raiz.'},
+            ],
+            ishikawa:[
+              {categoria:'Pessoa',cor:'#EF4444',causas:['Verificar fatores humanos']},
+              {categoria:'Processo',cor:'#F59E0B',causas:['Verificar protocolo relacionado']},
+              {categoria:'Equipamento',cor:'#8B5CF6',causas:['Verificar equipamentos envolvidos']},
+              {categoria:'Ambiente',cor:'#1D6FE8',causas:['Verificar condições do ambiente']},
+              {categoria:'Gestão',cor:'#00C9B8',causas:['Verificar fatores organizacionais']},
+            ],
+            fatores:[
+              {icone:'humano',tipo:'Fator humano',descricao:'Revisar fatores humanos envolvidos.'},
+              {icone:'processo',tipo:'Fator de processo',descricao:'Revisar processo ou protocolo.'},
+              {icone:'ambiente',tipo:'Fator ambiental',descricao:'Revisar condições ambientais.'},
+              {icone:'gestao',tipo:'Fator organizacional',descricao:'Revisar aspectos de gestão.'},
+            ],
+            plano:[
+              {acao:'Revisar protocolo relacionado ao evento',responsavel:'Coordenador NSP',prazo:'15 dias'},
+              {acao:'Capacitar equipe envolvida',responsavel:'Chefia do setor',prazo:'30 dias'},
+              {acao:'Monitorar recorrência do evento',responsavel:'NSP',prazo:'60 dias'},
+            ]
+          };
+        }
+      }
+      if(parsed) setRca(parsed);
+      else throw new Error('Não foi possível processar a resposta da IA');
     } catch(e) { console.error('RCA parse error:',e); showToast('Erro ao gerar: '+e.message,'error'); }
     setLoading(false);
   };
@@ -3101,7 +3158,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   </div>);
 }
 
-function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital}) {
+function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEmail}) {
   const h=hospital||DEFAULT_HOSPITAL;
 
   const [step,setStep]=useState('perfil');
@@ -3324,11 +3381,11 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
   };
 
   const confirmar=async()=>{
-    setSaving(true);addMsg('user','Sim, confirmar e enviar.');
+    if(saving) return;
+    setSaving(true);
     try{
       const payload={
         notification_type:dados.notification_type||'seguranca_paciente',
-        notifier_type:dados.notifier_type||'profissional',
         sector:dados.sector||null,
         event_date:dados.event_date||null,
         shift:dados.shift||null,
@@ -3338,29 +3395,39 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         patient_outcome:dados.patient_outcome||null,
         was_preventable:dados.was_preventable===true?true:dados.was_preventable===false?false:null,
         occurrence_subtype:dados.notification_type!=='seguranca_paciente'?(dados.event_subtype||null):null,
-        patient_age:dados.patient_age||null,
-        patient_admission:dados.patient_admission||null,
-        admission_reason:[dados.patient_nip?'NIP: '+dados.patient_nip:'', dados.patient_name?dados.patient_name:'', dados.patient_age?dados.patient_age+' anos':'', dados.patient_sex||''].filter(Boolean).join(' | ')||null,
-        avp_motivo:dados.event_subtype==='Perda de AVP'?(dados.avp_motivo||null):null,
+        patient_age:typeof dados.patient_age==='number'?dados.patient_age:(parseInt(dados.patient_age)||null),
+        admission_reason:[
+          dados.patient_nip?'NIP: '+dados.patient_nip:'',
+          dados.patient_name?'Nome: '+dados.patient_name:'',
+          dados.patient_age?dados.patient_age+' anos':'',
+          dados.patient_sex?dados.patient_sex:'',
+          dados.patient_admission?'Adm: '+dados.patient_admission:'',
+          dados.avp_motivo?'AVP: '+dados.avp_motivo:'',
+          dados.notifier_type?'Notificador: '+dados.notifier_type:'',
+        ].filter(Boolean).join(' | ')||null,
         ai_summary:dados.ai_summary||null,
         gravidade:dados.event_subtype==='Evento sentinela'?'Evento sentinela':dados.event_subtype==='Near miss'?'Near miss':null,
         is_test:testMode||false,
         hospital_id:h.id,
-        chat_history:messages,
+        chat_history:messages.slice(-10),
       };
       let protocolo='';
       if(sbUrl&&sbKey){
         const res=await sbInsert(sbUrl,sbKey,'notifications',payload);
         protocolo=res?.[0]?.id?res[0].id.slice(0,8).toUpperCase():Math.random().toString(36).slice(2,10).toUpperCase();
-        if(webhookUrl){try{await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name})});}catch{}}
+        if(webhookUrl){try{await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail})});}catch{}}
         showToast('Notificação salva! Gestor será notificado.','success');
       } else {
         protocolo=Math.random().toString(36).slice(2,10).toUpperCase();
         showToast('Notificação registrada!','success');
       }
+      addMsg('user','Sim, confirmar e enviar.');
       addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número. O Gestor foi notificado.\n\nObrigado por contribuir com a segurança do HNSA.');
       setStep('done');
-    }catch{showToast('Erro ao salvar. Tente novamente.','error');}
+    }catch(err){
+      console.error('Erro ao salvar notificacao:',err);
+      showToast('Erro ao salvar: '+(err?.message||'verifique a conexão e tente novamente.'),'error');
+    }
     setSaving(false);
   };
 
@@ -3574,10 +3641,10 @@ idade:'Idade do paciente',
         {/* Botões confirmar / corrigir */}
         {showConfirm&&(
           <div style={{padding:'8px 14px 6px',display:'flex',gap:8}}>
-            <button onClick={confirmar} style={{flex:2,background:C.teal,border:'none',borderRadius:12,padding:'13px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>
-              Confirmar e Enviar
+            <button onClick={confirmar} disabled={saving} style={{flex:2,background:saving?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:saving?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:saving?'default':'pointer',opacity:saving?0.7:1}}>
+              {saving?'Salvando...':'Confirmar e Enviar'}
             </button>
-            <button onClick={corrigir} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'13px',color:C.muted,fontWeight:600,fontSize:12,cursor:'pointer'}}>
+            <button onClick={corrigir} disabled={saving} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'13px',color:C.muted,fontWeight:600,fontSize:12,cursor:saving?'default':'pointer'}}>
               Corrigir
             </button>
           </div>
@@ -4753,7 +4820,7 @@ function NotificaAI() {
     url:'https://lnzvkfbcpnfmfvbdafab.supabase.co',
     key:'sb_publishable_SyVvXYS3AmHkq2KriFNJLA_yiGtToBB',
     webhook:'https://n8n-production-4e09.up.railway.app/webhook/notificaai',
-    email:'',testMode:true,
+    email:'janan.almeida@gmail.com',testMode:true,
   };
 
   useEffect(()=>{
@@ -4812,7 +4879,7 @@ function NotificaAI() {
 
       <div style={{flex:1,overflowY:'auto',paddingBottom:68}}>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
-        {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital}/>}
+        {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast}/>}

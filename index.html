@@ -45,7 +45,9 @@ function getHospitalIdFromUrl() {
 }
 const DEFAULT_HOSPITAL = {
   id:'hnsa', name:'Hospital Naval de Salvador', short_name:'HNSA',
-  logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP'], nsp_label:'NSP',
+  logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP','Oncologia'],
+  sectorsInternacao:['UPG','Ala A','Centro Cirúrgico','SEP'], // setores com leito/internacao - usados em Indicadores (paciente-dia). Oncologia e so ambulatorial.
+  nsp_label:'NSP',
 };
 async function loadHospital(url, key, id) {
   if (!url||!key||!id||id==='hnsa') return DEFAULT_HOSPITAL;
@@ -58,7 +60,7 @@ async function loadHospital(url, key, id) {
     if (!data||!data[0]) return DEFAULT_HOSPITAL;
     const h=data[0];
     return { id:h.id||id, name:h.name||DEFAULT_HOSPITAL.name, short_name:h.short_name||DEFAULT_HOSPITAL.short_name,
-      logo:h.logo||'hospital', sectors:h.sectors||DEFAULT_HOSPITAL.sectors, nsp_label:h.nsp_label||'NSP' };
+      logo:h.logo||'hospital', sectors:h.sectors||DEFAULT_HOSPITAL.sectors, sectorsInternacao:h.sectorsInternacao||h.sectors||DEFAULT_HOSPITAL.sectorsInternacao, nsp_label:h.nsp_label||'NSP' };
   } catch { return DEFAULT_HOSPITAL; }
 }
 
@@ -141,7 +143,7 @@ function md(t){
 }
 
 const MOCK_MONTHLY=[{mes:'Jan',sp:4,adm:7},{mes:'Fev',sp:6,adm:5},{mes:'Mar',sp:3,adm:8},{mes:'Abr',sp:8,adm:4},{mes:'Mai',sp:5,adm:6}];
-const MOCK_SECTORS=[{setor:'UPG',eventos:8},{setor:'Ala A',eventos:14},{setor:'CC',eventos:5},{setor:'SEP',eventos:11}];
+const MOCK_SECTORS=[{setor:'UPG',eventos:8},{setor:'Ala A',eventos:14},{setor:'CC',eventos:5},{setor:'SEP',eventos:11},{setor:'Oncologia',eventos:6}];
 const MOCK_TYPES=[{name:'Queda',value:35,color:'#EF4444'},{name:'Medicação',value:25,color:'#F59E0B'},{name:'Acesso',value:20,color:'#8B5CF6'},{name:'Hotelaria',value:15,color:'#1D6FE8'},{name:'Outros',value:5,color:'#5A7AA0'}];
 const MOCK_HEATMAP=[{turno:'Manhã',v:[1,2,2,3,2,2,1]},{turno:'Tarde',v:[2,4,5,3,4,5,2]},{turno:'Noite',v:[4,6,5,7,5,4,3]}];
 const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -159,7 +161,7 @@ function computeStats(notifications) {
   const sentinela=notifications.filter(n=>n.gravidade==='Evento sentinela').length;
   const semRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
   const sm={};notifications.forEach(n=>{if(n.sector)sm[n.sector]=(sm[n.sector]||0)+1;});
-  const SETOR_NOMES={'UPG':'UPG (Unidade de Pacientes Graves)','SEP':'SEP (Servico de Estabilizacao de Pacientes)','CC':'Centro Cirurgico','Centro Cirurgico':'Centro Cirurgico','Ala A':'Ala A','Geral':'Hospital Naval de Salvador'};
+  const SETOR_NOMES={'UPG':'UPG (Unidade de Pacientes Graves)','SEP':'SEP (Servico de Estabilizacao de Pacientes)','CC':'Centro Cirurgico','Centro Cirurgico':'Centro Cirurgico','Ala A':'Ala A','Oncologia':'Oncologia','Geral':'Hospital Naval de Salvador'};
   const sectorData=Object.entries(sm).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([k,v])=>({setor:k==='Centro Cirurgico'?'CC':k,setorNome:SETOR_NOMES[k]||k,eventos:v}));
   const tm2={};notifications.forEach(n=>{const t=n.event_subtype||n.occurrence_subtype||'outros';const l=t.charAt(0).toUpperCase()+t.slice(1);tm2[l]=(tm2[l]||0)+1;});
   const tc=['#EF4444','#F59E0B','#8B5CF6','#1D6FE8','#10B981','#5A7AA0'];
@@ -1301,63 +1303,59 @@ function BackHeader({title,subtitle,onBack,right}) {
 
 function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
+  const setores=h.sectorsInternacao||h.sectors||[]; // so setores com leito (paciente-dia); ambulatoriais (ex: Oncologia) ficam de fora daqui
+  const slug=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_');
   const [dados,setDados]=useState(null);
   const [loading,setLoading]=useState(false);
   const [mesRef,setMesRef]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const pdKey=(campo)=>`pd_${mesRef}_${campo}`;
-  const [pdGeral,setPdGeralRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_geral`)||'');
-  const [pdUPG,setPdUPGRaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_upg`)||'');
-  const [pdAlaA,setPdAlaARaw]=useState(()=>localStorage.getItem(`pd_${new Date().toISOString().slice(0,7)}_alaa`)||'');
+  const lerLocal=()=>{const o={};setores.forEach(s=>{try{o[s]=localStorage.getItem(pdKey(slug(s)))||'';}catch{o[s]='';}});return o;};
+  const [pdSetores,setPdSetoresRaw]=useState(lerLocal);
   const [pdSalvo,setPdSalvo]=useState(false);
 
-  const salvarPD=async(g,u,a)=>{
-    localStorage.setItem(pdKey('geral'),g);localStorage.setItem(pdKey('upg'),u);localStorage.setItem(pdKey('alaa'),a);
+  const setPdSetor=(s,v)=>setPdSetoresRaw(p=>({...p,[s]:v}));
+
+  const salvarPD=async(vals)=>{
+    setores.forEach(s=>{try{localStorage.setItem(pdKey(slug(s)),vals[s]||'');}catch{}});
     if(!sbUrl||!sbKey) return;
     try{
       await fetch(`${sbUrl}/rest/v1/indicadores_mensais`,{
         method:'POST',
         headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_geral:Number(g)||null,pd_upg:Number(u)||null,pd_alaa:Number(a)||null,updated_at:new Date().toISOString()})
+        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
       });
       setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
     }catch(err){console.warn('Erro ao salvar PD:',err);}
   };
 
-  const setPdGeral=v=>{setPdGeralRaw(v);};
-  const setPdUPG=v=>{setPdUPGRaw(v);};
-  const setPdAlaA=v=>{setPdAlaARaw(v);};
-
   React.useEffect(()=>{
-    setPdGeralRaw(localStorage.getItem(pdKey('geral'))||'');
-    setPdUPGRaw(localStorage.getItem(pdKey('upg'))||'');
-    setPdAlaARaw(localStorage.getItem(pdKey('alaa'))||'');
+    setPdSetoresRaw(lerLocal());
     if(!sbUrl||!sbKey) return;
     fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mesRef}&select=*`,{
       headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
     }).then(r=>r.json()).then(data=>{
-      if(data&&data[0]){
-        const d=data[0];
-        if(d.pd_geral){setPdGeralRaw(String(d.pd_geral));localStorage.setItem(pdKey('geral'),String(d.pd_geral));}
-        if(d.pd_upg){setPdUPGRaw(String(d.pd_upg));localStorage.setItem(pdKey('upg'),String(d.pd_upg));}
-        if(d.pd_alaa){setPdAlaARaw(String(d.pd_alaa));localStorage.setItem(pdKey('alaa'),String(d.pd_alaa));}
+      if(data&&data[0]&&data[0].pd_setores){
+        const ps=data[0].pd_setores;
+        const o2={};setores.forEach(s=>{
+          if(ps[s]!==undefined&&ps[s]!==null){o2[s]=String(ps[s]);try{localStorage.setItem(pdKey(slug(s)),String(ps[s]));}catch{}}
+          else{try{o2[s]=localStorage.getItem(pdKey(slug(s)))||'';}catch{o2[s]='';}}
+        });
+        setPdSetoresRaw(o2);
       }
     }).catch(()=>{});
   },[mesRef,sbUrl,sbKey]);
 
   const calcular=async()=>{
     if(!sbUrl||!sbKey) return;
-    if(!pdGeral&&!pdUPG&&!pdAlaA){showToast('Informe ao menos um total de paciente-dia','error');return;}
-    await salvarPD(pdGeral,pdUPG,pdAlaA);
+    const algumPreenchido=setores.some(s=>pdSetores[s]);
+    if(!algumPreenchido){showToast('Informe ao menos um total de paciente-dia por setor','error');return;}
+    await salvarPD(pdSetores);
     setLoading(true);
     try{
       const [ano,mes]=mesRef.split('-').map(Number);
       const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
       const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
-
-      const pdU=Number(pdUPG)||0;
-      const pdA=Number(pdAlaA)||0;
-      const pd=Number(pdGeral)||(pdU+pdA)||1;
 
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
@@ -1366,63 +1364,30 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const isNearMiss=n=>n.gravidade==='Near miss';
       const isSentinela=n=>n.gravidade==='Evento sentinela';
 
-      const geral={
-        total:nots.length,
-        quedas:nots.filter(isQueda).length,
-        lp:nots.filter(isLPP).length,
-        iras:nots.filter(isIRAS).length,
-        medicacao:nots.filter(isMed).length,
-        nearMiss:nots.filter(isNearMiss).length,
-        sentinela:nots.filter(isSentinela).length,
-        pd,
+      const calc=(lista,pd)=>{
+        const r={
+          total:lista.length,quedas:lista.filter(isQueda).length,lp:lista.filter(isLPP).length,
+          iras:lista.filter(isIRAS).length,medicacao:lista.filter(isMed).length,
+          nearMiss:lista.filter(isNearMiss).length,sentinela:lista.filter(isSentinela).length,pd,
+        };
+        r.txQueda=(r.quedas/pd*1000).toFixed(2);
+        r.txLP=(r.lp/pd*1000).toFixed(2);
+        r.txIRAS=(r.iras/pd*1000).toFixed(2);
+        r.txMed=(r.medicacao/pd*1000).toFixed(2);
+        r.txNearMiss=r.total>0?Math.round(r.nearMiss/r.total*100):0;
+        return r;
       };
-      geral.txQueda=(geral.quedas/pd*1000).toFixed(2);
-      geral.txLP=(geral.lp/pd*1000).toFixed(2);
-      geral.txIRAS=(geral.iras/pd*1000).toFixed(2);
-      geral.txMed=(geral.medicacao/pd*1000).toFixed(2);
-      geral.txNearMiss=geral.total>0?Math.round(geral.nearMiss/geral.total*100):0;
 
-      let upg=null;
-      if(pdU>0){
-        const notsUPG=nots.filter(n=>n.sector==='UPG');
-        upg={
-          total:notsUPG.length,
-          quedas:notsUPG.filter(isQueda).length,
-          lp:notsUPG.filter(isLPP).length,
-          iras:notsUPG.filter(isIRAS).length,
-          medicacao:notsUPG.filter(isMed).length,
-          nearMiss:notsUPG.filter(isNearMiss).length,
-          sentinela:notsUPG.filter(isSentinela).length,
-          pd:pdU,
-        };
-        upg.txQueda=(upg.quedas/pdU*1000).toFixed(2);
-        upg.txLP=(upg.lp/pdU*1000).toFixed(2);
-        upg.txIRAS=(upg.iras/pdU*1000).toFixed(2);
-        upg.txMed=(upg.medicacao/pdU*1000).toFixed(2);
-        upg.txNearMiss=upg.total>0?Math.round(upg.nearMiss/upg.total*100):0;
-      }
+      const pdTotal=setores.reduce((acc,s)=>acc+(Number(pdSetores[s])||0),0)||1;
+      const geral=calc(nots,pdTotal);
 
-      let alaA=null;
-      if(pdA>0){
-        const notsAlaA=nots.filter(n=>n.sector==='Ala A');
-        alaA={
-          total:notsAlaA.length,
-          quedas:notsAlaA.filter(isQueda).length,
-          lp:notsAlaA.filter(isLPP).length,
-          iras:notsAlaA.filter(isIRAS).length,
-          medicacao:notsAlaA.filter(isMed).length,
-          nearMiss:notsAlaA.filter(isNearMiss).length,
-          sentinela:notsAlaA.filter(isSentinela).length,
-          pd:pdA,
-        };
-        alaA.txQueda=(alaA.quedas/pdA*1000).toFixed(2);
-        alaA.txLP=(alaA.lp/pdA*1000).toFixed(2);
-        alaA.txIRAS=(alaA.iras/pdA*1000).toFixed(2);
-        alaA.txMed=(alaA.medicacao/pdA*1000).toFixed(2);
-        alaA.txNearMiss=alaA.total>0?Math.round(alaA.nearMiss/alaA.total*100):0;
-      }
+      const porSetor={};
+      setores.forEach(s=>{
+        const pd=Number(pdSetores[s])||0;
+        if(pd>0) porSetor[s]=calc(nots.filter(n=>n.sector===s),pd);
+      });
 
-      setDados({geral,upg,alaA});
+      setDados({geral,porSetor,pdTotal});
     }catch{showToast('Erro ao calcular indicadores','error');}
     setLoading(false);
   };
@@ -1467,6 +1432,8 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
     </div>);
   };
 
+  const setoresComDados=dados?setores.filter(s=>dados.porSetor[s]):[];
+
   return(<div style={{paddingBottom:80}}>
     <BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 - Metas OMS - por setor'/>
     <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
@@ -1481,46 +1448,29 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
 
       {/* Paciente-dia por setor */}
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:10}}>Total paciente-dia (soma dos dias de internacao no mes)</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr',gap:10}}>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-              <span style={{width:10,height:10,borderRadius:'50%',background:C.teal,display:'inline-block'}}/>
-              Hospital (geral)
-            </label>
-            <input type="number" value={pdGeral} onChange={e=>setPdGeral(e.target.value)} placeholder="Deixe vazio para usar UPG + Ala Aital)"
-              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-              <span style={{width:10,height:10,borderRadius:'50%',background:C.red,display:'inline-block'}}/>
-              UPG - Unidade de Pacientes Graves
-            </label>
-            <input type="number" value={pdUPG} onChange={e=>setPdUPG(e.target.value)} placeholder="Ex: 180 (somente UPG)"
-              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
-              <span style={{width:10,height:10,borderRadius:'50%',background:C.blue,display:'inline-block'}}/>
-              Ala A - Internacao Geral
-            </label>
-            <input type="number" value={pdAlaA} onChange={e=>setPdAlaA(e.target.value)} placeholder="Ex: 310 (somente Ala A)"
-              style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:10}}>Total paciente-dia por setor (soma dos dias de internacao no mes)</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {setores.map(s=>(
+            <div key={s}>
+              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
+              <input type="number" value={pdSetores[s]||''} onChange={e=>setPdSetor(s,e.target.value)} placeholder="0"
+                style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+            </div>
+          ))}
         </div>
         <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6,borderTop:'1px solid '+C.border,paddingTop:8}}>
-          Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME. Se Hospital Geral vazio, usa soma UPG + Ala A.</div>
+          Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME. O total Geral e a soma de todos os setores preenchidos.</div>
       </div>
 
       {pdSalvo&&<div style={{textAlign:'center',fontSize:11,color:'#22C55E',marginBottom:6}}>
         {String.fromCodePoint(9989)} Paciente-dia salvo no banco
       </div>}
-      <button onClick={()=>salvarPD(pdGeral,pdUPG,pdAlaA)} disabled={!pdGeral&&!pdUPG&&!pdAlaA}
+      <button onClick={()=>salvarPD(pdSetores)} disabled={!setores.some(s=>pdSetores[s])}
         style={{width:'100%',background:'transparent',border:'1px solid #0D9488',borderRadius:10,padding:'8px',color:'#0D9488',fontSize:12,fontWeight:600,cursor:'pointer',marginBottom:6}}>
         Salvar paciente-dia sem calcular
       </button>
-      <button onClick={calcular} disabled={loading||(!pdGeral&&!pdUPG&&!pdAlaA)}
-        style={{width:'100%',background:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?C.border:C.teal,border:'none',borderRadius:10,padding:'12px',color:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading||(!pdGeral&&!pdUPG&&!pdAlaA)?'default':'pointer'}}>
+      <button onClick={calcular} disabled={loading||!setores.some(s=>pdSetores[s])}
+        style={{width:'100%',background:loading||!setores.some(s=>pdSetores[s])?C.border:C.teal,border:'none',borderRadius:10,padding:'12px',color:loading||!setores.some(s=>pdSetores[s])?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading||!setores.some(s=>pdSetores[s])?'default':'pointer'}}>
         {loading?'Calculando...':'Calcular Indicadores'}
       </button>
     </div>
@@ -1531,32 +1481,28 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
         {new Date(mesRef+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}
       </div>
 
-      {/* Comparativo rapido se tem setores */}
-      {(dados.upg||dados.alaA)&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:14}}>
+      {/* Comparativo por setor - tabela */}
+      {setoresComDados.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Comparativo por Setor</div>
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead>
               <tr>
-                <th style={{padding:'6px 8px',textAlign:'left',color:C.muted,borderBottom:'1px solid '+C.border,fontWeight:700}}>Indicador</th>
-                {dados.geral&&<th style={{padding:'6px 8px',textAlign:'center',color:C.teal,borderBottom:'1px solid '+C.border,fontWeight:700}}>Geral</th>}
-                {dados.upg&&<th style={{padding:'6px 8px',textAlign:'center',color:C.red,borderBottom:'1px solid '+C.border,fontWeight:700}}>UPG</th>}
-                {dados.alaA&&<th style={{padding:'6px 8px',textAlign:'center',color:C.blue,borderBottom:'1px solid '+C.border,fontWeight:700}}>Ala A</th>}
+                <th style={{padding:'6px 8px',textAlign:'left',color:C.muted,borderBottom:'1px solid '+C.border,fontWeight:700,position:'sticky',left:0,background:C.card}}>Indicador</th>
+                <th style={{padding:'6px 8px',textAlign:'center',color:C.teal,borderBottom:'1px solid '+C.border,fontWeight:700}}>Geral</th>
+                {setoresComDados.map(s=><th key={s} style={{padding:'6px 8px',textAlign:'center',color:C.blue,borderBottom:'1px solid '+C.border,fontWeight:700,whiteSpace:'nowrap'}}>{s}</th>)}
                 <th style={{padding:'6px 8px',textAlign:'center',color:C.muted,borderBottom:'1px solid '+C.border,fontWeight:700}}>Meta</th>
               </tr>
             </thead>
             <tbody>
               {INDICADORES_DEF.map((ind,i)=>{
-                const vG=Number(dados.geral?.[ind.key]||0);
-                const vU=dados.upg?Number(dados.upg[ind.key]||0):null;
-                const vA=dados.alaA?Number(dados.alaA[ind.key]||0):null;
-                const cor=(v)=>{if(v===null)return C.muted;const pct=ind.menor?(v/ind.meta):(ind.meta/v);const ok=ind.menor?v<=ind.meta:v>=ind.meta;const close=ind.menor?v<=ind.meta*1.3:v>=ind.meta*0.7;return ok?C.green:close?C.yellow:C.red;};
+                const cor=(v)=>{if(v===null||v===undefined)return C.muted;const ok=ind.menor?v<=ind.meta:v>=ind.meta;const close=ind.menor?v<=ind.meta*1.3:v>=ind.meta*0.7;return ok?C.green:close?C.yellow:C.red;};
+                const vG=Number(dados.geral[ind.key]||0);
                 return(<tr key={i} style={{borderBottom:'1px solid '+C.border+'22'}}>
-                  <td style={{padding:'6px 8px',color:C.text,fontSize:11}}>{ind.label}</td>
-                  {dados.geral&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>}
-                  {dados.upg&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vU)}}>{vU}{ind.unidade==='%'?'%':''}</td>}
-                  {dados.alaA&&<td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vA)}}>{vA}{ind.unidade==='%'?'%':''}</td>}
-                  <td style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontSize:10}}>{ind.menor?'< ':'> '}{ind.meta}{ind.unidade}</td>
+                  <td style={{padding:'6px 8px',color:C.text,fontSize:11,position:'sticky',left:0,background:C.card,whiteSpace:'nowrap'}}>{ind.label}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>
+                  {setoresComDados.map(s=>{const v=Number(dados.porSetor[s][ind.key]||0);return(<td key={s} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(v)}}>{v}{ind.unidade==='%'?'%':''}</td>);})}
+                  <td style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontSize:10,whiteSpace:'nowrap'}}>{ind.menor?'< ':'> '}{ind.meta}{ind.unidade}</td>
                 </tr>);
               })}
             </tbody>
@@ -1566,8 +1512,7 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
 
       {/* Cards detalhados por setor */}
       <SetorCard titulo="Hospital - Geral" cor={C.teal} dados={dados.geral} icon={String.fromCodePoint(127973)}/>
-      <SetorCard titulo="UPG - Unidade de Pacientes Graves" cor={C.red} dados={dados.upg} icon={String.fromCodePoint(128308)}/>
-      <SetorCard titulo="Ala A - Internacao Geral" cor={C.blue} dados={dados.alaA} icon={String.fromCodePoint(128309)}/>
+      {setoresComDados.map(s=><SetorCard key={s} titulo={s} cor={C.blue} dados={dados.porSetor[s]} icon={String.fromCodePoint(128309)}/>)}
 
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>As taxas sao calculadas com base nas notificacoes registradas. A qualidade depende da completude das notificacoes. Indicadores subnotificados subestimam os valores reais.</div>
@@ -1576,6 +1521,7 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
   </div>
   </div>);
 }
+
 
 function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const [protocolos,setProtocolos]=useState([]);
@@ -3135,9 +3081,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
         <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
       </div>
-      <div onClick={()=>setView('analytics')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+      <div onClick={()=>setView('saq_dashboard')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
       <div style={{fontSize:13,fontWeight:900,color:C.teal}}>{String.fromCodePoint(128203)}</div>
-      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>SAQ</div>
+      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Cultura</div>
       </div>
     </div>}
 
@@ -3690,104 +3636,147 @@ idade:'Idade do paciente',
   </div>);
 }
 
-function SAQView({showToast}) {
-  const SAQ_DOMINIOS=[
-    {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
-      'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
-      'Os profissionais se apoiam mutuamente neste setor.',
-      'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
-      'Discordancias neste setor sao resolvidas de forma adequada.',
-      'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
-    ]},
-    {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
-      'A cultura neste setor torna facil aprender com os erros dos outros.',
-      'Eu me sentiria seguro sendo tratado aqui como paciente.',
-      'Erros sao tratados de forma adequada neste setor.',
-      'Neste setor e dificil discutir sobre erros (invertido).',
-      'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
-    ]},
-    {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
-      'Eu gosto do meu trabalho.',
-      'Trabalhar aqui e como fazer parte de uma grande familia.',
-      'Este setor e um bom lugar para trabalhar.',
-      'Estou orgulhoso de trabalhar neste setor.',
-      'O moral neste setor e alto.',
-    ]},
-    {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
-      'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
-      'Sou menos eficiente no trabalho quando estou com muito estresse.',
-      'Fico exausto quando penso no trabalho que preciso fazer.',
-      'Trabalho com mais cuidado quando estou cansado.',
-    ]},
-    {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
-      'A administracao apoia meus esforgos diarios.',
-      'A administracao nao compromete conscientemente a seguranca do paciente.',
-      'A administracao esta fazendo um bom trabalho.',
-      'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
-    ]},
-    {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
-      'Este setor e bem equipado para lidar com novos pacientes.',
-      'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
-      'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
-      'O treinamento que recebi foi adequado para o trabalho que executo.',
-    ]},
-  ];
-  const [saqResp,setSaqResp]=React.useState({});
-  const [saqEnviado,setSaqEnviado]=React.useState(false);
+const SAQ_DOMINIOS=[
+  {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
+    'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
+    'Os profissionais se apoiam mutuamente neste setor.',
+    'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
+    'Discordancias neste setor sao resolvidas de forma adequada.',
+    'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
+  ]},
+  {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
+    'A cultura neste setor torna facil aprender com os erros dos outros.',
+    'Eu me sentiria seguro sendo tratado aqui como paciente.',
+    'Erros sao tratados de forma adequada neste setor.',
+    'Neste setor e dificil discutir sobre erros (invertido).',
+    'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
+  ]},
+  {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
+    'Eu gosto do meu trabalho.',
+    'Trabalhar aqui e como fazer parte de uma grande familia.',
+    'Este setor e um bom lugar para trabalhar.',
+    'Estou orgulhoso de trabalhar neste setor.',
+    'O moral neste setor e alto.',
+  ]},
+  {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
+    'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
+    'Sou menos eficiente no trabalho quando estou com muito estresse.',
+    'Fico exausto quando penso no trabalho que preciso fazer.',
+    'Trabalho com mais cuidado quando estou cansado.',
+  ]},
+  {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
+    'A administracao apoia meus esforgos diarios.',
+    'A administracao nao compromete conscientemente a seguranca do paciente.',
+    'A administracao esta fazendo um bom trabalho.',
+    'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
+  ]},
+  {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
+    'Este setor e bem equipado para lidar com novos pacientes.',
+    'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
+    'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
+    'O treinamento que recebi foi adequado para o trabalho que executo.',
+  ]},
+];
+const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];
+function saqCicloAtual(){const d=new Date();return d.getMonth()<6?`${d.getFullYear()}-1`:`${d.getFullYear()}-2`;}
+
+function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [etapa,setEtapa]=useState('intro');
+  const [setor,setSetor]=useState('');
+  const [categoria,setCategoria]=useState('');
+  const [saqResp,setSaqResp]=useState({});
+  const [enviando,setEnviando]=useState(false);
+
   const totalItens=SAQ_DOMINIOS.reduce((a,d)=>a+d.itens.length,0);
   const respondidos=Object.keys(saqResp).length;
-  const scores=SAQ_DOMINIOS.map(dom=>{
-    const vals=dom.itens.map((_,i)=>saqResp[dom.id+'_'+i]).filter(v=>v!==undefined);
-    if(!vals.length) return{...dom,score:null,pct:null};
-    const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-    const pct=Math.round((avg/4)*100);
-    return{...dom,score:avg.toFixed(1),pct};
-  });
-  const scoreGeral=scores.every(s=>s.pct!==null)?Math.round(scores.reduce((a,s)=>a+s.pct,0)/scores.length):null;
-  const enviarSAQ=()=>{
-    if(respondidos<totalItens) return;
-    setSaqEnviado(true);
-    showToast('SAQ registrado com sucesso!','success');
+
+  const reiniciar=()=>{setSetor('');setCategoria('');setSaqResp({});setEtapa('intro');};
+
+  const enviar=async()=>{
+    if(respondidos<totalItens||enviando) return;
+    setEnviando(true);
+    try{
+      if(sbUrl&&sbKey){
+        await sbInsert(sbUrl,sbKey,'saq_respostas',{
+          hospital_id:h.id,
+          setor,
+          categoria:categoria||null,
+          ciclo:saqCicloAtual(),
+          respostas:saqResp,
+        });
+      }
+      setEtapa('obrigado');
+    }catch(e){
+      showToast('Erro ao enviar. Verifique a conexao e tente novamente.','error');
+    }
+    setEnviando(false);
   };
-  return(<div style={{display:'flex',flexDirection:'column',gap:12}}>
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-      <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>SAQ - Safety Attitudes Questionnaire</div>
-      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:8}}>Instrumento validado internacionalmente (Sexton et al., 2006). Versao adaptada para o HNSA. Responda com base na sua experiencia nos ultimos 30 dias neste setor.</div>
-      {scoreGeral!==null&&<div style={{background:C.teal+'15',border:'1px solid '+C.teal+'44',borderRadius:10,padding:'12px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:14}}>
-        <div style={{textAlign:'center',flexShrink:0}}>
-          <div style={{fontSize:28,fontWeight:900,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral}</div>
-          <div style={{fontSize:9,color:C.muted,fontWeight:700}}>pts / 100</div>
-        </div>
-        <div>
-          <div style={{fontSize:13,fontWeight:800,color:scoreGeral>=75?C.green:scoreGeral>=60?C.yellow:C.red}}>{scoreGeral>=75?'Cultura positiva de seguranca':scoreGeral>=60?'Em desenvolvimento':'Necessita intervencao'}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Score geral SAQ. Corte de positividade: 75 pts (Sexton et al.)</div>
-        </div>
-      </div>}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
-        {scores.map(dom=>(
-          <div key={dom.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px'}}>
-            <div style={{fontSize:11,fontWeight:700,color:dom.cor,marginBottom:6}}>{dom.label}</div>
-            {dom.pct!==null?<div>
-              <div style={{fontSize:18,fontWeight:900,color:dom.cor}}>{dom.pct}<span style={{fontSize:10,color:C.muted}}> pts</span></div>
-              <div style={{height:4,background:C.border,borderRadius:2,marginTop:6,overflow:'hidden'}}>
-                <div style={{width:dom.pct+'%',height:'100%',background:dom.cor,borderRadius:2}}/>
-              </div>
-            </div>:<div style={{fontSize:10,color:C.muted}}>Nao respondido</div>}
-          </div>
+
+  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:16};
+
+  if(etapa==='obrigado') return(
+    <div style={{padding:'48px 24px',textAlign:'center'}}>
+      <div style={{fontSize:52,marginBottom:14}}>{String.fromCodePoint(9989)}</div>
+      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:8}}>Obrigado pela sua resposta!</div>
+      <div style={{fontSize:13,color:C.muted,marginBottom:28,lineHeight:1.6}}>Sua participacao ajuda a fortalecer a cultura de seguranca do {h.short_name}. As respostas sao analisadas apenas de forma agregada e anonima por setor.</div>
+      <button onClick={reiniciar} style={{background:C.teal,border:'none',borderRadius:12,padding:'13px 24px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Outra pessoa quer responder</button>
+    </div>
+  );
+
+  if(etapa==='intro') return(
+    <div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
+      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Clima de Seguranca</div>
+      <div style={{fontSize:12,color:C.muted,lineHeight:1.7,marginBottom:20}}>
+        Instrumento validado internacionalmente - SAQ (Sexton et al., 2006), adaptado para o {h.short_name}.<br/><br/>
+        {String.fromCodePoint(128274)} <strong style={{color:C.text}}>100% anonimo</strong> - nao pedimos seu nome, apenas setor e (opcional) categoria profissional. Os resultados so sao analisados de forma agregada por setor, nunca individualmente.<br/><br/>
+        Leva cerca de 5 minutos. Responda com base na sua experiencia nos ultimos 30 dias no seu setor.
+      </div>
+
+      <label style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',display:'block',marginBottom:6}}>Seu setor *</label>
+      <select value={setor} onChange={e=>setSetor(e.target.value)} style={{...inp,appearance:'none'}}>
+        <option value="">Selecione</option>
+        {h.sectors.map(s=><option key={s} value={s}>{s}</option>)}
+      </select>
+
+      <label style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',display:'block',marginBottom:6}}>Categoria profissional (opcional)</label>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:24}}>
+        {SAQ_CATEGORIAS.map(c=>(
+          <button key={c} onClick={()=>setCategoria(categoria===c?'':c)} style={{padding:'8px 12px',borderRadius:20,border:'1px solid '+(categoria===c?C.teal:C.border),background:categoria===c?C.teal+'22':C.card,color:categoria===c?C.teal:C.muted,fontSize:12,fontWeight:600,cursor:'pointer'}}>{c}</button>
         ))}
       </div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{respondidos}/{totalItens} itens respondidos</div>
+
+      <button onClick={()=>setor&&setEtapa('form')} disabled={!setor} style={{width:'100%',background:setor?C.teal:C.border,border:'none',borderRadius:12,padding:'14px',color:setor?'#06101F':C.muted,fontWeight:800,fontSize:14,cursor:setor?'pointer':'default'}}>
+        Comecar pesquisa
+      </button>
+    </div>
+  );
+
+  // etapa==='form'
+  return(<div style={{paddingBottom:96}}>
+    <div style={{position:'sticky',top:0,background:C.surface,borderBottom:'1px solid '+C.border,padding:'12px 16px',zIndex:10}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>{setor}{categoria?' · '+categoria:''}</div>
+        <div style={{fontSize:11,color:C.muted}}>{respondidos}/{totalItens}</div>
+      </div>
+      <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:6}}>
+        <div style={{width:(respondidos/totalItens*100)+'%',height:'100%',background:'linear-gradient(90deg,'+C.teal+','+C.blue+')',borderRadius:2,transition:'width .3s'}}/>
+      </div>
+      <div style={{fontSize:9,color:C.muted}}>DT Discordo totalmente · DP Discordo parcialmente · N Neutro · CP Concordo parcialmente · CT Concordo totalmente</div>
+    </div>
+
+    <div style={{padding:16,maxWidth:480,margin:'0 auto'}}>
       {SAQ_DOMINIOS.map(dom=>(
-        <div key={dom.id} style={{background:C.surface,borderRadius:12,padding:'14px',marginBottom:10}}>
+        <div key={dom.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px',marginBottom:10}}>
           <div style={{fontSize:12,fontWeight:800,color:dom.cor,marginBottom:10,borderBottom:'1px solid '+dom.cor+'33',paddingBottom:6}}>{dom.label}</div>
           {dom.itens.map((item,ii)=>(
-            <div key={ii} style={{marginBottom:12}}>
+            <div key={ii} style={{marginBottom:14}}>
               <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item}</div>
               <div style={{display:'flex',gap:4}}>
                 {[0,1,2,3,4].map(v=>(
                   <button key={v} onClick={()=>setSaqResp(r=>({...r,[dom.id+'_'+ii]:v}))}
-                    style={{flex:1,padding:'6px 2px',borderRadius:6,border:'1px solid '+(saqResp[dom.id+'_'+ii]===v?dom.cor:C.border),
-                    background:saqResp[dom.id+'_'+ii]===v?dom.cor+'22':C.card,
+                    style={{flex:1,padding:'8px 2px',borderRadius:6,border:'1px solid '+(saqResp[dom.id+'_'+ii]===v?dom.cor:C.border),
+                    background:saqResp[dom.id+'_'+ii]===v?dom.cor+'22':C.surface,
                     color:saqResp[dom.id+'_'+ii]===v?dom.cor:C.muted,
                     fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center',lineHeight:1.2}}>
                     {v+1}
@@ -3799,14 +3788,137 @@ function SAQView({showToast}) {
           ))}
         </div>
       ))}
-      <button onClick={enviarSAQ} disabled={respondidos<totalItens}
-        style={{width:'100%',background:respondidos<totalItens?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:respondidos<totalItens?C.muted:'#06101F',fontSize:13,fontWeight:800,cursor:respondidos<totalItens?'not-allowed':'pointer',marginTop:4}}>
-        {respondidos<totalItens?'Responda todos os itens ('+respondidos+'/'+totalItens+')':'Registrar SAQ'}
+    </div>
+
+    <div style={{position:'fixed',bottom:0,left:0,right:0,maxWidth:480,margin:'0 auto',background:C.surface,borderTop:'1px solid '+C.border,padding:12}}>
+      <button onClick={enviar} disabled={respondidos<totalItens||enviando}
+        style={{width:'100%',background:respondidos<totalItens||enviando?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:respondidos<totalItens||enviando?C.muted:'#06101F',fontSize:13,fontWeight:800,cursor:respondidos<totalItens||enviando?'not-allowed':'pointer'}}>
+        {enviando?'Enviando...':respondidos<totalItens?'Responda todos os itens ('+respondidos+'/'+totalItens+')':'Enviar respostas'}
       </button>
-      {saqEnviado&&<div style={{textAlign:'center',fontSize:12,color:C.green,marginTop:8,fontWeight:700}}>SAQ registrado! Obrigado pela participacao.</div>}
     </div>
   </div>);
 }
+
+function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [respostas,setRespostas]=useState([]);
+  const [loading,setLoading]=useState(false);
+  const [ciclo,setCiclo]=useState(saqCicloAtual());
+  const N_MIN=5;
+
+  const load=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    try{
+      const d=await sbSelect(sbUrl,sbKey,'saq_respostas',`hospital_id=eq.${h.id}&select=*`);
+      setRespostas(d||[]);
+    }catch{setRespostas([]);}
+    setLoading(false);
+  };
+  useEffect(()=>{load();},[sbUrl,sbKey]);
+
+  const calcDominios=(lista)=>SAQ_DOMINIOS.map(dom=>{
+    let soma=0,n=0;
+    lista.forEach(r=>{
+      dom.itens.forEach((_,i)=>{
+        const v=r.respostas?.[dom.id+'_'+i];
+        if(v!==undefined&&v!==null){soma+=v;n++;}
+      });
+    });
+    if(n===0) return{...dom,pct:null};
+    return{...dom,pct:Math.round((soma/n/4)*100)};
+  });
+  const scoreDe=(doms)=>doms.every(d=>d.pct!==null)?Math.round(doms.reduce((a,d)=>a+d.pct,0)/doms.length):null;
+
+  const doCiclo=respostas.filter(r=>r.ciclo===ciclo);
+  const dominiosGeral=calcDominios(doCiclo);
+  const scoreGeral=scoreDe(dominiosGeral);
+
+  const porSetor=h.sectors.map(s=>{
+    const lista=doCiclo.filter(r=>r.setor===s);
+    const doms=lista.length>=N_MIN?calcDominios(lista):null;
+    return{setor:s,n:lista.length,score:doms?scoreDe(doms):null};
+  }).sort((a,b)=>b.n-a.n);
+
+  const ciclosComDados=[...new Set(respostas.map(r=>r.ciclo))];
+  const ciclosSelecionaveis=[...new Set([...ciclosComDados,saqCicloAtual()])].sort().reverse();
+  const tendencia=[...ciclosComDados].sort().map(c=>{
+    const lista=respostas.filter(r=>r.ciclo===c);
+    return{ciclo:c,n:lista.length,score:scoreDe(calcDominios(lista))||0};
+  });
+
+  const corScore=(v)=>v===null?C.muted:v>=75?C.green:v>=60?C.yellow:C.red;
+
+  return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14,paddingBottom:80}}>
+    <div>
+      <div style={{fontSize:17,fontWeight:900,color:C.text}}>Cultura de Seguranca</div>
+      <div style={{fontSize:11,color:C.muted}}>SAQ - Safety Attitudes Questionnaire (Sexton et al., 2006) · respostas anonimas</div>
+    </div>
+
+    <div style={{display:'flex',gap:8,alignItems:'center'}}>
+      <label style={{fontSize:11,color:C.muted,fontWeight:700}}>Ciclo:</label>
+      <select value={ciclo} onChange={e=>setCiclo(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',appearance:'none'}}>
+        {ciclosSelecionaveis.map(c=><option key={c} value={c}>{c}</option>)}
+      </select>
+      <button onClick={load} style={{marginLeft:'auto',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
+    </div>
+
+    {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
+
+    {!loading&&doCiclo.length===0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:20,textAlign:'center'}}>
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Ainda nao ha respostas para este ciclo.<br/>Divulgue o link publico da pesquisa para a equipe (aba "Cultura" no menu publico, ou um QR code afixado no setor).</div>
+    </div>}
+
+    {!loading&&doCiclo.length>0&&<>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,display:'flex',alignItems:'center',gap:16}}>
+        <div style={{textAlign:'center',flexShrink:0}}>
+          <div style={{fontSize:36,fontWeight:900,color:corScore(scoreGeral)}}>{scoreGeral??'-'}</div>
+          <div style={{fontSize:9,color:C.muted,fontWeight:700}}>pts / 100</div>
+        </div>
+        <div>
+          <div style={{fontSize:14,fontWeight:800,color:corScore(scoreGeral)}}>{scoreGeral===null?'Aguardando mais respostas':scoreGeral>=75?'Cultura positiva de seguranca':scoreGeral>=60?'Em desenvolvimento':'Necessita intervencao'}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{doCiclo.length} resposta(s) neste ciclo · corte de positividade: 75 pts</div>
+        </div>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        {dominiosGeral.map(dom=>(
+          <div key={dom.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:dom.cor,marginBottom:6}}>{dom.label}</div>
+            {dom.pct!==null?<div>
+              <div style={{fontSize:18,fontWeight:900,color:dom.cor}}>{dom.pct}<span style={{fontSize:10,color:C.muted}}> pts</span></div>
+              <div style={{height:4,background:C.border,borderRadius:2,marginTop:6,overflow:'hidden'}}>
+                <div style={{width:dom.pct+'%',height:'100%',background:dom.cor,borderRadius:2}}/>
+              </div>
+            </div>:<div style={{fontSize:10,color:C.muted}}>Sem dados</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Por setor</div>
+        {porSetor.map(p=>(
+          <div key={p.setor} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid '+C.border+'33'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.setor}</div>
+              <div style={{fontSize:10,color:C.muted}}>{p.n} resposta(s){p.n>0&&p.n<N_MIN?' · abaixo do minimo para exibir':''}</div>
+            </div>
+            {p.score!==null?
+              <div style={{fontSize:16,fontWeight:900,color:corScore(p.score),flexShrink:0}}>{p.score}</div>
+              :<div style={{fontSize:10,color:C.muted,flexShrink:0}}>—</div>}
+          </div>
+        ))}
+        <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Por protecao ao anonimato, setores com menos de {N_MIN} respostas nao exibem score individual.</div>
+      </div>
+
+      {tendencia.length>1&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Evolucao entre ciclos</div>
+        <BarChart data={tendencia} xKey="ciclo" yKey="score" color={C.teal} height={140}/>
+      </div>}
+    </>}
+  </div>);
+}
+
 
 function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [tab,setTab]=useState('graficos');
@@ -3925,7 +4037,7 @@ ESTRUTURA:
       <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'? Dados reais':sbUrl?'? Carregando...':'? Dados de exemplo'}</div>
     </div>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
-      {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('cultura','Maturidade')}{tb('ia','IA')}{tb('relatorio','Relatório')}
+      {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('ia','IA')}{tb('relatorio','Relatório')}
     </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'8px 12px',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}><span style={{fontSize:10,color:C.muted,fontWeight:700,flexShrink:0}}>Periodo:</span>{[{l:'Este mes',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'Mes ant.',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'1o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},{l:'2o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},{l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},{l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}}].map(({l,fn})=>(<button key={l} onClick={fn} style={{padding:'3px 8px',borderRadius:6,border:'1px solid '+C.border,background:C.surface,color:C.muted,fontSize:9,fontWeight:700,cursor:'pointer'}}>{l}</button>))}<input type='date' value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.muted}}>-</span><input type='date' value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.teal,fontWeight:700,marginLeft:4}}>{filtered.length} notif.</span></div>
 
@@ -3992,7 +4104,6 @@ ESTRUTURA:
         <span style={{fontSize:10,color:C.muted}}>Alto</span>
       </div>
     </div>}
-{tab==='cultura'&&<SAQView showToast={showToast}/>}
 {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Analise por IA</div>
@@ -4685,6 +4796,16 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     catch{showToast('Erro','error');}
     setDeleting(null);
   };
+  const promover=async(id)=>{
+    if(!confirm('Promover esta notificação de TESTE para PRODUÇÃO? Ela passará a contar nos indicadores e relatórios.')) return;
+    setDeleting(id);
+    try{
+      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${id}`,{is_test:false});
+      setNotifications(notifications.map(n=>n.id===id?{...n,is_test:false}:n));
+      showToast('OK Promovida para produção','success');
+    }catch{showToast('Erro ao promover','error');}
+    setDeleting(null);
+  };
   const clearTests=async()=>{
     if(!confirmClear){setConfirmClear(true);setTimeout(()=>setConfirmClear(false),2000);return;}
     try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>n.is_test!==true));showToast('OK Testes limpos','success');setConfirmClear(false);}
@@ -4765,7 +4886,10 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
             <div style={{fontSize:12,fontWeight:600,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
             <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
           </div>
-          <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex'}}>
+          {n.is_test&&<button onClick={()=>promover(n.id)} disabled={deleting===n.id} title="Promover para produção" style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:C.green,fontSize:9,fontWeight:700,flexShrink:0}}>
+            {deleting===n.id?'...':'Promover'}
+          </button>}
+          <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',flexShrink:0}}>
             <IconTrash size={14} color={deleting===n.id?C.muted:C.red}/>
           </button>
         </div>
@@ -4792,7 +4916,14 @@ function Splash({leaving}) {
 }
 
 function NotificaAI() {
-  const [view,setView]=useState('notificar');
+  const [view,setView]=useState(()=>{
+    try{
+      const p=new URLSearchParams(window.location.search);
+      const v=p.get('view');
+      const permitidas=['notificar','central','saq_publico'];
+      return (v&&permitidas.includes(v))?v:'notificar';
+    }catch{return'notificar';}
+  });
   const [splash,setSplash]=useState(true);
   const [splashLeaving,setSplashLeaving]=useState(false);
   const [sbUrl,setSbUrl]=useState('');
@@ -4857,9 +4988,9 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'central',label:'Central',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
@@ -4891,6 +5022,8 @@ function NotificaAI() {
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
+        {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
       </div>
 
       {/* NAV + MENU HAMBURGUER */}

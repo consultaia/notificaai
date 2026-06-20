@@ -1355,7 +1355,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const [ano,mes]=mesRef.split('-').map(Number);
       const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
 
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
@@ -1686,7 +1686,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       const mesCorr=m===0?{a:ano-1,m:12}:{a:ano,m};
       const inicio=new Date(mesCorr.a,mesCorr.m-1,1).toISOString().slice(0,10);
       const fim=new Date(mesCorr.a,mesCorr.m,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
       const s=computeStats(nots);
       setDados({nots,s,inicio,fim,mesCorr,total:nots.length});
     }catch{showToast('Erro ao gerar relatório','error');}
@@ -1878,7 +1878,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000');
+      const data=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`);
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificacoes','error');}
     setLoading(false);
@@ -2388,7 +2388,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const {inicio,fim,nums}=getSemestreDatas();
       const [nots,treinamentos,protocolos]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
       ]);
@@ -2695,7 +2695,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000'),
+      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
     ]).then(([nots,treins])=>{
       setNotifications(nots||[]);
@@ -2712,7 +2712,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
     const fim=new Date(ano,mes,0).toISOString().slice(0,10);
     sbSelect(sbUrl,sbKey,'notifications',
-      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
+      `hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
     ).then(d=>setNotsMes(d||[])).catch(()=>[]).finally(()=>setLoadingMes(false));
   },[mesSel,sbUrl,sbKey]);
 
@@ -3017,7 +3017,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   useEffect(()=>{
     if(!configured) return;
     setLoading(true);
-    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
+    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
       .then(data=>{
       setStats(computeStats(data));
 
@@ -3093,7 +3093,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')}/>}
+    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')} hospital={hospital}/>}
 
     {/* Botão notificar */}
     <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
@@ -3933,7 +3933,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
 
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
-    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
+    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
       .then(data=>{setStats(computeStats(data));setRawData(data||[]);})
       .catch(()=>showToast('Erro ao carregar analytics','error'));
   },[sbUrl,sbKey]);
@@ -4524,7 +4524,7 @@ function ticketEmoji(icon){
   };
   return m[icon]||icon;
 }
-function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
+function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
   const [ano,setAno]=React.useState(hoje.getFullYear());
@@ -4542,7 +4542,7 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
       const ultimoDia=new Date(ano,mes,0).getDate();
       const fim=`${ano}-${mesStr}-${ultimoDia}`;
       const data=await sbSelect(sbUrl,sbKey,'notifications',
-        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
+        `hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
       setNots(data||[]);
     }catch(e){setNots([]);}
     setLoading(false);
@@ -4769,7 +4769,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   </div>);
 }
 
-function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast}) {
+function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
   const [notifications,setNotifications]=useState([]);
@@ -4783,7 +4783,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=1000');setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&order=created_at.desc&limit=1000&select=*`);setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };
@@ -5013,7 +5013,7 @@ function NotificaAI() {
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
-        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast}/>}
+        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         

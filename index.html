@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- NotificaAI v2026-06-08 04:49:12 FIXED -->
+<!-- NotificaAI v2026-06-21 SECURITY+CULTURA-FIX (PINs hardcoded removidos, itens HSOPSC reescritos) -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -117,12 +117,14 @@ async function hashPin(pin) {
 }
 
 const PROFILES = {
-  gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
-  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
+  gestor:   {label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
+  membro_nsp:{label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
+  dsg:      {label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
+  motorista:{label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
+  enfermeiro:{label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
 };
+// SEGURANCA: nao ha mais PINs hardcoded aqui. Autenticacao e SEMPRE via Supabase (tabela nsp_usuarios + pin_hash).
+// Cadastre usuarios reais pelo PinManager (Admin) antes de liberar acesso aos perfis.
 
 function formatTime(iso){
   if(!iso) return '-';
@@ -417,12 +419,10 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
           matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
-      } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
+      } catch(e) { console.warn('Falha ao verificar PIN no Supabase',e); }
     }
-    if(!matched) {
-      const lm=Object.entries(PROFILES).find(([,p])=>p.pin===pin);
-      if(lm) matched={key:lm[0],label:lm[1].label,color:lm[1].color,icon:lm[1].icon};
-    }
+    // SEGURANCA: removido fallback local com PINs fixos no codigo-fonte (eram visiveis a qualquer
+    // pessoa que inspecionasse o HTML). Autenticacao agora depende exclusivamente do Supabase.
     setLoading(false);
     if(matched) onSuccess(matched.key,matched);
     else { setError(true); setPin(''); setTimeout(()=>setError(false),1200); }
@@ -505,9 +505,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
   if(!sbUrl||!sbKey) return(
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{String.fromCodePoint(128272)+' Usuários e PINs'}</div>
-      <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários. PINs locais ativos:<br/>
-        {Object.entries(PROFILES).map(([k,p])=><span key={k} style={{display:'inline-block',background:p.color+'15',color:p.color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,margin:'2px'}}>{p.icon} {p.label}: {p.pin}</span>)}
-      </div>
+      <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários e PINs. Sem conexão configurada, nenhum perfil de acesso (Gestor, DSG, Motorista, Enfermeiro, Membro NSP) pode ser autenticado.</div>
     </div>
   );
 
@@ -3638,69 +3636,69 @@ idade:'Idade do paciente',
 
 const SAQ_DOMINIOS=[
   {id:'tc',label:'Trabalho em equipe na unidade',cor:C.teal,itens:[
-    {t:'Nesta unidade, as pessoas se apoiam umas as outras.',inv:false},
-    {t:'Quando ha muito trabalho a ser feito rapidamente, trabalhamos juntos em equipe para conclui-lo devidamente.',inv:false},
-    {t:'Nesta unidade, as pessoas se tratam com respeito.',inv:false},
-    {t:'Quando alguem nesta unidade esta sobrecarregado, recebe ajuda de seus colegas.',inv:false},
+    {t:'Aqui no setor, um colega ajuda o outro sem que seja preciso pedir.',inv:false},
+    {t:'Quando a demanda aperta, a equipe se une para dar conta do trabalho com qualidade.',inv:false},
+    {t:'O respeito entre os colegas e a regra no dia a dia deste setor.',inv:false},
+    {t:'Quem esta sobrecarregado encontra apoio dos colegas para dar conta da demanda.',inv:false},
   ]},
   {id:'exp',label:'Expectativas e acoes da chefia',cor:'#1D6FE8',itens:[
-    {t:'Meu supervisor/chefe elogia quando ve um trabalho realizado de acordo com os procedimentos de seguranca do paciente.',inv:false},
-    {t:'Meu supervisor/chefe realmente leva em consideracao as sugestoes dos profissionais para melhoria da seguranca do paciente.',inv:false},
-    {t:'Sempre que a demanda aumenta, meu supervisor/chefe quer que trabalhemos mais rapido, mesmo que isso signifique pular etapas.',inv:true},
-    {t:'Meu supervisor/chefe nao da atencao suficiente aos problemas de seguranca do paciente que acontecem repetidamente.',inv:true},
+    {t:'Minha chefia reconhece publicamente quando os protocolos de seguranca sao bem seguidos.',inv:false},
+    {t:'Sugestoes da equipe para melhorar a seguranca sao realmente levadas a serio pela chefia.',inv:false},
+    {t:'Em dias de alta demanda, a orientacao da chefia e acelerar o ritmo mesmo que isso signifique pular etapas do processo.',inv:true},
+    {t:'Problemas de seguranca que se repetem nao recebem a atencao devida da minha chefia.',inv:true},
   ]},
   {id:'apr',label:'Aprendizagem organizacional - Melhoria continua',cor:C.green,itens:[
-    {t:'Estamos adotando medidas para melhorar a seguranca do paciente.',inv:false},
-    {t:'Quando se identifica um erro na atencao ao paciente, adotamos medidas para previni-lo.',inv:false},
-    {t:'Apos implementarmos mudancas para melhorar a seguranca do paciente, avaliamos sua efetividade.',inv:false},
+    {t:'O setor vem implementando acoes concretas para tornar o cuidado mais seguro.',inv:false},
+    {t:'Erros identificados no cuidado geram acoes praticas para evitar que se repitam.',inv:false},
+    {t:'Depois de mudar algo para melhorar a seguranca, checamos se a mudanca realmente funcionou.',inv:false},
   ]},
   {id:'pcg',label:'Apoio da gerencia do hospital',cor:'#8B5CF6',itens:[
-    {t:'A direcao do hospital propicia um clima de trabalho que promove a seguranca do paciente.',inv:false},
-    {t:'As acoes da direcao do hospital demonstram que a seguranca do paciente e uma prioridade maxima.',inv:false},
-    {t:'A direcao do hospital so demonstra interesse na seguranca do paciente quando ocorre algum evento adverso.',inv:true},
+    {t:'A direcao do hospital cria um ambiente de trabalho que favorece o cuidado seguro.',inv:false},
+    {t:'Pelas atitudes da direcao, fica claro que a seguranca do paciente esta no topo das prioridades.',inv:false},
+    {t:'O interesse da direcao pela seguranca do paciente so aparece depois que algo da errado.',inv:true},
   ]},
   {id:'per',label:'Percepcao geral de seguranca',cor:C.yellow,itens:[
-    {t:'Nossos procedimentos e sistemas sao adequados para prevenir a ocorrencia de erros.',inv:false},
-    {t:'Nesta unidade temos problemas de seguranca do paciente.',inv:true},
-    {t:'Aqui nao acontecem mais erros graves porque temos sorte.',inv:true},
+    {t:'Os processos e sistemas que usamos sao bons o suficiente para evitar erros.',inv:false},
+    {t:'Este setor enfrenta problemas relacionados a seguranca do paciente.',inv:true},
+    {t:'Se erros graves nao acontecem com mais frequencia aqui, e mais sorte do que outra coisa.',inv:true},
   ]},
   {id:'com',label:'Abertura para comunicacao',cor:'#10B981',itens:[
-    {t:'Os profissionais tem liberdade para se expressar ao observarem algo que pode afetar negativamente o cuidado ao paciente.',inv:false},
-    {t:'Os profissionais sentem-se a vontade para questionar as decisoes ou acoes de seus superiores.',inv:false},
-    {t:'Os profissionais tem receio de perguntar, quando algo parece nao estar certo.',inv:true},
+    {t:'Quando algo pode prejudicar o paciente, os profissionais se sentem livres para falar sobre isso.',inv:false},
+    {t:'Questionar uma decisao de um superior, quando necessario, nao e um problema aqui.',inv:false},
+    {t:'Ha receio entre os profissionais em perguntar quando algo parece estranho ou errado.',inv:true},
   ]},
   {id:'fdb',label:'Feedback e comunicacao sobre erros',cor:'#F97316',itens:[
-    {t:'Somos informados sobre mudancas implementadas em decorrencia de notificacao de eventos.',inv:false},
-    {t:'Somos informados sobre os erros que acontecem nesta unidade.',inv:false},
-    {t:'Nesta unidade, discutimos maneiras de prevenir erros a fim de evitar que eles se repitam.',inv:false},
+    {t:'Quando uma notificacao gera mudanca, somos avisados sobre o que foi alterado.',inv:false},
+    {t:'Ficamos sabendo dos erros que ocorrem dentro deste setor.',inv:false},
+    {t:'A equipe conversa ativamente sobre como evitar que os mesmos erros voltem a acontecer.',inv:false},
   ]},
   {id:'freq',label:'Frequencia de eventos relatados',cor:'#06B6D4',itens:[
-    {t:'Erros identificados e corrigidos antes de afetar o paciente sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
-    {t:'Erros que nao representam risco de dano ao paciente sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
-    {t:'Erros que poderiam causar dano ao paciente, mas nao causaram, sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
+    {t:'Com que frequencia um erro percebido e corrigido antes de chegar ao paciente acaba sendo registrado como notificacao? (5=sempre, 1=nunca)',inv:false},
+    {t:'Erros sem nenhum potencial de causar dano ao paciente costumam ser notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
+    {t:'Quando um erro tinha potencial de causar dano mas nao causou, com que frequencia ele e notificado? (5=sempre, 1=nunca)',inv:false},
   ]},
   {id:'npe',label:'Resposta nao punitiva ao erro',cor:C.red,itens:[
-    {t:'Os profissionais consideram que seus erros podem ser usados contra eles.',inv:true},
-    {t:'Quando um evento e notificado, parece que o foco recai sobre a pessoa e nao sobre o problema.',inv:true},
-    {t:'Os profissionais temem que seus erros sejam registrados em suas fichas funcionais.',inv:true},
+    {t:'Existe a sensacao entre os profissionais de que um erro cometido pode ser usado contra eles no futuro.',inv:true},
+    {t:'Ao notificar um evento, a impressao e que a atencao vai para quem errou, nao para o problema em si.',inv:true},
+    {t:'Ha receio de que erros cometidos fiquem registrados permanentemente no historico funcional do profissional.',inv:true},
   ]},
   {id:'dp',label:'Dimensionamento de pessoal',cor:'#EC4899',itens:[
-    {t:'Temos profissionais suficientes para dar conta da carga de trabalho.',inv:false},
-    {t:'As vezes, nao se proporciona o melhor cuidado para o paciente porque a carga de trabalho e excessiva.',inv:true},
-    {t:'Nos trabalhamos sob pressao tentando fazer muito e rapido.',inv:true},
-    {t:'A seguranca do paciente nunca e comprometida em decorrencia de maior quantidade de trabalho.',inv:false},
+    {t:'O numero de profissionais no setor e suficiente para o volume de trabalho existente.',inv:false},
+    {t:'Em alguns momentos, o excesso de trabalho impede que o paciente receba o melhor cuidado possivel.',inv:true},
+    {t:'A rotina aqui e marcada pela pressao de fazer muita coisa em pouco tempo.',inv:true},
+    {t:'Mesmo quando o volume de trabalho aumenta, a seguranca do paciente continua sendo preservada.',inv:false},
   ]},
   {id:'teu',label:'Trabalho em equipe entre unidades',cor:'#0EA5E9',itens:[
-    {t:'As unidades do hospital nao estao bem coordenadas entre si.',inv:true},
-    {t:'Ha uma boa cooperacao entre as unidades do hospital que precisam trabalhar em conjunto.',inv:false},
-    {t:'Muitas vezes e desagradavel trabalhar com profissionais de outras unidades do hospital.',inv:true},
-    {t:'As unidades do hospital trabalham bem em conjunto para prestar o melhor cuidado aos pacientes.',inv:false},
+    {t:'Falta coordenacao entre os diferentes setores do hospital.',inv:true},
+    {t:'Os setores que dependem uns dos outros cooperam bem entre si.',inv:false},
+    {t:'Trabalhar com profissionais de outros setores costuma ser uma experiencia desagradavel.',inv:true},
+    {t:'Os setores se articulam bem entre si para garantir o melhor cuidado ao paciente.',inv:false},
   ]},
   {id:'trans',label:'Mudancas de turno e transicoes',cor:'#A855F7',itens:[
-    {t:'O processo de cuidado e comprometido quando um paciente e transferido para outros setores do hospital.',inv:true},
-    {t:'E comum a perda de informacoes importantes sobre o cuidado com o paciente durante as mudancas de plantao ou de turno.',inv:true},
-    {t:'Com frequencia ocorrem problemas na troca de informacoes entre as unidades do hospital.',inv:true},
-    {t:'Neste hospital, as mudancas de plantao ou de turno sao problematicas para os pacientes.',inv:true},
+    {t:'Transferir um paciente para outro setor costuma prejudicar a continuidade do cuidado.',inv:true},
+    {t:'Informacoes importantes sobre o paciente costumam se perder na troca de plantao ou turno.',inv:true},
+    {t:'A troca de informacoes entre setores do hospital costuma gerar problemas com frequencia.',inv:true},
+    {t:'As trocas de plantao ou turno neste hospital representam um risco para os pacientes.',inv:true},
   ]},
 ];
 const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- NotificaAI v2026-06-21 SECURITY+CULTURA-FIX (PINs hardcoded removidos, itens HSOPSC reescritos) -->
+<!-- NotificaAI v2026-06-21 LOGIN-HOSPITAL-SCOPE-FIX (PIN agora escopado por hospital_id) -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -360,6 +360,7 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   nome TEXT NOT NULL, pin_hash TEXT NOT NULL,
+  hospital_id TEXT NOT NULL DEFAULT 'hnsa',
   perfil TEXT DEFAULT 'gestor', ativo BOOLEAN DEFAULT TRUE,
   ultimo_acesso TIMESTAMPTZ
 );
@@ -399,7 +400,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   </div>);
 }
 
-function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
+function PinModal({sbUrl,sbKey,hospital,onSuccess,onClose}) {
   const [pin,setPin]=useState('');
   const [error,setError]=useState(false);
   const [loading,setLoading]=useState(false);
@@ -413,7 +414,10 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
     if(sbUrl&&sbKey) {
       try {
         const h=await hashPin(pin);
-        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
+        // SEGURANCA: PIN agora e escopado por hospital_id. Um PIN cadastrado para
+        // o Hospital A nao autentica mais em ?h=hospital_b.
+        const hospId=hospital?.id||'hnsa';
+        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&hospital_id=eq.${hospId}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
           matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
@@ -449,7 +453,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
   </div>);
 }
 
-function PinManager({sbUrl,sbKey,showToast}) {
+function PinManager({sbUrl,sbKey,hospital,showToast}) {
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(false);
   const [showForm,setShowForm]=useState(false);
@@ -457,15 +461,16 @@ function PinManager({sbUrl,sbKey,showToast}) {
   const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(null);
+  const hospId=hospital?.id||'hnsa';
 
   const load=async()=>{
     if(!sbUrl||!sbKey){setUsers([]);return;}
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'nsp_usuarios','order=created_at.asc');setUsers(d||[]);}
+    try{const d=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`hospital_id=eq.${hospId}&order=created_at.asc`);setUsers(d||[]);}
     catch{showToast('Erro ao carregar usuários','error');}
     setLoading(false);
   };
-  useEffect(()=>{load();},[sbUrl,sbKey]);
+  useEffect(()=>{load();},[sbUrl,sbKey,hospId]);
 
   const openForm=(u=null)=>{
     setEditing(u?u.id:null);
@@ -480,10 +485,12 @@ function PinManager({sbUrl,sbKey,showToast}) {
     if(form.pin&&!/^\d{4}$/.test(form.pin)){showToast('Só números no PIN','error');return;}
     setSaving(true);
     try{
-      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo};
+      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo,hospital_id:hospId};
       if(form.pin) payload.pin_hash=await hashPin(form.pin);
       if(form.pin&&!editing){
-        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin)}&limit=1`);
+        // SEGURANCA: PIN duplicado e checado apenas dentro do mesmo hospital -
+        // o mesmo PIN pode existir em hospitais diferentes sem conflito.
+        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin)}&hospital_id=eq.${hospId}&limit=1`);
         if(ex&&ex.length>0){showToast('Este PIN já está em uso','error');setSaving(false);return;}
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
@@ -4923,7 +4930,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       );})}
     </div>
 
-    <PinManager sbUrl={sbUrl} sbKey={sbKey} showToast={showToast}/>
+    <PinManager sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>
   </div>);
 }
 
@@ -5030,7 +5037,7 @@ function NotificaAI() {
       select option{background:${C.card};color:${C.text}}`)}
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
-      {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
+      {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
         onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}

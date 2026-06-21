@@ -3637,44 +3637,70 @@ idade:'Idade do paciente',
 }
 
 const SAQ_DOMINIOS=[
-  {id:'tc',label:'Clima de trabalho em equipe',cor:C.teal,itens:[
-    'Enfermeiros e medicos deste setor trabalham juntos como uma equipe bem coordenada.',
-    'Os profissionais se apoiam mutuamente neste setor.',
-    'E facil para os profissionais deste setor fazer perguntas quando existe algo que nao entendem.',
-    'Discordancias neste setor sao resolvidas de forma adequada.',
-    'Tenho o apoio que preciso da equipe para cuidar dos pacientes.',
+  {id:'tc',label:'Trabalho em equipe na unidade',cor:C.teal,itens:[
+    {t:'Nesta unidade, as pessoas se apoiam umas as outras.',inv:false},
+    {t:'Quando ha muito trabalho a ser feito rapidamente, trabalhamos juntos em equipe para conclui-lo devidamente.',inv:false},
+    {t:'Nesta unidade, as pessoas se tratam com respeito.',inv:false},
+    {t:'Quando alguem nesta unidade esta sobrecarregado, recebe ajuda de seus colegas.',inv:false},
   ]},
-  {id:'sc',label:'Clima de seguranca',cor:C.red,itens:[
-    'A cultura neste setor torna facil aprender com os erros dos outros.',
-    'Eu me sentiria seguro sendo tratado aqui como paciente.',
-    'Erros sao tratados de forma adequada neste setor.',
-    'Neste setor e dificil discutir sobre erros (invertido).',
-    'Sei os canais adequados para fazer perguntas sobre seguranca do paciente.',
+  {id:'exp',label:'Expectativas e acoes da chefia',cor:'#1D6FE8',itens:[
+    {t:'Meu supervisor/chefe elogia quando ve um trabalho realizado de acordo com os procedimentos de seguranca do paciente.',inv:false},
+    {t:'Meu supervisor/chefe realmente leva em consideracao as sugestoes dos profissionais para melhoria da seguranca do paciente.',inv:false},
+    {t:'Sempre que a demanda aumenta, meu supervisor/chefe quer que trabalhemos mais rapido, mesmo que isso signifique pular etapas.',inv:true},
+    {t:'Meu supervisor/chefe nao da atencao suficiente aos problemas de seguranca do paciente que acontecem repetidamente.',inv:true},
   ]},
-  {id:'sat',label:'Satisfacao no trabalho',cor:C.purple,itens:[
-    'Eu gosto do meu trabalho.',
-    'Trabalhar aqui e como fazer parte de uma grande familia.',
-    'Este setor e um bom lugar para trabalhar.',
-    'Estou orgulhoso de trabalhar neste setor.',
-    'O moral neste setor e alto.',
+  {id:'apr',label:'Aprendizagem organizacional - Melhoria continua',cor:C.green,itens:[
+    {t:'Estamos adotando medidas para melhorar a seguranca do paciente.',inv:false},
+    {t:'Quando se identifica um erro na atencao ao paciente, adotamos medidas para previni-lo.',inv:false},
+    {t:'Apos implementarmos mudancas para melhorar a seguranca do paciente, avaliamos sua efetividade.',inv:false},
   ]},
-  {id:'sp',label:'Percepcao do estresse',cor:C.yellow,itens:[
-    'Quando minha carga de trabalho e excessiva, meu desempenho e prejudicado.',
-    'Sou menos eficiente no trabalho quando estou com muito estresse.',
-    'Fico exausto quando penso no trabalho que preciso fazer.',
-    'Trabalho com mais cuidado quando estou cansado.',
+  {id:'pcg',label:'Apoio da gerencia do hospital',cor:'#8B5CF6',itens:[
+    {t:'A direcao do hospital propicia um clima de trabalho que promove a seguranca do paciente.',inv:false},
+    {t:'As acoes da direcao do hospital demonstram que a seguranca do paciente e uma prioridade maxima.',inv:false},
+    {t:'A direcao do hospital so demonstra interesse na seguranca do paciente quando ocorre algum evento adverso.',inv:true},
   ]},
-  {id:'pcg',label:'Percepcao da gestao',cor:'#1D6FE8',itens:[
-    'A administracao apoia meus esforgos diarios.',
-    'A administracao nao compromete conscientemente a seguranca do paciente.',
-    'A administracao esta fazendo um bom trabalho.',
-    'A administracao esta tomando medidas que mostram que a seguranca do paciente e prioritaria.',
+  {id:'per',label:'Percepcao geral de seguranca',cor:C.yellow,itens:[
+    {t:'Nossos procedimentos e sistemas sao adequados para prevenir a ocorrencia de erros.',inv:false},
+    {t:'Nesta unidade temos problemas de seguranca do paciente.',inv:true},
+    {t:'Aqui nao acontecem mais erros graves porque temos sorte.',inv:true},
   ]},
-  {id:'cst',label:'Condicoes de trabalho',cor:'#10B981',itens:[
-    'Este setor e bem equipado para lidar com novos pacientes.',
-    'Esta unidade e bem equipada para lidar com situacoes de emergencia.',
-    'Neste setor as informacoes relevantes para cuidados dos pacientes estao disponiveis.',
-    'O treinamento que recebi foi adequado para o trabalho que executo.',
+  {id:'com',label:'Abertura para comunicacao',cor:'#10B981',itens:[
+    {t:'Os profissionais tem liberdade para se expressar ao observarem algo que pode afetar negativamente o cuidado ao paciente.',inv:false},
+    {t:'Os profissionais sentem-se a vontade para questionar as decisoes ou acoes de seus superiores.',inv:false},
+    {t:'Os profissionais tem receio de perguntar, quando algo parece nao estar certo.',inv:true},
+  ]},
+  {id:'fdb',label:'Feedback e comunicacao sobre erros',cor:'#F97316',itens:[
+    {t:'Somos informados sobre mudancas implementadas em decorrencia de notificacao de eventos.',inv:false},
+    {t:'Somos informados sobre os erros que acontecem nesta unidade.',inv:false},
+    {t:'Nesta unidade, discutimos maneiras de prevenir erros a fim de evitar que eles se repitam.',inv:false},
+  ]},
+  {id:'freq',label:'Frequencia de eventos relatados',cor:'#06B6D4',itens:[
+    {t:'Erros identificados e corrigidos antes de afetar o paciente sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
+    {t:'Erros que nao representam risco de dano ao paciente sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
+    {t:'Erros que poderiam causar dano ao paciente, mas nao causaram, sao notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
+  ]},
+  {id:'npe',label:'Resposta nao punitiva ao erro',cor:C.red,itens:[
+    {t:'Os profissionais consideram que seus erros podem ser usados contra eles.',inv:true},
+    {t:'Quando um evento e notificado, parece que o foco recai sobre a pessoa e nao sobre o problema.',inv:true},
+    {t:'Os profissionais temem que seus erros sejam registrados em suas fichas funcionais.',inv:true},
+  ]},
+  {id:'dp',label:'Dimensionamento de pessoal',cor:'#EC4899',itens:[
+    {t:'Temos profissionais suficientes para dar conta da carga de trabalho.',inv:false},
+    {t:'As vezes, nao se proporciona o melhor cuidado para o paciente porque a carga de trabalho e excessiva.',inv:true},
+    {t:'Nos trabalhamos sob pressao tentando fazer muito e rapido.',inv:true},
+    {t:'A seguranca do paciente nunca e comprometida em decorrencia de maior quantidade de trabalho.',inv:false},
+  ]},
+  {id:'teu',label:'Trabalho em equipe entre unidades',cor:'#0EA5E9',itens:[
+    {t:'As unidades do hospital nao estao bem coordenadas entre si.',inv:true},
+    {t:'Ha uma boa cooperacao entre as unidades do hospital que precisam trabalhar em conjunto.',inv:false},
+    {t:'Muitas vezes e desagradavel trabalhar com profissionais de outras unidades do hospital.',inv:true},
+    {t:'As unidades do hospital trabalham bem em conjunto para prestar o melhor cuidado aos pacientes.',inv:false},
+  ]},
+  {id:'trans',label:'Mudancas de turno e transicoes',cor:'#A855F7',itens:[
+    {t:'O processo de cuidado e comprometido quando um paciente e transferido para outros setores do hospital.',inv:true},
+    {t:'E comum a perda de informacoes importantes sobre o cuidado com o paciente durante as mudancas de plantao ou de turno.',inv:true},
+    {t:'Com frequencia ocorrem problemas na troca de informacoes entre as unidades do hospital.',inv:true},
+    {t:'Neste hospital, as mudancas de plantao ou de turno sao problematicas para os pacientes.',inv:true},
   ]},
 ];
 const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];
@@ -3726,9 +3752,9 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
 
   if(etapa==='intro') return(
     <div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
-      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Clima de Seguranca</div>
+      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Cultura de Seguranca</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7,marginBottom:20}}>
-        Instrumento validado internacionalmente - SAQ (Sexton et al., 2006), adaptado para o {h.short_name}.<br/><br/>
+        Instrumento baseado no HSOPSC (Hospital Survey on Patient Safety Culture, AHRQ), adaptado para o {h.short_name}.<br/><br/>
         {String.fromCodePoint(128274)} <strong style={{color:C.text}}>100% anonimo</strong> - nao pedimos seu nome, apenas setor e (opcional) categoria profissional. Os resultados so sao analisados de forma agregada por setor, nunca individualmente.<br/><br/>
         Leva cerca de 5 minutos. Responda com base na sua experiencia nos ultimos 30 dias no seu setor.
       </div>
@@ -3771,7 +3797,7 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
           <div style={{fontSize:12,fontWeight:800,color:dom.cor,marginBottom:10,borderBottom:'1px solid '+dom.cor+'33',paddingBottom:6}}>{dom.label}</div>
           {dom.itens.map((item,ii)=>(
             <div key={ii} style={{marginBottom:14}}>
-              <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item}</div>
+              <div style={{fontSize:12,color:C.text,marginBottom:6,lineHeight:1.5}}>{ii+1}. {item.t}</div>
               <div style={{display:'flex',gap:4}}>
                 {[0,1,2,3,4].map(v=>(
                   <button key={v} onClick={()=>setSaqResp(r=>({...r,[dom.id+'_'+ii]:v}))}
@@ -3780,7 +3806,7 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
                     color:saqResp[dom.id+'_'+ii]===v?dom.cor:C.muted,
                     fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center',lineHeight:1.2}}>
                     {v+1}
-                    <div style={{fontSize:7,marginTop:2}}>{['DT','DP','N','CP','CT'][v]}</div>
+                    <div style={{fontSize:7,marginTop:2}}>{['DT','D','N','C','CT'][v]}</div>
                   </button>
                 ))}
               </div>
@@ -3820,9 +3846,12 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
   const calcDominios=(lista)=>SAQ_DOMINIOS.map(dom=>{
     let soma=0,n=0;
     lista.forEach(r=>{
-      dom.itens.forEach((_,i)=>{
-        const v=r.respostas?.[dom.id+'_'+i];
-        if(v!==undefined&&v!==null){soma+=v;n++;}
+      dom.itens.forEach((item,i)=>{
+        const raw=r.respostas?.[dom.id+'_'+i];
+        if(raw!==undefined&&raw!==null){
+          const v=item.inv?(4-raw):raw;
+          soma+=v;n++;
+        }
       });
     });
     if(n===0) return{...dom,pct:null};
@@ -3852,7 +3881,7 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14,paddingBottom:80}}>
     <div>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Cultura de Seguranca</div>
-      <div style={{fontSize:11,color:C.muted}}>SAQ - Safety Attitudes Questionnaire (Sexton et al., 2006) · respostas anonimas</div>
+      <div style={{fontSize:11,color:C.muted}}>Cultura de Seguranca do Paciente · baseado no HSOPSC (AHRQ) · respostas anonimas</div>
     </div>
 
     <div style={{display:'flex',gap:8,alignItems:'center'}}>

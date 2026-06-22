@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- NotificaAI v2026-06-21 LOGIN-HOSPITAL-SCOPE-FIX (PIN agora escopado por hospital_id) -->
+<!-- NotificaAI v2026-06-21 SECURITY+CULTURA-FIX (PINs hardcoded removidos, itens HSOPSC reescritos) -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -360,7 +360,6 @@ function ConfigPanel({sbUrl,sbKey,webhookUrl,onSave,onClose}) {
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   nome TEXT NOT NULL, pin_hash TEXT NOT NULL,
-  hospital_id TEXT NOT NULL DEFAULT 'hnsa',
   perfil TEXT DEFAULT 'gestor', ativo BOOLEAN DEFAULT TRUE,
   ultimo_acesso TIMESTAMPTZ
 );
@@ -400,7 +399,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   </div>);
 }
 
-function PinModal({sbUrl,sbKey,hospital,onSuccess,onClose}) {
+function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
   const [pin,setPin]=useState('');
   const [error,setError]=useState(false);
   const [loading,setLoading]=useState(false);
@@ -414,10 +413,7 @@ function PinModal({sbUrl,sbKey,hospital,onSuccess,onClose}) {
     if(sbUrl&&sbKey) {
       try {
         const h=await hashPin(pin);
-        // SEGURANCA: PIN agora e escopado por hospital_id. Um PIN cadastrado para
-        // o Hospital A nao autentica mais em ?h=hospital_b.
-        const hospId=hospital?.id||'hnsa';
-        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&hospital_id=eq.${hospId}&ativo=eq.true&limit=1`);
+        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
           matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
@@ -453,7 +449,7 @@ function PinModal({sbUrl,sbKey,hospital,onSuccess,onClose}) {
   </div>);
 }
 
-function PinManager({sbUrl,sbKey,hospital,showToast}) {
+function PinManager({sbUrl,sbKey,showToast}) {
   const [users,setUsers]=useState([]);
   const [loading,setLoading]=useState(false);
   const [showForm,setShowForm]=useState(false);
@@ -461,16 +457,15 @@ function PinManager({sbUrl,sbKey,hospital,showToast}) {
   const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(null);
-  const hospId=hospital?.id||'hnsa';
 
   const load=async()=>{
     if(!sbUrl||!sbKey){setUsers([]);return;}
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`hospital_id=eq.${hospId}&order=created_at.asc`);setUsers(d||[]);}
+    try{const d=await sbSelect(sbUrl,sbKey,'nsp_usuarios','order=created_at.asc');setUsers(d||[]);}
     catch{showToast('Erro ao carregar usuários','error');}
     setLoading(false);
   };
-  useEffect(()=>{load();},[sbUrl,sbKey,hospId]);
+  useEffect(()=>{load();},[sbUrl,sbKey]);
 
   const openForm=(u=null)=>{
     setEditing(u?u.id:null);
@@ -485,12 +480,10 @@ function PinManager({sbUrl,sbKey,hospital,showToast}) {
     if(form.pin&&!/^\d{4}$/.test(form.pin)){showToast('Só números no PIN','error');return;}
     setSaving(true);
     try{
-      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo,hospital_id:hospId};
+      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo};
       if(form.pin) payload.pin_hash=await hashPin(form.pin);
       if(form.pin&&!editing){
-        // SEGURANCA: PIN duplicado e checado apenas dentro do mesmo hospital -
-        // o mesmo PIN pode existir em hospitais diferentes sem conflito.
-        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin)}&hospital_id=eq.${hospId}&limit=1`);
+        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin)}&limit=1`);
         if(ex&&ex.length>0){showToast('Este PIN já está em uso','error');setSaving(false);return;}
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
@@ -536,7 +529,6 @@ function PinManager({sbUrl,sbKey,hospital,showToast}) {
           <option value="dsg">DSG - apenas manutenção</option>
           <option value="motorista">Motorista - apenas ambulância</option>
           <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
-          <option value="membro_nsp">Membro NSP - painel NSP</option>
         </select>
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
@@ -2353,6 +2345,203 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   </div>);
 }
 
+// ── Upsert helper para indicadores_dsm e config_dsm ──────────
+async function sbUpsertDSM(sbUrl,sbKey,tabela,data,onConflict){
+  const res=await fetch(`${sbUrl}/rest/v1/${tabela}`,{
+    method:'POST',
+    headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json',
+              'Prefer':`resolution=merge-duplicates,return=minimal`,'on-conflict':onConflict},
+    body:JSON.stringify(data)
+  });
+  if(!res.ok){const t=await res.text();throw new Error(t);}
+  return true;
+}
+
+// ── Mapeamento subnúcleo → critério DSM ──────────────────────
+const DSM_SUB_MAP={
+  'comunicacao':'C5','Comunicacao Efetiva':'C5','Comunicação Efetiva':'C5',
+  'medicamentos':'C9','Seguranca na Administracao de Medicamentos':'C9','Segurança na Administração de Medicamentos':'C9',
+  'identificacao':'C4','Identificacao Correta':'C4','Identificação Correta':'C4',
+  'queda':'C8','Queda':'C8','Prevenção de Quedas':'C8',
+  'lpp':'C7','LPP - Lesao por Pressao':'C7','LPP':'C7',
+  'cirurgia':'C6','Cirurgia Segura':'C6',
+  'higienizacao':'C3','Higienizacao das Maos':'C3','Higienização das Mãos':'C3',
+  'precaucoes':'C14','Precaucoes e Isolamento':'C14','Precauções e Isolamento':'C14',
+  'cvc':'C10','Cateter Venoso Central':'C10',
+  'cvd':'C11','Cateter Vesical':'C11',
+  'pav':'C12','PAV':'C12',
+  'isc':'C13','ISC':'C13',
+};
+
+function dsmPct(num,den){if(!den||den===0)return null;return((num||0)/den*100).toFixed(1);}
+function dsmFmt(v,u='%'){return v!==null&&v!==undefined?`${v}${u}`:'—';}
+function dsmSum(rows,f){return rows.reduce((a,r)=>a+(Number(r[f])||0),0);}
+function dsmContain(str,terms){const s=(str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return terms.some(t=>s.includes(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')));}
+
+// ════════════════════════════════════════════════════════════
+// ENTRADA MENSAL DE INDICADORES DSM
+// ════════════════════════════════════════════════════════════
+function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const hoje=new Date();
+  const [mes,setMes]=useState(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`);
+  const [form,setForm]=useState({});
+  const [salvando,setSalvando]=useState(false);
+  const [hist,setHist]=useState([]);
+
+  const mesRef=mes+'-01';
+
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=eq.${mesRef}&select=*`,{
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
+    }).then(r=>r.json()).then(d=>{
+      if(d&&d[0]){const{id,hospital_id,mes:m,created_at,updated_at,...campos}=d[0];setForm(campos);}
+      else setForm({});
+    }).catch(()=>{});
+  },[mes,h.id,sbUrl,sbKey]);
+
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&order=mes.desc&limit=12&select=mes,paciente_dia_total,alcool_gel_ml,lpp_casos_novos,quedas_total`,{
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
+    }).then(r=>r.json()).then(d=>setHist(d||[])).catch(()=>{});
+  },[h.id,sbUrl,sbKey,salvando]);
+
+  const set=(k,v)=>setForm(f=>({...f,[k]:v===''?null:Number(v)}));
+
+  const salvar=async()=>{
+    if(!sbUrl||!sbKey){showToast('Supabase necessário','error');return;}
+    setSalvando(true);
+    try{
+      await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',{...form,hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()},'hospital_id,mes');
+      showToast('Indicadores salvos!','success');
+    }catch(e){showToast('Erro: '+e.message,'error');}
+    setSalvando(false);
+  };
+
+  const inp={width:'100%',padding:'8px 10px',borderRadius:8,boxSizing:'border-box',border:'1px solid '+C.border,background:C.surface,color:C.text,fontSize:13,outline:'none'};
+
+  const grupos=[
+    {titulo:'Denominador Geral',campos:[
+      {label:'Pacientes-dia total no mês',key:'paciente_dia_total',hint:'Soma dos dias de internação de todos os pacientes'},
+    ]},
+    {titulo:'C.3 — Higienização das Mãos',campos:[
+      {label:'Álcool gel consumido (mL)',key:'alcool_gel_ml'},
+      {label:'Sabonete líquido consumido (mL)',key:'sabonete_ml'},
+      {label:'Ações de HM realizadas',key:'hm_acoes_realizadas'},
+      {label:'Oportunidades de HM observadas',key:'hm_oportunidades'},
+    ]},
+    {titulo:'C.4 — Identificação',campos:[
+      {label:'Pacientes com pulseira de identificação',key:'pacientes_identificados'},
+      {label:'Total de pacientes atendidos/internados',key:'pacientes_atendidos'},
+    ]},
+    {titulo:'C.6 — Cirurgia Segura',campos:[
+      {label:'LVCS preenchidas adequadamente',key:'lvcs_preenchidas'},
+      {label:'Total de cirurgias realizadas',key:'cirurgias_realizadas'},
+      {label:'Antibioticoprofilaxia no momento adequado',key:'antibiotico_adequado'},
+      {label:'Total cirurgias (antibiótico)',key:'cirurgias_periodo'},
+      {label:'Óbitos cirúrgicos em até 7 dias',key:'obitos_cirurgicos_7d'},
+      {label:'Total cirurgias (mortalidade)',key:'total_cirurgias'},
+    ]},
+    {titulo:'C.7 — Lesão por Pressão (LPP)',campos:[
+      {label:'Avaliações de risco LPP na admissão',key:'lpp_avaliacao_admissao'},
+      {label:'Total de admitidos no período',key:'total_admitidos'},
+      {label:'Pacientes c/ risco LPP e medidas preventivas',key:'lpp_medidas_preventivas'},
+      {label:'Pacientes classificados c/ risco LPP',key:'lpp_pacientes_risco'},
+      {label:'Avaliação diária de risco LPP',key:'lpp_avaliacao_diaria'},
+      {label:'Pacientes internados c/ risco LPP',key:'lpp_internados_risco'},
+      {label:'Casos novos de LPP',key:'lpp_casos_novos'},
+      {label:'Pacientes-dia expostos ao risco LPP',key:'lpp_paciente_dia_risco'},
+    ]},
+    {titulo:'C.8 — Prevenção de Quedas',campos:[
+      {label:'Prontuários c/ avaliação de risco de queda ok',key:'queda_prontuarios_ok'},
+      {label:'Total de prontuários analisados',key:'queda_prontuarios_total'},
+      {label:'Quedas com dano ao paciente',key:'quedas_com_dano'},
+      {label:'Total de quedas no mês',key:'quedas_total'},
+    ]},
+    {titulo:'C.9 — Segurança de Medicamentos',campos:[
+      {label:'Medicamentos prescritos com erro',key:'erros_prescricao'},
+      {label:'Total de medicamentos prescritos',key:'total_prescricoes'},
+      {label:'Medicamentos dispensados com erro',key:'erros_dispensacao'},
+      {label:'Total dispensados',key:'total_dispensacoes'},
+      {label:'Erros na administração',key:'erros_administracao'},
+      {label:'Total de doses administradas',key:'total_doses'},
+    ]},
+    {titulo:'C.10 — IPCS / CVC',campos:[
+      {label:'IRAS associadas a CVC',key:'ipcs_cvc'},
+      {label:'Cateter-dia CVC',key:'cateter_dia_cvc'},
+    ]},
+    {titulo:'C.11 — ITU / CVD',campos:[
+      {label:'ITU associadas ao CVD',key:'itu_cvd'},
+      {label:'Pacientes-dia com CVD',key:'paciente_dia_cvd'},
+    ]},
+    {titulo:'C.12 — PAV',campos:[
+      {label:'Casos novos de PAV',key:'pav_casos_novos'},
+      {label:'Pacientes em ventilação mecânica',key:'pacientes_vm'},
+    ]},
+    {titulo:'C.13 — ISC',campos:[
+      {label:'Infecções do sítio cirúrgico',key:'isc_casos'},
+      {label:'Procedimentos cirúrgicos realizados',key:'procedimentos_cirurgicos'},
+    ]},
+  ];
+
+  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
+    <BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos mensais para o relatório C.1–C.15'/>
+
+    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
+      <input type='month' value={mes} onChange={e=>setMes(e.target.value)}
+        style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
+      <button onClick={salvar} disabled={salvando}
+        style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
+        {salvando?'Salvando...':'💾 Salvar'}
+      </button>
+    </div>
+
+    {grupos.map(g=>(
+      <div key={g.titulo} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:10}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:12,borderBottom:'1px solid '+C.border,paddingBottom:8}}>{g.titulo}</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:10}}>
+          {g.campos.map(campo=>(
+            <div key={campo.key}>
+              <label style={{display:'block',fontSize:11,fontWeight:700,color:C.muted,marginBottom:3}}>{campo.label}</label>
+              {campo.hint&&<div style={{fontSize:10,color:C.muted,opacity:0.7,marginBottom:2}}>{campo.hint}</div>}
+              <input type='number' min={0}
+                value={form[campo.key]!==null&&form[campo.key]!==undefined?form[campo.key]:''}
+                onChange={e=>set(campo.key,e.target.value)}
+                style={inp}/>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
+
+    {hist.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,marginTop:4}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>Histórico recente</div>
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+          <thead><tr style={{background:C.surface}}>
+            {['Mês','Pac.-dia','Álcool gel (mL)','LPP novos','Quedas'].map(h=>(
+              <th key={h} style={{padding:'7px 10px',textAlign:'left',fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {hist.map((r,i)=>(
+              <tr key={r.mes} style={{background:i%2===0?'transparent':C.surface}}>
+                <td style={{padding:'6px 10px'}}>{new Date(r.mes+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</td>
+                <td style={{padding:'6px 10px'}}>{r.paciente_dia_total||'—'}</td>
+                <td style={{padding:'6px 10px'}}>{r.alcool_gel_ml||'—'}</td>
+                <td style={{padding:'6px 10px'}}>{r.lpp_casos_novos||'—'}</td>
+                <td style={{padding:'6px 10px'}}>{r.quedas_total||'—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>}
+  </div>);
+}
+
 function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [tab,setTab]=useState('dsm');
@@ -2363,6 +2552,69 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const [boasPraticasNSP,setBoasPraticasNSP]=useState('Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, possibilitando notificacao digital pelos profissionais, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema promoveu melhora na cultura de notificacao e reducao do tempo de resposta aos eventos adversos.');
   const [narrativaIA,setNarrativaIA]=useState('');
   const [loadingIA,setLoadingIA]=useState(false);
+  // config_dsm
+  const [cfg,setCfg]=useState({data_implantacao_nsp:'',numero_portaria_nsp:'',data_atualizacao_psp:'',tem_uti:false,tem_centro_cirurgico:false,tem_internacao:true,tem_cvc:false,tem_cvd:false,leitos_internacao:0,leitos_uti_adulto:0,leitos_uti_neo_ped:0,salas_cirurgicas:0,consultorios:0,consultorios_odonto:0,leitos_emergencia:0});
+  const [cfgSalvando,setCfgSalvando]=useState(false);
+  const [dadosC1C15,setDadosC1C15]=useState(null);
+  const [loadingC1C15,setLoadingC1C15]=useState(false);
+
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    fetch(`${sbUrl}/rest/v1/config_dsm?hospital_id=eq.${h.id}&select=*`,{
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
+    }).then(r=>r.json()).then(d=>{if(d&&d[0])setCfg(d[0]);}).catch(()=>{});
+  },[h.id,sbUrl,sbKey]);
+
+  const salvarCfg=async()=>{
+    if(!sbUrl||!sbKey) return;
+    setCfgSalvando(true);
+    try{
+      await sbUpsertDSM(sbUrl,sbKey,'config_dsm',{...cfg,hospital_id:h.id,updated_at:new Date().toISOString()},'hospital_id');
+      showToast('Configuração salva!','success');
+    }catch(e){showToast('Erro: '+e.message,'error');}
+    setCfgSalvando(false);
+  };
+
+  const gerarC1C15=async()=>{
+    if(!sbUrl||!sbKey){showToast('Supabase necessário','error');return;}
+    setLoadingC1C15(true);
+    try{
+      const {inicio,fim}=getSemestreDatas();
+      const [ind,trein,prot,notifs]=await Promise.all([
+        fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=gte.${inicio}&mes=lte.${fim}&select=*`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}}).then(r=>r.json()).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=notification_type,event_subtype,occurrence_subtype,patient_outcome,notivisa_enviado`).catch(()=>[]),
+      ]);
+      // Agrega indicadores mensais
+      const CAMPOS=['paciente_dia_total','alcool_gel_ml','sabonete_ml','hm_acoes_realizadas','hm_oportunidades','pacientes_identificados','pacientes_atendidos','lvcs_preenchidas','cirurgias_realizadas','antibiotico_adequado','cirurgias_periodo','obitos_cirurgicos_7d','total_cirurgias','lpp_avaliacao_admissao','total_admitidos','lpp_medidas_preventivas','lpp_pacientes_risco','lpp_avaliacao_diaria','lpp_internados_risco','lpp_casos_novos','lpp_paciente_dia_risco','queda_prontuarios_ok','queda_prontuarios_total','quedas_com_dano','quedas_total','erros_prescricao','total_prescricoes','erros_dispensacao','total_dispensacoes','erros_administracao','total_doses','ipcs_cvc','cateter_dia_cvc','itu_cvd','paciente_dia_cvd','pav_casos_novos','pacientes_vm','isc_casos','procedimentos_cirurgicos'];
+      const agg={};
+      CAMPOS.forEach(c=>{agg[c]=dsmSum(ind,c);});
+      // Treinamentos por critério
+      const treinMap={};
+      (trein||[]).forEach(t=>{
+        const crit=DSM_SUB_MAP[t.subnucleo]||DSM_SUB_MAP[t.tipo]||null;
+        if(!crit)return;
+        if(!treinMap[crit])treinMap[crit]={count:0,participantes:0};
+        if(t.tipo==='treinamento'){treinMap[crit].count++;treinMap[crit].participantes+=(Number(t.participantes)||0);}
+      });
+      // Reuniões NSP (reuniao_mensal ou reuniao_extraordinaria no treinamentos_nsp)
+      const reunCount=(trein||[]).filter(t=>t.tipo==='reuniao_mensal'||t.tipo==='reuniao_extraordinaria'||t.tipo==='reuniao').length;
+      // Protocolos
+      const protMap={};
+      (prot||[]).forEach(p=>{const crit=DSM_SUB_MAP[p.nome]||null;if(crit)protMap[crit]=p;});
+      // Notificações
+      const totalNotif=(notifs||[]).length;
+      const notivisa=(notifs||[]).filter(n=>n.notivisa_enviado===true).length;
+      const obitos=(notifs||[]).filter(n=>dsmContain(n.patient_outcome,['obito','morte','falecimento','death'])).length;
+      const eaIdent=(notifs||[]).filter(n=>dsmContain(n.notification_type,['identificac'])||dsmContain(n.event_subtype,['identificac'])||dsmContain(n.occurrence_subtype,['identificac'])).length;
+      const locErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['local errado'])||dsmContain(n.occurrence_subtype,['local errado'])).length;
+      const pacErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['paciente errado'])||dsmContain(n.occurrence_subtype,['paciente errado'])).length;
+      const procErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['procedimento errado'])||dsmContain(n.occurrence_subtype,['procedimento errado'])).length;
+      setDadosC1C15({agg,treinMap,protMap,reunCount,totalNotif,notivisa,obitos,eaIdent,locErrado,pacErrado,procErrado,mesesComDados:(ind||[]).length});
+    }catch(e){showToast('Erro: '+e.message,'error');}
+    setLoadingC1C15(false);
+  };
   const gerarNarrativaIA=async()=>{
     if(!dados) return;
     setLoadingIA(true);
@@ -2443,10 +2695,164 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('config','Configurar')}
+      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('c1c15','Indicadores C.1–C.15')}{tb('config','Configurar')}
     </div>
 
+    {tab==='c1c15'&&<div>
+      {!dadosC1C15&&<div style={{textAlign:'center',padding:32}}>
+        <div style={{fontSize:13,color:C.muted,marginBottom:14}}>Agrega dados do semestre selecionado automaticamente.</div>
+        <button onClick={gerarC1C15} disabled={loadingC1C15} style={{background:loadingC1C15?C.border:C.teal,border:'none',borderRadius:10,padding:'12px 28px',color:loadingC1C15?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingC1C15?'default':'pointer'}}>
+          {loadingC1C15?'Carregando...':'Gerar Indicadores C.1–C.15'}
+        </button>
+        <div style={{fontSize:11,color:C.muted,marginTop:10}}>Preencha os Indicadores Mensais DSM mês a mês para resultados completos.</div>
+      </div>}
+      {dadosC1C15&&(()=>{
+        const d=dadosC1C15;
+        const stProt=(crit)=>{
+          const naMap={C6:!cfg.tem_centro_cirurgico,C7:!cfg.tem_internacao,C10:!cfg.tem_cvc,C11:!cfg.tem_cvd,C12:!cfg.tem_uti,C13:!cfg.tem_centro_cirurgico};
+          if(naMap[crit])return{s:'NA',l:'NÃO SE APLICA'};
+          const p=d.protMap[crit];const t=d.treinMap[crit];
+          if(!p)return{s:'NAO',l:'NÃO implantado'};
+          const dt=p.data_atualizacao?new Date(p.data_atualizacao):null;
+          const lim=new Date();lim.setFullYear(lim.getFullYear()-3);
+          const ok=dt&&dt>lim;const trein=t&&t.count>=1;
+          if(ok&&trein)return{s:'SIM',l:'SIM'};
+          if(ok&&!trein)return{s:'PARC',l:'PARCIAL – sem treinamento'};
+          return{s:'PARC',l:'PARCIAL – desatualizado'};
+        };
+        const stNSP=()=>{
+          if(!cfg.data_implantacao_nsp)return{s:'NAO',l:'NÃO instituído'};
+          return d.reunCount>=2?{s:'SIM',l:'SIM'}:{s:'PARC',l:`PARCIAL – ${d.reunCount} reunião(ões)`};
+        };
+        const stPSP=()=>{
+          if(!cfg.data_atualizacao_psp)return{s:'NAO',l:'NÃO implantado'};
+          const dt=new Date(cfg.data_atualizacao_psp);const lim=new Date();lim.setFullYear(lim.getFullYear()-3);
+          return dt>lim?{s:'SIM',l:'SIM'}:{s:'PARC',l:'PARCIAL – desatualizado'};
+        };
+        const bgSt=(s)=>({SIM:C.green+'22',PARC:C.yellow+'22',NAO:C.red+'22',NA:C.border}[s]||C.border);
+        const clSt=(s)=>({SIM:C.green,PARC:C.yellow,NAO:C.red,NA:C.muted}[s]||C.muted);
+        const Badge=({s,l})=><span style={{background:bgSt(s),color:clSt(s),borderRadius:6,padding:'3px 10px',fontSize:11,fontWeight:700,border:'1px solid '+clSt(s)+'55'}}>{l}</span>;
+        const Row=({label,val,unit='%'})=><div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid '+C.border+'44',fontSize:13}}><span>{label}</span><strong>{val!==null&&val!==undefined?`${val}${unit}`:'—'}</strong></div>;
+        const Bloco=({crit,titulo,children})=>{const st=stProt(crit);return<div style={{background:C.card,border:'1px solid '+clSt(st.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(st.s)}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>{titulo}</strong><Badge s={st.s} l={st.l}/></div>{d.protMap[crit]&&<div style={{fontSize:11,color:C.muted,marginBottom:4}}>Atualizado: {d.protMap[crit].data_atualizacao||'—'} · Treinamentos: {(d.treinMap[crit]||{}).count||0} ({(d.treinMap[crit]||{}).participantes||0} participantes)</div>}{children}</div>;};
+        const nsp=stNSP();const psp=stPSP();
+        return(<div>
+          <div style={{display:'flex',gap:8,marginBottom:12}}>
+            <button onClick={()=>setDadosC1C15(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>↺ Novo</button>
+            <button onClick={()=>{const el=document.getElementById('relatorio-c1c15');if(!el)return;const w=window.open('','_blank');w.document.write('<html><head><title>Indicadores C.1–C.15 DSM</title><style>body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#222}h2{font-size:14px}h3{font-size:12px;margin:12px 0 4px}.ok{color:green}.parc{color:#b45309}.nao{color:red}.na{color:#666}</style></head><body>'+el.innerHTML+'<br><small>Gerado por NotificaAI – '+new Date().toLocaleDateString('pt-BR')+'</small></body></html>');w.document.close();w.print();}} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>🖨 Imprimir</button>
+          </div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:12}}>{d.mesesComDados} mês(es) com dados registrados · {d.totalNotif} EA no semestre · Reuniões NSP: {d.reunCount}</div>
+          <div id='relatorio-c1c15'>
+            {/* C.1 */}
+            <div style={{background:C.card,border:'1px solid '+clSt(nsp.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(nsp.s)}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>C.1 — NSP Instituído</strong><Badge s={nsp.s} l={nsp.l}/></div>
+              <div style={{fontSize:12,color:C.muted}}>Implantação: {cfg.data_implantacao_nsp||'—'} · Portaria: {cfg.numero_portaria_nsp||'—'} · Reuniões: {d.reunCount}</div>
+            </div>
+            {/* C.2 */}
+            <div style={{background:C.card,border:'1px solid '+clSt(psp.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(psp.s)}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><strong style={{fontSize:13}}>C.2 — PSP</strong><Badge s={psp.s} l={psp.l}/></div>
+              <div style={{fontSize:12,color:C.muted}}>Última atualização: {cfg.data_atualizacao_psp||'—'}</div>
+            </div>
+            {/* C.3 */}
+            <Bloco crit='C3' titulo='C.3 — Higienização das Mãos'>
+              <Row label='C.3.1 Álcool gel' val={d.agg.paciente_dia_total>0?((d.agg.alcool_gel_ml||0)/d.agg.paciente_dia_total*1000).toFixed(0):null} unit=' mL/1.000 pac-dia'/>
+              <Row label='C.3.2 Sabonete' val={d.agg.sabonete_ml||null} unit=' mL'/>
+              <Row label='C.3.3 Adesão HM' val={dsmPct(d.agg.hm_acoes_realizadas,d.agg.hm_oportunidades)}/>
+            </Bloco>
+            {/* C.4 */}
+            <Bloco crit='C4' titulo='C.4 — Identificação do Paciente'>
+              <Row label='C.4.1 Pacientes com pulseira' val={dsmPct(d.agg.pacientes_identificados,d.agg.pacientes_atendidos)}/>
+              <Row label='C.4.2 EA por falha de identificação' val={dsmPct(d.eaIdent,d.agg.pacientes_atendidos)}/>
+            </Bloco>
+            {/* C.5 */}
+            <Bloco crit='C5' titulo='C.5 — Comunicação Efetiva'/>
+            {/* C.6 */}
+            <Bloco crit='C6' titulo='C.6 — Cirurgia Segura'>
+              {stProt('C6').s!=='NA'&&<><Row label='C.6.1 Adesão LVCS' val={dsmPct(d.agg.lvcs_preenchidas,d.agg.cirurgias_realizadas)}/><Row label='C.6.2 Antibioticoprofilaxia adequada' val={dsmPct(d.agg.antibiotico_adequado,d.agg.cirurgias_periodo)}/><Row label='C.6.3 Mortalidade cirúrgica ≤7 dias' val={dsmPct(d.agg.obitos_cirurgicos_7d,d.agg.total_cirurgias)}/><Row label='C.6.4 Cirurgias em local errado' val={d.locErrado} unit=' caso(s)'/><Row label='C.6.5 Cirurgias em paciente errado' val={d.pacErrado} unit=' caso(s)'/><Row label='C.6.6 Procedimentos errados' val={d.procErrado} unit=' caso(s)'/></>}
+            </Bloco>
+            {/* C.7 */}
+            <Bloco crit='C7' titulo='C.7 — Lesão por Pressão (LPP)'>
+              {stProt('C7').s!=='NA'&&<><Row label='C.7.1 Avaliação de risco na admissão' val={dsmPct(d.agg.lpp_avaliacao_admissao,d.agg.total_admitidos)}/><Row label='C.7.2 Medidas preventivas LPP' val={dsmPct(d.agg.lpp_medidas_preventivas,d.agg.lpp_pacientes_risco)}/><Row label='C.7.3 Avaliação diária de risco' val={dsmPct(d.agg.lpp_avaliacao_diaria,d.agg.lpp_internados_risco)}/><Row label='C.7.4 Incidência de LPP' val={dsmPct(d.agg.lpp_casos_novos,d.agg.lpp_paciente_dia_risco)}/></>}
+            </Bloco>
+            {/* C.8 */}
+            <Bloco crit='C8' titulo='C.8 — Prevenção de Quedas'>
+              <Row label='C.8.1 Avaliação de risco de queda' val={dsmPct(d.agg.queda_prontuarios_ok,d.agg.queda_prontuarios_total)}/>
+              <Row label='C.8.2 Quedas com dano' val={dsmPct(d.agg.quedas_com_dano,d.agg.quedas_total)}/>
+            </Bloco>
+            {/* C.9 */}
+            <Bloco crit='C9' titulo='C.9 — Segurança de Medicamentos'>
+              <Row label='C.9.1 Erros na prescrição' val={dsmPct(d.agg.erros_prescricao,d.agg.total_prescricoes)}/>
+              <Row label='C.9.2 Erros na dispensação' val={dsmPct(d.agg.erros_dispensacao,d.agg.total_dispensacoes)}/>
+              <Row label='C.9.3 Erros na administração' val={dsmPct(d.agg.erros_administracao,d.agg.total_doses)}/>
+            </Bloco>
+            {/* C.10 */}
+            <Bloco crit='C10' titulo='C.10 — IPCS / CVC'>
+              {stProt('C10').s!=='NA'&&<Row label='C.10.1 Taxa de IPCS associada a CVC' val={dsmPct(d.agg.ipcs_cvc,d.agg.cateter_dia_cvc)}/>}
+            </Bloco>
+            {/* C.11 */}
+            <Bloco crit='C11' titulo='C.11 — ITU / CVD'>
+              {stProt('C11').s!=='NA'&&<Row label='C.11.1 Taxa de ITU associada ao CVD' val={dsmPct(d.agg.itu_cvd,d.agg.paciente_dia_cvd)}/>}
+            </Bloco>
+            {/* C.12 */}
+            <Bloco crit='C12' titulo='C.12 — PAV'>
+              {stProt('C12').s!=='NA'&&<Row label='C.12.1 Incidência de PAV' val={dsmPct(d.agg.pav_casos_novos,d.agg.pacientes_vm)}/>}
+            </Bloco>
+            {/* C.13 */}
+            <Bloco crit='C13' titulo='C.13 — ISC'>
+              {stProt('C13').s!=='NA'&&<Row label='C.13.1 Taxa de ISC' val={dsmPct(d.agg.isc_casos,d.agg.procedimentos_cirurgicos)}/>}
+            </Bloco>
+            {/* C.14 */}
+            <Bloco crit='C14' titulo='C.14 — Precauções e Isolamento'/>
+            {/* C.15 */}
+            <div style={{background:C.card,border:'1px solid '+(d.notivisa>0?C.green:C.yellow)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+(d.notivisa>0?C.green:C.yellow)}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>C.15 — Notificação Notivisa</strong><Badge s={d.notivisa>0?'SIM':d.totalNotif>0?'PARC':'NAO'} l={d.notivisa>0?'SIM – notifica no Notivisa':d.totalNotif>0?'Monitora mas não enviou ao Notivisa':'NÃO monitora'}/></div>
+              <div style={{fontSize:12,color:C.muted,marginBottom:4}}>EA registrados: {d.totalNotif} · Enviados ao Notivisa: {d.notivisa}</div>
+              <Row label='C.15.1 EA com óbito' val={dsmPct(d.obitos,d.totalNotif)}/>
+            </div>
+          </div>
+        </div>);
+      })()}
+    </div>}
+
     {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
+
+      {/* Dados institucionais config_dsm */}
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>📋 Dados Institucionais (C.1 e C.2)</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+          <div>
+            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Data de implantação do NSP</label>
+            <input type='date' value={cfg.data_implantacao_nsp||''} onChange={e=>setCfg({...cfg,data_implantacao_nsp:e.target.value})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nº da Portaria em vigor</label>
+            <input type='text' value={cfg.numero_portaria_nsp||''} onChange={e=>setCfg({...cfg,numero_portaria_nsp:e.target.value})} placeholder='Ex: Portaria nº 12/2025' style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          </div>
+          <div>
+            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Última atualização do PSP</label>
+            <input type='date' value={cfg.data_atualizacao_psp||''} onChange={e=>setCfg({...cfg,data_atualizacao_psp:e.target.value})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          </div>
+        </div>
+        <div style={{fontSize:11,fontWeight:700,color:C.muted,margin:'8px 0 6px'}}>Características do serviço</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+          {[['Leitos internação (não UTI)','leitos_internacao'],['Leitos UTI adulto','leitos_uti_adulto'],['Leitos UTI neo/ped','leitos_uti_neo_ped'],['Salas cirúrgicas','salas_cirurgicas'],['Consultórios','consultorios'],['Consultórios odonto','consultorios_odonto'],['Leitos emergência/SEP','leitos_emergencia']].map(([lbl,key])=>(
+            <div key={key}><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:2}}>{lbl}</label>
+            <input type='number' min={0} value={cfg[key]||0} onChange={e=>setCfg({...cfg,[key]:Number(e.target.value)})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/></div>
+          ))}
+        </div>
+        <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6}}>Aplicabilidade dos protocolos</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:14}}>
+          {[['tem_internacao','C.7 LPP — possui internação'],['tem_centro_cirurgico','C.6/C.13 — possui centro cirúrgico'],['tem_uti','C.12 PAV — possui UTI'],['tem_cvc','C.10 — utiliza CVC'],['tem_cvd','C.11 — utiliza CVD']].map(([key,lbl])=>(
+            <button key={key} onClick={()=>setCfg({...cfg,[key]:!cfg[key]})}
+              style={{padding:'8px 10px',borderRadius:8,border:'2px solid '+(cfg[key]?C.teal:C.border),background:cfg[key]?C.teal+'18':'transparent',color:cfg[key]?C.teal:C.muted,fontWeight:700,fontSize:11,cursor:'pointer',textAlign:'left'}}>
+              {cfg[key]?'✓ ':'✗ '}{lbl}
+            </button>
+          ))}
+        </div>
+        <button onClick={salvarCfg} disabled={cfgSalvando} style={{width:'100%',background:cfgSalvando?C.border:'#10B981',border:'none',borderRadius:10,padding:'11px',color:cfgSalvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:cfgSalvando?'default':'pointer',marginBottom:2}}>
+          {cfgSalvando?'Salvando...':'💾 Salvar Configuração DSM'}
+        </button>
+      </div>
+
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Parametros do relatorio</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Semestre de referencia</label>
@@ -4931,7 +5337,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       );})}
     </div>
 
-    <PinManager sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>
+    <PinManager sbUrl={sbUrl} sbKey={sbKey} showToast={showToast}/>
   </div>);
 }
 
@@ -5024,7 +5430,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -5038,7 +5444,7 @@ function NotificaAI() {
       select option{background:${C.card};color:${C.text}}`)}
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
-      {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
+      {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
         onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
@@ -5054,6 +5460,7 @@ function NotificaAI() {
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
+        {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}

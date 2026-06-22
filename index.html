@@ -416,7 +416,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
+          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]',subnucleo:rows[0].subnucleo||null};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
       } catch(e) { console.warn('Falha ao verificar PIN no Supabase',e); }
@@ -454,7 +454,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
   const [loading,setLoading]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editing,setEditing]=useState(null);
-  const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
+  const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',subnucleo:'',ativo:true});
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(null);
 
@@ -469,7 +469,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
 
   const openForm=(u=null)=>{
     setEditing(u?u.id:null);
-    setForm(u?{nome:u.nome,pin:'',confirma:'',perfil:u.perfil||'gestor',ativo:u.ativo!==false}:{nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
+    setForm(u?{nome:u.nome,pin:'',confirma:'',perfil:u.perfil||'gestor',subnucleo:u.subnucleo||'',ativo:u.ativo!==false}:{nome:'',pin:'',confirma:'',perfil:'gestor',subnucleo:'',ativo:true});
     setShowForm(true);
   };
   const save=async()=>{
@@ -480,7 +480,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
     if(form.pin&&!/^\d{4}$/.test(form.pin)){showToast('Só números no PIN','error');return;}
     setSaving(true);
     try{
-      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo};
+      const payload={nome:form.nome,perfil:form.perfil,subnucleo:form.perfil==='membro_nsp'?(form.subnucleo||null):null,ativo:form.ativo};
       if(form.pin) payload.pin_hash=await hashPin(form.pin);
       if(form.pin&&!editing){
         const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin)}&limit=1`);
@@ -524,12 +524,20 @@ function PinManager({sbUrl,sbKey,showToast}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Confirmar PIN</label>
         <input type="password" value={form.confirma} onChange={e=>setForm({...form,confirma:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="****" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
-        <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
+        <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value,subnucleo:''})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
+          <option value="membro_nsp">Membro NSP - painel NSP</option>
           <option value="dsg">DSG - apenas manutenção</option>
           <option value="motorista">Motorista - apenas ambulância</option>
           <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
+        {form.perfil==='membro_nsp'&&(<>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnúcleo responsável</label>
+          <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+            <option value=''>— Todos os subnúcleos —</option>
+            {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.icon} {s.label}</option>)}
+          </select>
+        </>)}
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Salvar'}</button>
@@ -546,6 +554,7 @@ function PinManager({sbUrl,sbKey,showToast}) {
           <div style={{fontSize:10,color:C.muted,marginTop:2,display:'flex',gap:6,flexWrap:'wrap'}}>
             <span style={{background:u.ativo!==false?C.green+'20':C.muted+'20',color:u.ativo!==false?C.green:C.muted,borderRadius:4,padding:'1px 6px',fontWeight:700}}>{u.ativo!==false?'Ativo':'Inativo'}</span>
             <span>{u.perfil||'gestor'}</span>
+            {u.subnucleo&&<span style={{background:C.teal+'20',color:C.teal,borderRadius:4,padding:'1px 6px',fontWeight:700}}>{SUBNUCLEOS_HNSA.find(s=>s.id===u.subnucleo)?.label||u.subnucleo}</span>}
             {u.ultimo_acesso&&<span>Último: {new Date(u.ultimo_acesso).toLocaleDateString('pt-BR')}</span>}
           </div>
         </div>
@@ -670,7 +679,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
-          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)+' Importar {regs.length} registros'}</button>
+          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)+' Importar '+regs.length+' registros'}</button>
         </div>
       </div>);
     })()}
@@ -1233,7 +1242,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
-                <span>{String.fromCodePoint(128100)+' {a.responsavel}'}</span>
+                <span>{String.fromCodePoint(128100)+' '+a.responsavel}</span>
                 <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
@@ -3164,7 +3173,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
+function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
@@ -3491,7 +3500,129 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
           });
         })()}
       </div>
+
+    {/* ── MEUS INDICADORES DSM ─────────────────────────── */}
+    {userSubnucleo&&<IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={userSubnucleo}/>}
+
   </div>);
+}
+
+const DSM_CAMPOS_SUB={
+  comunicacao:[],
+  identificacao:[
+    {label:'Pacientes com pulseira de identificação',key:'pacientes_identificados'},
+    {label:'Total de pacientes atendidos/internados',key:'pacientes_atendidos'},
+  ],
+  queda:[
+    {label:'Prontuários c/ avaliação de risco de queda ok',key:'queda_prontuarios_ok'},
+    {label:'Total de prontuários analisados',key:'queda_prontuarios_total'},
+    {label:'Quedas com dano ao paciente',key:'quedas_com_dano'},
+    {label:'Total de quedas no mês',key:'quedas_total'},
+  ],
+  lpp:[
+    {label:'Avaliações de risco LPP na admissão',key:'lpp_avaliacao_admissao'},
+    {label:'Total de admitidos no período',key:'total_admitidos'},
+    {label:'Pacientes c/ risco LPP e medidas preventivas',key:'lpp_medidas_preventivas'},
+    {label:'Pacientes classificados c/ risco LPP',key:'lpp_pacientes_risco'},
+    {label:'Avaliação diária de risco LPP',key:'lpp_avaliacao_diaria'},
+    {label:'Pacientes internados c/ risco LPP',key:'lpp_internados_risco'},
+    {label:'Casos novos de LPP',key:'lpp_casos_novos'},
+    {label:'Pacientes-dia expostos ao risco LPP',key:'lpp_paciente_dia_risco'},
+  ],
+  medicamentos:[
+    {label:'Medicamentos prescritos com erro',key:'erros_prescricao'},
+    {label:'Total de medicamentos prescritos',key:'total_prescricoes'},
+    {label:'Medicamentos dispensados com erro',key:'erros_dispensacao'},
+    {label:'Total de medicamentos dispensados',key:'total_dispensacoes'},
+    {label:'Erros na administração de medicamentos',key:'erros_administracao'},
+    {label:'Total de doses administradas',key:'total_doses'},
+  ],
+  cirurgia:[
+    {label:'LVCS preenchidas adequadamente',key:'lvcs_preenchidas'},
+    {label:'Total de cirurgias realizadas',key:'cirurgias_realizadas'},
+    {label:'Antibioticoprofilaxia no momento adequado',key:'antibiotico_adequado'},
+    {label:'Total cirurgias (antibiótico)',key:'cirurgias_periodo'},
+    {label:'Óbitos cirúrgicos em até 7 dias',key:'obitos_cirurgicos_7d'},
+    {label:'Total cirurgias (mortalidade)',key:'total_cirurgias'},
+  ],
+};
+
+function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const hoje=new Date();
+  const [mes,setMes]=useState(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`);
+  const [form,setForm]=useState({paciente_dia_total:''});
+  const [salvando,setSalvando]=useState(false);
+  const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
+  const campos=DSM_CAMPOS_SUB[userSubnucleo]||[];
+  const mesRef=mes+'-01';
+  const inp={width:'100%',padding:'8px 10px',borderRadius:8,boxSizing:'border-box',border:'1px solid '+C.border,background:C.surface,color:C.text,fontSize:13,outline:'none'};
+
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=eq.${mesRef}&select=*`,{
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
+    }).then(r=>r.json()).then(d=>{
+      if(d&&d[0]){
+        const vals={paciente_dia_total:d[0].paciente_dia_total||''};
+        campos.forEach(campo=>{vals[campo.key]=d[0][campo.key]!==null&&d[0][campo.key]!==undefined?d[0][campo.key]:'';});
+        setForm(vals);
+      } else {
+        const blank={paciente_dia_total:''};
+        campos.forEach(campo=>{blank[campo.key]='';});
+        setForm(blank);
+      }
+    }).catch(()=>{});
+  },[mes,h.id,sbUrl,sbKey]);
+
+  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const salvar=async()=>{
+    if(!sbUrl||!sbKey){showToast('Sem conexão','error');return;}
+    setSalvando(true);
+    const payload={hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString(),paciente_dia_total:Number(form.paciente_dia_total)||null};
+    campos.forEach(campo=>{payload[campo.key]=form[campo.key]!==''?Number(form[campo.key]):null;});
+    try{
+      await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');
+      showToast('Indicadores salvos!','success');
+    }catch(e){showToast('Erro: '+e.message,'error');}
+    setSalvando(false);
+  };
+
+  if(campos.length===0) return(
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores — {sub?.label||userSubnucleo}</div>
+      <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não possui indicadores quantitativos mensais. Registre treinamentos e reuniões na aba Treinamentos.</div>
+    </div>
+  );
+
+  return(
+    <div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores — {sub?.label||userSubnucleo}</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mês. O gestor visualiza no Relatório DSM.</div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
+        <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',padding:'8px 12px',cursor:'pointer'}}/>
+        <button onClick={salvar} disabled={salvando}
+          style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
+          {salvando?'Salvando...':'💾 Salvar'}
+        </button>
+      </div>
+      <div style={{marginBottom:10}}>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mês</label>
+        <input type='number' min={0} value={form.paciente_dia_total} onChange={e=>set('paciente_dia_total',e.target.value)} style={inp}/>
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:10}}>
+        {campos.map(campo=>(
+          <div key={campo.key}>
+            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{campo.label}</label>
+            <input type='number' min={0} value={form[campo.key]||''} onChange={e=>set(campo.key,e.target.value)} style={inp}/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey,setFiltroNotif}) {
@@ -5454,6 +5585,7 @@ function NotificaAI() {
   const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);try{localStorage.setItem('nai_theme',n);}catch{}};
 
   const [profileMode,setProfileMode]=useState(null);
+  const [userSubnucleo,setUserSubnucleo]=useState(null);
   const [showMenu,setShowMenu]=useState(false);
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
@@ -5522,7 +5654,7 @@ function NotificaAI() {
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
-        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
+        onSuccess={(role,info)=>{setProfileMode(role);setGestorMode(role==='gestor');setUserSubnucleo(info?.subnucleo||null);setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -5540,7 +5672,7 @@ function NotificaAI() {
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
-        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
+        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
         {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
       </div>
@@ -5571,7 +5703,7 @@ function NotificaAI() {
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>

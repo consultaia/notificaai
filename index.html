@@ -9,21 +9,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<script>
-(function() {
-  var _orig = Babel.transform.bind(Babel);
-  Babel.transform = function(code, opts) {
-    try { return _orig(code, opts); }
-    catch(err) {
-      var pre = document.createElement('pre');
-      pre.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:#0d0d0d;color:#ff5555;padding:24px;overflow:auto;z-index:99999;font-size:13px;font-family:monospace;line-height:1.6';
-      pre.textContent = '=== ERRO BABEL ===\n\n' + (err.message||String(err)) + '\n\n' + (err.stack||'');
-      document.body.appendChild(pre);
-      throw err;
-    }
-  };
-})();
-</script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2772,6 +2757,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo:userSubnucleoApp}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [userSubnucleo,setUserSubnucleo]=useState(userSubnucleoApp||null);
+
   if(!userSubnucleo) return(<div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
     <div style={{textAlign:'center',marginBottom:28}}>
       <div style={{fontSize:28,marginBottom:8}}>{String.fromCodePoint(127973)}</div>
@@ -2798,10 +2784,18 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo
       </button>))}
     </div>
   </div>);
+
+  return <MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
+    profileMode={profileMode} userSubnucleo={userSubnucleo} onBack={()=>setUserSubnucleo(null)}/>;
+}
+
+function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo,onBack}) {
+  const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
-  const [filtroSub,setFiltroSub]=useState('todos');
+  const [filtroSub,setFiltroSub]=useState(userSubnucleo||'todos');
+  useEffect(()=>{if(userSubnucleo)setFiltroSub(userSubnucleo);},[userSubnucleo]);
   const [mesSel,setMesSel]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const [notsMes,setNotsMes]=useState([]);
   const [loadingMes,setLoadingMes]=useState(false);
@@ -2850,7 +2844,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo
       await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{
         hospital_id:h.id,
         tipo:formTrein.tipo,
-        subnucleo:subId,
+        subnucleo:subId||userSubnucleo||'nsp_pleno',
         protocolo:formTrein.protocolo||null,
         data:formTrein.data||null,
         participantes:Number(formTrein.participantes)||0,
@@ -5142,7 +5136,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'semestres_dsm',label:'Semestres',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -5173,8 +5167,8 @@ function NotificaAI() {
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+{view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='semestres_dsm'&&<SemestresDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         

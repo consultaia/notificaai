@@ -3120,8 +3120,8 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           });
         })()}
       </div>
-    <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={userSubnucleo}/>
-    <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={userSubnucleo}/>
+    <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
+    <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
   </div>);
 }
 

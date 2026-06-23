@@ -2236,7 +2236,10 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     setCfgSalvando(true);
     try{
-      await sbUpsertDSM(sbUrl,sbKey,'config_dsm',{...cfg,hospital_id:h.id,updated_at:new Date().toISOString()},'hospital_id');
+      const cfgPayload={...cfg,hospital_id:h.id,updated_at:new Date().toISOString(),
+        data_implantacao_nsp:cfg.data_implantacao_nsp||null,
+        data_atualizacao_psp:cfg.data_atualizacao_psp||null};
+      await sbUpsertDSM(sbUrl,sbKey,'config_dsm',cfgPayload,'hospital_id');
       showToast('Configuração salva!','success');
     }catch(e){showToast('Erro: '+e.message,'error');}
     setCfgSalvando(false);

@@ -4809,12 +4809,13 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   };
   const clearTests=async()=>{
     if(!confirmClear){setConfirmClear(true);setTimeout(()=>setConfirmClear(false),2000);return;}
-    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>n.is_test!==true));showToast('OK Testes limpos','success');setConfirmClear(false);}
+    try{await sbDelete(sbUrl,sbKey,'notifications','is_test=eq.true');setNotifications(notifications.filter(n=>!isTest(n)));showToast('OK Testes limpos','success');setConfirmClear(false);}
     catch{showToast('Erro','error');}
   };
 
-  const filtered=notifications.filter(n=>filterTest==='test'?n.is_test:filterTest==='prod'?n.is_test!==true:true);
-  const testCount=notifications.filter(n=>n.is_test).length;
+  const isTest=n=>n.is_test===true;
+  const filtered=notifications.filter(n=>filterTest==='test'?isTest(n):filterTest==='prod'?!isTest(n):true);
+  const testCount=notifications.filter(n=>isTest(n)).length;
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%'};
 
   if(showImport) return(<div style={{padding:'20px 16px'}}>

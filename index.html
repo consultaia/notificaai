@@ -388,6 +388,80 @@ CREATE TABLE IF NOT EXISTS tickets (
   viewed_at TIMESTAMPTZ, viewed_by TEXT,
   responded_at TIMESTAMPTZ, response_notes TEXT,
   closed_at TIMESTAMPTZ
+);
+CREATE TABLE IF NOT EXISTS saq_respostas (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  hospital_id TEXT NOT NULL, setor TEXT NOT NULL,
+  categoria TEXT, ciclo TEXT NOT NULL, respostas JSONB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS treinamentos_nsp (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  hospital_id TEXT, tipo TEXT, subnucleo TEXT,
+  protocolo TEXT, data DATE, participantes INTEGER,
+  descricao TEXT, responsavel TEXT, link_gdrive TEXT
+);
+CREATE TABLE IF NOT EXISTS protocolos (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  hospital_id TEXT, nome TEXT, numero TEXT,
+  aprovado_em DATE, proxima_revisao DATE,
+  responsavel TEXT, link TEXT, categoria TEXT, status TEXT DEFAULT 'ativo'
+);
+CREATE TABLE IF NOT EXISTS indicadores_mensais (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hospital_id TEXT, mes_ref TEXT,
+  pd_setores JSONB, pd_geral INTEGER,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(hospital_id, mes_ref)
+);
+CREATE TABLE IF NOT EXISTS indicadores_dsm (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hospital_id TEXT, mes DATE,
+  paciente_dia_total INTEGER, alcool_gel_ml INTEGER, clorexidina_ml INTEGER,
+  sabonete_ml INTEGER, hm_acoes_realizadas INTEGER, hm_oportunidades INTEGER,
+  pacientes_identificados INTEGER, pacientes_atendidos INTEGER,
+  lvcs_preenchidas INTEGER, cirurgias_realizadas INTEGER,
+  antibiotico_adequado INTEGER, cirurgias_periodo INTEGER,
+  obitos_cirurgicos_7d INTEGER, total_cirurgias INTEGER,
+  lpp_avaliacao_admissao INTEGER, total_admitidos INTEGER,
+  lpp_medidas_preventivas INTEGER, lpp_pacientes_risco INTEGER,
+  lpp_avaliacao_diaria INTEGER, lpp_internados_risco INTEGER,
+  lpp_casos_novos INTEGER, lpp_paciente_dia_risco INTEGER,
+  queda_prontuarios_ok INTEGER, queda_prontuarios_total INTEGER,
+  quedas_com_dano INTEGER, quedas_total INTEGER,
+  erros_prescricao INTEGER, total_prescricoes INTEGER,
+  erros_dispensacao INTEGER, total_dispensacoes INTEGER,
+  erros_administracao INTEGER, total_doses INTEGER,
+  ipcs_cvc INTEGER, cateter_dia_cvc INTEGER,
+  itu_cvd INTEGER, paciente_dia_cvd INTEGER,
+  pav_casos_novos INTEGER, pacientes_vm INTEGER,
+  isc_casos INTEGER, procedimentos_cirurgicos INTEGER,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(hospital_id, mes)
+);
+CREATE TABLE IF NOT EXISTS config_dsm (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hospital_id TEXT UNIQUE,
+  data_implantacao_nsp DATE, numero_portaria_nsp TEXT, data_atualizacao_psp DATE,
+  tem_uti BOOLEAN DEFAULT FALSE, tem_centro_cirurgico BOOLEAN DEFAULT FALSE,
+  tem_internacao BOOLEAN DEFAULT TRUE, tem_cvc BOOLEAN DEFAULT FALSE,
+  tem_cvd BOOLEAN DEFAULT FALSE,
+  leitos_internacao INTEGER DEFAULT 0, leitos_uti_adulto INTEGER DEFAULT 0,
+  leitos_uti_neo_ped INTEGER DEFAULT 0, salas_cirurgicas INTEGER DEFAULT 0,
+  consultorios INTEGER DEFAULT 0, consultorios_odonto INTEGER DEFAULT 0,
+  leitos_emergencia INTEGER DEFAULT 0, updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS semestres_dsm (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hospital_id TEXT, ano INTEGER, semestre INTEGER,
+  status TEXT DEFAULT 'aberto',
+  finalizado_em TIMESTAMPTZ, drive_relatorio_link TEXT,
+  meses_preenchidos INTEGER DEFAULT 0,
+  total_notificacoes INTEGER DEFAULT 0, total_treinamentos INTEGER DEFAULT 0,
+  enviado_dsm_em TIMESTAMPTZ,
+  UNIQUE(hospital_id, ano, semestre)
 );`}</pre>
       </div>
       <button onClick={()=>onSave(url.trim(),key.trim(),wh.trim())} style={{width:'100%',background:C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>
@@ -1355,7 +1429,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const [ano,mes]=mesRef.split('-').map(Number);
       const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
 
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
@@ -1542,7 +1616,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       const mesCorr=m===0?{a:ano-1,m:12}:{a:ano,m};
       const inicio=new Date(mesCorr.a,mesCorr.m-1,1).toISOString().slice(0,10);
       const fim=new Date(mesCorr.a,mesCorr.m,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
       const s=computeStats(nots);
       setDados({nots,s,inicio,fim,mesCorr,total:nots.length});
     }catch{showToast('Erro ao gerar relatório','error');}
@@ -1734,7 +1808,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000');
+      const data=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`);
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificacoes','error');}
     setLoading(false);
@@ -2244,7 +2318,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const {inicio,fim,nums}=getSemestreDatas();
       const [nots,treinamentos,protocolos]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
       ]);
@@ -2552,16 +2626,52 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
+function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo:userSubnucleoApp}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [userSubnucleo,setUserSubnucleo]=useState(userSubnucleoApp||null);
+
+  if(!userSubnucleo) return(<div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
+    <div style={{textAlign:'center',marginBottom:28}}>
+      <div style={{fontSize:28,marginBottom:8}}>{String.fromCodePoint(127973)}</div>
+      <div style={{fontSize:18,fontWeight:800,color:C.text,marginBottom:4}}>Bem-vindo ao NSP</div>
+      <div style={{fontSize:13,color:C.muted}}>Selecione seu subnucleo para continuar</div>
+    </div>
+    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {SUBNUCLEOS_HNSA.map(s=>(<button key={s.id} onClick={()=>setUserSubnucleo(s.id)}
+        style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:C.card,border:'1px solid '+s.color+'55',borderRadius:14,cursor:'pointer',borderLeft:'4px solid '+s.color,textAlign:'left',width:'100%'}}>
+        <span style={{fontSize:22,lineHeight:1}}>{s.icon}</span>
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:C.text}}>{s.label}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+            {s.id==='comunicacao'&&'SBAR, passagem de plantao, prescricoes verbais'}
+            {s.id==='lpp'&&'Escala de Braden, avaliacao diaria, medidas preventivas'}
+            {s.id==='queda'&&'Escala de Morse, protocolos de prevencao'}
+            {s.id==='medicamentos'&&'Prescricao, dispensacao, administracao, MPP'}
+            {s.id==='identificacao'&&'Pulseiras de identificacao, dois identificadores'}
+            {s.id==='cirurgia'&&'LVCS, antibioticoprofilaxia, Time Out, ISC'}
+            {s.id==='ccih'&&'IRAS, PAV, IPCS, ITU/CVD, alcool gel, clorexidina'}
+          </div>
+        </div>
+        <span style={{marginLeft:'auto',fontSize:18,color:s.color}}>{String.fromCodePoint(8250)}</span>
+      </button>))}
+    </div>
+  </div>);
+
+  return <MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
+    profileMode={profileMode} userSubnucleo={userSubnucleo} onBack={()=>setUserSubnucleo(null)}/>;
+}
+
+function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo,onBack}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
-  const [filtroSub,setFiltroSub]=useState('todos');
+  const [filtroSub,setFiltroSub]=useState(userSubnucleo||'todos');
+  useEffect(()=>{if(userSubnucleo)setFiltroSub(userSubnucleo);},[userSubnucleo]);
   const [mesSel,setMesSel]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const [notsMes,setNotsMes]=useState([]);
   const [loadingMes,setLoadingMes]=useState(false);
-  const [showFormTrein,setShowFormTrein]=useState(null); // sub.id
+  const [showFormTrein,setShowFormTrein]=useState(null);
   const [formTrein,setFormTrein]=useState({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10)});
   const [savingTrein,setSavingTrein]=useState(false);
   const [rcaMembro,setRcaMembro]=useState(null);
@@ -2572,7 +2682,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000'),
+      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
     ]).then(([nots,treins])=>{
       setNotifications(nots||[]);
@@ -2589,7 +2699,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
     const fim=new Date(ano,mes,0).toISOString().slice(0,10);
     sbSelect(sbUrl,sbKey,'notifications',
-      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
+      `hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
     ).then(d=>setNotsMes(d||[])).catch(()=>[]).finally(()=>setLoadingMes(false));
   },[mesSel,sbUrl,sbKey]);
 
@@ -2604,14 +2714,11 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     setSavingTrein(true);
     try{
       await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{
-        hospital_id:h.id,
-        tipo:formTrein.tipo,
-        subnucleo:subId,
-        protocolo:formTrein.protocolo||null,
-        data:formTrein.data||null,
+        hospital_id:h.id,tipo:formTrein.tipo,
+        subnucleo:subId||userSubnucleo||'nsp_pleno',
+        protocolo:formTrein.protocolo||null,data:formTrein.data||null,
         participantes:Number(formTrein.participantes)||0,
-        descricao:formTrein.protocolo||null,
-        responsavel:profileMode||'membro_nsp',
+        descricao:formTrein.protocolo||null,responsavel:profileMode||'membro_nsp',
       });
       showToast('Registro salvo!','success');
       setShowFormTrein(null);
@@ -2631,8 +2738,8 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {label:'Quedas',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda')).length,cor:'#F59E0B'},
     {label:'Perda AVP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('avp')||n.event_subtype?.toLowerCase().includes('acesso')).length,cor:'#3B82F6'},
     {label:'LPP',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')).length,cor:'#EF4444'},
-    {label:'Medicação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
-    {label:'Identificação',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
+    {label:'Medicacao',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic')).length,cor:'#EC4899'},
+    {label:'Identificacao',count:notsMes.filter(n=>n.event_subtype?.toLowerCase().includes('identif')).length,cor:'#0D9488'},
   ].filter(t=>t.count>0).sort((a,b)=>b.count-a.count);
 
   const maxTipo=tiposMes[0]?.count||1;
@@ -2642,42 +2749,44 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   })).sort((a,b)=>b.count-a.count).slice(0,5);
   const maxSetor=setoresMes[0]?.count||1;
 
-  return(<div style={{padding:'20px 16px 80px'}}>
-    <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:2}}>Painel Membro NSP</div>
-      {rcaMembro&&<RCAPanel notification={rcaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaMembro(null)} onSaved={()=>{setRcaMembro(null);carregar();}}/>}
-    <div style={{fontSize:11,color:C.muted,marginBottom:16}}>HNSA · Nucleo de Seguranca do Paciente</div>
+  const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
 
-    {/* Métricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:10}}>
-      <StatCard icon={String.fromCodePoint(128202)} label="Total notificacoes" value={s.total} color={C.teal}/>
-      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={s.sp} color={C.red}/>
-      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={s.adm} color={C.purple}/>
+  return(<div style={{padding:'0 16px 80px'}}>
+    <BackHeader
+      title={sub?sub.icon+' '+sub.label:'Painel Membro NSP'}
+      subtitle='HNSA - Nucleo de Seguranca do Paciente'
+      onBack={onBack}
+    />
+
+    <div style={{padding:'16px 0'}}>
+    {rcaMembro&&<RCAPanel notification={rcaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaMembro(null)} onSaved={()=>{setRcaMembro(null);carregar();}}/>}
+
+    {/* Metricas totais */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+      <StatCard icon={String.fromCodePoint(128202)} label='Total notificacoes' value={s.total} color={C.teal}/>
+      <StatCard icon={String.fromCodePoint(127973)} label='Seg. Paciente' value={s.sp} color={C.red}/>
+      <StatCard icon={String.fromCodePoint(128203)} label='Administrativas' value={s.adm} color={C.purple}/>
     </div>
 
     {/* Dias sem sentinela */}
-    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:14,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:36,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
       <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {/* PANORAMA DO MES */}
+    {/* Panorama do mes */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
           <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8249)}</button>
-          <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>
-            {MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}
-          </span>
+          <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>{MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}</span>
           <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8250)}</button>
         </div>
       </div>
-
       {loadingMes&&<div style={{textAlign:'center',padding:16}}><Dots/></div>}
-
       {!loadingMes&&(<div>
-        {/* Totais do mês */}
         <div style={{display:'flex',gap:8,marginBottom:12}}>
           <div style={{flex:1,background:C.red+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
             <div style={{fontSize:24,fontWeight:900,color:C.red}}>{spMes}</div>
@@ -2692,8 +2801,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             <div style={{fontSize:10,color:C.muted}}>Total</div>
           </div>
         </div>
-
-        {/* Tipos mais frequentes */}
         {tiposMes.length>0&&<div style={{marginBottom:12}}>
           <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Tipos mais frequentes</div>
           {tiposMes.map((t,i)=>(
@@ -2708,8 +2815,6 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             </div>
           ))}
         </div>}
-
-        {/* Setores */}
         {setoresMes.length>0&&<div>
           <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Por setor</div>
           {setoresMes.map((d,i)=>(
@@ -2724,12 +2829,11 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             </div>
           ))}
         </div>}
-
         {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificacao neste mes</div>}
       </div>)}
     </div>
 
-    {/* SUBNUCLEOS - REGISTRO DE TREINAMENTOS */}
+    {/* Treinamentos do subnucleo */}
     <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos - Treinamentos</div>
     <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
       <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:'transparent',color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
@@ -2743,32 +2847,26 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
     {SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
       const regs=s.treins.filter(t=>t.subnucleo===sub.id);
       const treins=regs.filter(t=>t.tipo==='treinamento');
-      const reunioes=regs.filter(t=>t.tipo==='reuniao');
       const totalPart=regs.reduce((acc,r)=>acc+(r.participantes||0),0);
       return(<div key={sub.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
-        {/* Header do subnúcleo */}
         <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
           <span style={{fontSize:20}}>{sub.icon}</span>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{sub.label}</div>
-            <div style={{fontSize:10,color:C.muted}}>
-              {treins.length} treinamento(s) · {reunioes.length} reuniao(oes) · {totalPart} participantes
-            </div>
+            <div style={{fontSize:10,color:C.muted}}>{treins.length} treinamento(s) · {totalPart} participantes</div>
           </div>
           <button onClick={()=>setShowFormTrein(showFormTrein===sub.id?null:sub.id)}
             style={{background:sub.color+'22',border:'1px solid '+sub.color+'44',borderRadius:8,padding:'4px 10px',color:sub.color,fontSize:11,fontWeight:700,cursor:'pointer',flexShrink:0}}>
             {showFormTrein===sub.id?'Cancelar':'+ Registrar'}
           </button>
         </div>
-
-        {/* Barrinhas rápidas */}
         {regs.length>0&&<div style={{display:'flex',gap:8,marginBottom:showFormTrein===sub.id?8:0}}>
           <div style={{flex:1,background:sub.color+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
             <div style={{fontSize:18,fontWeight:800,color:sub.color}}>{treins.length}</div>
             <div style={{fontSize:9,color:C.muted}}>Treinamentos</div>
           </div>
           <div style={{flex:1,background:C.teal+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
-            <div style={{fontSize:18,fontWeight:800,color:C.teal}}>{reunioes.length}</div>
+            <div style={{fontSize:18,fontWeight:800,color:C.teal}}>{regs.filter(t=>t.tipo==='reuniao').length}</div>
             <div style={{fontSize:9,color:C.muted}}>Reunioes</div>
           </div>
           <div style={{flex:1,background:C.blue+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
@@ -2776,11 +2874,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             <div style={{fontSize:9,color:C.muted}}>Participantes</div>
           </div>
         </div>}
-
-        {/* Form de registro */}
         {showFormTrein===sub.id&&(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px',marginTop:8}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:8}}>Novo registro - {sub.label}</div>
-          {/* Tipo */}
           <div style={{display:'flex',gap:6,marginBottom:8}}>
             {['treinamento','reuniao'].map(t=>(
               <button key={t} onClick={()=>setFormTrein(f=>({...f,tipo:t}))}
@@ -2789,24 +2883,21 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
               </button>
             ))}
           </div>
-          {/* Data */}
           <div style={{marginBottom:8}}>
             <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data</div>
-            <input type="date" value={formTrein.data} onChange={e=>setFormTrein(f=>({...f,data:e.target.value}))}
+            <input type='date' value={formTrein.data} onChange={e=>setFormTrein(f=>({...f,data:e.target.value}))}
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
-          {/* Participantes */}
           <div style={{marginBottom:8}}>
             <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Numero de participantes *</div>
-            <input type="number" min="1" value={formTrein.participantes} onChange={e=>setFormTrein(f=>({...f,participantes:e.target.value}))}
-              placeholder="Ex: 12"
+            <input type='number' min='1' value={formTrein.participantes} onChange={e=>setFormTrein(f=>({...f,participantes:e.target.value}))}
+              placeholder='Ex: 12'
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
-          {/* Protocolo/tema */}
           <div style={{marginBottom:10}}>
             <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema / Protocolo abordado</div>
-            <input type="text" value={formTrein.protocolo} onChange={e=>setFormTrein(f=>({...f,protocolo:e.target.value}))}
-              placeholder="Ex: Higienizacao das maos, Protocolo de queda..."
+            <input type='text' value={formTrein.protocolo} onChange={e=>setFormTrein(f=>({...f,protocolo:e.target.value}))}
+              placeholder='Ex: Higienizacao das maos...'
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
           <button onClick={()=>salvarTrein(sub.id)} disabled={savingTrein}
@@ -2814,74 +2905,69 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
             {savingTrein?'Salvando...':'Salvar registro'}
           </button>
         </div>)}
-
-        {/* Últimos registros */}
-        {regs.length===0&&showFormTrein!==sub.id&&<div style={{background:C.yellow+'15',color:C.yellow,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700,display:'inline-block'}}>Sem registro</div>}
         {regs.slice(0,2).map((r,i)=>(
           <div key={i} style={{borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:6}}>
             <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||r.tipo||'-'}</div>
-            <div style={{fontSize:10,color:C.muted}}>
-              {r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes
-            </div>
+            <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} - {r.participantes||0} participantes</div>
           </div>
         ))}
       </div>);
     })}
 
-      {/* Notificações do meu subnucleo */}
-      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-          <div>
-            <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>Somente leitura · filtradas pelo seu subnucleo</div>
-          </div>
-          <select value={filtroSub} onChange={e=>setFiltroSub(e.target.value)}
-            style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:11}}>
-            <option value='todos'>Todos os subnucleos</option>
-            {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
+    {/* Notificacoes para analise */}
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Somente leitura</div>
         </div>
-        {(()=>{
-          const visíveis=notifications.filter(n=>{
-            if(n.is_test) return false;
-            if(filtroSub==='todos') return true;
-            const sub=SUBNUCLEOS_HNSA.find(s=>s.id===filtroSub);
-            if(!sub) return true;
-            const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
-            if(filtroSub==='queda') return subtype.includes('queda');
-            if(filtroSub==='lpp') return subtype.includes('press')||subtype.includes('lpp');
-            if(filtroSub==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac')||subtype.includes('prescri');
-            if(filtroSub==='identificacao') return subtype.includes('identif')||subtype.includes('pulseira');
-            if(filtroSub==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
-            if(filtroSub==='cirurgia') return subtype.includes('cirurg');
-            return true;
-          }).slice(0,30);
-          if(visíveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
-          return visíveis.map((n,i)=>{
-            const tag=getTag(n);
-            const titulo=getTitle(n);
-            const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR');
-            return(<div key={n.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
-              <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-                <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
-                  <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} · {data}</div>
-                  {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
-                </div>
-                <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0,alignItems:'flex-end'}}>
-                  {n.rca_gerado&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.green+'22',color:C.green,borderRadius:4,padding:'3px 7px',fontWeight:700,border:'1px solid '+C.green+'44',cursor:'pointer'}}>Ver RCA</button>}
-                  {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
-                  {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
-                </div>
-              </div>
-            </div>);
-          });
-        })()}
+        <select value={filtroSub} onChange={e=>setFiltroSub(e.target.value)}
+          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:11}}>
+          <option value='todos'>Todos</option>
+          {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
       </div>
+      {(()=>{
+        const visiveis=notifications.filter(n=>{
+          if(n.is_test) return false;
+          if(filtroSub==='todos') return true;
+          const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
+          if(filtroSub==='queda') return subtype.includes('queda');
+          if(filtroSub==='lpp') return subtype.includes('press')||subtype.includes('lpp');
+          if(filtroSub==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
+          if(filtroSub==='identificacao') return subtype.includes('identif');
+          if(filtroSub==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
+          if(filtroSub==='cirurgia') return subtype.includes('cirurg');
+          return true;
+        }).slice(0,30);
+        if(visiveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
+        return visiveis.map((n,i)=>{
+          const tag=getTag(n);
+          const titulo=getTitle(n);
+          const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR');
+          return(<div key={n.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+              <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
+                <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} - {data}</div>
+                {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
+                {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
+              </div>
+            </div>
+          </div>);
+        });
+      })()}
+    </div>
+
+    <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
+    <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
+  </div>
   </div>);
 }
-
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey,setFiltroNotif}) {
   const [stats,setStats]=useState(null);
   const [loading,setLoading]=useState(false);
@@ -2894,7 +2980,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   useEffect(()=>{
     if(!configured) return;
     setLoading(true);
-    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
+    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
       .then(data=>{
       setStats(computeStats(data));
 
@@ -2970,7 +3056,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')}/>}
+    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} hospital={hospital} onSelect={()=>setView('notificacoes')}/>}
 
     {/* Botão notificar */}
     <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
@@ -3848,7 +3934,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
 
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
-    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
+    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
       .then(data=>{setStats(computeStats(data));setRawData(data||[]);})
       .catch(()=>showToast('Erro ao carregar analytics','error'));
   },[sbUrl,sbKey]);
@@ -4439,7 +4525,7 @@ function ticketEmoji(icon){
   };
   return m[icon]||icon;
 }
-function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
+function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
   const [ano,setAno]=React.useState(hoje.getFullYear());
@@ -4457,7 +4543,7 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
       const ultimoDia=new Date(ano,mes,0).getDate();
       const fim=`${ano}-${mesStr}-${ultimoDia}`;
       const data=await sbSelect(sbUrl,sbKey,'notifications',
-        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
+        `hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
       setNots(data||[]);
     }catch(e){setNots([]);}
     setLoading(false);
@@ -4684,7 +4770,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   </div>);
 }
 
-function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast}) {
+function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
   const [notifications,setNotifications]=useState([]);
@@ -4698,7 +4784,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=1000');setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&order=created_at.desc&limit=1000&select=*`);setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };
@@ -4709,6 +4795,16 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     setDeleting(id);
     try{await sbDelete(sbUrl,sbKey,'notifications',`id=eq.${id}`);setNotifications(notifications.filter(n=>n.id!==id));showToast('OK Excluída','success');}
     catch{showToast('Erro','error');}
+    setDeleting(null);
+  };
+  const promover=async(id)=>{
+    if(!confirm('Promover esta notificacao de TESTE para PRODUCAO? Ela passara a contar nos indicadores e relatorios.')) return;
+    setDeleting(id);
+    try{
+      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${id}`,{is_test:false});
+      setNotifications(prev=>prev.map(n=>n.id===id?{...n,is_test:false}:n));
+      showToast('OK Promovida para producao','success');
+    }catch{showToast('Erro ao promover','error');}
     setDeleting(null);
   };
   const clearTests=async()=>{
@@ -4791,6 +4887,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
             <div style={{fontSize:12,fontWeight:600,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
             <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
           </div>
+          {n.is_test&&<button onClick={()=>promover(n.id)} disabled={deleting===n.id} title='Promover para producao' style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:C.green,fontSize:9,fontWeight:700,flexShrink:0}}>{deleting===n.id?'...':'Promover'}</button>}
           <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex'}}>
             <IconTrash size={14} color={deleting===n.id?C.muted:C.red}/>
           </button>
@@ -4915,7 +5012,7 @@ function NotificaAI() {
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
-        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast}/>}
+        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
@@ -4958,7 +5055,7 @@ function NotificaAI() {
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>

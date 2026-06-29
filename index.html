@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- NotificaAI v2026-06-21 SECURITY+CULTURA-FIX (PINs hardcoded removidos, itens HSOPSC reescritos) -->
+<!-- NotificaAI v2026-06-08 04:49:12 FIXED -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -25,8 +25,6 @@ input::placeholder{color:#5A7AA0}
 ::-webkit-scrollbar-thumb{background:#1A3060;border-radius:2px}
 button:active{opacity:.85}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 <div id="root"></div>
@@ -119,14 +117,12 @@ async function hashPin(pin) {
 }
 
 const PROFILES = {
-  gestor:   {label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
-  membro_nsp:{label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:      {label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
-  motorista:{label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
+  gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
+  membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
+  dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
+  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
+  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
 };
-// SEGURANCA: nao ha mais PINs hardcoded aqui. Autenticacao e SEMPRE via Supabase (tabela nsp_usuarios + pin_hash).
-// Cadastre usuarios reais pelo PinManager (Admin) antes de liberar acesso aos perfis.
 
 function formatTime(iso){
   if(!iso) return '-';
@@ -418,13 +414,15 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose}) {
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]',subnucleo:rows[0].subnucleo||null};
+          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
-      } catch(e) { console.warn('Falha ao verificar PIN no Supabase',e); }
+      } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
     }
-    // SEGURANCA: removido fallback local com PINs fixos no codigo-fonte (eram visiveis a qualquer
-    // pessoa que inspecionasse o HTML). Autenticacao agora depende exclusivamente do Supabase.
+    if(!matched) {
+      const lm=Object.entries(PROFILES).find(([,p])=>p.pin===pin);
+      if(lm) matched={key:lm[0],label:lm[1].label,color:lm[1].color,icon:lm[1].icon};
+    }
     setLoading(false);
     if(matched) onSuccess(matched.key,matched);
     else { setError(true); setPin(''); setTimeout(()=>setError(false),1200); }
@@ -507,7 +505,9 @@ function PinManager({sbUrl,sbKey,showToast}) {
   if(!sbUrl||!sbKey) return(
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:8}}>{String.fromCodePoint(128272)+' Usuários e PINs'}</div>
-      <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários e PINs. Sem conexão configurada, nenhum perfil de acesso (Gestor, DSG, Motorista, Enfermeiro, Membro NSP) pode ser autenticado.</div>
+      <div style={{fontSize:12,color:C.muted,lineHeight:1.7}}>Configure o Supabase para gerenciar usuários. PINs locais ativos:<br/>
+        {Object.entries(PROFILES).map(([k,p])=><span key={k} style={{display:'inline-block',background:p.color+'15',color:p.color,borderRadius:6,padding:'2px 8px',fontSize:11,fontWeight:700,margin:'2px'}}>{p.icon} {p.label}: {p.pin}</span>)}
+      </div>
     </div>
   );
 
@@ -528,14 +528,10 @@ function PinManager({sbUrl,sbKey,showToast}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
-          <option value="membro_nsp">Membro NSP - seleciona subnúcleo ao entrar</option>
           <option value="dsg">DSG - apenas manutenção</option>
           <option value="motorista">Motorista - apenas ambulância</option>
           <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
-        {form.perfil==='membro_nsp'&&<div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:8,padding:'8px 12px',fontSize:11,color:C.teal,marginBottom:6}}>
-          O membro escolhe o subnúcleo ao entrar — sem PIN individual por subnúcleo.
-        </div>}
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Salvar'}</button>
@@ -676,7 +672,7 @@ function CSVImporter({sbUrl,sbKey,showToast,onDone}) {
         </div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setStep(2)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Voltar</button>
-          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)+' Importar '+regs.length+' registros'}</button>
+          <button onClick={executar} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{String.fromCodePoint(11014)+' Importar {regs.length} registros'}</button>
         </div>
       </div>);
     })()}
@@ -1239,7 +1235,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
-                <span>{String.fromCodePoint(128100)+' '+a.responsavel}</span>
+                <span>{String.fromCodePoint(128100)+' {a.responsavel}'}</span>
                 <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
@@ -1359,7 +1355,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const [ano,mes]=mesRef.split('-').map(Number);
       const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
       const fim=new Date(ano,mes,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
 
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
@@ -1546,7 +1542,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       const mesCorr=m===0?{a:ano-1,m:12}:{a:ano,m};
       const inicio=new Date(mesCorr.a,mesCorr.m-1,1).toISOString().slice(0,10);
       const fim=new Date(mesCorr.a,mesCorr.m,0).toISOString().slice(0,10);
-      const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
+      const nots=await sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
       const s=computeStats(nots);
       setDados({nots,s,inicio,fim,mesCorr,total:nots.length});
     }catch{showToast('Erro ao gerar relatório','error');}
@@ -1738,7 +1734,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     try{
-      const data=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`);
+      const data=await sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000');
       setNotifications(data||[]);
     }catch{showToast('Erro ao carregar notificacoes','error');}
     setLoading(false);
@@ -2031,13 +2027,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
 }
 
 const SUBNUCLEOS_HNSA=[
-  {id:'comunicacao',  label:'Comunicação Efetiva',                        icon:String.fromCodePoint(128172), color:'#1D6FE8'},
-  {id:'lpp',          label:'Lesão por Pressão',                          icon:String.fromCodePoint(129657), color:'#EF4444'},
-  {id:'queda',        label:'Quedas',                                     icon:String.fromCodePoint(129405), color:'#F59E0B'},
-  {id:'medicamentos', label:'Segurança na Administração de Medicamentos', icon:String.fromCodePoint(128138), color:'#8B5CF6'},
-  {id:'identificacao',label:'Identificação Segura',                       icon:String.fromCodePoint(128100), color:'#00C9B8'},
-  {id:'cirurgia',     label:'Cirurgia Segura',                            icon:String.fromCodePoint(9986),   color:'#10B981'},
-  {id:'ccih',         label:'CCIH',                                       icon:String.fromCodePoint(129440), color:'#F97316'},
+  {id:'comunicacao',label:'Comunicacao Efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
+  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificacao Correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
+  {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
+  {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
 ];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode,driveUrl,onSaveDrive}) {
@@ -2208,7 +2203,6 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   </div>);
 }
 
-
 function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [tab,setTab]=useState('dsm');
@@ -2219,72 +2213,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const [boasPraticasNSP,setBoasPraticasNSP]=useState('Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, possibilitando notificacao digital pelos profissionais, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema promoveu melhora na cultura de notificacao e reducao do tempo de resposta aos eventos adversos.');
   const [narrativaIA,setNarrativaIA]=useState('');
   const [loadingIA,setLoadingIA]=useState(false);
-  // config_dsm
-  const [cfg,setCfg]=useState({data_implantacao_nsp:'',numero_portaria_nsp:'',data_atualizacao_psp:'',tem_uti:false,tem_centro_cirurgico:false,tem_internacao:true,tem_cvc:false,tem_cvd:false,leitos_internacao:0,leitos_uti_adulto:0,leitos_uti_neo_ped:0,salas_cirurgicas:0,consultorios:0,consultorios_odonto:0,leitos_emergencia:0});
-  const [cfgSalvando,setCfgSalvando]=useState(false);
-  const [dadosC1C15,setDadosC1C15]=useState(null);
-  const [loadingC1C15,setLoadingC1C15]=useState(false);
-
-  useEffect(()=>{
-    if(!sbUrl||!sbKey) return;
-    fetch(`${sbUrl}/rest/v1/config_dsm?hospital_id=eq.${h.id}&select=*`,{
-      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
-    }).then(r=>r.json()).then(d=>{if(d&&d[0])setCfg(d[0]);}).catch(()=>{});
-  },[h.id,sbUrl,sbKey]);
-
-  const salvarCfg=async()=>{
-    if(!sbUrl||!sbKey) return;
-    setCfgSalvando(true);
-    try{
-      const cfgPayload={...cfg,hospital_id:h.id,updated_at:new Date().toISOString(),
-        data_implantacao_nsp:cfg.data_implantacao_nsp||null,
-        data_atualizacao_psp:cfg.data_atualizacao_psp||null};
-      await sbUpsertDSM(sbUrl,sbKey,'config_dsm',cfgPayload,'hospital_id');
-      showToast('Configuração salva!','success');
-    }catch(e){showToast('Erro: '+e.message,'error');}
-    setCfgSalvando(false);
-  };
-
-  const gerarC1C15=async()=>{
-    if(!sbUrl||!sbKey){showToast('Supabase necessário','error');return;}
-    setLoadingC1C15(true);
-    try{
-      const {inicio,fim}=getSemestreDatas();
-      const [ind,trein,prot,notifs]=await Promise.all([
-        fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=gte.${inicio}&mes=lte.${fim}&select=*`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}}).then(r=>r.json()).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=notification_type,event_subtype,occurrence_subtype,patient_outcome,notivisa_enviado`).catch(()=>[]),
-      ]);
-      // Agrega indicadores mensais
-      const CAMPOS=['paciente_dia_total','alcool_gel_ml','sabonete_ml','hm_acoes_realizadas','hm_oportunidades','pacientes_identificados','pacientes_atendidos','lvcs_preenchidas','cirurgias_realizadas','antibiotico_adequado','cirurgias_periodo','obitos_cirurgicos_7d','total_cirurgias','lpp_avaliacao_admissao','total_admitidos','lpp_medidas_preventivas','lpp_pacientes_risco','lpp_avaliacao_diaria','lpp_internados_risco','lpp_casos_novos','lpp_paciente_dia_risco','queda_prontuarios_ok','queda_prontuarios_total','quedas_com_dano','quedas_total','erros_prescricao','total_prescricoes','erros_dispensacao','total_dispensacoes','erros_administracao','total_doses','ipcs_cvc','cateter_dia_cvc','itu_cvd','paciente_dia_cvd','pav_casos_novos','pacientes_vm','isc_casos','procedimentos_cirurgicos'];
-      const agg={};
-      CAMPOS.forEach(c=>{agg[c]=dsmSum(ind,c);});
-      // Treinamentos por critério
-      const treinMap={};
-      (trein||[]).forEach(t=>{
-        const crit=DSM_SUB_MAP[t.subnucleo]||DSM_SUB_MAP[t.tipo]||null;
-        if(!crit)return;
-        if(!treinMap[crit])treinMap[crit]={count:0,participantes:0};
-        if(t.tipo==='treinamento'){treinMap[crit].count++;treinMap[crit].participantes+=(Number(t.participantes)||0);}
-      });
-      // Reuniões NSP (reuniao_mensal ou reuniao_extraordinaria no treinamentos_nsp)
-      const reunCount=(trein||[]).filter(t=>t.tipo==='reuniao_mensal'||t.tipo==='reuniao_extraordinaria'||t.tipo==='reuniao').length;
-      // Protocolos
-      const protMap={};
-      (prot||[]).forEach(p=>{const crit=DSM_SUB_MAP[p.nome]||null;if(crit)protMap[crit]=p;});
-      // Notificações
-      const totalNotif=(notifs||[]).length;
-      const notivisa=(notifs||[]).filter(n=>n.notivisa_enviado===true).length;
-      const obitos=(notifs||[]).filter(n=>dsmContain(n.patient_outcome,['obito','morte','falecimento','death'])).length;
-      const eaIdent=(notifs||[]).filter(n=>dsmContain(n.notification_type,['identificac'])||dsmContain(n.event_subtype,['identificac'])||dsmContain(n.occurrence_subtype,['identificac'])).length;
-      const locErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['local errado'])||dsmContain(n.occurrence_subtype,['local errado'])).length;
-      const pacErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['paciente errado'])||dsmContain(n.occurrence_subtype,['paciente errado'])).length;
-      const procErrado=(notifs||[]).filter(n=>dsmContain(n.event_subtype,['procedimento errado'])||dsmContain(n.occurrence_subtype,['procedimento errado'])).length;
-      setDadosC1C15({agg,treinMap,protMap,reunCount,totalNotif,notivisa,obitos,eaIdent,locErrado,pacErrado,procErrado,mesesComDados:(ind||[]).length});
-    }catch(e){showToast('Erro: '+e.message,'error');}
-    setLoadingC1C15(false);
-  };
   const gerarNarrativaIA=async()=>{
     if(!dados) return;
     setLoadingIA(true);
@@ -2316,7 +2244,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const {inicio,fim,nums}=getSemestreDatas();
       const [nots,treinamentos,protocolos]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
+        sbSelect(sbUrl,sbKey,'notifications',`event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
       ]);
@@ -2365,164 +2293,10 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('c1c15','Indicadores C.1–C.15')}{tb('config','Configurar')}
+      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('config','Configurar')}
     </div>
 
-    {tab==='c1c15'&&<div>
-      {!dadosC1C15&&<div style={{textAlign:'center',padding:32}}>
-        <div style={{fontSize:13,color:C.muted,marginBottom:14}}>Agrega dados do semestre selecionado automaticamente.</div>
-        <button onClick={gerarC1C15} disabled={loadingC1C15} style={{background:loadingC1C15?C.border:C.teal,border:'none',borderRadius:10,padding:'12px 28px',color:loadingC1C15?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loadingC1C15?'default':'pointer'}}>
-          {loadingC1C15?'Carregando...':'Gerar Indicadores C.1–C.15'}
-        </button>
-        <div style={{fontSize:11,color:C.muted,marginTop:10}}>Preencha os Indicadores Mensais DSM mês a mês para resultados completos.</div>
-      </div>}
-      {dadosC1C15&&(()=>{
-        const d=dadosC1C15;
-        const stProt=(crit)=>{
-          const naMap={C6:!cfg.tem_centro_cirurgico,C7:!cfg.tem_internacao,C10:!cfg.tem_cvc,C11:!cfg.tem_cvd,C12:!cfg.tem_uti,C13:!cfg.tem_centro_cirurgico};
-          if(naMap[crit])return{s:'NA',l:'NÃO SE APLICA'};
-          const p=d.protMap[crit];const t=d.treinMap[crit];
-          if(!p)return{s:'NAO',l:'NÃO implantado'};
-          const dt=p.data_atualizacao?new Date(p.data_atualizacao):null;
-          const lim=new Date();lim.setFullYear(lim.getFullYear()-3);
-          const ok=dt&&dt>lim;const trein=t&&t.count>=1;
-          if(ok&&trein)return{s:'SIM',l:'SIM'};
-          if(ok&&!trein)return{s:'PARC',l:'PARCIAL – sem treinamento'};
-          return{s:'PARC',l:'PARCIAL – desatualizado'};
-        };
-        const stNSP=()=>{
-          if(!cfg.data_implantacao_nsp)return{s:'NAO',l:'NÃO instituído'};
-          return d.reunCount>=2?{s:'SIM',l:'SIM'}:{s:'PARC',l:`PARCIAL – ${d.reunCount} reunião(ões)`};
-        };
-        const stPSP=()=>{
-          if(!cfg.data_atualizacao_psp)return{s:'NAO',l:'NÃO implantado'};
-          const dt=new Date(cfg.data_atualizacao_psp);const lim=new Date();lim.setFullYear(lim.getFullYear()-3);
-          return dt>lim?{s:'SIM',l:'SIM'}:{s:'PARC',l:'PARCIAL – desatualizado'};
-        };
-        const bgSt=(s)=>({SIM:C.green+'22',PARC:C.yellow+'22',NAO:C.red+'22',NA:C.border}[s]||C.border);
-        const clSt=(s)=>({SIM:C.green,PARC:C.yellow,NAO:C.red,NA:C.muted}[s]||C.muted);
-        const Badge=({s,l})=><span style={{background:bgSt(s),color:clSt(s),borderRadius:6,padding:'3px 10px',fontSize:11,fontWeight:700,border:'1px solid '+clSt(s)+'55'}}>{l}</span>;
-        const Row=({label,val,unit='%'})=><div style={{display:'flex',justifyContent:'space-between',padding:'4px 0',borderBottom:'1px solid '+C.border+'44',fontSize:13}}><span>{label}</span><strong>{val!==null&&val!==undefined?`${val}${unit}`:'—'}</strong></div>;
-        const Bloco=({crit,titulo,children})=>{const st=stProt(crit);return<div style={{background:C.card,border:'1px solid '+clSt(st.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(st.s)}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>{titulo}</strong><Badge s={st.s} l={st.l}/></div>{d.protMap[crit]&&<div style={{fontSize:11,color:C.muted,marginBottom:4}}>Atualizado: {d.protMap[crit].data_atualizacao||'—'} · Treinamentos: {(d.treinMap[crit]||{}).count||0} ({(d.treinMap[crit]||{}).participantes||0} participantes)</div>}{children}</div>;};
-        const nsp=stNSP();const psp=stPSP();
-        return(<div>
-          <div style={{display:'flex',gap:8,marginBottom:12}}>
-            <button onClick={()=>setDadosC1C15(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>↺ Novo</button>
-            <button onClick={()=>{const el=document.getElementById('relatorio-c1c15');if(!el)return;const w=window.open('','_blank');w.document.write('<html><head><title>Indicadores C.1–C.15 DSM</title><style>body{font-family:Arial,sans-serif;font-size:11px;padding:20px;color:#222}h2{font-size:14px}h3{font-size:12px;margin:12px 0 4px}.ok{color:green}.parc{color:#b45309}.nao{color:red}.na{color:#666}</style></head><body>'+el.innerHTML+'<br><small>Gerado por NotificaAI – '+new Date().toLocaleDateString('pt-BR')+'</small></body></html>');w.document.close();w.print();}} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>🖨 Imprimir</button>
-          </div>
-          <div style={{fontSize:11,color:C.muted,marginBottom:12}}>{d.mesesComDados} mês(es) com dados registrados · {d.totalNotif} EA no semestre · Reuniões NSP: {d.reunCount}</div>
-          <div id='relatorio-c1c15'>
-            {/* C.1 */}
-            <div style={{background:C.card,border:'1px solid '+clSt(nsp.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(nsp.s)}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>C.1 — NSP Instituído</strong><Badge s={nsp.s} l={nsp.l}/></div>
-              <div style={{fontSize:12,color:C.muted}}>Implantação: {cfg.data_implantacao_nsp||'—'} · Portaria: {cfg.numero_portaria_nsp||'—'} · Reuniões: {d.reunCount}</div>
-            </div>
-            {/* C.2 */}
-            <div style={{background:C.card,border:'1px solid '+clSt(psp.s)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+clSt(psp.s)}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><strong style={{fontSize:13}}>C.2 — PSP</strong><Badge s={psp.s} l={psp.l}/></div>
-              <div style={{fontSize:12,color:C.muted}}>Última atualização: {cfg.data_atualizacao_psp||'—'}</div>
-            </div>
-            {/* C.3 */}
-            <Bloco crit='C3' titulo='C.3 — Higienização das Mãos'>
-              <Row label='C.3.1 Álcool gel' val={d.agg.paciente_dia_total>0?((d.agg.alcool_gel_ml||0)/d.agg.paciente_dia_total*1000).toFixed(0):null} unit=' mL/1.000 pac-dia'/>
-              <Row label='C.3.2 Sabonete' val={d.agg.sabonete_ml||null} unit=' mL'/>
-              <Row label='C.3.3 Adesão HM' val={dsmPct(d.agg.hm_acoes_realizadas,d.agg.hm_oportunidades)}/>
-            </Bloco>
-            {/* C.4 */}
-            <Bloco crit='C4' titulo='C.4 — Identificação do Paciente'>
-              <Row label='C.4.1 Pacientes com pulseira' val={dsmPct(d.agg.pacientes_identificados,d.agg.pacientes_atendidos)}/>
-              <Row label='C.4.2 EA por falha de identificação' val={dsmPct(d.eaIdent,d.agg.pacientes_atendidos)}/>
-            </Bloco>
-            {/* C.5 */}
-            <Bloco crit='C5' titulo='C.5 — Comunicação Efetiva'/>
-            {/* C.6 */}
-            <Bloco crit='C6' titulo='C.6 — Cirurgia Segura'>
-              {stProt('C6').s!=='NA'&&<><Row label='C.6.1 Adesão LVCS' val={dsmPct(d.agg.lvcs_preenchidas,d.agg.cirurgias_realizadas)}/><Row label='C.6.2 Antibioticoprofilaxia adequada' val={dsmPct(d.agg.antibiotico_adequado,d.agg.cirurgias_periodo)}/><Row label='C.6.3 Mortalidade cirúrgica ≤7 dias' val={dsmPct(d.agg.obitos_cirurgicos_7d,d.agg.total_cirurgias)}/><Row label='C.6.4 Cirurgias em local errado' val={d.locErrado} unit=' caso(s)'/><Row label='C.6.5 Cirurgias em paciente errado' val={d.pacErrado} unit=' caso(s)'/><Row label='C.6.6 Procedimentos errados' val={d.procErrado} unit=' caso(s)'/></>}
-            </Bloco>
-            {/* C.7 */}
-            <Bloco crit='C7' titulo='C.7 — Lesão por Pressão (LPP)'>
-              {stProt('C7').s!=='NA'&&<><Row label='C.7.1 Avaliação de risco na admissão' val={dsmPct(d.agg.lpp_avaliacao_admissao,d.agg.total_admitidos)}/><Row label='C.7.2 Medidas preventivas LPP' val={dsmPct(d.agg.lpp_medidas_preventivas,d.agg.lpp_pacientes_risco)}/><Row label='C.7.3 Avaliação diária de risco' val={dsmPct(d.agg.lpp_avaliacao_diaria,d.agg.lpp_internados_risco)}/><Row label='C.7.4 Incidência de LPP' val={dsmPct(d.agg.lpp_casos_novos,d.agg.lpp_paciente_dia_risco)}/></>}
-            </Bloco>
-            {/* C.8 */}
-            <Bloco crit='C8' titulo='C.8 — Prevenção de Quedas'>
-              <Row label='C.8.1 Avaliação de risco de queda' val={dsmPct(d.agg.queda_prontuarios_ok,d.agg.queda_prontuarios_total)}/>
-              <Row label='C.8.2 Quedas com dano' val={dsmPct(d.agg.quedas_com_dano,d.agg.quedas_total)}/>
-            </Bloco>
-            {/* C.9 */}
-            <Bloco crit='C9' titulo='C.9 — Segurança de Medicamentos'>
-              <Row label='C.9.1 Erros na prescrição' val={dsmPct(d.agg.erros_prescricao,d.agg.total_prescricoes)}/>
-              <Row label='C.9.2 Erros na dispensação' val={dsmPct(d.agg.erros_dispensacao,d.agg.total_dispensacoes)}/>
-              <Row label='C.9.3 Erros na administração' val={dsmPct(d.agg.erros_administracao,d.agg.total_doses)}/>
-            </Bloco>
-            {/* C.10 */}
-            <Bloco crit='C10' titulo='C.10 — IPCS / CVC'>
-              {stProt('C10').s!=='NA'&&<Row label='C.10.1 Taxa de IPCS associada a CVC' val={dsmPct(d.agg.ipcs_cvc,d.agg.cateter_dia_cvc)}/>}
-            </Bloco>
-            {/* C.11 */}
-            <Bloco crit='C11' titulo='C.11 — ITU / CVD'>
-              {stProt('C11').s!=='NA'&&<Row label='C.11.1 Taxa de ITU associada ao CVD' val={dsmPct(d.agg.itu_cvd,d.agg.paciente_dia_cvd)}/>}
-            </Bloco>
-            {/* C.12 */}
-            <Bloco crit='C12' titulo='C.12 — PAV'>
-              {stProt('C12').s!=='NA'&&<Row label='C.12.1 Incidência de PAV' val={dsmPct(d.agg.pav_casos_novos,d.agg.pacientes_vm)}/>}
-            </Bloco>
-            {/* C.13 */}
-            <Bloco crit='C13' titulo='C.13 — ISC'>
-              {stProt('C13').s!=='NA'&&<Row label='C.13.1 Taxa de ISC' val={dsmPct(d.agg.isc_casos,d.agg.procedimentos_cirurgicos)}/>}
-            </Bloco>
-            {/* C.14 */}
-            <Bloco crit='C14' titulo='C.14 — Precauções e Isolamento'/>
-            {/* C.15 */}
-            <div style={{background:C.card,border:'1px solid '+(d.notivisa>0?C.green:C.yellow)+'55',borderRadius:10,padding:12,marginBottom:8,borderLeft:'3px solid '+(d.notivisa>0?C.green:C.yellow)}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><strong style={{fontSize:13}}>C.15 — Notificação Notivisa</strong><Badge s={d.notivisa>0?'SIM':d.totalNotif>0?'PARC':'NAO'} l={d.notivisa>0?'SIM – notifica no Notivisa':d.totalNotif>0?'Monitora mas não enviou ao Notivisa':'NÃO monitora'}/></div>
-              <div style={{fontSize:12,color:C.muted,marginBottom:4}}>EA registrados: {d.totalNotif} · Enviados ao Notivisa: {d.notivisa}</div>
-              <Row label='C.15.1 EA com óbito' val={dsmPct(d.obitos,d.totalNotif)}/>
-            </div>
-          </div>
-        </div>);
-      })()}
-    </div>}
-
     {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
-
-      {/* Dados institucionais config_dsm */}
-      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>📋 Dados Institucionais (C.1 e C.2)</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Data de implantação do NSP</label>
-            <input type='date' value={cfg.data_implantacao_nsp||''} onChange={e=>setCfg({...cfg,data_implantacao_nsp:e.target.value})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nº da Portaria em vigor</label>
-            <input type='text' value={cfg.numero_portaria_nsp||''} onChange={e=>setCfg({...cfg,numero_portaria_nsp:e.target.value})} placeholder='Ex: Portaria nº 12/2025' style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
-          <div>
-            <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Última atualização do PSP</label>
-            <input type='date' value={cfg.data_atualizacao_psp||''} onChange={e=>setCfg({...cfg,data_atualizacao_psp:e.target.value})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-          </div>
-        </div>
-        <div style={{fontSize:11,fontWeight:700,color:C.muted,margin:'8px 0 6px'}}>Características do serviço</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
-          {[['Leitos internação (não UTI)','leitos_internacao'],['Leitos UTI adulto','leitos_uti_adulto'],['Leitos UTI neo/ped','leitos_uti_neo_ped'],['Salas cirúrgicas','salas_cirurgicas'],['Consultórios','consultorios'],['Consultórios odonto','consultorios_odonto'],['Leitos emergência/SEP','leitos_emergencia']].map(([lbl,key])=>(
-            <div key={key}><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:2}}>{lbl}</label>
-            <input type='number' min={0} value={cfg[key]||0} onChange={e=>setCfg({...cfg,[key]:Number(e.target.value)})} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/></div>
-          ))}
-        </div>
-        <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6}}>Aplicabilidade dos protocolos</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:14}}>
-          {[['tem_internacao','C.7 LPP — possui internação'],['tem_centro_cirurgico','C.6/C.13 — possui centro cirúrgico'],['tem_uti','C.12 PAV — possui UTI'],['tem_cvc','C.10 — utiliza CVC'],['tem_cvd','C.11 — utiliza CVD']].map(([key,lbl])=>(
-            <button key={key} onClick={()=>setCfg({...cfg,[key]:!cfg[key]})}
-              style={{padding:'8px 10px',borderRadius:8,border:'2px solid '+(cfg[key]?C.teal:C.border),background:cfg[key]?C.teal+'18':'transparent',color:cfg[key]?C.teal:C.muted,fontWeight:700,fontSize:11,cursor:'pointer',textAlign:'left'}}>
-              {cfg[key]?'✓ ':'✗ '}{lbl}
-            </button>
-          ))}
-        </div>
-        <button onClick={salvarCfg} disabled={cfgSalvando} style={{width:'100%',background:cfgSalvando?C.border:'#10B981',border:'none',borderRadius:10,padding:'11px',color:cfgSalvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:cfgSalvando?'default':'pointer',marginBottom:2}}>
-          {cfgSalvando?'Salvando...':'💾 Salvar Configuração DSM'}
-        </button>
-      </div>
-
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Parametros do relatorio</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Semestre de referencia</label>
@@ -2681,6 +2455,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     </div>}
 
 {tab==='anvisa'&&dados&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
+        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013</div>
         <div style={{display:'flex',gap:8,marginBottom:4}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Imprimir</button>
           <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo</button>
@@ -2692,24 +2467,43 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           const psp_ok=dados.protocolos.length>=7;
           const protAtual=(sub)=>dados.protocolos.some(p=>(p.subnucleo===sub||p.nome?.toLowerCase().includes(sub))&&p.proxima_revisao>=hoje);
           const treinoOk=(sub)=>dados.porSubnucleo[sub]?.treinamentos>0;
+          const temCCIH=dados.protocolos.some(p=>p.nome?.toLowerCase().includes('ccih')||p.nome?.toLowerCase().includes('cciras')||p.nome?.toLowerCase().includes('infeccao'));
+          const temSAQ=true;
+          const notivsaOk=dados.nots.filter(n=>n.notivisa_enviado).length>0&&dados.total>0;
+          const notMensal=dados.total>=10;
 
           const criterios=[
-            {cod:'C.1', desc:'NSP instituido com 2+ reunioes no semestre', ok:dados.reunioes.length>=2, obs:dados.reunioes.length+' reunioes registradas', req:true},
-            {cod:'C.2', desc:'Plano de Seguranca do Paciente implantado e atualizado', ok:psp_ok, obs:dados.protocolos.length+' de 7 protocolos obrigatorios cadastrados', req:false},
-            {cod:'C.3', desc:'Protocolo higienizacao maos + treinamento no semestre', ok:protAtual('comunicacao')&&treinoOk('comunicacao'), obs:'Treinamentos: '+dados.porSubnucleo['comunicacao']?.treinamentos, req:true},
-            {cod:'C.4', desc:'Protocolo identificacao do paciente + treinamento', ok:protAtual('identificacao')&&treinoOk('identificacao'), obs:'Treinamentos: '+dados.porSubnucleo['identificacao']?.treinamentos, req:true},
-            {cod:'C.5', desc:'Protocolo comunicacao efetiva + treinamento', ok:protAtual('comunicacao')&&treinoOk('comunicacao'), obs:'Treinamentos: '+dados.porSubnucleo['comunicacao']?.treinamentos, req:false},
-            {cod:'C.6', desc:'Protocolo cirurgia segura + treinamento', ok:protAtual('cirurgia')&&treinoOk('cirurgia'), obs:'Treinamentos: '+dados.porSubnucleo['cirurgia']?.treinamentos, req:false},
-            {cod:'C.7', desc:'Protocolo prevencao LPP + treinamento', ok:protAtual('lpp')&&treinoOk('lpp'), obs:'Treinamentos: '+dados.porSubnucleo['lpp']?.treinamentos, req:true},
-            {cod:'C.8', desc:'Protocolo prevencao quedas + treinamento', ok:protAtual('queda')&&treinoOk('queda'), obs:'Treinamentos: '+dados.porSubnucleo['queda']?.treinamentos, req:true},
-            {cod:'C.9', desc:'Protocolo seguranca medicamentos + treinamento', ok:protAtual('medicamentos')&&treinoOk('medicamentos'), obs:'Treinamentos: '+dados.porSubnucleo['medicamentos']?.treinamentos, req:true},
-            {cod:'C.15',desc:'Notificacao regular incidentes + envio ao Notivisa', ok:dados.nots.filter(n=>n.notivisa_enviado).length>0&&dados.total>0, obs:dados.total+' notificacoes | '+dados.nots.filter(n=>n.notivisa_enviado).length+' no Notivisa', req:true},
+            {cod:'C.1', tipo:'Estrutura',   req:true,  desc:'NSP instituido com reunioes em 2025', ok:dados.reunioes.length>=2, obs:dados.reunioes.length+' reunioes registradas'},
+            {cod:'C.2', tipo:'Estrutura',   req:true,  desc:'SCIH/CCIH/CCIRAS instituida com reunioes em 2025', ok:temCCIH, obs:temCCIH?'Comissao identificada nos protocolos':'Nao identificada - cadastrar protocolo CCIH'},
+            {cod:'C.3', tipo:'Estrutura',   req:false, desc:'Plano de Seguranca do Paciente (PSP) implantado', ok:psp_ok, obs:dados.protocolos.length+' protocolos cadastrados (minimo 7)'},
+            {cod:'C.4', tipo:'Estrutura',   req:false, desc:'Protocolo higiene das maos + capacitacao', ok:protAtual('higienizacao')&&treinoOk('higienizacao'), obs:'Treinamentos: '+dados.porSubnucleo['higienizacao']?.treinamentos},
+            {cod:'C.5', tipo:'Estrutura',   req:false, desc:'Protocolo identificacao do paciente + capacitacao', ok:protAtual('identificacao')&&treinoOk('identificacao'), obs:'Treinamentos: '+dados.porSubnucleo['identificacao']?.treinamentos},
+            {cod:'C.6', tipo:'Estrutura',   req:false, desc:'Protocolo cirurgia segura + capacitacao', ok:protAtual('cirurgia')&&treinoOk('cirurgia'), obs:'Treinamentos: '+dados.porSubnucleo['cirurgia']?.treinamentos},
+            {cod:'C.7', tipo:'Estrutura',   req:false, desc:'Protocolo parto seguro + capacitacao (ou NAO SE APLICA)', ok:true, obs:'Nao se aplica se servico nao realiza parto'},
+            {cod:'C.8', tipo:'Estrutura',   req:false, desc:'Protocolo prevencao LPP + capacitacao', ok:protAtual('lpp')&&treinoOk('lpp'), obs:'Treinamentos: '+dados.porSubnucleo['lpp']?.treinamentos},
+            {cod:'C.9', tipo:'Estrutura',   req:false, desc:'Protocolo prevencao quedas + capacitacao', ok:protAtual('queda')&&treinoOk('queda'), obs:'Treinamentos: '+dados.porSubnucleo['queda']?.treinamentos},
+            {cod:'C.10',tipo:'Estrutura',   req:false, desc:'Protocolo seguranca medicamentos + capacitacao', ok:protAtual('medicamentos')&&treinoOk('medicamentos'), obs:'Treinamentos: '+dados.porSubnucleo['medicamentos']?.treinamentos},
+            {cod:'C.11',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao IPCS (cateter central) + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('ipcs')||p.nome?.toLowerCase().includes('cateter')), obs:'Verificar protocolo IPCS cadastrado'},
+            {cod:'C.12',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ITU (cateter vesical) + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('itu')||p.nome?.toLowerCase().includes('urinario')), obs:'Verificar protocolo ITU cadastrado'},
+            {cod:'C.13',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao PAV + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('pav')||p.nome?.toLowerCase().includes('ventilacao')), obs:'Verificar protocolo PAV cadastrado'},
+            {cod:'C.14',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ISC + capacitacao (ou NAO SE APLICA)', ok:true, obs:'Nao se aplica se servico nao possui centro cirurgico'},
+            {cod:'C.15',tipo:'Estrutura',   req:false, desc:'Protocolo precaucoes e isolamento + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('isolamento')||p.nome?.toLowerCase().includes('precaucao')), obs:'Verificar protocolo de precaucoes cadastrado'},
+            {cod:'C.16',tipo:'Processo',    req:false, desc:'Conformidade avaliacao risco LPP (amostra prontuarios)', ok:dados.nots.filter(n=>n.event_subtype?.includes('LPP')||n.event_subtype?.includes('Lesao')).length>=0, obs:'Monitorado via notificacoes de LPP'},
+            {cod:'C.17',tipo:'Processo',    req:false, desc:'Conformidade avaliacao risco de queda (amostra prontuarios)', ok:dados.nots.filter(n=>n.event_subtype?.includes('Queda')).length>=0, obs:'Monitorado via notificacoes de queda'},
+            {cod:'C.18',tipo:'Processo',    req:false, desc:'Conformidade LVCS - Lista de Verificacao Cirurgia Segura', ok:true, obs:'Nao se aplica se servico nao possui centro cirurgico'},
+            {cod:'C.19',tipo:'Gestao Risco',req:false, desc:'Monitoramento e envio mensal consumo alcool gel (10-12 meses)', ok:dados.total>=10, obs:'Monitorar e enviar dados para ANVISA/estado'},
+            {cod:'C.20',tipo:'Gestao Risco',req:true,  desc:'Notificacao regular incidentes no NOTIVISA (10-12 meses)', ok:notivsaOk, obs:dados.total+' notificacoes | '+dados.nots.filter(n=>n.notivisa_enviado).length+' no Notivisa'},
+            {cod:'C.21',tipo:'Gestao Risco',req:true,  desc:'Monitoramento mensal IRAS com criterios diagnosticos ANVISA (10-12 meses)', ok:notMensal, obs:'IRAS monitoradas regularmente via sistema'},
+            {cod:'C.22',tipo:'Gestao Risco',req:false, desc:'Monitoramento mensal antimicrobianos UTI adulto - DDD (10-12 meses)', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('antimicrobiano')||p.nome?.toLowerCase().includes('antibiotico')), obs:'Verificar se monitora DDD de antimicrobianos'},
+            {cod:'C.23',tipo:'Processo',    req:false, desc:'Participacao na Avaliacao de Cultura de Seguranca (ultimos 24 meses)', ok:temSAQ, obs:'HSOPSC implementado no sistema - participacao ativa'},
+            {cod:'C.24',tipo:'Estrutura',   req:false, desc:'Monitoramento mensal 3 indicadores conformidade protocolos + planilha anexada', ok:notMensal&&psp_ok, obs:'Monitoramento via indicadores do sistema NotificaAI'},
           ];
 
           const score=criterios.filter(c=>c.ok).length;
           const pct=Math.round(score/criterios.length*100);
-          const reqOk=criterios.filter(c=>c.req&&!c.ok).length===0;
-          const nivel=pct>=80&&reqOk?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=60?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
+          const reqMinOk=['C.1','C.2','C.20','C.21'].every(cod=>criterios.find(c=>c.cod===cod)?.ok);
+          const nivel=pct>=80&&reqMinOk?{label:'ALTA CONFORMIDADE',color:C.green}:pct>=60&&reqMinOk?{label:'MEDIA CONFORMIDADE',color:C.yellow}:{label:'BAIXA CONFORMIDADE',color:C.red};
+          const tipoColor={'Estrutura':'#1D6FE8','Processo':C.teal,'Gestao Risco':C.yellow};
 
           return(<div>
             <div style={{background:nivel.color+'15',border:'2px solid '+nivel.color+'55',borderRadius:14,padding:16,marginBottom:14,display:'flex',alignItems:'center',gap:16}}>
@@ -2733,7 +2527,8 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
                   <div style={{flex:1}}>
                     <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
                       <span style={{fontSize:10,fontWeight:800,color:C.muted,background:C.surface,borderRadius:4,padding:'1px 5px'}}>{c.cod}</span>
-                      {c.req&&<span style={{fontSize:9,color:C.red,fontWeight:700,background:C.red+'15',borderRadius:4,padding:'1px 5px'}}>OBRIGATORIO</span>}
+                      <span style={{fontSize:9,fontWeight:700,color:tipoColor[c.tipo]||C.muted,background:(tipoColor[c.tipo]||C.muted)+'18',borderRadius:4,padding:'1px 5px'}}>{c.tipo}</span>
+                      {c.req&&<span style={{fontSize:9,color:C.red,fontWeight:700,background:C.red+'15',borderRadius:4,padding:'1px 5px'}}>REQ. MINIMO</span>}
                     </div>
                     <div style={{fontSize:12,fontWeight:700,color:C.text}}>{c.desc}</div>
                     <div style={{fontSize:11,color:c.ok?C.green:c.req?C.red:C.yellow,marginTop:2}}>{c.obs}</div>
@@ -2757,48 +2552,12 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo:userSubnucleoApp}) {
-  const h=hospital||DEFAULT_HOSPITAL;
-  const [userSubnucleo,setUserSubnucleo]=useState(userSubnucleoApp||null);
-
-  if(!userSubnucleo) return(<div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
-    <div style={{textAlign:'center',marginBottom:28}}>
-      <div style={{fontSize:28,marginBottom:8}}>{String.fromCodePoint(127973)}</div>
-      <div style={{fontSize:18,fontWeight:800,color:C.text,marginBottom:4}}>Bem-vindo ao NSP</div>
-      <div style={{fontSize:13,color:C.muted}}>Selecione seu subnúcleo para continuar</div>
-    </div>
-    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-      {SUBNUCLEOS_HNSA.map(s=>(<button key={s.id} onClick={()=>setUserSubnucleo(s.id)}
-        style={{display:'flex',alignItems:'center',gap:14,padding:'14px 18px',background:C.card,border:'1px solid '+s.color+'55',borderRadius:14,cursor:'pointer',borderLeft:'4px solid '+s.color,textAlign:'left',width:'100%'}}>
-        <span style={{fontSize:22,lineHeight:1}}>{s.icon}</span>
-        <div>
-          <div style={{fontSize:14,fontWeight:700,color:C.text}}>{s.label}</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-            {s.id==='comunicacao'&&'SBAR, passagem de plantão, prescrições verbais'}
-            {s.id==='lpp'&&'Escala de Braden, avaliação diária, medidas preventivas'}
-            {s.id==='queda'&&'Escala de Morse, protocolos de prevenção'}
-            {s.id==='medicamentos'&&'Prescrição, dispensação, administração, MPP'}
-            {s.id==='identificacao'&&'Pulseiras de identificação, dois identificadores'}
-            {s.id==='cirurgia'&&'LVCS, antibioticoprofilaxia, Time Out, ISC'}
-            {s.id==='ccih'&&'IRAS, PAV, IPCS, ITU/CVD, álcool gel, clorexidina'}
-          </div>
-        </div>
-        <span style={{marginLeft:'auto',fontSize:18,color:s.color}}>›</span>
-      </button>))}
-    </div>
-  </div>);
-
-  return <MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
-    profileMode={profileMode} userSubnucleo={userSubnucleo} onBack={()=>setUserSubnucleo(null)}/>;
-}
-
-function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo,onBack}) {
+function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
   const [loading,setLoading]=useState(false);
-  const [filtroSub,setFiltroSub]=useState(userSubnucleo||'todos');
-  useEffect(()=>{if(userSubnucleo)setFiltroSub(userSubnucleo);},[userSubnucleo]);
+  const [filtroSub,setFiltroSub]=useState('todos');
   const [mesSel,setMesSel]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const [notsMes,setNotsMes]=useState([]);
   const [loadingMes,setLoadingMes]=useState(false);
@@ -2813,7 +2572,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     if(!sbUrl||!sbKey) return;
     setLoading(true);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
+      sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000'),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
     ]).then(([nots,treins])=>{
       setNotifications(nots||[]);
@@ -2830,7 +2589,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     const inicio=new Date(ano,mes-1,1).toISOString().slice(0,10);
     const fim=new Date(ano,mes,0).toISOString().slice(0,10);
     sbSelect(sbUrl,sbKey,'notifications',
-      `hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
+      `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`
     ).then(d=>setNotsMes(d||[])).catch(()=>[]).finally(()=>setLoadingMes(false));
   },[mesSel,sbUrl,sbKey]);
 
@@ -2847,7 +2606,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{
         hospital_id:h.id,
         tipo:formTrein.tipo,
-        subnucleo:subId||userSubnucleo||'nsp_pleno',
+        subnucleo:subId,
         protocolo:formTrein.protocolo||null,
         data:formTrein.data||null,
         participantes:Number(formTrein.participantes)||0,
@@ -3120,8 +2879,6 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           });
         })()}
       </div>
-    <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
-    <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
   </div>);
 }
 
@@ -3137,7 +2894,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   useEffect(()=>{
     if(!configured) return;
     setLoading(true);
-    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
+    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
       .then(data=>{
       setStats(computeStats(data));
 
@@ -3213,7 +2970,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
     </div>}
 
-    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')} hospital={hospital}/>}
+    {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} onSelect={()=>setView('notificacoes')}/>}
 
     {/* Botão notificar */}
     <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
@@ -3481,7 +3238,15 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       if(sbUrl&&sbKey){
         const res=await sbInsert(sbUrl,sbKey,'notifications',payload);
         protocolo=res?.[0]?.id?res[0].id.slice(0,8).toUpperCase():Math.random().toString(36).slice(2,10).toUpperCase();
-        if(webhookUrl){try{await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail})});}catch{}}
+        if(webhookUrl&&!testMode){
+          try{
+            const whResp=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,is_test:false})});
+            if(!whResp.ok) showToast('Aviso: webhook retornou '+(whResp.status)+' - email pode nao ter sido enviado','error');
+          }catch(whErr){
+            console.error('[webhook]',whErr);
+            showToast('Aviso: falha ao notificar gestor por email ('+whErr.message+')','error');
+          }
+        }
         showToast('Notificação salva! Gestor será notificado.','success');
       } else {
         protocolo=Math.random().toString(36).slice(2,10).toUpperCase();
@@ -3758,69 +3523,70 @@ idade:'Idade do paciente',
 
 const SAQ_DOMINIOS=[
   {id:'tc',label:'Trabalho em equipe na unidade',cor:C.teal,itens:[
-    {t:'Aqui no setor, um colega ajuda o outro sem que seja preciso pedir.',inv:false},
-    {t:'Quando a demanda aperta, a equipe se une para dar conta do trabalho com qualidade.',inv:false},
-    {t:'O respeito entre os colegas e a regra no dia a dia deste setor.',inv:false},
-    {t:'Quem esta sobrecarregado encontra apoio dos colegas para dar conta da demanda.',inv:false},
+    {t:'Nesta unidade, as pessoas se apoiam umas as outras.',inv:false},
+    {t:'Quando ha muito trabalho a ser feito rapidamente, trabalhamos juntos em equipe para conclui-lo devidamente.',inv:false},
+    {t:'Nesta unidade, as pessoas se tratam com respeito.',inv:false},
+    {t:'Quando alguem nesta unidade esta sobrecarregado, recebe ajuda de seus colegas.',inv:false},
   ]},
   {id:'exp',label:'Expectativas e acoes da chefia',cor:'#1D6FE8',itens:[
-    {t:'Minha chefia reconhece publicamente quando os protocolos de seguranca sao bem seguidos.',inv:false},
-    {t:'Sugestoes da equipe para melhorar a seguranca sao realmente levadas a serio pela chefia.',inv:false},
-    {t:'Em dias de alta demanda, a orientacao da chefia e acelerar o ritmo mesmo que isso signifique pular etapas do processo.',inv:true},
-    {t:'Problemas de seguranca que se repetem nao recebem a atencao devida da minha chefia.',inv:true},
+    {t:'Meu supervisor/chefe elogia quando ve um trabalho realizado de acordo com os procedimentos de seguranca do paciente.',inv:false},
+    {t:'Meu supervisor/chefe realmente leva em consideracao as sugestoes dos profissionais para melhoria da seguranca do paciente.',inv:false},
+    {t:'Sempre que a pressao aumenta, meu supervisor/chefe quer que trabalhemos mais rapido, mesmo que isso signifique abrir mao de procedimentos.',inv:true},
+    {t:'Meu supervisor/chefe ignora os problemas de seguranca do paciente que ocorrem repetidamente.',inv:true},
   ]},
   {id:'apr',label:'Aprendizagem organizacional - Melhoria continua',cor:C.green,itens:[
-    {t:'O setor vem implementando acoes concretas para tornar o cuidado mais seguro.',inv:false},
-    {t:'Erros identificados no cuidado geram acoes praticas para evitar que se repitam.',inv:false},
-    {t:'Depois de mudar algo para melhorar a seguranca, checamos se a mudanca realmente funcionou.',inv:false},
+    {t:'Estamos ativamente fazendo coisas para melhorar a seguranca do paciente.',inv:false},
+    {t:'Os erros cometidos nesta unidade levam a mudancas positivas.',inv:false},
+    {t:'Apos implementarmos mudancas para melhorar a seguranca do paciente, avaliamos a efetividade dessas mudancas.',inv:false},
   ]},
   {id:'pcg',label:'Apoio da gerencia do hospital',cor:'#8B5CF6',itens:[
-    {t:'A direcao do hospital cria um ambiente de trabalho que favorece o cuidado seguro.',inv:false},
-    {t:'Pelas atitudes da direcao, fica claro que a seguranca do paciente esta no topo das prioridades.',inv:false},
-    {t:'O interesse da direcao pela seguranca do paciente so aparece depois que algo da errado.',inv:true},
+    {t:'A direcao do hospital disponibiliza um ambiente de trabalho que promove a seguranca do paciente.',inv:false},
+    {t:'As acoes da direcao do hospital demonstram que a seguranca do paciente e uma das principais prioridades.',inv:false},
+    {t:'A direcao do hospital parece se interessar pela seguranca do paciente somente depois que um evento adverso acontece.',inv:true},
   ]},
   {id:'per',label:'Percepcao geral de seguranca',cor:C.yellow,itens:[
-    {t:'Os processos e sistemas que usamos sao bons o suficiente para evitar erros.',inv:false},
-    {t:'Este setor enfrenta problemas relacionados a seguranca do paciente.',inv:true},
-    {t:'Se erros graves nao acontecem com mais frequencia aqui, e mais sorte do que outra coisa.',inv:true},
+    {t:'Nunca sacrificamos a seguranca do paciente por fazer mais trabalho.',inv:false},
+    {t:'Nossos procedimentos e sistemas sao bons para prevenir a ocorrencia de erros.',inv:false},
+    {t:'Ocorrem erros por acaso nesta unidade.',inv:true},
+    {t:'E apenas por sorte que erros mais graves nao acontecem nesta unidade.',inv:true},
   ]},
   {id:'com',label:'Abertura para comunicacao',cor:'#10B981',itens:[
-    {t:'Quando algo pode prejudicar o paciente, os profissionais se sentem livres para falar sobre isso.',inv:false},
-    {t:'Questionar uma decisao de um superior, quando necessario, nao e um problema aqui.',inv:false},
-    {t:'Ha receio entre os profissionais em perguntar quando algo parece estranho ou errado.',inv:true},
+    {t:'Os profissionais sentem-se a vontade para questionar as decisoes ou acoes dos seus superiores.',inv:false},
+    {t:'Os profissionais tem medo de perguntar quando algo parece errado.',inv:true},
+    {t:'Os profissionais sentem-se a vontade para discutir quando percebem que um evento pode prejudicar o paciente.',inv:false},
   ]},
   {id:'fdb',label:'Feedback e comunicacao sobre erros',cor:'#F97316',itens:[
-    {t:'Quando uma notificacao gera mudanca, somos avisados sobre o que foi alterado.',inv:false},
-    {t:'Ficamos sabendo dos erros que ocorrem dentro deste setor.',inv:false},
-    {t:'A equipe conversa ativamente sobre como evitar que os mesmos erros voltem a acontecer.',inv:false},
+    {t:'Somos informados sobre os erros que acontecem nesta unidade.',inv:false},
+    {t:'Nesta unidade, discutimos sobre formas de prevenir que os erros nao se repitam.',inv:false},
+    {t:'Nesta unidade somos informados sobre as mudancas realizadas com base em relatorios de eventos.',inv:false},
   ]},
   {id:'freq',label:'Frequencia de eventos relatados',cor:'#06B6D4',itens:[
-    {t:'Com que frequencia um erro percebido e corrigido antes de chegar ao paciente acaba sendo registrado como notificacao? (5=sempre, 1=nunca)',inv:false},
-    {t:'Erros sem nenhum potencial de causar dano ao paciente costumam ser notificados com que frequencia? (5=sempre, 1=nunca)',inv:false},
-    {t:'Quando um erro tinha potencial de causar dano mas nao causou, com que frequencia ele e notificado? (5=sempre, 1=nunca)',inv:false},
+    {t:'Quando um erro e cometido, mas e percebido e corrigido antes de afetar o paciente, com que frequencia e relatado?',inv:false},
+    {t:'Quando um erro e cometido, mas nao ha possibilidade de prejudicar o paciente, com que frequencia e relatado?',inv:false},
+    {t:'Quando um erro e cometido e poderia prejudicar o paciente, mas nao o prejudica, com que frequencia e relatado?',inv:false},
   ]},
   {id:'npe',label:'Resposta nao punitiva ao erro',cor:C.red,itens:[
-    {t:'Existe a sensacao entre os profissionais de que um erro cometido pode ser usado contra eles no futuro.',inv:true},
-    {t:'Ao notificar um evento, a impressao e que a atencao vai para quem errou, nao para o problema em si.',inv:true},
-    {t:'Ha receio de que erros cometidos fiquem registrados permanentemente no historico funcional do profissional.',inv:true},
+    {t:'Os profissionais sentem que seus erros sao usados contra eles.',inv:true},
+    {t:'Quando um evento e relatado, parece que a pessoa esta sendo apontada e nao o problema.',inv:true},
+    {t:'Os profissionais se preocupam que os erros que cometem sejam registrados em suas fichas funcionais.',inv:true},
   ]},
   {id:'dp',label:'Dimensionamento de pessoal',cor:'#EC4899',itens:[
-    {t:'O numero de profissionais no setor e suficiente para o volume de trabalho existente.',inv:false},
-    {t:'Em alguns momentos, o excesso de trabalho impede que o paciente receba o melhor cuidado possivel.',inv:true},
-    {t:'A rotina aqui e marcada pela pressao de fazer muita coisa em pouco tempo.',inv:true},
-    {t:'Mesmo quando o volume de trabalho aumenta, a seguranca do paciente continua sendo preservada.',inv:false},
+    {t:'Ha profissionais suficientes para realizar o trabalho quando precisamos atender mais pacientes.',inv:false},
+    {t:'Nesta unidade, trabalhamos em "modo de crise", tentando fazer muito e muito rapidamente.',inv:true},
+    {t:'Nao temos profissionais suficientes para dar conta da carga de trabalho.',inv:true},
+    {t:'Os profissionais desta unidade trabalham mais horas do que seria ideal para o cuidado do paciente.',inv:true},
   ]},
   {id:'teu',label:'Trabalho em equipe entre unidades',cor:'#0EA5E9',itens:[
-    {t:'Falta coordenacao entre os diferentes setores do hospital.',inv:true},
-    {t:'Os setores que dependem uns dos outros cooperam bem entre si.',inv:false},
-    {t:'Trabalhar com profissionais de outros setores costuma ser uma experiencia desagradavel.',inv:true},
-    {t:'Os setores se articulam bem entre si para garantir o melhor cuidado ao paciente.',inv:false},
+    {t:'As unidades do hospital nao se coordenam bem entre si.',inv:true},
+    {t:'Ha uma boa cooperacao entre as unidades do hospital que precisam trabalhar juntas.',inv:false},
+    {t:'E frustrante trabalhar com profissionais de outras unidades do hospital.',inv:true},
+    {t:'As unidades do hospital trabalham juntas para prestar o melhor cuidado possivel ao paciente.',inv:false},
   ]},
   {id:'trans',label:'Mudancas de turno e transicoes',cor:'#A855F7',itens:[
-    {t:'Transferir um paciente para outro setor costuma prejudicar a continuidade do cuidado.',inv:true},
-    {t:'Informacoes importantes sobre o paciente costumam se perder na troca de plantao ou turno.',inv:true},
-    {t:'A troca de informacoes entre setores do hospital costuma gerar problemas com frequencia.',inv:true},
-    {t:'As trocas de plantao ou turno neste hospital representam um risco para os pacientes.',inv:true},
+    {t:'Informacoes importantes sobre o cuidado do paciente sao frequentemente perdidas durante as trocas de turno.',inv:true},
+    {t:'Problemas costumam ocorrer na troca de informacoes entre as unidades do hospital.',inv:true},
+    {t:'As trocas de turno sao problematicas para o paciente neste hospital.',inv:true},
+    {t:'Questoes importantes sobre o cuidado do paciente sao frequentemente perdidas durante as transferencias entre unidades.',inv:true},
   ]},
 ];
 const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];
@@ -3872,9 +3638,9 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
 
   if(etapa==='intro') return(
     <div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
-      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Cultura de Seguranca</div>
+      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Clima de Seguranca</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7,marginBottom:20}}>
-        Instrumento baseado no HSOPSC (Hospital Survey on Patient Safety Culture, AHRQ), adaptado para o {h.short_name}.<br/><br/>
+        Instrumento validado internacionalmente - SAQ (Sexton et al., 2006), adaptado para o {h.short_name}.<br/><br/>
         {String.fromCodePoint(128274)} <strong style={{color:C.text}}>100% anonimo</strong> - nao pedimos seu nome, apenas setor e (opcional) categoria profissional. Os resultados so sao analisados de forma agregada por setor, nunca individualmente.<br/><br/>
         Leva cerca de 5 minutos. Responda com base na sua experiencia nos ultimos 30 dias no seu setor.
       </div>
@@ -3908,7 +3674,7 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
       <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden',marginBottom:6}}>
         <div style={{width:(respondidos/totalItens*100)+'%',height:'100%',background:'linear-gradient(90deg,'+C.teal+','+C.blue+')',borderRadius:2,transition:'width .3s'}}/>
       </div>
-      <div style={{fontSize:9,color:C.muted}}>DT Discordo totalmente · DP Discordo parcialmente · N Neutro · CP Concordo parcialmente · CT Concordo totalmente</div>
+      <div style={{fontSize:9,color:C.muted}}>1=DT Discordo totalmente · 2=D Discordo · 3=N Neutro · 4=C Concordo · 5=CT Concordo totalmente</div>
     </div>
 
     <div style={{padding:16,maxWidth:480,margin:'0 auto'}}>
@@ -4001,7 +3767,7 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14,paddingBottom:80}}>
     <div>
       <div style={{fontSize:17,fontWeight:900,color:C.text}}>Cultura de Seguranca</div>
-      <div style={{fontSize:11,color:C.muted}}>Cultura de Seguranca do Paciente · baseado no HSOPSC (AHRQ) · respostas anonimas</div>
+      <div style={{fontSize:11,color:C.muted}}>SAQ - Safety Attitudes Questionnaire (Sexton et al., 2006) · respostas anonimas</div>
     </div>
 
     <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -4082,7 +3848,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
 
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
-    sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`)
+    sbSelect(sbUrl,sbKey,'notifications','select=*&is_test=neq.true&order=created_at.desc&limit=2000')
       .then(data=>{setStats(computeStats(data));setRawData(data||[]);})
       .catch(()=>showToast('Erro ao carregar analytics','error'));
   },[sbUrl,sbKey]);
@@ -4673,7 +4439,7 @@ function ticketEmoji(icon){
   };
   return m[icon]||icon;
 }
-function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
+function ListaMensal({sbUrl,sbKey,onSelect,refreshKey}) {
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
   const [ano,setAno]=React.useState(hoje.getFullYear());
@@ -4691,7 +4457,7 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
       const ultimoDia=new Date(ano,mes,0).getDate();
       const fim=`${ano}-${mesStr}-${ultimoDia}`;
       const data=await sbSelect(sbUrl,sbKey,'notifications',
-        `hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
+        `event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&order=event_date.asc&limit=200`);
       setNots(data||[]);
     }catch(e){setNots([]);}
     setLoading(false);
@@ -4918,7 +4684,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   </div>);
 }
 
-function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
+function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
   const [notifications,setNotifications]=useState([]);
@@ -4932,7 +4698,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   const loadNots=async()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
-    try{const d=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&order=created_at.desc&limit=1000&select=*`);setNotifications(d);}
+    try{const d=await sbSelect(sbUrl,sbKey,'notifications','select=*&order=created_at.desc&limit=1000');setNotifications(d);}
     catch{showToast('Erro ao carregar','error');}
     setLoading(false);
   };
@@ -4943,16 +4709,6 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
     setDeleting(id);
     try{await sbDelete(sbUrl,sbKey,'notifications',`id=eq.${id}`);setNotifications(notifications.filter(n=>n.id!==id));showToast('OK Excluída','success');}
     catch{showToast('Erro','error');}
-    setDeleting(null);
-  };
-  const promover=async(id)=>{
-    if(!confirm('Promover esta notificação de TESTE para PRODUÇÃO? Ela passará a contar nos indicadores e relatórios.')) return;
-    setDeleting(id);
-    try{
-      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${id}`,{is_test:false});
-      setNotifications(notifications.map(n=>n.id===id?{...n,is_test:false}:n));
-      showToast('OK Promovida para produção','success');
-    }catch{showToast('Erro ao promover','error');}
     setDeleting(null);
   };
   const clearTests=async()=>{
@@ -5035,10 +4791,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
             <div style={{fontSize:12,fontWeight:600,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{title}</div>
             <div style={{fontSize:10,color:C.muted}}>{n.sector} · {formatTime(n.event_date?n.event_date+'T12:00:00':n.created_at)}</div>
           </div>
-          {n.is_test&&<button onClick={()=>promover(n.id)} disabled={deleting===n.id} title="Promover para produção" style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:C.green,fontSize:9,fontWeight:700,flexShrink:0}}>
-            {deleting===n.id?'...':'Promover'}
-          </button>}
-          <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex',flexShrink:0}}>
+          <button onClick={()=>del(n.id)} disabled={deleting===n.id} style={{background:'none',border:'none',cursor:'pointer',padding:6,display:'flex'}}>
             <IconTrash size={14} color={deleting===n.id?C.muted:C.red}/>
           </button>
         </div>
@@ -5085,7 +4838,6 @@ function NotificaAI() {
   const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);try{localStorage.setItem('nai_theme',n);}catch{}};
 
   const [profileMode,setProfileMode]=useState(null);
-  const [userSubnucleo,setUserSubnucleo]=useState(null);
   const [showMenu,setShowMenu]=useState(false);
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
@@ -5138,9 +4890,9 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'semestres_dsm',label:'Semestres',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Cultura',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'semestres_dsm',label:'Semestres',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
@@ -5154,7 +4906,7 @@ function NotificaAI() {
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey}
-        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setUserSubnucleo(null);setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
+        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -5163,19 +4915,19 @@ function NotificaAI() {
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
-        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
+        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        
-        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
-        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-{view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='semestres_dsm'&&<SemestresDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
-        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
+        {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
+        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
+        {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        
+        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
         {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
       </div>
@@ -5206,7 +4958,7 @@ function NotificaAI() {
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
@@ -5241,12 +4993,11 @@ function NotificaAI() {
     </>
   );
 }
-
 // ================================================================
-// MÓDULO DSM — NotificaAI
+// MODULO DSM - NotificaAI
 // ================================================================
 
-// ── Supabase Storage upload ──────────────────────────────────
+// Supabase Storage upload
 function buildStoragePath(tipo, meta, originalName) {
   const ext = (originalName.includes('.')?originalName.split('.').pop():'pdf').toLowerCase();
   const safe = s => (s||'').replace(/[^a-zA-Z0-9\-_.]/g,'_').replace(/__+/g,'_').trim();
@@ -5270,7 +5021,7 @@ async function uploadToStorage(file, tipo, meta, sbUrl, sbKey) {
   return `${sbUrl}/storage/v1/object/public/nsp-documentos/${path}`;
 }
 
-function StorageUploadBtn({tipo, meta, sbUrl, sbKey, onUploaded, label='📎 Anexar'}) {
+function StorageUploadBtn({tipo, meta, sbUrl, sbKey, onUploaded, label='Anexar'}) {
   const [st,setSt]=useState(null);
   const [msg,setMsg]=useState('');
   const ref=React.useRef();
@@ -5280,22 +5031,21 @@ function StorageUploadBtn({tipo, meta, sbUrl, sbKey, onUploaded, label='📎 Ane
     setSt('uploading');setMsg('Enviando...');
     try{
       const link=await uploadToStorage(file,tipo,meta,sbUrl,sbKey);
-      setSt('done');setMsg('✓ Salvo');
+      setSt('done');setMsg('OK Salvo');
       onUploaded(link);
-    }catch(err){setSt('error');setMsg('✗ '+err.message);}
+    }catch(err){setSt('error');setMsg('X '+err.message);}
     e.target.value='';
   };
   return(<div style={{display:'flex',alignItems:'center',gap:6}}>
     <input type='file' ref={ref} onChange={handle} style={{display:'none'}} accept='.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg'/>
     <button onClick={()=>ref.current?.click()} disabled={st==='uploading'}
       style={{padding:'6px 12px',background:C.card,border:'1px solid '+C.border,borderRadius:8,color:st==='done'?C.green:C.muted,fontSize:11,fontWeight:700,cursor:st==='uploading'?'default':'pointer',whiteSpace:'nowrap'}}>
-      {st==='uploading'?'⏳ Enviando...':label}
+      {st==='uploading'?'Enviando...':label}
     </button>
     {msg&&<span style={{fontSize:10,color:st==='done'?C.green:st==='error'?C.red:C.muted}}>{msg}</span>}
   </div>);
 }
 
-// ── sbUpsertDSM ──────────────────────────────────────────────
 async function sbUpsertDSM(sbUrl, sbKey, tabela, data, onConflict) {
   const res = await fetch(`${sbUrl}/rest/v1/${tabela}`, {
     method:'POST',
@@ -5307,35 +5057,35 @@ async function sbUpsertDSM(sbUrl, sbKey, tabela, data, onConflict) {
   return true;
 }
 
-// ── DSM constants ────────────────────────────────────────────
 const DSM_SUB_MAP={
-  'Higienização das Mãos':'C3','Higienizacao das Maos':'C3','higienizacao':'C3','ccih':'C3',
-  'Identificação do Paciente':'C4','Identificação Segura':'C4','identificacao':'C4','Identificacao Correta':'C4',
-  'Comunicação Efetiva':'C5','Comunicacao Efetiva':'C5','comunicacao':'C5',
+  'Higienizacao das Maos':'C3','higienizacao':'C3','ccih':'C3',
+  'Identificacao do Paciente':'C4','Identificacao Correta':'C4','identificacao':'C4',
+  'Comunicacao Efetiva':'C5','comunicacao':'C5',
   'Cirurgia Segura':'C6','cirurgia':'C6',
-  'Prevenção de Lesão por Pressão (LPP)':'C7','lpp':'C7','LPP':'C7',
-  'Prevenção de Quedas':'C8','queda':'C8','Queda':'C8',
-  'Segurança na Prescrição e Uso de Medicamentos':'C9','medicamentos':'C9','Seguranca na Administracao de Medicamentos':'C9',
-  'Prevenção de IPCS Associada ao CVC':'C10','cvc':'C10',
-  'Prevenção de ITU Associada ao CVD':'C11','cvd':'C11',
-  'Prevenção de PAV':'C12','pav':'C12','PAV':'C12',
-  'Prevenção de Infecção do Sítio Cirúrgico (ISC)':'C13','isc':'C13','ISC':'C13',
-  'Precauções e Isolamento':'C14','precaucoes':'C14',
+  'Prevencao de Lesao por Pressao':'C7','lpp':'C7',
+  'Prevencao de Quedas':'C8','queda':'C8',
+  'Seguranca na Prescricao e Uso de Medicamentos':'C9','medicamentos':'C9',
+  'Prevencao de IPCS Associada ao CVC':'C10','cvc':'C10',
+  'Prevencao de ITU Associada ao CVD':'C11','cvd':'C11',
+  'Prevencao de PAV':'C12','pav':'C12',
+  'Prevencao de Infeccao do Sitio Cirurgico':'C13','isc':'C13',
+  'Precaucoes e Isolamento':'C14','precaucoes':'C14',
+  'reuniao_mensal':'reuniao','reuniao_extraordinaria':'reuniao',
 };
 
 const PROTOCOLOS_DSM=[
-  {crit:'C3', nome:'Higienização das Mãos',                          sub:'higienizacao', base:'RDC 36/2013 · Meta 5 OMS'},
-  {crit:'C4', nome:'Identificação do Paciente',                      sub:'identificacao',base:'RDC 36/2013 · Meta 1 OMS'},
-  {crit:'C5', nome:'Comunicação Efetiva',                            sub:'comunicacao',  base:'RDC 36/2013 · Meta 2 OMS'},
-  {crit:'C6', nome:'Cirurgia Segura',                                sub:'cirurgia',     base:'RDC 36/2013 · Meta 4 OMS', naKey:'tem_centro_cirurgico'},
-  {crit:'C7', nome:'Prevenção de Lesão por Pressão (LPP)',           sub:'lpp',          base:'RDC 36/2013 · Meta 6 OMS', naKey:'tem_internacao'},
-  {crit:'C8', nome:'Prevenção de Quedas',                            sub:'queda',        base:'RDC 36/2013 · Meta 6 OMS'},
-  {crit:'C9', nome:'Segurança na Prescrição e Uso de Medicamentos',  sub:'medicamentos', base:'RDC 36/2013 · Meta 3 OMS'},
-  {crit:'C10',nome:'Prevenção de IPCS Associada ao CVC',             sub:'cvc',          base:'RDC 36/2013', naKey:'tem_cvc'},
-  {crit:'C11',nome:'Prevenção de ITU Associada ao CVD',              sub:'cvd',          base:'RDC 36/2013', naKey:'tem_cvd'},
-  {crit:'C12',nome:'Prevenção de PAV',                               sub:'pav',          base:'RDC 36/2013', naKey:'tem_uti'},
-  {crit:'C13',nome:'Prevenção de Infecção do Sítio Cirúrgico (ISC)', sub:'isc',          base:'RDC 36/2013', naKey:'tem_centro_cirurgico'},
-  {crit:'C14',nome:'Precauções e Isolamento',                        sub:'precaucoes',   base:'RDC 36/2013'},
+  {crit:'C3', nome:'Higienizacao das Maos',                         sub:'higienizacao',base:'RDC 36/2013 + Meta 5 OMS'},
+  {crit:'C4', nome:'Identificacao do Paciente',                     sub:'identificacao',base:'RDC 36/2013 + Meta 1 OMS'},
+  {crit:'C5', nome:'Comunicacao Efetiva',                           sub:'comunicacao',  base:'RDC 36/2013 + Meta 2 OMS'},
+  {crit:'C6', nome:'Cirurgia Segura',                               sub:'cirurgia',     base:'RDC 36/2013 + Meta 4 OMS',naKey:'tem_centro_cirurgico'},
+  {crit:'C7', nome:'Prevencao de Lesao por Pressao (LPP)',          sub:'lpp',          base:'RDC 36/2013 + Meta 6 OMS',naKey:'tem_internacao'},
+  {crit:'C8', nome:'Prevencao de Quedas',                           sub:'queda',        base:'RDC 36/2013 + Meta 6 OMS'},
+  {crit:'C9', nome:'Seguranca na Prescricao e Uso de Medicamentos', sub:'medicamentos', base:'RDC 36/2013 + Meta 3 OMS'},
+  {crit:'C10',nome:'Prevencao de IPCS Associada ao CVC',            sub:'cvc',          base:'RDC 36/2013',naKey:'tem_cvc'},
+  {crit:'C11',nome:'Prevencao de ITU Associada ao CVD',             sub:'cvd',          base:'RDC 36/2013',naKey:'tem_cvd'},
+  {crit:'C12',nome:'Prevencao de PAV',                              sub:'pav',          base:'RDC 36/2013',naKey:'tem_uti'},
+  {crit:'C13',nome:'Prevencao de Infeccao do Sitio Cirurgico (ISC)',sub:'isc',          base:'RDC 36/2013',naKey:'tem_centro_cirurgico'},
+  {crit:'C14',nome:'Precaucoes e Isolamento',                       sub:'precaucoes',   base:'RDC 36/2013'},
 ];
 
 const SUB_PROTOCOLOS={comunicacao:['C5'],lpp:['C7'],queda:['C8'],medicamentos:['C9'],identificacao:['C4'],cirurgia:['C6','C13'],ccih:['C3','C10','C11','C12']};
@@ -5343,22 +5093,22 @@ const SUB_PROTOCOLOS={comunicacao:['C5'],lpp:['C7'],queda:['C8'],medicamentos:['
 const DSM_CAMPOS_SUB={
   comunicacao:[],
   identificacao:[
-    {label:'Pacientes com pulseira de identificação',key:'pacientes_identificados'},
+    {label:'Pacientes com pulseira de identificacao',key:'pacientes_identificados'},
     {label:'Total de pacientes atendidos/internados',key:'pacientes_atendidos'},
   ],
   queda:[
-    {label:'Prontuários c/ avaliação de risco de queda',key:'queda_prontuarios_ok'},
-    {label:'Total de prontuários analisados',key:'queda_prontuarios_total'},
+    {label:'Prontuarios com avaliacao de risco de queda',key:'queda_prontuarios_ok'},
+    {label:'Total de prontuarios analisados',key:'queda_prontuarios_total'},
     {label:'Quedas com dano ao paciente',key:'quedas_com_dano'},
-    {label:'Total de quedas no mês',key:'quedas_total'},
+    {label:'Total de quedas no mes',key:'quedas_total'},
   ],
   lpp:[
-    {label:'Avaliações de risco LPP na admissão',key:'lpp_avaliacao_admissao'},
+    {label:'Avaliacoes de risco LPP na admissao',key:'lpp_avaliacao_admissao'},
     {label:'Total de pacientes admitidos',key:'total_admitidos'},
-    {label:'Pacientes c/ risco e medidas preventivas LPP',key:'lpp_medidas_preventivas'},
-    {label:'Pacientes classificados c/ risco LPP',key:'lpp_pacientes_risco'},
-    {label:'Avaliação diária de risco LPP',key:'lpp_avaliacao_diaria'},
-    {label:'Pacientes internados c/ risco LPP',key:'lpp_internados_risco'},
+    {label:'Pacientes com risco e medidas preventivas LPP',key:'lpp_medidas_preventivas'},
+    {label:'Pacientes classificados com risco LPP',key:'lpp_pacientes_risco'},
+    {label:'Avaliacao diaria de risco LPP',key:'lpp_avaliacao_diaria'},
+    {label:'Pacientes internados com risco LPP',key:'lpp_internados_risco'},
     {label:'Casos novos de LPP',key:'lpp_casos_novos'},
     {label:'Pacientes-dia expostos ao risco LPP',key:'lpp_paciente_dia_risco'},
   ],
@@ -5367,26 +5117,26 @@ const DSM_CAMPOS_SUB={
     {label:'Total de medicamentos prescritos',key:'total_prescricoes'},
     {label:'Medicamentos dispensados com erro',key:'erros_dispensacao'},
     {label:'Total de medicamentos dispensados',key:'total_dispensacoes'},
-    {label:'Erros na administração de medicamentos',key:'erros_administracao'},
+    {label:'Erros na administracao de medicamentos',key:'erros_administracao'},
     {label:'Total de doses administradas',key:'total_doses'},
   ],
   cirurgia:[
     {label:'LVCS preenchidas adequadamente',key:'lvcs_preenchidas'},
     {label:'Total de cirurgias realizadas',key:'cirurgias_realizadas'},
     {label:'Antibioticoprofilaxia no momento adequado',key:'antibiotico_adequado'},
-    {label:'Total de cirurgias (antibiótico)',key:'cirurgias_periodo'},
-    {label:'Óbitos cirúrgicos em até 7 dias',key:'obitos_cirurgicos_7d'},
+    {label:'Total de cirurgias (antibiotico)',key:'cirurgias_periodo'},
+    {label:'Obitos cirurgicos em ate 7 dias',key:'obitos_cirurgicos_7d'},
     {label:'Total de cirurgias (mortalidade)',key:'total_cirurgias'},
-    {label:'ISC — infecções do sítio cirúrgico',key:'isc_casos'},
-    {label:'Total de procedimentos cirúrgicos',key:'procedimentos_cirurgicos'},
+    {label:'ISC - infeccoes do sitio cirurgico',key:'isc_casos'},
+    {label:'Total de procedimentos cirurgicos',key:'procedimentos_cirurgicos'},
   ],
   ccih:[
-    {label:'Álcool gel 70% consumido (mL)',key:'alcool_gel_ml',grupo:'Consumo'},
-    {label:'Solução de clorexidina consumida (mL)',key:'clorexidina_ml',grupo:'Consumo'},
-    {label:'Sabonete líquido consumido (mL)',key:'sabonete_ml',grupo:'Consumo'},
+    {label:'Alcool gel 70% consumido (mL)',key:'alcool_gel_ml',grupo:'Consumo'},
+    {label:'Clorexidina consumida (mL)',key:'clorexidina_ml',grupo:'Consumo'},
+    {label:'Sabonete liquido consumido (mL)',key:'sabonete_ml',grupo:'Consumo'},
     {label:'Pacientes-dia total',key:'paciente_dia_total',grupo:'Consumo'},
     {label:'Casos novos de PAV',key:'pav_casos_novos',grupo:'PAV'},
-    {label:'Pacientes em ventilação mecânica',key:'pacientes_vm',grupo:'PAV'},
+    {label:'Pacientes em ventilacao mecanica',key:'pacientes_vm',grupo:'PAV'},
     {label:'IRAS associadas a CVC (IPCS)',key:'ipcs_cvc',grupo:'CVC'},
     {label:'Cateter-dia CVC',key:'cateter_dia_cvc',grupo:'CVC'},
     {label:'ITU associadas ao CVD',key:'itu_cvd',grupo:'CVD'},
@@ -5398,7 +5148,6 @@ function dsmPct(n,d){if(!d||d===0)return null;return((n||0)/d*100).toFixed(1);}
 function dsmSum(rows,f){return rows.reduce((a,r)=>a+(Number(r[f])||0),0);}
 function dsmContain(str,terms){const s=(str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');return terms.some(t=>s.includes(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')));}
 
-// ── ProtocolosView (nova versão DSM) ─────────────────────────
 function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState({});
@@ -5420,7 +5169,6 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
-
   useEffect(()=>{carregar();},[sbUrl,sbKey]);
 
   const abrirEdit=(def)=>{
@@ -5431,7 +5179,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
 
   const salvar=async(def)=>{
     const ed=editando[def.crit];
-    if(!ed?.aprovado_em){showToast('Informe a data de aprovação','error');return;}
+    if(!ed?.aprovado_em){showToast('Informe a data de aprovacao','error');return;}
     setEditando(e=>({...e,[def.crit]:{...e[def.crit],saving:true}}));
     try{
       const prox=new Date(ed.aprovado_em);prox.setFullYear(prox.getFullYear()+3);
@@ -5457,16 +5205,16 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     return'ok';
   };
 
-  const ST={ok:{label:'Válido',color:C.green},proximo:{label:'Vence em 60d',color:C.yellow},vencido:{label:'VENCIDO',color:C.red},missing:{label:'Não cadastrado',color:C.muted},na:{label:'N/A',color:C.muted}};
+  const ST={ok:{label:'Valido',color:C.green},proximo:{label:'Vence em 60d',color:C.yellow},vencido:{label:'VENCIDO',color:C.red},missing:{label:'Nao cadastrado',color:C.muted},na:{label:'N/A',color:C.muted}};
   const vencidos=PROTOCOLOS_DSM.filter(d=>getStatus(d)==='vencido');
   const faltando=PROTOCOLOS_DSM.filter(d=>getStatus(d)==='missing');
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'};
 
   return(<div style={{padding:'16px 0 80px',display:'flex',flexDirection:'column',gap:10}}>
-    <BackHeader title='Protocolos Institucionais' subtitle='Controle de validade · RDC 36/2013'/>
+    <BackHeader title='Protocolos Institucionais' subtitle='Controle de validade - RDC 36/2013'/>
     {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>⚠ {vencidos.length} protocolo(s) com revisão vencida</div>
-      {vencidos.map(d=>{const r=registros[d.nome];return(<div key={d.crit} style={{fontSize:12,color:C.muted}}>→ {d.nome} · venceu em {r?.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</div>);})}
+      <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>{vencidos.length} protocolo(s) com revisao vencida</div>
+      {vencidos.map(d=>{const r=registros[d.nome];return(<div key={d.crit} style={{fontSize:12,color:C.muted}}>- {d.nome} - venceu em {r?.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</div>);})}
     </div>}
     {faltando.length>0&&<div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:12,padding:'10px 14px'}}>
       <div style={{fontSize:12,color:C.muted}}>{faltando.length} protocolo(s) sem data cadastrada.</div>
@@ -5487,45 +5235,42 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
           </div>
           <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
             <span style={{background:color+'22',color,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700}}>{label}</span>
-            {!isNA&&!ed&&<button onClick={()=>abrirEdit(def)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 10px',color:C.muted,fontSize:11,cursor:'pointer',fontWeight:700}}>{r?'✏ Editar':'+ Registrar'}</button>}
+            {!isNA&&!ed&&<button onClick={()=>abrirEdit(def)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 10px',color:C.muted,fontSize:11,cursor:'pointer',fontWeight:700}}>{r?'Editar':'+ Registrar'}</button>}
           </div>
         </div>
         {!ed&&r&&!isNA&&<div style={{display:'flex',gap:14,fontSize:11,color:C.muted,flexWrap:'wrap'}}>
           <span>Aprovado: {r.aprovado_em?new Date(r.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
-          <span style={{color}}>Revisão: {r.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
+          <span style={{color}}>Revisao: {r.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
           {r.responsavel&&<span>Resp.: {r.responsavel}</span>}
-          {r.link&&<a href={r.link} target='_blank' rel='noreferrer' style={{color:C.teal}}>📄 Documento</a>}
+          {r.link&&<a href={r.link} target='_blank' rel='noreferrer' style={{color:C.teal}}>Documento</a>}
         </div>}
         {!ed&&!r&&!isNA&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para informar a data e link do documento.</div>}
         {ed&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovação *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Nº / código</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='Ex: POP-NSP-003' style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
-          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsável</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
               <input type='text' value={ed.link} onChange={e=>setEdit(def.crit,'link',e.target.value)} placeholder='https://' style={{...inp,flex:1}}/>
-              <StorageUploadBtn tipo='protocolo' sbUrl={sbUrl} sbKey={sbKey}
-                meta={{crit:def.crit,nomeProt:def.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}}
-                onUploaded={link=>setEdit(def.crit,'link',link)} label='📎'/>
+              <StorageUploadBtn tipo='protocolo' sbUrl={sbUrl} sbKey={sbKey} meta={{crit:def.crit,nomeProt:def.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}} onUploaded={link=>setEdit(def.crit,'link',link)} label='Anexar'/>
             </div>
           </div>
-          <div style={{fontSize:10,color:C.muted}}>Próxima revisão: aprovação + 3 anos (calculado automaticamente)</div>
+          <div style={{fontSize:10,color:C.muted}}>Proxima revisao: aprovacao + 3 anos (calculado automaticamente)</div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setEditando(e=>{const n={...e};delete n[def.crit];return n;})} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-            <button onClick={()=>salvar(def)} disabled={ed.saving} style={{flex:2,background:ed.saving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:ed.saving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:ed.saving?'default':'pointer'}}>{ed.saving?'Salvando...':'💾 Salvar'}</button>
+            <button onClick={()=>salvar(def)} disabled={ed.saving} style={{flex:2,background:ed.saving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:ed.saving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:ed.saving?'default':'pointer'}}>{ed.saving?'Salvando...':'Salvar'}</button>
           </div>
         </div>}
       </div>);
     })}
     <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',fontSize:11,color:C.muted,lineHeight:1.7}}>
-      Protocolos marcados como "N/A" são definidos em <strong>DSM / ANVISA → Configurar</strong>.
+      Protocolos marcados como N/A sao definidos em DSM / ANVISA - Configurar.
     </div>
   </div>);
 }
 
-// ── ProtocoloSubnucleoWidget ─────────────────────────────────
 function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState({});
@@ -5537,10 +5282,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
 
   const carregar=async()=>{
     if(!sbUrl||!sbKey||!meusProt.length)return;
-    try{
-      const data=await sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`);
-      const map={};(data||[]).forEach(p=>{map[p.nome]=p;});setRegistros(map);
-    }catch(e){console.error(e);}
+    try{const data=await sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`);const map={};(data||[]).forEach(p=>{map[p.nome]=p;});setRegistros(map);}catch(e){console.error(e);}
   };
   useEffect(()=>{carregar();},[sbUrl,sbKey,userSubnucleo]);
 
@@ -5549,7 +5291,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
 
   const salvar=async(def)=>{
     const ed=editando[def.crit];
-    if(!ed?.aprovado_em){showToast('Informe a data de aprovação','error');return;}
+    if(!ed?.aprovado_em){showToast('Informe a data de aprovacao','error');return;}
     setEditando(e=>({...e,[def.crit]:{...e[def.crit],saving:true}}));
     try{
       const prox=new Date(ed.aprovado_em);prox.setFullYear(prox.getFullYear()+3);
@@ -5565,11 +5307,11 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
   };
 
   const getStatus=(def)=>{
-    const r=registros[def.nome];if(!r||!r.aprovado_em)return{s:'missing',label:'Não cadastrado',color:C.muted};
+    const r=registros[def.nome];if(!r||!r.aprovado_em)return{s:'missing',label:'Nao cadastrado',color:C.muted};
     const prox=r.proxima_revisao||new Date(new Date(r.aprovado_em).setFullYear(new Date(r.aprovado_em).getFullYear()+3)).toISOString().slice(0,10);
     if(prox<hoje)return{s:'vencido',label:'VENCIDO',color:C.red};
     if(prox<=new Date(Date.now()+60*86400000).toISOString().slice(0,10))return{s:'proximo',label:'Vence em 60d',color:C.yellow};
-    return{s:'ok',label:'Válido',color:C.green};
+    return{s:'ok',label:'Valido',color:C.green};
   };
 
   if(!meusProt.length)return null;
@@ -5593,34 +5335,31 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
           </div>
           <div style={{display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
             <span style={{background:st.color+'22',color:st.color,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700}}>{st.label}</span>
-            {!ed&&<button onClick={()=>abrirEdit(def)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 10px',color:C.muted,fontSize:11,cursor:'pointer',fontWeight:700}}>{r?'✏ Atualizar':'+ Registrar'}</button>}
+            {!ed&&<button onClick={()=>abrirEdit(def)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 10px',color:C.muted,fontSize:11,cursor:'pointer',fontWeight:700}}>{r?'Atualizar':'+ Registrar'}</button>}
           </div>
         </div>
         {!ed&&r&&<div style={{display:'flex',gap:14,fontSize:11,color:C.muted,flexWrap:'wrap'}}>
           <span>Aprovado: {r.aprovado_em?new Date(r.aprovado_em+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
-          <span style={{color:st.color}}>Revisão: {r.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
+          <span style={{color:st.color}}>Revisao: {r.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</span>
           {r.responsavel&&<span>Resp.: {r.responsavel}</span>}
-          {r.link&&<a href={r.link} target='_blank' rel='noreferrer' style={{color:C.teal}}>📄 Documento</a>}
+          {r.link&&<a href={r.link} target='_blank' rel='noreferrer' style={{color:C.teal}}>Documento</a>}
         </div>}
-        {!ed&&!r&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para informar a data e o link do documento.</div>}
+        {!ed&&!r&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar".</div>}
         {ed&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovação *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Nº / código</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
-          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsável</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
               <input type='text' value={ed.link} onChange={e=>setEdit(def.crit,'link',e.target.value)} placeholder='https://' style={{...inp,flex:1}}/>
-              <StorageUploadBtn tipo='protocolo' sbUrl={sbUrl} sbKey={sbKey}
-                meta={{crit:def.crit,nomeProt:def.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}}
-                onUploaded={link=>setEdit(def.crit,'link',link)} label='📎'/>
+              <StorageUploadBtn tipo='protocolo' sbUrl={sbUrl} sbKey={sbKey} meta={{crit:def.crit,nomeProt:def.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}} onUploaded={link=>setEdit(def.crit,'link',link)} label='Anexar'/>
             </div>
           </div>
-          <div style={{fontSize:10,color:C.muted}}>Próxima revisão calculada automaticamente (+ 3 anos)</div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setEditando(e=>{const n={...e};delete n[def.crit];return n;})} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-            <button onClick={()=>salvar(def)} disabled={ed.saving} style={{flex:2,background:ed.saving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:ed.saving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:ed.saving?'default':'pointer'}}>{ed.saving?'Salvando...':'💾 Salvar'}</button>
+            <button onClick={()=>salvar(def)} disabled={ed.saving} style={{flex:2,background:ed.saving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:ed.saving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:ed.saving?'default':'pointer'}}>{ed.saving?'Salvando...':'Salvar'}</button>
           </div>
         </div>}
       </div>);
@@ -5628,7 +5367,6 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
   </div>);
 }
 
-// ── IndicadoresSubnucleoWidget ───────────────────────────────
 function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const hoje=new Date();
@@ -5651,7 +5389,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const salvar=async()=>{
-    if(!sbUrl||!sbKey){showToast('Sem conexão','error');return;}
+    if(!sbUrl||!sbKey){showToast('Sem conexao','error');return;}
     setSalvando(true);
     const payload={hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString(),paciente_dia_total:Number(form.paciente_dia_total)||null};
     campos.forEach(f=>{payload[f.key]=form[f.key]!==''?Number(form[f.key]):null;});
@@ -5661,23 +5399,23 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   };
 
   if(campos.length===0)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:14}}>
-    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores — {sub?.label||userSubnucleo}</div>
-    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não possui indicadores quantitativos mensais. Registre treinamentos na aba acima.</div>
+    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores - {sub?.label||userSubnucleo}</div>
+    <div style={{fontSize:12,color:C.muted}}>Seu subnucleo nao possui indicadores quantitativos mensais. Registre treinamentos acima.</div>
   </div>);
 
   return(<div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>
     <div style={{marginBottom:12}}>
-      <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores — {sub?.label||userSubnucleo}</div>
-      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mês. O gestor vê no Relatório DSM.</div>
+      <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
+      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mes. O gestor ve no Relatorio DSM.</div>
     </div>
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',padding:'8px 12px',cursor:'pointer'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
-        {salvando?'Salvando...':'💾 Salvar'}
+        {salvando?'Salvando...':'Salvar'}
       </button>
     </div>
     <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mês</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes</label>
       <input type='number' min={0} value={form.paciente_dia_total} onChange={e=>set('paciente_dia_total',e.target.value)} style={inp}/>
     </div>
     {userSubnucleo==='ccih'?(
@@ -5697,7 +5435,6 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   </div>);
 }
 
-// ── IndicadoresDSMMensaisView (Gestor) ───────────────────────
 function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const hoje=new Date();
@@ -5729,25 +5466,25 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const grupos=[
-    {titulo:'Denominador Geral',campos:[{label:'Pacientes-dia total no mês',key:'paciente_dia_total',hint:'Soma dos dias de internação de todos os pacientes'}]},
-    {titulo:'C.3 — Higienização das Mãos',campos:[{label:'Álcool gel consumido (mL)',key:'alcool_gel_ml'},{label:'Clorexidina consumida (mL)',key:'clorexidina_ml'},{label:'Sabonete líquido consumido (mL)',key:'sabonete_ml'},{label:'Ações de HM realizadas',key:'hm_acoes_realizadas'},{label:'Oportunidades de HM observadas',key:'hm_oportunidades'}]},
-    {titulo:'C.4 — Identificação',campos:[{label:'Pacientes com pulseira',key:'pacientes_identificados'},{label:'Total de pacientes atendidos',key:'pacientes_atendidos'}]},
-    {titulo:'C.6 — Cirurgia Segura',campos:[{label:'LVCS preenchidas',key:'lvcs_preenchidas'},{label:'Total de cirurgias',key:'cirurgias_realizadas'},{label:'Antibioticoprofilaxia adequada',key:'antibiotico_adequado'},{label:'Total cirurgias (antibiótico)',key:'cirurgias_periodo'},{label:'Óbitos cirúrgicos ≤7d',key:'obitos_cirurgicos_7d'},{label:'Total cirurgias (mortalidade)',key:'total_cirurgias'}]},
-    {titulo:'C.7 — LPP',campos:[{label:'Avaliação risco LPP admissão',key:'lpp_avaliacao_admissao'},{label:'Total admitidos',key:'total_admitidos'},{label:'Medidas preventivas LPP',key:'lpp_medidas_preventivas'},{label:'Pacientes c/ risco LPP',key:'lpp_pacientes_risco'},{label:'Avaliação diária LPP',key:'lpp_avaliacao_diaria'},{label:'Internados c/ risco LPP',key:'lpp_internados_risco'},{label:'Casos novos de LPP',key:'lpp_casos_novos'},{label:'Pac-dia risco LPP',key:'lpp_paciente_dia_risco'}]},
-    {titulo:'C.8 — Quedas',campos:[{label:'Prontuários c/ avaliação de risco ok',key:'queda_prontuarios_ok'},{label:'Total prontuários analisados',key:'queda_prontuarios_total'},{label:'Quedas com dano',key:'quedas_com_dano'},{label:'Total de quedas',key:'quedas_total'}]},
-    {titulo:'C.9 — Medicamentos',campos:[{label:'Erros na prescrição',key:'erros_prescricao'},{label:'Total prescrições',key:'total_prescricoes'},{label:'Erros na dispensação',key:'erros_dispensacao'},{label:'Total dispensações',key:'total_dispensacoes'},{label:'Erros na administração',key:'erros_administracao'},{label:'Total doses administradas',key:'total_doses'}]},
-    {titulo:'C.10 — IPCS/CVC',campos:[{label:'IRAS associadas a CVC',key:'ipcs_cvc'},{label:'Cateter-dia CVC',key:'cateter_dia_cvc'}]},
-    {titulo:'C.11 — ITU/CVD',campos:[{label:'ITU associadas ao CVD',key:'itu_cvd'},{label:'Pacientes-dia com CVD',key:'paciente_dia_cvd'}]},
-    {titulo:'C.12 — PAV',campos:[{label:'Casos novos de PAV',key:'pav_casos_novos'},{label:'Pacientes em VM',key:'pacientes_vm'}]},
-    {titulo:'C.13 — ISC',campos:[{label:'Infecções sítio cirúrgico',key:'isc_casos'},{label:'Procedimentos cirúrgicos',key:'procedimentos_cirurgicos'}]},
+    {titulo:'Denominador Geral',campos:[{label:'Pacientes-dia total no mes',key:'paciente_dia_total',hint:'Soma dos dias de internacao de todos os pacientes'}]},
+    {titulo:'C.3 Higienizacao das Maos',campos:[{label:'Alcool gel consumido (mL)',key:'alcool_gel_ml'},{label:'Clorexidina consumida (mL)',key:'clorexidina_ml'},{label:'Sabonete liquido consumido (mL)',key:'sabonete_ml'},{label:'Acoes de HM realizadas',key:'hm_acoes_realizadas'},{label:'Oportunidades de HM observadas',key:'hm_oportunidades'}]},
+    {titulo:'C.4 Identificacao',campos:[{label:'Pacientes com pulseira',key:'pacientes_identificados'},{label:'Total de pacientes atendidos',key:'pacientes_atendidos'}]},
+    {titulo:'C.6 Cirurgia Segura',campos:[{label:'LVCS preenchidas',key:'lvcs_preenchidas'},{label:'Total de cirurgias',key:'cirurgias_realizadas'},{label:'Antibioticoprofilaxia adequada',key:'antibiotico_adequado'},{label:'Total cirurgias (antibiotico)',key:'cirurgias_periodo'},{label:'Obitos cirurgicos ate 7d',key:'obitos_cirurgicos_7d'},{label:'Total cirurgias (mortalidade)',key:'total_cirurgias'}]},
+    {titulo:'C.7 LPP',campos:[{label:'Avaliacao risco LPP admissao',key:'lpp_avaliacao_admissao'},{label:'Total admitidos',key:'total_admitidos'},{label:'Medidas preventivas LPP',key:'lpp_medidas_preventivas'},{label:'Pacientes com risco LPP',key:'lpp_pacientes_risco'},{label:'Avaliacao diaria LPP',key:'lpp_avaliacao_diaria'},{label:'Internados com risco LPP',key:'lpp_internados_risco'},{label:'Casos novos de LPP',key:'lpp_casos_novos'},{label:'Pac-dia risco LPP',key:'lpp_paciente_dia_risco'}]},
+    {titulo:'C.8 Quedas',campos:[{label:'Prontuarios com avaliacao de risco ok',key:'queda_prontuarios_ok'},{label:'Total prontuarios analisados',key:'queda_prontuarios_total'},{label:'Quedas com dano',key:'quedas_com_dano'},{label:'Total de quedas',key:'quedas_total'}]},
+    {titulo:'C.9 Medicamentos',campos:[{label:'Erros na prescricao',key:'erros_prescricao'},{label:'Total prescricoes',key:'total_prescricoes'},{label:'Erros na dispensacao',key:'erros_dispensacao'},{label:'Total dispensacoes',key:'total_dispensacoes'},{label:'Erros na administracao',key:'erros_administracao'},{label:'Total doses administradas',key:'total_doses'}]},
+    {titulo:'C.10 IPCS/CVC',campos:[{label:'IRAS associadas a CVC',key:'ipcs_cvc'},{label:'Cateter-dia CVC',key:'cateter_dia_cvc'}]},
+    {titulo:'C.11 ITU/CVD',campos:[{label:'ITU associadas ao CVD',key:'itu_cvd'},{label:'Pacientes-dia com CVD',key:'paciente_dia_cvd'}]},
+    {titulo:'C.12 PAV',campos:[{label:'Casos novos de PAV',key:'pav_casos_novos'},{label:'Pacientes em VM',key:'pacientes_vm'}]},
+    {titulo:'C.13 ISC',campos:[{label:'Infeccoes sitio cirurgico',key:'isc_casos'},{label:'Procedimentos cirurgicos',key:'procedimentos_cirurgicos'}]},
   ];
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    <BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos para o relatório C.1–C.15'/>
+    <BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos para o relatorio C.1-C.15'/>
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
-        {salvando?'Salvando...':'💾 Salvar'}
+        {salvando?'Salvando...':'Salvar'}
       </button>
     </div>
     {grupos.map(g=>(<div key={g.titulo} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:10}}>
@@ -5761,22 +5498,21 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
       </div>
     </div>))}
     {hist.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,marginTop:4}}>
-      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>Histórico recente</div>
+      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>Historico recente</div>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-        <thead><tr style={{background:C.surface}}>{['Mês','Pac.-dia','Álcool gel (mL)','LPP novos','Quedas'].map(h=>(<th key={h} style={{padding:'7px 10px',textAlign:'left',fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>))}</tr></thead>
+        <thead><tr style={{background:C.surface}}>{['Mes','Pac.-dia','Alcool gel (mL)','LPP novos','Quedas'].map(h=>(<th key={h} style={{padding:'7px 10px',textAlign:'left',fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>))}</tr></thead>
         <tbody>{hist.map((r,i)=>(<tr key={r.mes} style={{background:i%2===0?'transparent':C.surface}}>
           <td style={{padding:'6px 10px'}}>{new Date(r.mes+'T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</td>
-          <td style={{padding:'6px 10px'}}>{r.paciente_dia_total||'—'}</td>
-          <td style={{padding:'6px 10px'}}>{r.alcool_gel_ml||'—'}</td>
-          <td style={{padding:'6px 10px'}}>{r.lpp_casos_novos||'—'}</td>
-          <td style={{padding:'6px 10px'}}>{r.quedas_total||'—'}</td>
+          <td style={{padding:'6px 10px'}}>{r.paciente_dia_total||'-'}</td>
+          <td style={{padding:'6px 10px'}}>{r.alcool_gel_ml||'-'}</td>
+          <td style={{padding:'6px 10px'}}>{r.lpp_casos_novos||'-'}</td>
+          <td style={{padding:'6px 10px'}}>{r.quedas_total||'-'}</td>
         </tr>))}</tbody>
       </table>
     </div>}
   </div>);
 }
 
-// ── SemestresDSMView ─────────────────────────────────────────
 function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const anoAtual=new Date().getFullYear();
@@ -5801,7 +5537,7 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const finalizar=async(ano,semestre)=>{
-    setFinalizando(`${ano}-${semestre}`);showToast('Gerando relatório...','success');
+    setFinalizando(`${ano}-${semestre}`);showToast('Gerando relatorio...','success');
     try{
       const inicio=`${ano}-${semestre===1?'01':'07'}-01`;
       const fim=`${ano}-${semestre===1?'06':'12'}-31`;
@@ -5810,11 +5546,11 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=id`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=id`).catch(()=>[]),
       ]);
-      if(!window.XLSX){showToast('SheetJS não carregado','error');setFinalizando(null);return;}
+      if(!window.XLSX){showToast('SheetJS nao carregado','error');setFinalizando(null);return;}
       const XLSX=window.XLSX;
       const wb=XLSX.utils.book_new();
-      const rows=[['MARINHA DO BRASIL'],['DIRETORIA DE SAÚDE DA MARINHA'],[h.nome||h.name||'Hospital Naval'],['INDICADORES DE MONITORAMENTO — NSP'],[`${semestre}º Semestre / ${ano}`],['Gerado em: '+new Date().toLocaleDateString('pt-BR')],[],['Dado','Valor'],['Total de EA notificados',(notifs||[]).length],['Total de treinamentos',(trein||[]).length],['Meses com dados preenchidos',(ind||[]).length]];
-      const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:40},{wch:20}];ws['!merges']=[0,1,2,3,4,5].map(r=>({s:{r,c:0},e:{r,c:1}}));
+      const rows=[['MARINHA DO BRASIL'],['DIRETORIA DE SAUDE DA MARINHA'],[h.nome||h.name||'Hospital Naval'],['INDICADORES DE MONITORAMENTO - NSP'],[`${semestre}o Semestre / ${ano}`],['Gerado em: '+new Date().toLocaleDateString('pt-BR')],[],['Dado','Valor'],['Total de EA notificados',(notifs||[]).length],['Total de treinamentos',(trein||[]).length],['Meses com dados preenchidos',(ind||[]).length]];
+      const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:40},{wch:20}];
       XLSX.utils.book_append_sheet(wb,ws,'Resumo');
       const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
       const blob=new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
@@ -5831,13 +5567,13 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
 
   const marcarEnviado=async(sem)=>{
     await sbPatch(sbUrl,sbKey,'semestres_dsm',`id=eq.${sem.id}`,{status:'enviado_dsm',enviado_dsm_em:new Date().toISOString()});
-    await carregar();showToast('Marcado como enviado à DSM!','success');
+    await carregar();showToast('Marcado como enviado a DSM!','success');
   };
 
   const ST={aberto:{label:'Em andamento',color:C.teal},finalizado:{label:'Finalizado',color:C.blue},enviado_dsm:{label:'Enviado DSM',color:C.green}};
 
   return(<div style={{padding:'16px 0 80px'}}>
-    <BackHeader title='Semestres DSM' subtitle='Gestão e envio do relatório à DSM'/>
+    <BackHeader title='Semestres DSM' subtitle='Gestao e envio do relatorio a DSM'/>
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       {grid.map(({ano,semestre})=>{
         const reg=getSem(ano,semestre);const key=`${ano}-${semestre}`;
@@ -5847,32 +5583,28 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
             <div>
               <div style={{fontSize:16,fontWeight:800,color:C.text}}>
-                {semestre}º Semestre / {ano}
+                {semestre}o Semestre / {ano}
                 {isAtual&&<span style={{marginLeft:8,fontSize:10,background:C.teal+'22',color:C.teal,borderRadius:6,padding:'2px 7px',fontWeight:700}}>ATUAL</span>}
               </div>
-              <div style={{fontSize:12,color:C.muted,marginTop:2}}>{semestre===1?'Janeiro – Junho':'Julho – Dezembro'}</div>
+              <div style={{fontSize:12,color:C.muted,marginTop:2}}>{semestre===1?'Janeiro - Junho':'Julho - Dezembro'}</div>
             </div>
             <span style={{background:st.color+'22',color:st.color,borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700}}>{st.label}</span>
           </div>
           {reg&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
-            {[{label:'Meses c/ dados',n:`${reg.meses_preenchidos||0}/6`,cor:C.teal},{label:'Notificações',n:reg.total_notificacoes||0,cor:C.red},{label:'Treinamentos',n:reg.total_treinamentos||0,cor:C.blue}].map(({label,n,cor})=>(<div key={label} style={{background:C.surface,borderRadius:8,padding:'8px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:cor}}>{n}</div><div style={{fontSize:10,color:C.muted}}>{label}</div></div>))}
+            {[{label:'Meses c/ dados',n:`${reg.meses_preenchidos||0}/6`,cor:C.teal},{label:'Notificacoes',n:reg.total_notificacoes||0,cor:C.red},{label:'Treinamentos',n:reg.total_treinamentos||0,cor:C.blue}].map(({label,n,cor})=>(<div key={label} style={{background:C.surface,borderRadius:8,padding:'8px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:cor}}>{n}</div><div style={{fontSize:10,color:C.muted}}>{label}</div></div>))}
           </div>}
-          {reg?.drive_relatorio_link&&<div style={{marginBottom:10}}><a href={reg.drive_relatorio_link} target='_blank' rel='noreferrer' style={{display:'inline-flex',alignItems:'center',gap:6,background:C.blue+'18',color:C.blue,borderRadius:8,padding:'6px 12px',fontSize:12,fontWeight:700,textDecoration:'none'}}>📄 Relatório (Storage)</a>{reg.finalizado_em&&<span style={{fontSize:11,color:C.muted,marginLeft:8}}>Gerado em {new Date(reg.finalizado_em).toLocaleDateString('pt-BR')}</span>}</div>}
+          {reg?.drive_relatorio_link&&<div style={{marginBottom:10}}><a href={reg.drive_relatorio_link} target='_blank' rel='noreferrer' style={{display:'inline-flex',alignItems:'center',gap:6,background:C.blue+'18',color:C.blue,borderRadius:8,padding:'6px 12px',fontSize:12,fontWeight:700,textDecoration:'none'}}>Relatorio (Storage)</a>{reg.finalizado_em&&<span style={{fontSize:11,color:C.muted,marginLeft:8}}>Gerado em {new Date(reg.finalizado_em).toLocaleDateString('pt-BR')}</span>}</div>}
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-            {(!reg||reg.status==='aberto')&&<button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{flex:1,background:isFin?C.border:C.teal,border:'none',borderRadius:10,padding:'10px',color:isFin?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:isFin?'default':'pointer',minWidth:160}}>{isFin?'⏳ Gerando...':'📋 Gerar e salvar no Storage'}</button>}
-            {reg?.status==='finalizado'&&<><button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>🔄 Regerar</button><button onClick={()=>marcarEnviado(reg)} style={{flex:1,background:C.green,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>✓ Marcar como Enviado à DSM</button></>}
-            {reg?.status==='enviado_dsm'&&<div style={{fontSize:12,color:C.green}}>✓ Enviado à DSM em {reg.enviado_dsm_em?new Date(reg.enviado_dsm_em).toLocaleDateString('pt-BR'):'-'}</div>}
+            {(!reg||reg.status==='aberto')&&<button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{flex:1,background:isFin?C.border:C.teal,border:'none',borderRadius:10,padding:'10px',color:isFin?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:isFin?'default':'pointer',minWidth:160}}>{isFin?'Gerando...':'Gerar e salvar no Storage'}</button>}
+            {reg?.status==='finalizado'&&<><button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Regerar</button><button onClick={()=>marcarEnviado(reg)} style={{flex:1,background:C.green,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Marcar como Enviado a DSM</button></>}
+            {reg?.status==='enviado_dsm'&&<div style={{fontSize:12,color:C.green}}>Enviado a DSM em {reg.enviado_dsm_em?new Date(reg.enviado_dsm_em).toLocaleDateString('pt-BR'):'-'}</div>}
           </div>
         </div>);
       })}
     </div>
-    <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginTop:12,fontSize:11,color:C.muted,lineHeight:1.7}}>
-      <strong style={{color:C.text}}>Como funciona:</strong> ao clicar em "Gerar e salvar", o Excel DSM é gerado e salvo em <em>nsp-documentos/relatorios/{anoAtual}/{semAtual}S/</em>. Depois marque como enviado após encaminhar à DSM.
-    </div>
   </div>);
 }
 
-// ── DocumentosNSPView ────────────────────────────────────────
 function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const anoAtual=new Date().getFullYear();
@@ -5913,7 +5645,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   const totalDocs=docs.protocolos.length+docs.treinamentos.length+docs.relatorios.length;
 
   const baixarZip=async()=>{
-    if(!window.JSZip){showToast('JSZip não carregado','error');return;}
+    if(!window.JSZip){showToast('JSZip nao carregado','error');return;}
     if(totalDocs===0){showToast('Nenhum documento neste semestre','error');return;}
     setBaixando(true);showToast('Preparando ZIP...','success');
     try{
@@ -5929,15 +5661,15 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const FileCard=({doc,sub})=>(<div style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:C.surface,borderRadius:8,marginBottom:4}}>
-    <span style={{fontSize:18,flexShrink:0}}>{(doc.name||'').endsWith('.pdf')?'📄':(doc.name||'').match(/\.xls/)?'📊':'📎'}</span>
+    <span style={{fontSize:18,flexShrink:0}}>{(doc.name||'').endsWith('.pdf')?'PDF':(doc.name||'').match(/\.xls/)?'XLS':'DOC'}</span>
     <div style={{flex:1,minWidth:0}}>
       <div style={{fontSize:12,fontWeight:600,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{doc.name}</div>
       {sub&&<div style={{fontSize:10,color:C.muted}}>{sub}</div>}
       {doc.metadata?.size&&<div style={{fontSize:10,color:C.muted}}>{(doc.metadata.size/1024).toFixed(0)} KB</div>}
     </div>
     <div style={{display:'flex',gap:6,flexShrink:0}}>
-      <a href={`${BUCKET}/${doc.path}`} target='_blank' rel='noreferrer' style={{padding:'4px 10px',background:C.card,border:'1px solid '+C.border,borderRadius:6,color:C.teal,fontSize:11,fontWeight:700,textDecoration:'none'}}>👁 Ver</a>
-      <a href={`${BUCKET}/${doc.path}?download=${encodeURIComponent(doc.name)}`} download={doc.name} style={{padding:'4px 10px',background:C.teal,border:'none',borderRadius:6,color:'#06101F',fontSize:11,fontWeight:700,textDecoration:'none'}}>⬇ Baixar</a>
+      <a href={`${BUCKET}/${doc.path}`} target='_blank' rel='noreferrer' style={{padding:'4px 10px',background:C.card,border:'1px solid '+C.border,borderRadius:6,color:C.teal,fontSize:11,fontWeight:700,textDecoration:'none'}}>Ver</a>
+      <a href={`${BUCKET}/${doc.path}?download=${encodeURIComponent(doc.name)}`} download={doc.name} style={{padding:'4px 10px',background:C.teal,border:'none',borderRadius:6,color:'#06101F',fontSize:11,fontWeight:700,textDecoration:'none'}}>Baixar</a>
     </div>
   </div>);
 
@@ -5950,30 +5682,27 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 
   return(<div style={{padding:'16px 0 80px'}}>
-    <BackHeader title='Biblioteca de Documentos' subtitle='Protocolos, listas de presença e relatórios NSP'/>
+    <BackHeader title='Biblioteca de Documentos' subtitle='Protocolos, listas de presenca e relatorios NSP'/>
     <div style={{display:'flex',gap:10,marginBottom:16,flexWrap:'wrap',alignItems:'center'}}>
       <select value={ano} onChange={e=>setAno(Number(e.target.value))} style={{padding:'8px 12px',background:C.card,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:13,outline:'none'}}>
         {[anoAtual-1,anoAtual,anoAtual+1].map(a=>(<option key={a} value={a}>{a}</option>))}
       </select>
       <select value={semestre} onChange={e=>setSemestre(Number(e.target.value))} style={{padding:'8px 12px',background:C.card,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:13,outline:'none'}}>
-        <option value={1}>1º Semestre (Jan–Jun)</option>
-        <option value={2}>2º Semestre (Jul–Dez)</option>
+        <option value={1}>1o Semestre (Jan-Jun)</option>
+        <option value={2}>2o Semestre (Jul-Dez)</option>
       </select>
-      <button onClick={carregar} style={{padding:'8px 16px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>🔄 Atualizar</button>
-      {totalDocs>0&&<button onClick={baixarZip} disabled={baixando} style={{padding:'9px 18px',background:baixando?C.border:C.green,border:'none',borderRadius:10,color:baixando?C.muted:'#fff',fontSize:13,fontWeight:800,cursor:baixando?'default':'pointer'}}>{baixando?'⏳ Gerando ZIP...':'⬇ Baixar tudo (ZIP)'}</button>}
+      <button onClick={carregar} style={{padding:'8px 16px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
+      {totalDocs>0&&<button onClick={baixarZip} disabled={baixando} style={{padding:'9px 18px',background:baixando?C.border:C.green,border:'none',borderRadius:10,color:baixando?C.muted:'#fff',fontSize:13,fontWeight:800,cursor:baixando?'default':'pointer'}}>{baixando?'Gerando ZIP...':'Baixar tudo (ZIP)'}</button>}
     </div>
     {loading&&<div style={{textAlign:'center',padding:40,color:C.muted}}>Carregando documentos...</div>}
     {!loading&&<>
       {totalDocs>0&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-        {[{label:'Protocolos',n:docs.protocolos.length,cor:C.teal},{label:'Treinamentos',n:docs.treinamentos.length,cor:C.blue},{label:'Relatórios DSM',n:docs.relatorios.length,cor:C.green}].map(({label,n,cor})=>(<div key={label} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:800,color:cor}}>{n}</div><div style={{fontSize:11,color:C.muted}}>{label}</div></div>))}
+        {[{label:'Protocolos',n:docs.protocolos.length,cor:C.teal},{label:'Treinamentos',n:docs.treinamentos.length,cor:C.blue},{label:'Relatorios DSM',n:docs.relatorios.length,cor:C.green}].map(({label,n,cor})=>(<div key={label} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',textAlign:'center'}}><div style={{fontSize:22,fontWeight:800,color:cor}}>{n}</div><div style={{fontSize:11,color:C.muted}}>{label}</div></div>))}
       </div>}
-      <Secao titulo='📄 Protocolos Institucionais' itens={docs.protocolos} cor={C.teal} emptyMsg='Nenhum protocolo anexado. Os membros NSP podem anexar em "Meu Protocolo".'/>
-      <Secao titulo='📋 Listas de Treinamentos' itens={docs.treinamentos} cor={C.blue} comSub={true} emptyMsg='Nenhuma lista de presença anexada. Os membros podem anexar ao registrar treinamentos.'/>
-      <Secao titulo='📊 Relatórios DSM Gerados' itens={docs.relatorios} cor={C.green} emptyMsg='Nenhum relatório gerado. Acesse "Semestres" e clique em "Gerar e salvar no Storage".'/>
-      {totalDocs===0&&!loading&&<div style={{textAlign:'center',padding:40,background:C.card,borderRadius:14,border:'1px solid '+C.border}}><div style={{fontSize:32,marginBottom:8}}>📂</div><div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>Nenhum documento neste semestre</div><div style={{fontSize:12,color:C.muted}}>Os membros do NSP podem anexar protocolos e listas de treinamento nos seus painéis.</div></div>}
-      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:12,padding:'12px 14px',marginTop:4,fontSize:11,color:C.muted,lineHeight:1.7}}>
-        <strong style={{color:C.text}}>Avaliação ANVISA:</strong> clique em "⬇ Baixar tudo (ZIP)" para gerar um arquivo com todos os documentos do semestre organizado em pastas.
-      </div>
+      <Secao titulo='Protocolos Institucionais' itens={docs.protocolos} cor={C.teal} emptyMsg='Nenhum protocolo anexado. Os membros NSP podem anexar em Meu Protocolo.'/>
+      <Secao titulo='Listas de Treinamentos' itens={docs.treinamentos} cor={C.blue} comSub={true} emptyMsg='Nenhuma lista de presenca anexada.'/>
+      <Secao titulo='Relatorios DSM Gerados' itens={docs.relatorios} cor={C.green} emptyMsg='Nenhum relatorio gerado. Acesse Semestres e clique em Gerar e salvar no Storage.'/>
+      {totalDocs===0&&!loading&&<div style={{textAlign:'center',padding:40,background:C.card,borderRadius:14,border:'1px solid '+C.border}}><div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:4}}>Nenhum documento neste semestre</div><div style={{fontSize:12,color:C.muted}}>Os membros do NSP podem anexar protocolos e listas nos seus paineis.</div></div>}
     </>}
   </div>);
 }

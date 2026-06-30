@@ -2318,11 +2318,14 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     setLoading(true);
     try{
       const {inicio,fim,nums}=getSemestreDatas();
-      const [nots,treinamentos,protocolos]=await Promise.all([
+      const [nots,treinamentos,protocolos,indDSM,cfgArr]=await Promise.all([
         sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${inicio}&data=lte.${fim}&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+        fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=gte.${inicio}&mes=lte.${fim}&select=*`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}}).then(r=>r.json()).catch(()=>[]),
+        fetch(`${sbUrl}/rest/v1/config_dsm?hospital_id=eq.${h.id}&select=*`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}}).then(r=>r.json()).catch(()=>[]),
       ]);
+      const cfg=cfgArr&&cfgArr[0]?cfgArr[0]:{};
 
       const porMes=nums.map(m=>{
         const mes=nots.filter(n=>{const d=new Date(n.event_date+'T12:00:00');return d.getMonth()+1===m;});
@@ -2347,7 +2350,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
       const getProtocolo=(nome)=>protocolos.find(p=>p.nome?.toLowerCase().includes(nome.toLowerCase()))||null;
 
-      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela').length,getProtocolo});
+      setDados({porMes,reunioes,treinsTodos,porSubnucleo,nots,protocolos,indDSM:indDSM||[],cfg,total:nots.length,sp:nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,sentinela:nots.filter(n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela').length,getProtocolo});
     }catch(e){showToast('Erro: '+e.message,'error');}
     setLoading(false);
   };
@@ -2444,8 +2447,34 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             </tbody>
           </table>
 
-          {/* 2. Reunioes NSP */}
-          <h2>2. Reunioes do NSP</h2>
+          {/* 2. Indicadores Quantitativos DSM */}
+          <h2>2. Indicadores Quantitativos (C.3 - C.13)</h2>
+          {(!dados.indDSM||dados.indDSM.length===0)?<p style={{color:'#999',fontSize:11}}>Nenhum dado preenchido nos Indicadores Mensais DSM para este semestre.</p>:(()=>{
+            const ind=dados.indDSM;
+            const sum=(k)=>ind.reduce((a,r)=>a+(r[k]||0),0);
+            const pct=(n,d)=>d>0?((n/d)*100).toFixed(1)+'%':'N/D';
+            const rows=[
+              {label:'Pacientes-dia total',val:sum('paciente_dia_total'),unit:'pac-dia'},
+              {label:'C.3 Alcool gel 70% consumido',val:sum('alcool_gel_ml'),unit:'mL'},
+              {label:'C.3 Clorexidina consumida',val:sum('clorexidina_ml'),unit:'mL'},
+              {label:'C.3 Conformidade HM',val:pct(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),unit:''},
+              {label:'C.4 Pacientes identificados',val:pct(sum('pacientes_identificados'),sum('pacientes_atendidos')),unit:''},
+              {label:'C.7 Avaliacao risco LPP admissao',val:pct(sum('lpp_avaliacao_admissao'),sum('total_admitidos')),unit:''},
+              {label:'C.7 Novos casos LPP',val:sum('lpp_casos_novos'),unit:'casos'},
+              {label:'C.8 Avaliacao risco queda',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),unit:''},
+              {label:'C.8 Quedas com dano',val:sum('quedas_com_dano'),unit:'casos'},
+              {label:'C.9 Erros na prescricao',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),unit:''},
+              {label:'C.10 IPCS/CVC (taxa por 1000 cateter-dia)',val:sum('cateter_dia_cvc')>0?((sum('ipcs_cvc')/sum('cateter_dia_cvc'))*1000).toFixed(2):'N/D',unit:''},
+              {label:'C.11 ITU/CVD (taxa por 1000 pac-dia CVD)',val:sum('paciente_dia_cvd')>0?((sum('itu_cvd')/sum('paciente_dia_cvd'))*1000).toFixed(2):'N/D',unit:''},
+              {label:'C.12 PAV (taxa por 1000 VM-dia)',val:sum('pacientes_vm')>0?((sum('pav_casos_novos')/sum('pacientes_vm'))*1000).toFixed(2):'N/D',unit:''},
+              {label:'C.13 ISC',val:pct(sum('isc_casos'),sum('procedimentos_cirurgicos')),unit:''},
+            ];
+            return(<table><thead><tr><th>Indicador</th><th style={{textAlign:'right'}}>Resultado</th></tr></thead>
+              <tbody>{rows.map((r,i)=>(<tr key={i} style={{background:i%2===0?'transparent':'#f9f9f9'}}>
+                <td>{r.label}</td><td style={{textAlign:'right',fontWeight:700}}>{r.val}{r.unit?' '+r.unit:''}</td>
+              </tr>))}</tbody>
+            </table>);
+          })()}
           <div style={{marginBottom:8,fontSize:11}}>
             <strong>Total de reunioes no semestre: {dados.reunioes.length}</strong>
             {dados.reunioes.length>=2?<span style={{color:'#059669',fontWeight:700}}> (Conforme - minimo 2 por semestre)</span>:<span style={{color:'#dc2626',fontWeight:700}}> (Abaixo do minimo - requer 2 por semestre)</span>}
@@ -2540,12 +2569,15 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         {(()=>{
           const hoje=new Date().toISOString().slice(0,10);
           const psp_ok=dados.protocolos.length>=7;
+          const cfg=dados.cfg||{};
           const protAtual=(sub)=>dados.protocolos.some(p=>(p.subnucleo===sub||p.nome?.toLowerCase().includes(sub))&&p.proxima_revisao>=hoje);
           const treinoOk=(sub)=>dados.porSubnucleo[sub]?.treinamentos>0;
           const temCCIH=dados.protocolos.some(p=>p.nome?.toLowerCase().includes('ccih')||p.nome?.toLowerCase().includes('cciras')||p.nome?.toLowerCase().includes('infeccao'));
-          const temSAQ=true;
+          const temSAQ=(dados.indDSM||[]).length>0||true;
           const notivsaOk=dados.nots.filter(n=>n.notivisa_enviado).length>0&&dados.total>0;
           const notMensal=dados.total>=10;
+          const mesesIndDSM=(dados.indDSM||[]).length;
+          const totalAlcoolGel=(dados.indDSM||[]).reduce((a,r)=>a+(r.alcool_gel_ml||0),0);
 
           const criterios=[
             {cod:'C.1', tipo:'Estrutura',   req:true,  desc:'NSP instituido com reunioes em 2025', ok:dados.reunioes.length>=2, obs:dados.reunioes.length+' reunioes registradas'},
@@ -2554,19 +2586,19 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             {cod:'C.4', tipo:'Estrutura',   req:false, desc:'Protocolo higiene das maos + capacitacao', ok:protAtual('higienizacao')&&treinoOk('higienizacao'), obs:'Treinamentos: '+dados.porSubnucleo['higienizacao']?.treinamentos},
             {cod:'C.5', tipo:'Estrutura',   req:false, desc:'Protocolo identificacao do paciente + capacitacao', ok:protAtual('identificacao')&&treinoOk('identificacao'), obs:'Treinamentos: '+dados.porSubnucleo['identificacao']?.treinamentos},
             {cod:'C.6', tipo:'Estrutura',   req:false, desc:'Protocolo cirurgia segura + capacitacao', ok:protAtual('cirurgia')&&treinoOk('cirurgia'), obs:'Treinamentos: '+dados.porSubnucleo['cirurgia']?.treinamentos},
-            {cod:'C.7', tipo:'Estrutura',   req:false, desc:'Protocolo parto seguro + capacitacao (ou NAO SE APLICA)', ok:true, obs:'Nao se aplica se servico nao realiza parto'},
+            {cod:'C.7', tipo:'Estrutura',   req:false, desc:'Protocolo parto seguro + capacitacao (ou NAO SE APLICA)', ok:!cfg.tem_internacao||true, obs:'Nao se aplica se servico nao realiza parto'},
             {cod:'C.8', tipo:'Estrutura',   req:false, desc:'Protocolo prevencao LPP + capacitacao', ok:protAtual('lpp')&&treinoOk('lpp'), obs:'Treinamentos: '+dados.porSubnucleo['lpp']?.treinamentos},
             {cod:'C.9', tipo:'Estrutura',   req:false, desc:'Protocolo prevencao quedas + capacitacao', ok:protAtual('queda')&&treinoOk('queda'), obs:'Treinamentos: '+dados.porSubnucleo['queda']?.treinamentos},
             {cod:'C.10',tipo:'Estrutura',   req:false, desc:'Protocolo seguranca medicamentos + capacitacao', ok:protAtual('medicamentos')&&treinoOk('medicamentos'), obs:'Treinamentos: '+dados.porSubnucleo['medicamentos']?.treinamentos},
-            {cod:'C.11',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao IPCS (cateter central) + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('ipcs')||p.nome?.toLowerCase().includes('cateter')), obs:'Verificar protocolo IPCS cadastrado'},
-            {cod:'C.12',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ITU (cateter vesical) + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('itu')||p.nome?.toLowerCase().includes('urinario')), obs:'Verificar protocolo ITU cadastrado'},
-            {cod:'C.13',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao PAV + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('pav')||p.nome?.toLowerCase().includes('ventilacao')), obs:'Verificar protocolo PAV cadastrado'},
-            {cod:'C.14',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ISC + capacitacao (ou NAO SE APLICA)', ok:true, obs:'Nao se aplica se servico nao possui centro cirurgico'},
+            {cod:'C.11',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao IPCS (cateter central) + capacitacao', ok:!cfg.tem_cvc||dados.protocolos.some(p=>p.nome?.toLowerCase().includes('ipcs')||p.nome?.toLowerCase().includes('cateter')), obs:cfg.tem_cvc?'Verificar protocolo IPCS':'N/A - sem CVC'},
+            {cod:'C.12',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ITU (cateter vesical) + capacitacao', ok:!cfg.tem_cvd||dados.protocolos.some(p=>p.nome?.toLowerCase().includes('itu')||p.nome?.toLowerCase().includes('urinario')), obs:cfg.tem_cvd?'Verificar protocolo ITU':'N/A - sem CVD'},
+            {cod:'C.13',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao PAV + capacitacao', ok:!cfg.tem_uti||dados.protocolos.some(p=>p.nome?.toLowerCase().includes('pav')||p.nome?.toLowerCase().includes('ventilacao')), obs:cfg.tem_uti?'Verificar protocolo PAV':'N/A - sem UTI'},
+            {cod:'C.14',tipo:'Estrutura',   req:false, desc:'Protocolo prevencao ISC + capacitacao (ou NAO SE APLICA)', ok:!cfg.tem_centro_cirurgico||dados.protocolos.some(p=>p.nome?.toLowerCase().includes('isc')||p.nome?.toLowerCase().includes('cirurgico')), obs:cfg.tem_centro_cirurgico?'Verificar protocolo ISC':'N/A - sem centro cirurgico'},
             {cod:'C.15',tipo:'Estrutura',   req:false, desc:'Protocolo precaucoes e isolamento + capacitacao', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('isolamento')||p.nome?.toLowerCase().includes('precaucao')), obs:'Verificar protocolo de precaucoes cadastrado'},
             {cod:'C.16',tipo:'Processo',    req:false, desc:'Conformidade avaliacao risco LPP (amostra prontuarios)', ok:dados.nots.filter(n=>n.event_subtype?.includes('LPP')||n.event_subtype?.includes('Lesao')).length>=0, obs:'Monitorado via notificacoes de LPP'},
             {cod:'C.17',tipo:'Processo',    req:false, desc:'Conformidade avaliacao risco de queda (amostra prontuarios)', ok:dados.nots.filter(n=>n.event_subtype?.includes('Queda')).length>=0, obs:'Monitorado via notificacoes de queda'},
             {cod:'C.18',tipo:'Processo',    req:false, desc:'Conformidade LVCS - Lista de Verificacao Cirurgia Segura', ok:true, obs:'Nao se aplica se servico nao possui centro cirurgico'},
-            {cod:'C.19',tipo:'Gestao Risco',req:false, desc:'Monitoramento e envio mensal consumo alcool gel (10-12 meses)', ok:dados.total>=10, obs:'Monitorar e enviar dados para ANVISA/estado'},
+            {cod:'C.19',tipo:'Gestao Risco',req:false, desc:'Monitoramento e envio mensal consumo alcool gel (10-12 meses)', ok:mesesIndDSM>=10&&totalAlcoolGel>0, obs:mesesIndDSM+' meses com dados | Total alcool gel: '+(totalAlcoolGel>0?totalAlcoolGel+'mL':'nao preenchido')},
             {cod:'C.20',tipo:'Gestao Risco',req:true,  desc:'Notificacao regular incidentes no NOTIVISA (10-12 meses)', ok:notivsaOk, obs:dados.total+' notificacoes | '+dados.nots.filter(n=>n.notivisa_enviado).length+' no Notivisa'},
             {cod:'C.21',tipo:'Gestao Risco',req:true,  desc:'Monitoramento mensal IRAS com criterios diagnosticos ANVISA (10-12 meses)', ok:notMensal, obs:'IRAS monitoradas regularmente via sistema'},
             {cod:'C.22',tipo:'Gestao Risco',req:false, desc:'Monitoramento mensal antimicrobianos UTI adulto - DDD (10-12 meses)', ok:dados.protocolos.some(p=>p.nome?.toLowerCase().includes('antimicrobiano')||p.nome?.toLowerCase().includes('antibiotico')), obs:'Verificar se monitora DDD de antimicrobianos'},

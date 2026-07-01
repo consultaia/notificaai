@@ -3264,11 +3264,19 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         protocolo=res?.[0]?.id?res[0].id.slice(0,8).toUpperCase():Math.random().toString(36).slice(2,10).toUpperCase();
         if(webhookUrl&&!testMode){
           try{
-            const whResp=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',is_test:false})});
-            if(!whResp.ok) showToast('Aviso: webhook retornou '+(whResp.status)+' - email pode nao ter sido enviado','error');
+            // Tentar rota /email do Worker (substitui n8n)
+            const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
+            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',is_test:false})});
+            if(!whResp.ok){
+              // Fallback: tentar o webhook original (n8n) se configurado
+              if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
+                await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',is_test:false})}).catch(()=>{});
+              }
+              showToast('Aviso: e-mail pode nao ter sido enviado ('+whResp.status+')','error');
+            }
           }catch(whErr){
-            console.error('[webhook]',whErr);
-            showToast('Aviso: falha ao notificar gestor por email ('+whErr.message+')','error');
+            console.error('[email]',whErr);
+            showToast('Aviso: falha ao enviar e-mail ('+whErr.message+')','error');
           }
         }
         showToast('Notificação salva! Gestor será notificado.','success');

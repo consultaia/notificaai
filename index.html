@@ -1001,14 +1001,57 @@ Formato exato:
 
 function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const [step,setStep]=useState(1);
-  const [form,setForm]=useState({
-    data_evento:notification.event_date||'',hora_evento:notification.event_time||'',turno:notification.shift||'',
-    tipo:notification.event_subtype||'',gravidade:notification.gravidade||notification.patient_outcome||'',
-    setor:notification.sector||'',idade:notification.patient_age||'',sexo:'',
-    descricao:notification.description||'',acao_imediata:notification.measures_taken||'',
-    dano:notification.patient_outcome||'',acao_corretiva:'',
-  });
   const [marking,setMarking]=useState(false);
+
+  const normTipo=(v)=>{
+    if(!v) return '';
+    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('medic')||s.includes('farmac')||s.includes('prescri')||s.includes('dispens')) return 'Erro de medicação';
+    if(s.includes('queda')) return 'Queda';
+    if(s.includes('press')||s.includes('lpp')) return 'Lesão por pressão';
+    if(s.includes('infec')||s.includes('iras')||s.includes('pav')||s.includes('ipcs')||s.includes('itu')||s.includes('isc')) return 'Infecção relacionada à assistência';
+    if(s.includes('identif')||s.includes('pulseira')) return 'Falha de identificação';
+    if(s.includes('cirurg')||s.includes('lvcs')) return 'Falha em procedimento cirúrgico';
+    if(s.includes('avp')||s.includes('acesso venoso')||s.includes('infiltr')||s.includes('flebite')||s.includes('extravasamento')) return 'Perda de acesso venoso periférico';
+    if(s.includes('sne')||s.includes('sng')||s.includes('sonda')||s.includes('nasoenter')||s.includes('nasogastr')||s.includes('svd')||s.includes('cateter urinario')||s.includes('sondagem')||s.includes('exteriori')) return 'Perda/exteriorização de dispositivo invasivo';
+    if(s.includes('comunic')||s.includes('sbar')||s.includes('prescricao verbal')) return 'Falha de comunicação';
+    return 'Outros';
+  };
+  const normGrav=(v)=>{
+    if(!v) return '';
+    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('sentinela')) return 'Evento sentinela';
+    if(s.includes('grave')) return 'Evento adverso grave';
+    if(s.includes('moderado')) return 'Evento adverso moderado';
+    if(s.includes('leve')) return 'Evento adverso leve';
+    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';
+    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';
+    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstância de risco';
+    return '';
+  };
+  const normTurno=(v)=>{
+    if(!v) return '';
+    const s=v.toLowerCase();
+    if(s.includes('mat')) return 'Matutino';
+    if(s.includes('ves')) return 'Vespertino';
+    if(s.includes('not')) return 'Noturno';
+    return v;
+  };
+
+  const [form,setForm]=useState(()=>({
+    data_evento:notification.event_date||'',
+    hora_evento:notification.event_time||'',
+    turno:normTurno(notification.shift||''),
+    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),
+    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),
+    setor:notification.sector||'',
+    idade:notification.patient_age||'',
+    sexo:'',
+    descricao:notification.description||'',
+    acao_imediata:notification.measures_taken||'',
+    dano:normGrav(notification.patient_outcome||notification.gravidade||''),
+    acao_corretiva:'',
+  }));
 
   const marcarEnviado=async()=>{
     if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}
@@ -1051,7 +1094,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </div>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Tipo de incidente *</label>
         <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...inp,appearance:'none'}}>
-          <option value="">Selecione</option><option>Erro de medicação</option><option>Queda</option><option>Lesão por pressão</option><option>Infecção relacionada à assistência</option><option>Falha de identificação</option><option>Falha em procedimento cirúrgico</option><option>Perda de acesso venoso periférico</option><option>Outros</option>
+          <option value="">Selecione</option><option>Erro de medicação</option><option>Queda</option><option>Lesão por pressão</option><option>Infecção relacionada à assistência</option><option>Falha de identificação</option><option>Falha em procedimento cirúrgico</option><option>Perda de acesso venoso periférico</option><option>Perda/exteriorização de dispositivo invasivo</option><option>Falha de comunicação</option><option>Outros</option>
         </select>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Gravidade *</label>
         <select value={form.gravidade} onChange={e=>setForm({...form,gravidade:e.target.value})} style={{...inp,appearance:'none'}}>

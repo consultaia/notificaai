@@ -1037,11 +1037,14 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     if(s.includes('not')||s.includes('noite')) return 'Noturno';
     return v;
   };
-  const normSexo=(v)=>{
-    if(!v) return '';
-    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    if(s.includes('fem')||s==='f') return 'Feminino';
-    if(s.includes('masc')||s==='m') return 'Masculino';
+  const normSexo=(v,admissionReason)=>{
+    const src=(v||'')+(admissionReason||'');
+    if(!src) return '';
+    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';
+    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';
+    if(s==='f') return 'Feminino';
+    if(s==='m') return 'Masculino';
     return '';
   };
   const normDano=(v)=>{
@@ -1062,7 +1065,7 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),
     setor:notification.sector||'',
     idade:notification.patient_age||'',
-    sexo:normSexo(notification.patient_sex||''),
+    sexo:normSexo(notification.patient_sex||'', notification.admission_reason||''),
     descricao:notification.description||'',
     acao_imediata:notification.measures_taken||'',
     dano:normDano(notification.patient_outcome||''),
@@ -1177,9 +1180,10 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             </div>
           ))}
         </div>
-        <div style={{display:'flex',gap:8}}>
-          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>{String.fromCodePoint(127760)} Abrir Notivisa</a>
-          <button onClick={marcarEnviado} disabled={marking} style={{flex:2,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button onClick={()=>setStep(2)} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Editar</button>
+          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,minWidth:100,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>{String.fromCodePoint(127760)} Abrir Notivisa</a>
+          <button onClick={marcarEnviado} disabled={marking} style={{flex:2,minWidth:140,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>
             {marking?'Salvando...':'Ok Marcar como enviado'}
           </button>
         </div>

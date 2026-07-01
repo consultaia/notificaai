@@ -1486,7 +1486,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
   const [loadingIA,setLoadingIA]=useState(false);
   const [narrativaIA,setNarrativaIA]=useState('');
   const [dados,setDados]=useState(null);
-  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')||'01'}`;});
+  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const [gestor,setGestor]=useState('');
   const [diretoria,setDiretoria]=useState('');
@@ -1497,7 +1497,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
     setLoading(true);
     try{
       const [ano,m]=mes.split('-').map(Number);
-      const mesCorr=m===0?{a:ano-1,m:12}:{a:ano,m};
+      const mesCorr={a:ano,m};
       const inicio=new Date(mesCorr.a,mesCorr.m-1,1).toISOString().slice(0,10);
       const fim=new Date(mesCorr.a,mesCorr.m,0).toISOString().slice(0,10);
       const nots=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&event_date=gte.${inicio}&event_date=lte.${fim}&is_test=neq.true&select=*`);
@@ -4784,7 +4784,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
       <button onClick={()=>{onSaveWebhook(webhook.trim());showToast('OK Webhook atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar webhook</button>
     </div>
 
-    {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={{short_name:'HNSA',name:'Hospital Naval de Salvador'}} onClose={()=>setShowRelatorio(false)}/>}
+    {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital||DEFAULT_HOSPITAL} onClose={()=>setShowRelatorio(false)}/>}
     <button onClick={()=>setShowImport(true)} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
       <span style={{fontSize:22}}>{String.fromCodePoint(128190)}</span>
       <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700,color:C.purple}}>Importar histórico CSV</div><div style={{fontSize:11,color:C.muted}}>Carregue planilhas do Google Sheets</div></div>

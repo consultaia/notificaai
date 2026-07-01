@@ -3142,6 +3142,12 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
 
       case 'data_admissao':{
         if(valor&&valor!=='nao informar'&&valor!=='nao_informar') d.patient_admission=valor;
+        avancar(d,'motivo_internacao','Qual o motivo da internacao do paciente? (ou "nao informar")');
+        break;
+      }
+
+      case 'motivo_internacao':{
+        if(valor&&valor!=='nao informar'&&valor!=='nao_informar') d.motivo_internacao=valor;
         avancar(d,'desfecho','Qual foi o desfecho para o paciente?');
         break;
       }
@@ -3167,12 +3173,15 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
       nip:'idade',
       idade:'sexo',
       sexo:'desfecho',
+      data_admissao:'motivo_internacao',
+      motivo_internacao:'desfecho',
     };
     const proximo=pulos[step];
     if(!proximo) return;
     const perguntas={
       idade:'Idade aproximada do paciente:',
       sexo:'Sexo do paciente:',
+      motivo_internacao:'Qual o motivo da internacao do paciente?',
       desfecho:'Qual foi o desfecho para o paciente?',
     };
     addMsg('user','Não informado');
@@ -3193,6 +3202,7 @@ d.patient_name?`Paciente: ${d.patient_name}`:'',
 d.patient_age?`Idade: ${d.patient_age} anos`:'',
       d.patient_age_range?`Idade: ${d.patient_age_range}`:'',
       d.patient_sex?`Sexo: ${d.patient_sex}`:'',
+      d.motivo_internacao?`Motivo internacao: ${d.motivo_internacao}`:'',
       d.patient_outcome?`Desfecho: ${d.patient_outcome}`:'',
       d.was_preventable!==undefined?`Evitável: ${d.was_preventable?'Sim':'Não'}` :'',
     ].filter(Boolean).join(', ');
@@ -3231,6 +3241,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
           dados.patient_age?dados.patient_age+' anos':'',
           dados.patient_sex?dados.patient_sex:'',
           dados.patient_admission?'Adm: '+dados.patient_admission:'',
+          dados.motivo_internacao?'Motivo: '+dados.motivo_internacao:'',
           dados.avp_motivo?'AVP: '+dados.avp_motivo:'',
           dados.notifier_type?'Notificador: '+dados.notifier_type:'',
         ].filter(Boolean).join(' | ')||null,

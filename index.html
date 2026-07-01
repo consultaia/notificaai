@@ -1031,11 +1031,27 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   };
   const normTurno=(v)=>{
     if(!v) return '';
-    const s=v.toLowerCase();
-    if(s.includes('mat')) return 'Matutino';
-    if(s.includes('ves')) return 'Vespertino';
-    if(s.includes('not')) return 'Noturno';
+    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('mat')||s.includes('manha')||s.includes('manha')) return 'Matutino';
+    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';
+    if(s.includes('not')||s.includes('noite')) return 'Noturno';
     return v;
+  };
+  const normSexo=(v)=>{
+    if(!v) return '';
+    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('fem')||s==='f') return 'Feminino';
+    if(s.includes('masc')||s==='m') return 'Masculino';
+    return '';
+  };
+  const normDano=(v)=>{
+    if(!v) return '';
+    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Óbito';
+    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';
+    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';
+    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Não - dano reversível';
+    return '';
   };
 
   const [form,setForm]=useState(()=>({
@@ -1046,10 +1062,10 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
     gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),
     setor:notification.sector||'',
     idade:notification.patient_age||'',
-    sexo:'',
+    sexo:normSexo(notification.patient_sex||''),
     descricao:notification.description||'',
     acao_imediata:notification.measures_taken||'',
-    dano:normGrav(notification.patient_outcome||notification.gravidade||''),
+    dano:normDano(notification.patient_outcome||''),
     acao_corretiva:'',
   }));
 
@@ -1082,16 +1098,13 @@ function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {
         </div>
         <div style={grid2}>
           <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Data *</label><input type="date" value={form.data_evento} onChange={e=>setForm({...form,data_evento:e.target.value})} style={inp}/></div>
-          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Hora</label><input type="time" value={form.hora_evento} onChange={e=>setForm({...form,hora_evento:e.target.value})} style={inp}/></div>
-        </div>
-        <div style={grid2}>
           <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Turno *</label>
             <select value={form.turno} onChange={e=>setForm({...form,turno:e.target.value})} style={{...inp,appearance:'none'}}>
               <option value="">Selecione</option><option>Matutino</option><option>Vespertino</option><option>Noturno</option>
             </select>
           </div>
-          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Setor *</label><input value={form.setor} onChange={e=>setForm({...form,setor:e.target.value})} style={inp}/></div>
         </div>
+        <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Setor *</label><input value={form.setor} onChange={e=>setForm({...form,setor:e.target.value})} style={inp}/></div>
         <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Tipo de incidente *</label>
         <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="">Selecione</option><option>Erro de medicação</option><option>Queda</option><option>Lesão por pressão</option><option>Infecção relacionada à assistência</option><option>Falha de identificação</option><option>Falha em procedimento cirúrgico</option><option>Perda de acesso venoso periférico</option><option>Perda/exteriorização de dispositivo invasivo</option><option>Falha de comunicação</option><option>Outros</option>

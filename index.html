@@ -246,6 +246,7 @@ function buildChatSystem(hospital,notifierType) {
   const setores=h.sectors.join(' / ');
   if(notifierType==='profissional') return `Você é o NotificaAI, assistente de notificações do ${h.short_name}.
 TOM: direto, neutro, profissional. Máximo 2 linhas por resposta. SEM empatia emocional.
+LGPD: NAO solicite nome completo do paciente. Use apenas NIP, idade e sexo para identificação. Dados coletados seguem a Lei 13.709/2018.
 FLUXO: 1) Paciente ou administrativo? 2) Tipo específico. 3) Dados faltantes.
 REGRAS: Uma pergunta por vez. NUNCA deduza. NUNCA repita pergunta. NUNCA pergunte quem causou. Se informou data/hora, calcule turno (07-13h=Manhã,13-19h=Tarde,19-07h=Noite). Se mencionou setor/tipo, não pergunte.
 COLETAR: Tipo·Setor(${setores})·Data/hora·Descrição·Medidas·Desfecho(SP)·Evitável(SP)·Idade(SP)·Internação(SP)·CCIH:topografia+procedimento+microorganismo.
@@ -1156,6 +1157,9 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   const updateStatus=async(id,status)=>{
     try{
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${id}`,{status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})});
+      if(status==='concluido'){
+        await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_CONCLUIDO','status','em_andamento','concluido','gestor','gestor');
+      }
       await load();showToast('OK Status atualizado!','success');
     }catch{showToast('Erro','error');}
   };
@@ -1226,7 +1230,16 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
               <button onClick={()=>updateStatus(a.id,'cancelado')} style={{background:C.muted+'15',border:'1px solid '+C.muted+'33',borderRadius:7,padding:'5px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
             </div>
           )}
-          {a.concluido_em&&<div style={{fontSize:10,color:C.green,marginTop:4}}>✓ Concluído em {new Date(a.concluido_em).toLocaleDateString('pt-BR')}</div>}
+          {a.concluido_em&&<div style={{fontSize:10,color:C.green,marginTop:4}}>{String.fromCodePoint(10003)} Concluido em {new Date(a.concluido_em).toLocaleDateString('pt-BR')}</div>}
+          {a.status==='concluido'&&!a.efetividade_verificada&&<div style={{marginTop:6,background:C.yellow+'15',borderRadius:6,padding:'6px 8px'}}>
+            <div style={{fontSize:10,color:C.yellow,fontWeight:700,marginBottom:4}}>Verificar efetividade (PDCA - Check)</div>
+            <div style={{display:'flex',gap:4}}>
+              {['efetiva','parcial','ineficaz'].map(ef=>(<button key={ef} onClick={()=>{
+                sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a.id}`,{efetividade_verificada:ef,efetividade_em:new Date().toISOString()}).then(()=>{showToast('Efetividade: '+ef,'success');carregar();}).catch(()=>showToast('Erro','error'));
+              }} style={{flex:1,fontSize:9,padding:'4px',background:ef==='efetiva'?C.green+'22':ef==='parcial'?C.yellow+'22':C.red+'22',color:ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red,border:'1px solid '+(ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red)+'44',borderRadius:4,cursor:'pointer',fontWeight:700,textTransform:'capitalize'}}>{ef}</button>))}
+            </div>
+          </div>}
+          {a.efetividade_verificada&&<div style={{fontSize:10,marginTop:4,color:a.efetividade_verificada==='efetiva'?C.green:a.efetividade_verificada==='parcial'?C.yellow:C.red,fontWeight:700}}>Efetividade: {a.efetividade_verificada.toUpperCase()}{a.efetividade_em?' ('+new Date(a.efetividade_em).toLocaleDateString('pt-BR')+')':''}</div>}
         </div>);
       })}
 
@@ -1255,7 +1268,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
       <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>⚠ Para persistir o plano de ação, execute no Supabase SQL Editor:<br/>
-          <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ);</span>
+          <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ, efetividade_verificada TEXT, efetividade_em TIMESTAMPTZ);</span>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10,display:'block',marginTop:6}}>CREATE TABLE IF NOT EXISTS audit_log (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, notification_id UUID, acao TEXT, campo TEXT, valor_anterior TEXT, valor_novo TEXT, usuario TEXT, perfil TEXT);</span>
           <span style={{fontFamily:'monospace',color:'#F97316',fontSize:10,display:'block',marginTop:6}}>-- Adicionar campos de auditoria na tabela existente (rodar uma vez):</span>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10,display:'block'}}>ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rca_autor TEXT; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rca_concluido_em TIMESTAMPTZ; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notivisa_enviado_em TIMESTAMPTZ; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;</span>
@@ -3496,7 +3509,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         showToast('Notificação registrada!','success');
       }
       addMsg('user','Sim, confirmar e enviar.');
-      addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número. O Gestor foi notificado.\n\nObrigado por contribuir com a segurança do HNSA.');
+      addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número. O Gestor do NSP foi notificado por e-mail e irá analisar o incidente.\n\n O NSP retornará com as ações tomadas. Em caso de evento sentinela ou adverso grave, a análise ocorrerá em até 72 horas.\n\nObrigado por contribuir com a segurança do HNSA. Sua notificação é confidencial e protegida pela Lei 13.709/2018 (LGPD).');
       setStep('done');
     }catch(err){
       console.error('Erro ao salvar notificacao:',err);
@@ -5817,34 +5830,49 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
       <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Dashboard de Indicadores — Acumulado ({hist.length} {hist.length===1?'mes':'meses'})</div>
       {(()=>{
         const sum=(k)=>hist.reduce((a,r)=>a+(Number(r[k])||0),0);
+        // Tendência: comparar último mês vs média dos anteriores
+        const sumMes=(k,idx)=>idx<hist.length?Number(hist[idx][k]||0):0;
+        const ultimo=hist[0]||{};
+        const anteriores=hist.slice(1);
+        const mediaAnt=(k)=>anteriores.length?anteriores.reduce((a,r)=>a+(Number(r[k])||0),0)/anteriores.length:null;
+        const tendencia=(k,inv=false)=>{
+          if(hist.length<2) return null;
+          const ult=Number(ultimo[k]||0);
+          const med=mediaAnt(k);
+          if(med===null||med===0) return null;
+          const delta=(ult-med)/med*100;
+          if(Math.abs(delta)<5) return {seta:'→',cor:C.muted,delta:0};
+          const melhorou=inv?delta<0:delta>0;
+          return{seta:delta>0?'↑':'↓',cor:melhorou?C.green:C.red,delta:Math.abs(delta).toFixed(0)+'%'};
+        };
         const pct=(n,d,dec=1)=>d>0?((n/d)*100).toFixed(dec)+'%':'N/D';
         const taxa=(n,d,mul=1000,dec=2)=>d>0?((n/d)*mul).toFixed(dec):null;
         const pacDia=sum('paciente_dia_total');
         const indicadores=[
           {label:'Taxa de conformidade HM',formula:'acoes/oportunidades',val:pct(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),meta:'>=80%',color:C.teal,
-            ok:sum('hm_oportunidades')>0&&(sum('hm_acoes_realizadas')/sum('hm_oportunidades'))>=0.8},
+            tend:tendencia('hm_acoes_realizadas',false),ok:sum('hm_oportunidades')>0&&(sum('hm_acoes_realizadas')/sum('hm_oportunidades'))>=0.8},
           {label:'Taxa de identificacao',formula:'pulseiras/total pacientes',val:pct(sum('pacientes_identificados'),sum('pacientes_atendidos')),meta:'>=95%',color:'1D6FE8',
-            ok:sum('pacientes_atendidos')>0&&(sum('pacientes_identificados')/sum('pacientes_atendidos'))>=0.95},
+            tend:tendencia('pacientes_identificados',false),ok:sum('pacientes_atendidos')>0&&(sum('pacientes_identificados')/sum('pacientes_atendidos'))>=0.95},
           {label:'Conformidade avaliacao LPP admissao',formula:'avaliacoes/admitidos',val:pct(sum('lpp_avaliacao_admissao'),sum('total_admitidos')),meta:'>=90%',color:'EF4444',
-            ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
+            tend:tendencia('lpp_avaliacao_admissao',false),ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
           {label:'Incidencia de LPP',formula:'casos/pac-dia × 1000',val:taxa(sum('lpp_casos_novos'),pacDia)?taxa(sum('lpp_casos_novos'),pacDia)+'/1000 pac-dia':'N/D',meta:'<3/1000',color:'EF4444',
-            ok:pacDia>0&&(sum('lpp_casos_novos')/pacDia*1000)<3},
+            tend:tendencia('lpp_casos_novos',true),ok:pacDia>0&&(sum('lpp_casos_novos')/pacDia*1000)<3},
           {label:'Conformidade avaliacao de risco queda',formula:'prontuarios ok/total',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),meta:'>=90%',color:'F59E0B',
-            ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
+            tend:tendencia('queda_prontuarios_ok',false),ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
           {label:'Taxa de queda com dano',formula:'quedas com dano/total quedas',val:pct(sum('quedas_com_dano'),sum('quedas_total')),meta:'<10%',color:'F59E0B',
-            ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
+            tend:tendencia('quedas_com_dano',true),ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
           {label:'Taxa de erro na prescricao',formula:'erros/total prescricoes',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),meta:'<1%',color:'8B5CF6',
-            ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},
+            tend:tendencia('erros_prescricao',true),ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},
           {label:'Densidade de IPCS/CVC',formula:'IRAS/cateter-dia × 1000',val:taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'))?taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'))+'/1000 cat-dia':'N/D',meta:'<2/1000',color:'06B6D4',
-            ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*1000)<2},
+            tend:tendencia('ipcs_cvc',true),ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*1000)<2},
           {label:'Densidade de ITU/CVD',formula:'ITU/pac-dia CVD × 1000',val:taxa(sum('itu_cvd'),sum('paciente_dia_cvd'))?taxa(sum('itu_cvd'),sum('paciente_dia_cvd'))+'/1000 pac-dia':'N/D',meta:'<3/1000',color:'06B6D4',
-            ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*1000)<3},
+            tend:tendencia('itu_cvd',true),ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*1000)<3},
           {label:'Densidade de PAV',formula:'casos/VM-dia × 1000',val:taxa(sum('pav_casos_novos'),sum('pacientes_vm'))?taxa(sum('pav_casos_novos'),sum('pacientes_vm'))+'/1000 VM-dia':'N/D',meta:'<5/1000',color:'EF4444',
-            ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*1000)<5},
+            tend:tendencia('pav_casos_novos',true),ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*1000)<5},
           {label:'Conformidade LVCS (cirurgia segura)',formula:'LVCS preenchidas/cirurgias',val:pct(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),meta:'>=95%',color:'10B981',
-            ok:sum('cirurgias_realizadas')>0&&(sum('lvcs_preenchidas')/sum('cirurgias_realizadas'))>=0.95},
+            tend:tendencia('lvcs_preenchidas',false),ok:sum('cirurgias_realizadas')>0&&(sum('lvcs_preenchidas')/sum('cirurgias_realizadas'))>=0.95},
           {label:'Consumo alcool gel',formula:'mL/pac-dia',val:pacDia>0?((sum('alcool_gel_ml')/pacDia)).toFixed(1)+' mL/pac-dia':'N/D',meta:'>20 mL/pac-dia',color:C.teal,
-            ok:pacDia>0&&(sum('alcool_gel_ml')/pacDia)>=20},
+            tend:tendencia('alcool_gel_ml',false),ok:pacDia>0&&(sum('alcool_gel_ml')/pacDia)>=20},
         ];
         const semaforo=(ind)=>ind.val==='N/D'?C.muted:ind.ok?C.green:C.red;
         return(<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:8}}>
@@ -5852,7 +5880,10 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
             <div key={i} style={{background:C.card,border:'1px solid '+semaforo(ind)+'44',borderRadius:10,padding:'10px 12px',borderLeft:'3px solid '+semaforo(ind)}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:4}}>
                 <div style={{fontSize:11,fontWeight:700,color:C.text,flex:1,lineHeight:1.3}}>{ind.label}</div>
-                <div style={{fontSize:18,fontWeight:900,color:semaforo(ind),marginLeft:8,flexShrink:0}}>{ind.val}</div>
+                <div style={{display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+                  {ind.tend&&<span style={{fontSize:14,color:ind.tend.cor,fontWeight:900}} title={'vs media anterior: '+(ind.tend.delta||'estavel')}>{ind.tend.seta}{ind.tend.delta&&<span style={{fontSize:9}}>{ind.tend.delta}</span>}</span>}
+                  <div style={{fontSize:18,fontWeight:900,color:semaforo(ind)}}>{ind.val}</div>
+                </div>
               </div>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                 <div style={{fontSize:9,color:C.muted}}>{ind.formula}</div>

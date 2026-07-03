@@ -2095,6 +2095,9 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   const [showForm,setShowForm]=useState(false);
   const [saving,setSaving]=useState(false);
   const [subnucleoAtivo,setSubnucleoAtivo]=useState('todos');
+  const [periodoFiltro,setPeriodoFiltro]=useState('semestre_atual');
+  const [customDe,setCustomDe]=useState('');
+  const [customAte,setCustomAte]=useState('');
   const [form,setForm]=useState({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
 
   const canEdit=gestorMode||profileMode==='gestor'||profileMode==='membro_nsp';
@@ -2124,10 +2127,30 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
 
   const filtered=subnucleoAtivo==='todos'?registros:registros.filter(r=>r.subnucleo===subnucleoAtivo);
 
-  const reunioesNSP=registros.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
+  // Filtro de periodo: Semestre atual (DSM), Ano anterior (ANVISA), Ano atual, Personalizado
+  const periodoRange=(()=>{
+    const hoje=new Date();
+    const ano=hoje.getFullYear();
+    const semAtual=hoje.getMonth()<6?1:2;
+    if(periodoFiltro==='semestre_atual'){
+      return semAtual===1
+        ?{de:`${ano}-01-01`,ate:`${ano}-06-30`,label:`1o Semestre ${ano} (DSM)`}
+        :{de:`${ano}-07-01`,ate:`${ano}-12-31`,label:`2o Semestre ${ano} (DSM)`};
+    }
+    if(periodoFiltro==='ano_anterior') return{de:`${ano-1}-01-01`,ate:`${ano-1}-12-31`,label:`Ano ${ano-1} (ANVISA)`};
+    if(periodoFiltro==='ano_atual') return{de:`${ano}-01-01`,ate:`${ano}-12-31`,label:`Ano ${ano}`};
+    if(periodoFiltro==='custom') return{de:customDe,ate:customAte,label:'Periodo personalizado'};
+    return{de:null,ate:null,label:'Todos os periodos'};
+  })();
+
+  const filteredPeriodo=periodoRange.de&&periodoRange.ate
+    ? filtered.filter(r=>r.data&&r.data>=periodoRange.de&&r.data<=periodoRange.ate)
+    : filtered;
+
+  const reunioesNSP=filteredPeriodo.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
   const totaisPorSub={};
   SUBNUCLEOS_HNSA.forEach(s=>{
-    const recs=registros.filter(r=>r.subnucleo===s.id);
+    const recs=filteredPeriodo.filter(r=>r.subnucleo===s.id);
     totaisPorSub[s.id]={
       treinamentos:recs.filter(r=>r.tipo==='treinamento').length,
       reunioes:recs.filter(r=>r.tipo==='reuniao').length,
@@ -2139,8 +2162,31 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    <BackHeader title='Treinamentos e Reunioes' subtitle={filtered.length+' registro(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Treinamentos e Reunioes' subtitle={filteredPeriodo.length+' registro(s) — '+periodoRange.label} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
+      {/* Filtro de periodo */}
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:10}}>
+        <div style={{fontSize:10,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Periodo de visualizacao</div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+          {[
+            {id:'semestre_atual',label:'Semestre atual (DSM)'},
+            {id:'ano_anterior',label:'Ano anterior (ANVISA)'},
+            {id:'ano_atual',label:'Ano atual'},
+            {id:'todos',label:'Todos'},
+            {id:'custom',label:'Personalizado'},
+          ].map(p=>(<button key={p.id} onClick={()=>setPeriodoFiltro(p.id)}
+            style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(periodoFiltro===p.id?C.teal:C.border),
+              background:periodoFiltro===p.id?C.teal+'22':'transparent',
+              color:periodoFiltro===p.id?C.teal:C.muted,fontSize:11,fontWeight:periodoFiltro===p.id?700:500,cursor:'pointer'}}>
+            {p.label}
+          </button>))}
+        </div>
+        {periodoFiltro==='custom'&&<div style={{display:'flex',gap:8,marginTop:8}}>
+          <input type='date' value={customDe} onChange={e=>setCustomDe(e.target.value)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none'}}/>
+          <input type='date' value={customAte} onChange={e=>setCustomAte(e.target.value)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none'}}/>
+        </div>}
+      </div>
+
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
         <span style={{fontSize:18}}>{String.fromCodePoint(128194)}</span>
         <div style={{flex:1,minWidth:0}}>
@@ -2230,8 +2276,8 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
 
     {/* Lista de registros */}
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
-    {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
-    {filtered.map(r=>{
+    {!loading&&filteredPeriodo.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
+    {filteredPeriodo.map(r=>{
       const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
       return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>

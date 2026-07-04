@@ -2214,6 +2214,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         {reunioesNSP.length>3&&<div style={{fontSize:10,color:C.muted,textAlign:'center',marginTop:4}}>+{reunioesNSP.length-3} mais. Filtre por tipo para ver todas.</div>}
       </div>
     {/* Cards por subnucleo */}
+    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnucleo (toque para filtrar)</div>
     <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
       {SUBNUCLEOS_HNSA.map(s=>{
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
@@ -2268,6 +2269,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     </div>}
 
     {/* Lista de registros */}
+    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginTop:14,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Registros individuais ({filteredPeriodo.length})</div>
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
     {!loading&&filteredPeriodo.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
     {filteredPeriodo.map(r=>{
@@ -2288,7 +2290,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
           </div>
         </div>
         {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
-        {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:600}}>Abrir documento</a>}
+        {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
       </div>);
     })}
   </div>

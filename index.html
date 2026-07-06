@@ -3764,9 +3764,9 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
     return CHIPS_MAP[step]||[];
   };
 
-  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','desfecho','preventivel','resumo'];
+  const ORDEM_SP=['perfil','tipo','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','motivo_internacao','desfecho','preventivel','resumo'];
   const ORDEM_ADM=['perfil','tipo','subtipo_adm','setor','data','relato','medidas','resumo'];
-  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','desfecho','preventivel','resumo'];
+  const ORDEM_PACFAM=['perfil','subtipo','avp_motivo','setor','data','relato','medidas','nip','nome_pac','idade','sexo','data_admissao','motivo_internacao','desfecho','preventivel','resumo'];
 
   const getOrdem=()=>{
     const t=dados.notification_type;
@@ -3799,15 +3799,16 @@ idade:'Idade do paciente',
     desfecho:'Desfecho',
     preventivel:'Evitabilidade',
         data_admissao:'Data de admissao',
+    motivo_internacao:'Motivo da internacao',
     resumo:'Confirmação',
     done:'Concluído',
   };
 
   const chips=chipsAtivos();
   const prog=step!=='done'?getProgresso():{atual:1,total:1};
-  const inputSteps=['relato','medidas','nip','nome_pac','idade','setor','data','data_admissao'];
+  const inputSteps=['relato','medidas','nip','nome_pac','idade','setor','data','data_admissao','motivo_internacao'];
   const showInput=inputSteps.includes(step)&&!loading&&!saving;
-  const showPular=['nip','nome_pac','idade','sexo'].includes(step)&&!loading&&!saving;
+  const showPular=['nip','nome_pac','idade','sexo','data_admissao','motivo_internacao'].includes(step)&&!loading&&!saving;
   const showConfirm=step==='resumo'&&!loading&&!saving;
 
   useEffect(()=>{

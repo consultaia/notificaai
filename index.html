@@ -1486,19 +1486,28 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const [mesRef,setMesRef]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const pdKey=(campo)=>`pd_${mesRef}_${campo}`;
   const lerLocal=()=>{const o={};setores.forEach(s=>{try{o[s]=localStorage.getItem(pdKey(slug(s)))||'';}catch{o[s]='';}});return o;};
+  const lerLocalPref=(pref)=>{const o={};setores.forEach(s=>{try{o[s]=localStorage.getItem(pdKey(pref+'_'+slug(s)))||'';}catch{o[s]='';}});return o;};
   const [pdSetores,setPdSetoresRaw]=useState(lerLocal);
+  const [pdLpp,setPdLppRaw]=useState(()=>lerLocalPref('lpp'));
+  const [pdAvp,setPdAvpRaw]=useState(()=>lerLocalPref('avp'));
   const [pdSalvo,setPdSalvo]=useState(false);
 
   const setPdSetor=(s,v)=>setPdSetoresRaw(p=>({...p,[s]:v}));
+  const setPdLpp=(s,v)=>setPdLppRaw(p=>({...p,[s]:v}));
+  const setPdAvp=(s,v)=>setPdAvpRaw(p=>({...p,[s]:v}));
 
-  const salvarPD=async(vals)=>{
-    setores.forEach(s=>{try{localStorage.setItem(pdKey(slug(s)),vals[s]||'');}catch{}});
+  const salvarPD=async(vals,valsLpp,valsAvp)=>{
+    setores.forEach(s=>{try{
+      localStorage.setItem(pdKey(slug(s)),vals[s]||'');
+      localStorage.setItem(pdKey('lpp_'+slug(s)),(valsLpp&&valsLpp[s])||'');
+      localStorage.setItem(pdKey('avp_'+slug(s)),(valsAvp&&valsAvp[s])||'');
+    }catch{}});
     if(!sbUrl||!sbKey) return;
     try{
       await fetch(`${sbUrl}/rest/v1/indicadores_mensais`,{
         method:'POST',
         headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
+        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
       });
       setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
     }catch(err){console.warn('Erro ao salvar PD:',err);}
@@ -1506,17 +1515,25 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
   React.useEffect(()=>{
     setPdSetoresRaw(lerLocal());
+    setPdLppRaw(lerLocalPref('lpp'));
+    setPdAvpRaw(lerLocalPref('avp'));
     if(!sbUrl||!sbKey) return;
     fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mesRef}&select=*`,{
       headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
     }).then(r=>r.json()).then(data=>{
-      if(data&&data[0]&&data[0].pd_setores){
-        const ps=data[0].pd_setores;
-        const o2={};setores.forEach(s=>{
-          if(ps[s]!==undefined&&ps[s]!==null){o2[s]=String(ps[s]);try{localStorage.setItem(pdKey(slug(s)),String(ps[s]));}catch{}}
-          else{try{o2[s]=localStorage.getItem(pdKey(slug(s)))||'';}catch{o2[s]='';}}
-        });
-        setPdSetoresRaw(o2);
+      if(data&&data[0]){
+        const row=data[0];
+        const hidratar=(campoDb,pref,setter)=>{
+          const ps=row[campoDb];if(!ps)return;
+          const o2={};setores.forEach(s=>{
+            if(ps[s]!==undefined&&ps[s]!==null){o2[s]=String(ps[s]);try{localStorage.setItem(pdKey(pref?pref+'_'+slug(s):slug(s)),String(ps[s]));}catch{}}
+            else{try{o2[s]=localStorage.getItem(pdKey(pref?pref+'_'+slug(s):slug(s)))||'';}catch{o2[s]='';}}
+          });
+          setter(o2);
+        };
+        hidratar('pd_setores','',setPdSetoresRaw);
+        hidratar('pd_lpp_setores','lpp',setPdLppRaw);
+        hidratar('pd_avp_setores','avp',setPdAvpRaw);
       }
     }).catch(()=>{});
   },[mesRef,sbUrl,sbKey]);
@@ -1525,7 +1542,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     const algumPreenchido=setores.some(s=>pdSetores[s]);
     if(!algumPreenchido){showToast('Informe ao menos um total de paciente-dia por setor','error');return;}
-    await salvarPD(pdSetores);
+    await salvarPD(pdSetores,pdLpp,pdAvp);
     setLoading(true);
     try{
       const [ano,mes]=mesRef.split('-').map(Number);
@@ -1535,19 +1552,25 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
       const isQueda=n=>n.event_subtype?.toLowerCase().includes('queda')||n.description?.toLowerCase().includes('queda');
       const isLPP=n=>n.event_subtype?.toLowerCase().includes('press')||n.event_subtype?.toLowerCase().includes('lpp')||n.description?.toLowerCase().includes('pressao');
+      const isAVP=n=>{const t=(n.event_subtype||'').toLowerCase();return t.includes('avp')||t.includes('acesso venoso');};
       const isIRAS=n=>n.notification_type==='ccih'||n.event_subtype?.startsWith('CCIH');
       const isMed=n=>n.event_subtype?.toLowerCase().includes('medic')||n.description?.toLowerCase().includes('medic');
       const isNearMiss=n=>n.gravidade==='Near miss';
       const isSentinela=n=>n.gravidade==='Evento sentinela';
 
-      const calc=(lista,pd)=>{
+      const calc=(lista,pd,pdLppN,pdAvpN)=>{
         const r={
           total:lista.length,quedas:lista.filter(isQueda).length,lp:lista.filter(isLPP).length,
+          avp:lista.filter(isAVP).length,
           iras:lista.filter(isIRAS).length,medicacao:lista.filter(isMed).length,
-          nearMiss:lista.filter(isNearMiss).length,sentinela:lista.filter(isSentinela).length,pd,
+          nearMiss:lista.filter(isNearMiss).length,sentinela:lista.filter(isSentinela).length,
+          pd,pdLpp:pdLppN,pdAvp:pdAvpN,
         };
         r.txQueda=(r.quedas/pd*1000).toFixed(2);
-        r.txLP=(r.lp/pd*1000).toFixed(2);
+        // Denominadores especificos: LPP so entre pacientes com risco; AVP so entre pacientes em uso.
+        // Sem denominador informado, a taxa fica N/D (nao usa o PD geral, que superestimaria a populacao exposta).
+        r.txLP=pdLppN>0?(r.lp/pdLppN*1000).toFixed(2):null;
+        r.txAVP=pdAvpN>0?(r.avp/pdAvpN*1000).toFixed(2):null;
         r.txIRAS=(r.iras/pd*1000).toFixed(2);
         r.txMed=(r.medicacao/pd*1000).toFixed(2);
         r.txNearMiss=r.total>0?Math.round(r.nearMiss/r.total*100):0;
@@ -1555,12 +1578,14 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       };
 
       const pdTotal=setores.reduce((acc,s)=>acc+(Number(pdSetores[s])||0),0)||1;
-      const geral=calc(nots,pdTotal);
+      const pdLppTotal=setores.reduce((acc,s)=>acc+(Number(pdLpp[s])||0),0);
+      const pdAvpTotal=setores.reduce((acc,s)=>acc+(Number(pdAvp[s])||0),0);
+      const geral=calc(nots,pdTotal,pdLppTotal,pdAvpTotal);
 
       const porSetor={};
       setores.forEach(s=>{
         const pd=Number(pdSetores[s])||0;
-        if(pd>0) porSetor[s]=calc(nots.filter(n=>n.sector===s),pd);
+        if(pd>0) porSetor[s]=calc(nots.filter(n=>n.sector===s),pd,Number(pdLpp[s])||0,Number(pdAvp[s])||0);
       });
 
       setDados({geral,porSetor,pdTotal});
@@ -1570,7 +1595,8 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
   const INDICADORES_DEF=[
     {key:'txQueda',label:'Taxa de quedas',unidade:'/1000 p-d',meta:1.5,menor:true,desc:'Quedas / paciente-dia x 1000'},
-    {key:'txLP',label:'Taxa de LPP adquirida',unidade:'/1000 p-d',meta:0.8,menor:true,desc:'LPP adquirida no hospital / paciente-dia x 1000 - Meta ONA < 0.8'},
+    {key:'txLP',label:'Taxa de LPP adquirida',unidade:'/1000 p-d risco',meta:0.8,menor:true,desc:'LPP adquirida / paciente-dia COM RISCO de LPP x 1000 - Meta ONA < 0.8'},
+    {key:'txAVP',label:'Taxa de perda de AVP',unidade:'/1000 p-d AVP',meta:null,menor:true,desc:'Perdas de AVP / paciente-dia EM USO de AVP x 1000 - meta institucional a definir'},
     {key:'txIRAS',label:'Taxa de IRAS',unidade:'/1000 p-d',meta:2.0,menor:true,desc:'Infeccoes relacionadas a assistencia / paciente-dia x 1000 - Meta < 2'},
     {key:'txMed',label:'Erros de medicação notif.',unidade:'/1000 p-d',meta:0.5,menor:true,desc:'Erros de medicação notificados / paciente-dia x 1000'},
     {key:'txNearMiss',label:'Near miss / Total notif.',unidade:'%',meta:20,menor:false,desc:'% de near miss sobre total - meta > 20% indica boa cultura de notificacao'},
@@ -1587,19 +1613,21 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
         </div>
       </div>
       {INDICADORES_DEF.map((ind,i)=>{
-        const val=Number(d[ind.key]);
-const ok=ind.menor?val<=ind.meta:val>=ind.meta;
-const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
+        const nd=d[ind.key]===null||d[ind.key]===undefined;
+        const val=nd?0:Number(d[ind.key]);
+const semMeta=ind.meta===null||ind.meta===undefined;
+const ok=nd?false:(semMeta?true:(ind.menor?val<=ind.meta:val>=ind.meta));
+const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
         return(<div key={i} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:8,display:'flex',alignItems:'center',gap:10}}>
           <div style={{flex:1}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{ind.label}</div>
-            <div style={{fontSize:10,color:C.muted}}>{ind.desc} · Meta: {ind.menor?'< ':'> '}{ind.meta}{ind.unidade}</div>
+            <div style={{fontSize:10,color:C.muted}}>{ind.desc}{ind.meta!==null&&ind.meta!==undefined?' · Meta: '+(ind.menor?'< ':'> ')+ind.meta+ind.unidade:''}</div>
           </div>
           <div style={{textAlign:'right',flexShrink:0}}>
-            <div style={{fontSize:20,fontWeight:900,color:ok?C.green:warn?C.yellow:C.red,lineHeight:1}}>{d[ind.key]}{ind.unidade==='%'?'%':''}</div>
+            <div style={{fontSize:20,fontWeight:900,color:nd?C.muted:(ind.meta===null||ind.meta===undefined)?C.text:ok?C.green:warn?C.yellow:C.red,lineHeight:1}}>{nd?'N/D':d[ind.key]}{!nd&&ind.unidade==='%'?'%':''}</div>
             <div style={{fontSize:9,color:C.muted}}>{ind.unidade!=='%'?ind.unidade:''}</div>
           </div>
-          <div style={{background:ok?C.green+'22':C.red+'22',color:ok?C.green:warn?C.yellow:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>{ok?'Meta':'Alerta'}</div>
+          <div style={{background:nd||ind.meta===null||ind.meta===undefined?C.border:ok?C.green+'22':C.red+'22',color:nd||ind.meta===null||ind.meta===undefined?C.muted:ok?C.green:warn?C.yellow:C.red,borderRadius:6,padding:'2px 7px',fontSize:9,fontWeight:700,flexShrink:0}}>{nd?'N/D':(ind.meta===null||ind.meta===undefined)?'Monit.':ok?'Meta':'Alerta'}</div>
         </div>);
       })}
       {d.sentinela>0&&<div style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'8px 12px',fontSize:11,color:C.red,fontWeight:700}}>
@@ -1638,10 +1666,40 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
           Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME. O total Geral e a soma de todos os setores preenchidos.</div>
       </div>
 
+      {/* Denominadores especificos: populacao exposta ao risco, nao a populacao geral */}
+      <div style={{background:C.surface,border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia COM RISCO de LPP (por setor)</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Soma dos dias de internacao apenas dos pacientes classificados com risco de LPP (ex: Braden). A taxa de LPP sera calculada sobre este denominador — nao sobre o paciente-dia geral.</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {setores.map(s=>(
+            <div key={s}>
+              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
+              <input type="number" value={pdLpp[s]||''} onChange={e=>setPdLpp(s,e.target.value)} placeholder="0"
+                style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{background:C.surface,border:'1px solid '+C.blue+'44',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia EM USO de AVP (por setor)</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Soma dos dias de internacao apenas dos pacientes com acesso venoso periferico instalado. A taxa de perda de AVP sera calculada sobre este denominador.</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {setores.map(s=>(
+            <div key={s}>
+              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
+              <input type="number" value={pdAvp[s]||''} onChange={e=>setPdAvp(s,e.target.value)} placeholder="0"
+                style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Campos em branco deixam a respectiva taxa como N/D — as demais taxas continuam usando o paciente-dia geral.</div>
+      </div>
+
       {pdSalvo&&<div style={{textAlign:'center',fontSize:11,color:'#22C55E',marginBottom:6}}>
         {String.fromCodePoint(9989)} Paciente-dia salvo no banco
       </div>}
-      <button onClick={()=>salvarPD(pdSetores)} disabled={!setores.some(s=>pdSetores[s])}
+      <button onClick={()=>salvarPD(pdSetores,pdLpp,pdAvp)} disabled={!setores.some(s=>pdSetores[s])}
         style={{width:'100%',background:'transparent',border:'1px solid #0D9488',borderRadius:10,padding:'8px',color:'#0D9488',fontSize:12,fontWeight:600,cursor:'pointer',marginBottom:6}}>
         Salvar paciente-dia sem calcular
       </button>
@@ -1672,13 +1730,14 @@ const warn=!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
             </thead>
             <tbody>
               {INDICADORES_DEF.map((ind,i)=>{
-                const cor=(v)=>{if(v===null||v===undefined)return C.muted;const ok=ind.menor?v<=ind.meta:v>=ind.meta;const close=ind.menor?v<=ind.meta*1.3:v>=ind.meta*0.7;return ok?C.green:close?C.yellow:C.red;};
-                const vG=Number(dados.geral[ind.key]||0);
+                const cor=(v)=>{if(v===null||v===undefined)return C.muted;if(ind.meta===null||ind.meta===undefined)return C.text;const ok=ind.menor?v<=ind.meta:v>=ind.meta;const close=ind.menor?v<=ind.meta*1.3:v>=ind.meta*0.7;return ok?C.green:close?C.yellow:C.red;};
+                const fmt=(raw)=>raw===null||raw===undefined?null:Number(raw);
+                const vG=fmt(dados.geral[ind.key]);
                 return(<tr key={i} style={{borderBottom:'1px solid '+C.border+'22'}}>
                   <td style={{padding:'6px 8px',color:C.text,fontSize:11,position:'sticky',left:0,background:C.card,whiteSpace:'nowrap'}}>{ind.label}</td>
-                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG}{ind.unidade==='%'?'%':''}</td>
-                  {setoresComDados.map(s=>{const v=Number(dados.porSetor[s][ind.key]||0);return(<td key={s} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(v)}}>{v}{ind.unidade==='%'?'%':''}</td>);})}
-                  <td style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontSize:10,whiteSpace:'nowrap'}}>{ind.menor?'< ':'> '}{ind.meta}{ind.unidade}</td>
+                  <td style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(vG)}}>{vG===null?'N/D':vG}{vG!==null&&ind.unidade==='%'?'%':''}</td>
+                  {setoresComDados.map(s=>{const v=fmt(dados.porSetor[s][ind.key]);return(<td key={s} style={{padding:'6px 8px',textAlign:'center',fontWeight:700,color:cor(v)}}>{v===null?'N/D':v}{v!==null&&ind.unidade==='%'?'%':''}</td>);})}
+                  <td style={{padding:'6px 8px',textAlign:'center',color:C.muted,fontSize:10,whiteSpace:'nowrap'}}>{ind.meta===null||ind.meta===undefined?'-':(ind.menor?'< ':'> ')+ind.meta+ind.unidade}</td>
                 </tr>);
               })}
             </tbody>
@@ -4486,6 +4545,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const [rawData,setRawData]=useState([]);
   const [showRelatorio,setShowRelatorio]=useState(false);
   const [gerandoPPT,setGerandoPPT]=useState(false);
+  const [mesPPT,setMesPPT]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
   const [analyticsExtra,setAnalyticsExtra]=useState({treins:[],prots:[],saq:[],planos:[]});
   const hoje2=new Date();
   const mesAtual=hoje2.toLocaleDateString('pt-BR',{month:'long'});
@@ -4512,12 +4572,14 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
     try{
       const h=hospital||DEFAULT_HOSPITAL;
       const hoje=new Date();
-      const mesRefStr=hoje.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-      const inicioMes=new Date(hoje.getFullYear(),hoje.getMonth(),1).toISOString().slice(0,10);
-      const fimMes=new Date(hoje.getFullYear(),hoje.getMonth()+1,0).toISOString().slice(0,10);
-      const semAtual=hoje.getMonth()<6?1:2;
-      const inicioSem=semAtual===1?`${hoje.getFullYear()}-01-01`:`${hoje.getFullYear()}-07-01`;
-      const fimSem=semAtual===1?`${hoje.getFullYear()}-06-30`:`${hoje.getFullYear()}-12-31`;
+      const [anoRefN,mesRefN]=mesPPT.split('-').map(Number);
+      const ref=new Date(anoRefN,mesRefN-1,15);
+      const mesRefStr=ref.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      const inicioMes=new Date(anoRefN,mesRefN-1,1).toISOString().slice(0,10);
+      const fimMes=new Date(anoRefN,mesRefN,0).toISOString().slice(0,10);
+      const semAtual=ref.getMonth()<6?1:2;
+      const inicioSem=semAtual===1?`${anoRefN}-01-01`:`${anoRefN}-07-01`;
+      const fimSem=semAtual===1?`${anoRefN}-06-30`:`${anoRefN}-12-31`;
 
       const getData=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
       const doMes=rawData.filter(n=>{const d=getData(n);return d&&d>=inicioMes&&d<=fimMes;});
@@ -4541,8 +4603,8 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       const mesesSemestre=semAtual===1?[0,1,2,3,4,5]:[6,7,8,9,10,11];
       const nomesMeses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       const porMesSemestre=mesesSemestre.map(m=>{
-        const ini=new Date(hoje.getFullYear(),m,1).toISOString().slice(0,10);
-        const fim=new Date(hoje.getFullYear(),m+1,0).toISOString().slice(0,10);
+        const ini=new Date(anoRefN,m,1).toISOString().slice(0,10);
+        const fim=new Date(anoRefN,m+1,0).toISOString().slice(0,10);
         return doSemestre.filter(n=>{const d=getData(n);return d&&d>=ini&&d<=fim;}).length;
       });
 
@@ -4598,17 +4660,17 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       sl=pres.addSlide();
       sl.background={color:C2.white};
       sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:C2.navy}});
-      sl.addText((semAtual===1?'1º':'2º')+' Semestre '+hoje.getFullYear()+' — Acumulado', {x:0.4,y:0,w:9.2,h:0.7,fontSize:16,bold:true,color:C2.white,valign:'middle',margin:0});
+      sl.addText((semAtual===1?'1º':'2º')+' Semestre '+anoRefN+' — Acumulado', {x:0.4,y:0,w:9.2,h:0.7,fontSize:16,bold:true,color:C2.white,valign:'middle',margin:0});
       sl.addChart(pres.charts.LINE, [{name:'Notificacoes por mes',labels:mesesSemestre.map(m=>nomesMeses[m]),values:porMesSemestre}], {
         x:0.5,y:0.9,w:9,h:2.8,
         lineColor:C2.teal,lineSize:3,lineDataSymbol:'circle',showValue:true,
         valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,dataLabelColor:C2.navy,
       });
-      const mesesComDados=mesesSemestre.filter((m,i)=>m<=hoje.getMonth()).length||1;
+      const mesesComDados=mesesSemestre.filter((m,i)=>m<=ref.getMonth()).length||1;
       sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.5,y:3.9,w:9,h:0.9,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.5}});
       sl.addText('Total no semestre: '+doSemestre.length+' notificacoes  •  Media mensal: '+(doSemestre.length/mesesComDados).toFixed(1), {x:0.65,y:3.9,w:8.7,h:0.9,fontSize:12,bold:true,color:C2.tealDk,valign:'middle',margin:0});
 
-      await pres.writeFile({fileName:'Analise_Mensal_'+(h.short_name||'NSP')+'_'+hoje.toISOString().slice(0,7)+'.pptx'});
+      await pres.writeFile({fileName:'Analise_Mensal_'+(h.short_name||'NSP')+'_'+mesPPT+'.pptx'});
       showToast('Analise mensal gerada!','success');
     }catch(e){
       console.error('[gerarAnaliseMensalPPT]',e);
@@ -4717,7 +4779,8 @@ ESTRUTURA:
         <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
         <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'✓ Dados reais':sbUrl?'✓ Carregando...':'✓ Dados de exemplo'}</div>
       </div>
-      <div style={{display:'flex',gap:8}}>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <input type="month" value={mesPPT} onChange={e=>setMesPPT(e.target.value)} style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:10,padding:'6px 10px',color:C.text,fontSize:11,outline:'none'}}/>
         <button onClick={gerarAnaliseMensalPPT} disabled={gerandoPPT} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:10,padding:'7px 14px',color:C.purple,fontSize:11,fontWeight:700,cursor:gerandoPPT?'default':'pointer',display:'flex',alignItems:'center',gap:5}}>
           {gerandoPPT?'Gerando...':String.fromCodePoint(128202)+' Gerar Analise Mensal'}
         </button>
@@ -6668,10 +6731,24 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   const carregar=async()=>{
     if(!sbUrl||!sbKey)return;setLoading(true);
     const sem=`${ano}/${semestre}S`;
+    // Protocolos tem validade propria de 3 anos: buscar em todas as pastas da janela de vigencia
+    // (semestre atual + 6 anteriores), independente do filtro de semestre selecionado.
+    const pastasVigencia=[];
+    {let a=anoAtual,s=semAtual;
+     for(let i=0;i<7;i++){pastasVigencia.push(`${a}/${s}S`);s--;if(s<1){s=2;a--;}}}
     try{
-      const [prots,treins,rels,protsTab]=await Promise.all([listarPasta(`protocolos/${sem}`),listarSubpastas(`treinamentos/${sem}`),listarPasta(`relatorios/${sem}`),sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&order=nome.asc&select=*`).catch(()=>[])]);
+      const [treins,rels,protsTab,...protsPorPasta]=await Promise.all([
+        listarSubpastas(`treinamentos/${sem}`),
+        listarPasta(`relatorios/${sem}`),
+        sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&order=nome.asc&select=*`).catch(()=>[]),
+        ...pastasVigencia.map(p=>listarPasta(`protocolos/${p}`).then(arr=>arr.filter(f=>f.metadata).map(f=>({...f,path:`protocolos/${p}/${f.name}`,subpasta:p.replace('/',' - ')}))).catch(()=>[])),
+      ]);
       setProtsVigentes(protsTab||[]);
-      setDocs({protocolos:prots.filter(f=>f.metadata).map(f=>({...f,path:`protocolos/${sem}/${f.name}`})),treinamentos:treins,relatorios:rels.filter(f=>f.metadata).map(f=>({...f,path:`relatorios/${sem}/${f.name}`}))});
+      const protsFlat=protsPorPasta.flat();
+      // dedupe por nome de arquivo, mantendo o mais recente (pastas ja vem da mais nova para a mais antiga)
+      const vistos=new Set();
+      const protsUnicos=protsFlat.filter(f=>{if(vistos.has(f.name))return false;vistos.add(f.name);return true;});
+      setDocs({protocolos:protsUnicos,treinamentos:treins,relatorios:rels.filter(f=>f.metadata).map(f=>({...f,path:`relatorios/${sem}/${f.name}`}))});
     }catch(e){showToast('Erro ao listar: '+e.message,'error');}
     setLoading(false);
   };

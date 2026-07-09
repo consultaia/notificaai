@@ -1490,24 +1490,29 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   const [pdSetores,setPdSetoresRaw]=useState(lerLocal);
   const [pdLpp,setPdLppRaw]=useState(()=>lerLocalPref('lpp'));
   const [pdAvp,setPdAvpRaw]=useState(()=>lerLocalPref('avp'));
+  const CM_KEYS=[['quedas','Quedas / quase quedas'],['lpp','Lesao por pressao (LPP)'],['avp','Perda de AVP'],['iras','IRAS / infeccao'],['med','Erros de medicacao']];
+  const lerCM=()=>{const o={};CM_KEYS.forEach(([k])=>{try{o[k]=localStorage.getItem(pdKey('cm_'+k))||'';}catch{o[k]='';}});return o;};
+  const [casosManuais,setCasosManuaisRaw]=useState(lerCM);
+  const setCM=(k,v)=>setCasosManuaisRaw(p=>({...p,[k]:v}));
   const [pdSalvo,setPdSalvo]=useState(false);
 
   const setPdSetor=(s,v)=>setPdSetoresRaw(p=>({...p,[s]:v}));
   const setPdLpp=(s,v)=>setPdLppRaw(p=>({...p,[s]:v}));
   const setPdAvp=(s,v)=>setPdAvpRaw(p=>({...p,[s]:v}));
 
-  const salvarPD=async(vals,valsLpp,valsAvp)=>{
+  const salvarPD=async(vals,valsLpp,valsAvp,cm)=>{
     setores.forEach(s=>{try{
       localStorage.setItem(pdKey(slug(s)),vals[s]||'');
       localStorage.setItem(pdKey('lpp_'+slug(s)),(valsLpp&&valsLpp[s])||'');
       localStorage.setItem(pdKey('avp_'+slug(s)),(valsAvp&&valsAvp[s])||'');
     }catch{}});
+    if(cm)CM_KEYS.forEach(([k])=>{try{localStorage.setItem(pdKey('cm_'+k),cm[k]||'');}catch{}});
     if(!sbUrl||!sbKey) return;
     try{
       await fetch(`${sbUrl}/rest/v1/indicadores_mensais`,{
         method:'POST',
         headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
+        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},casos_manuais:cm||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
       });
       setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
     }catch(err){console.warn('Erro ao salvar PD:',err);}
@@ -1517,6 +1522,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
     setPdSetoresRaw(lerLocal());
     setPdLppRaw(lerLocalPref('lpp'));
     setPdAvpRaw(lerLocalPref('avp'));
+    setCasosManuaisRaw(lerCM());
     if(!sbUrl||!sbKey) return;
     fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mesRef}&select=*`,{
       headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
@@ -1534,6 +1540,14 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
         hidratar('pd_setores','',setPdSetoresRaw);
         hidratar('pd_lpp_setores','lpp',setPdLppRaw);
         hidratar('pd_avp_setores','avp',setPdAvpRaw);
+        if(row.casos_manuais){
+          const cm2={};CM_KEYS.forEach(([k])=>{
+            const v=row.casos_manuais[k];
+            if(v!==undefined&&v!==null&&v!==''){cm2[k]=String(v);try{localStorage.setItem(pdKey('cm_'+k),String(v));}catch{}}
+            else{try{cm2[k]=localStorage.getItem(pdKey('cm_'+k))||'';}catch{cm2[k]='';}}
+          });
+          setCasosManuaisRaw(cm2);
+        }else setCasosManuaisRaw(lerCM());
       }
     }).catch(()=>{});
   },[mesRef,sbUrl,sbKey]);
@@ -1542,7 +1556,7 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
     if(!sbUrl||!sbKey) return;
     const algumPreenchido=setores.some(s=>pdSetores[s]);
     if(!algumPreenchido){showToast('Informe ao menos um total de paciente-dia por setor','error');return;}
-    await salvarPD(pdSetores,pdLpp,pdAvp);
+    await salvarPD(pdSetores,pdLpp,pdAvp,casosManuais);
     setLoading(true);
     try{
       const [ano,mes]=mesRef.split('-').map(Number);
@@ -1567,10 +1581,10 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
           pd,pdLpp:pdLppN,pdAvp:pdAvpN,
         };
         r.txQueda=(r.quedas/pd*1000).toFixed(2);
-        // Denominadores especificos: LPP so entre pacientes com risco; AVP so entre pacientes em uso.
+        // LPP e AVP: percentual (x100) sobre a populacao exposta - padrao institucional HNSA.
         // Sem denominador informado, a taxa fica N/D (nao usa o PD geral, que superestimaria a populacao exposta).
-        r.txLP=pdLppN>0?(r.lp/pdLppN*1000).toFixed(2):null;
-        r.txAVP=pdAvpN>0?(r.avp/pdAvpN*1000).toFixed(2):null;
+        r.txLP=pdLppN>0?(r.lp/pdLppN*100).toFixed(1):null;
+        r.txAVP=pdAvpN>0?(r.avp/pdAvpN*100).toFixed(1):null;
         r.txIRAS=(r.iras/pd*1000).toFixed(2);
         r.txMed=(r.medicacao/pd*1000).toFixed(2);
         r.txNearMiss=r.total>0?Math.round(r.nearMiss/r.total*100):0;
@@ -1581,6 +1595,15 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
       const pdLppTotal=setores.reduce((acc,s)=>acc+(Number(pdLpp[s])||0),0);
       const pdAvpTotal=setores.reduce((acc,s)=>acc+(Number(pdAvp[s])||0),0);
       const geral=calc(nots,pdTotal,pdLppTotal,pdAvpTotal);
+      // Ajuste manual (subnotificacao): valor preenchido substitui a contagem automatica no GERAL
+      const cmVal=k=>{const v=casosManuais[k];return v!==''&&v!==undefined&&v!==null?Number(v):null;};
+      const manuaisUsados=[];
+      if(cmVal('quedas')!==null){geral.quedas=cmVal('quedas');geral.txQueda=(geral.quedas/pdTotal*1000).toFixed(2);manuaisUsados.push('Quedas');}
+      if(cmVal('lpp')!==null){geral.lp=cmVal('lpp');geral.txLP=pdLppTotal>0?(geral.lp/pdLppTotal*100).toFixed(1):null;manuaisUsados.push('LPP');}
+      if(cmVal('avp')!==null){geral.avp=cmVal('avp');geral.txAVP=pdAvpTotal>0?(geral.avp/pdAvpTotal*100).toFixed(1):null;manuaisUsados.push('Perda de AVP');}
+      if(cmVal('iras')!==null){geral.iras=cmVal('iras');geral.txIRAS=(geral.iras/pdTotal*1000).toFixed(2);manuaisUsados.push('IRAS');}
+      if(cmVal('med')!==null){geral.medicacao=cmVal('med');geral.txMed=(geral.medicacao/pdTotal*1000).toFixed(2);manuaisUsados.push('Medicacao');}
+      geral.manuaisUsados=manuaisUsados;
 
       const porSetor={};
       setores.forEach(s=>{
@@ -1595,8 +1618,8 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
 
   const INDICADORES_DEF=[
     {key:'txQueda',label:'Taxa de quedas',unidade:'/1000 p-d',meta:1.5,menor:true,desc:'Quedas / paciente-dia x 1000'},
-    {key:'txLP',label:'Taxa de LPP adquirida',unidade:'/1000 p-d risco',meta:0.8,menor:true,desc:'LPP adquirida / paciente-dia COM RISCO de LPP x 1000 - Meta ONA < 0.8'},
-    {key:'txAVP',label:'Taxa de perda de AVP',unidade:'/1000 p-d AVP',meta:null,menor:true,desc:'Perdas de AVP / paciente-dia EM USO de AVP x 1000 - meta institucional a definir'},
+    {key:'txLP',label:'Incidencia de LPP',unidade:'%',meta:4,menor:true,desc:'LPP adquirida / paciente-dia COM RISCO de LPP x 100 - Meta institucional < 4%'},
+    {key:'txAVP',label:'Taxa de perda de AVP',unidade:'%',meta:10,menor:true,desc:'Perdas de AVP / paciente-dia EM USO de AVP x 100 - Meta institucional < 10%'},
     {key:'txIRAS',label:'Taxa de IRAS',unidade:'/1000 p-d',meta:2.0,menor:true,desc:'Infeccoes relacionadas a assistencia / paciente-dia x 1000 - Meta < 2'},
     {key:'txMed',label:'Erros de medicação notif.',unidade:'/1000 p-d',meta:0.5,menor:true,desc:'Erros de medicação notificados / paciente-dia x 1000'},
     {key:'txNearMiss',label:'Near miss / Total notif.',unidade:'%',meta:20,menor:false,desc:'% de near miss sobre total - meta > 20% indica boa cultura de notificacao'},
@@ -1696,10 +1719,25 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
         <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Campos em branco deixam a respectiva taxa como N/D — as demais taxas continuam usando o paciente-dia geral.</div>
       </div>
 
+      {/* Ajuste manual de casos: cobre a subnotificacao com o controle manual do NSP */}
+      <div style={{background:C.surface,border:'1px dashed '+C.purple+'66',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Casos do mes — lancamento manual (opcional)</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Se o seu controle manual capturou casos que nao foram notificados no sistema (subnotificacao), lance aqui o TOTAL real do mes. O valor preenchido substitui a contagem automatica no indicador GERAL; em branco, vale a contagem das notificacoes.</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          {CM_KEYS.map(([k,label])=>(
+            <div key={k}>
+              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{label}</label>
+              <input type="number" value={casosManuais[k]||''} onChange={e=>setCM(k,e.target.value)} placeholder="auto"
+                style={{background:C.card,border:'1px solid '+(casosManuais[k]?C.purple+'88':C.border),borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {pdSalvo&&<div style={{textAlign:'center',fontSize:11,color:'#22C55E',marginBottom:6}}>
         {String.fromCodePoint(9989)} Paciente-dia salvo no banco
       </div>}
-      <button onClick={()=>salvarPD(pdSetores,pdLpp,pdAvp)} disabled={!setores.some(s=>pdSetores[s])}
+      <button onClick={()=>salvarPD(pdSetores,pdLpp,pdAvp,casosManuais)} disabled={!setores.some(s=>pdSetores[s])}
         style={{width:'100%',background:'transparent',border:'1px solid #0D9488',borderRadius:10,padding:'8px',color:'#0D9488',fontSize:12,fontWeight:600,cursor:'pointer',marginBottom:6}}>
         Salvar paciente-dia sem calcular
       </button>
@@ -1718,6 +1756,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       {/* Comparativo por setor - tabela */}
       {setoresComDados.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Comparativo por Setor</div>
+        {dados.geral.manuaisUsados&&dados.geral.manuaisUsados.length>0&&<div style={{fontSize:10,color:C.purple,marginBottom:8,fontWeight:700}}>* Valores GERAIS com lancamento manual: {dados.geral.manuaisUsados.join(', ')}. Colunas por setor seguem as notificacoes do sistema.</div>}
         <div style={{overflowX:'auto'}}>
           <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
             <thead>
@@ -4601,10 +4640,12 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       const topSubtipos=Object.entries(porSubtipo).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
       // ── Eventos monitorados (tabela oficial do NSP) ──
-      const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores`).catch(()=>[]);
+      const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores,casos_manuais`).catch(()=>[]);
       const somaPd=(obj)=>obj?Object.values(obj).reduce((a2,v)=>a2+(Number(v)||0),0):0;
       const pdLppMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores);
       const pdAvpMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores);
+      const cmMes=(indMesArr&&indMesArr[0]&&indMesArr[0].casos_manuais)||{};
+      const cmNum=k=>{const v=cmMes[k];return v!==undefined&&v!==null&&v!==''?Number(v):null;};
       const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
       const st2=n=>(n.event_subtype||'').toLowerCase();
       const usadosMon=new Set();
@@ -4689,10 +4730,14 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       sl.addText(mesRefStr.charAt(0).toUpperCase()+mesRefStr.slice(1), {x:6.4,y:0,w:3.2,h:0.7,fontSize:12,color:C2.teal,valign:'middle',align:'right',margin:0});
 
       const countRows=[
-        ['Falha na identificacao',nIdent],['Erro de Comunicacao / Prontuario',nCom],
+        ['Falha na identificacao',nIdent],
+        ['Lesao por pressao (casos notificados)',nLpp],
+        ['Erro de Comunicacao / Prontuario',nCom],
         ['Falha na Cirurgia Segura',nCir],['Falha na Cadeia Medicamentosa',nMedM],
         ['Uso de Adornos',nAdorno],['Queda / quase queda',nQuedaM],
+        ['Perda de AVP (casos notificados)',nAvpM],
         ['Perdas TOT/CVC/CVD/SNE',nDisp],['Falhas nas rotinas assistenciais',nRotina],
+        ['Eventos Sentinela',nSent],
         ['Falha de equipamento',nEquip],['Outros eventos sem danos',nOutrosM],
       ];
       const tRows=[[
@@ -4706,14 +4751,14 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
           {text:String(val),options:{fontSize:9,bold:!zero,align:'center',fill:{color:idx%2===0?'FFFFFF':'F1F5F9'},color:zero?'94A3B8':C2.navy}},
         ]);
       });
-      sl.addTable(tRows,{x:0.35,y:0.95,w:5.85,colW:[4.85,1.0],border:{pt:0.5,color:'E2E8F0'},rowH:0.315,fontFace:'Calibri',valign:'middle'});
-      sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.35,y:4.5,w:5.85,h:0.62,fill:{color:C2.navy},rectRadius:0.06});
-      sl.addText([{text:'TOTAL DE NOTIFICACOES NO MES   ',options:{fontSize:10,color:'C8D8E8',bold:true}},{text:String(doMes.length),options:{fontSize:20,color:'FFFFFF',bold:true}}],{x:0.55,y:4.5,w:5.5,h:0.62,valign:'middle',margin:0});
+      sl.addTable(tRows,{x:0.35,y:0.92,w:5.85,colW:[4.85,1.0],border:{pt:0.5,color:'E2E8F0'},rowH:0.278,fontFace:'Calibri',valign:'middle'});
+      sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.35,y:4.92,w:5.85,h:0.52,fill:{color:C2.navy},rectRadius:0.06});
+      sl.addText([{text:'TOTAL DE NOTIFICACOES NO MES   ',options:{fontSize:10,color:'C8D8E8',bold:true}},{text:String(doMes.length),options:{fontSize:18,color:'FFFFFF',bold:true}}],{x:0.55,y:4.92,w:5.5,h:0.52,valign:'middle',margin:0});
 
       // Cartoes KPI a direita: os itens com meta merecem destaque, nao linha de tabela
       const kpis=[
-        {t:'Incidencia de LPP',meta:'Meta < 4% (pac-dia com risco)',casos:nLpp,pd:pdLppMes,limite:4},
-        {t:'Perda de AVP',meta:'Meta < 10% (pac-dia em uso)',casos:nAvpM,pd:pdAvpMes,limite:10},
+        {t:'Incidencia de LPP',meta:'Meta < 4% (pac-dia com risco)',casos:cmNum('lpp')!==null?cmNum('lpp'):nLpp,manual:cmNum('lpp')!==null,pd:pdLppMes,limite:4},
+        {t:'Perda de AVP',meta:'Meta < 10% (pac-dia em uso)',casos:cmNum('avp')!==null?cmNum('avp'):nAvpM,manual:cmNum('avp')!==null,pd:pdAvpMes,limite:10},
         {t:'Eventos Sentinela',meta:'Meta: zero — RCA em 72h',casos:nSent,pd:null,limite:null},
       ];
       kpis.forEach((k,i)=>{
@@ -4723,7 +4768,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
           valTxt=String(k.casos);cor2=k.casos===0?C2.green:C2.red;statusTxt=k.casos===0?'DENTRO DA META':'ATENCAO';
         }else if(k.pd>0){
           const pct=k.casos/k.pd*100;
-          valTxt=pct.toFixed(1)+'%';cor2=pct<k.limite?C2.green:C2.red;statusTxt=(pct<k.limite?'DENTRO DA META':'ACIMA DA META')+'  ·  '+k.casos+' caso(s)';
+          valTxt=pct.toFixed(1)+'%';cor2=pct<k.limite?C2.green:C2.red;statusTxt=(pct<k.limite?'DENTRO DA META':'ACIMA DA META')+'  ·  '+k.casos+' caso(s)'+(k.manual?' *':'');
         }else{
           valTxt='N/D';cor2=C2.gray;statusTxt=k.casos+' caso(s) — sem denominador';
         }
@@ -4734,9 +4779,10 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
         sl.addText(statusTxt,{x:6.65,y:y+0.86,w:2.9,h:0.2,fontSize:8,bold:true,color:cor2,margin:0});
         sl.addText(k.meta,{x:6.65,y:y+1.04,w:2.9,h:0.2,fontSize:7.5,color:'64748B',margin:0});
       });
-      if(pdLppMes===0||pdAvpMes===0){
-        sl.addText('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores para calcular as taxas.', {x:0.35,y:5.22,w:9.3,h:0.25,fontSize:8,italic:true,color:C2.gray,margin:0});
-      }
+      const notasRodape=[];
+      if(pdLppMes===0||pdAvpMes===0)notasRodape.push('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores.');
+      if(cmNum('lpp')!==null||cmNum('avp')!==null)notasRodape.push('* casos com lancamento manual do NSP (inclui subnotificacao); a tabela mostra apenas o notificado no sistema.');
+      if(notasRodape.length)sl.addText(notasRodape.join('  '), {x:0.35,y:5.46,w:9.3,h:0.17,fontSize:7.5,italic:true,color:C2.gray,margin:0});
 
       sl=pres.addSlide();
       sl.background={color:C2.white};

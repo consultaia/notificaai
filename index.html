@@ -4600,6 +4600,48 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       doMes.forEach(n=>{const st=n.event_subtype||'Outro';porSubtipo[st]=(porSubtipo[st]||0)+1;});
       const topSubtipos=Object.entries(porSubtipo).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
+      // ── Eventos monitorados (tabela oficial do NSP) ──
+      const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores`).catch(()=>[]);
+      const somaPd=(obj)=>obj?Object.values(obj).reduce((a2,v)=>a2+(Number(v)||0),0):0;
+      const pdLppMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores);
+      const pdAvpMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores);
+      const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
+      const st2=n=>(n.event_subtype||'').toLowerCase();
+      const usadosMon=new Set();
+      const contaExcl=(f)=>{let c=0;doMes.forEach(n=>{const k=n.id||JSON.stringify(n);if(!usadosMon.has(k)&&f(n)){usadosMon.add(k);c++;}});return c;};
+      const nSent=contaExcl(n=>n.gravidade==='Evento sentinela');
+      const nIdent=contaExcl(n=>txt(n).includes('identifica'));
+      const nLpp=contaExcl(n=>txt(n).includes('press')||txt(n).includes('lpp'));
+      const nCom=contaExcl(n=>txt(n).includes('comunic')||txt(n).includes('prontuario')||txt(n).includes('documenta'));
+      const nCir=contaExcl(n=>txt(n).includes('cirurg')||txt(n).includes('lvcs'));
+      const nMedM=contaExcl(n=>txt(n).includes('medic')||txt(n).includes('farmac')||txt(n).includes('prescri'));
+      const nAdorno=contaExcl(n=>txt(n).includes('adorno')||txt(n).includes('vestimenta'));
+      const nQuedaM=contaExcl(n=>txt(n).includes('queda'));
+      const nAvpM=contaExcl(n=>st2(n).includes('avp')||st2(n).includes('acesso venoso'));
+      const nDisp=contaExcl(n=>st2(n).includes('sne')||st2(n).includes('sng')||st2(n).includes('sonda')||st2(n).includes('cvc')||st2(n).includes('cvd')||st2(n).includes('dispositivo')||st2(n).includes('exterioriz')||st2(n).includes('cateter')||/\btot\b/.test(st2(n)));
+      const nRotina=contaExcl(n=>txt(n).includes('rotina'));
+      const nEquip=contaExcl(n=>txt(n).includes('equipamento')||txt(n).includes('infraestrutura')||txt(n).includes('manuten'));
+      const nOutrosM=doMes.length-usadosMon.size;
+      const pctFmt=(casos,pd)=>pd>0?((casos/pd*100).toFixed(1)+'% ('+casos+')'):'N/D ('+casos+')';
+      const lppOk=pdLppMes>0?(nLpp/pdLppMes*100)<4:null;
+      const avpOk=pdAvpMes>0?(nAvpM/pdAvpMes*100)<10:null;
+      const linhasMon=[
+        ['Falha na identificacao',String(nIdent),null],
+        ['Incidencia de Lesao por Pressao (meta <4%)',pctFmt(nLpp,pdLppMes),lppOk],
+        ['Erro de Comunicacao / Prontuario',String(nCom),null],
+        ['Falha na Cirurgia Segura',String(nCir),null],
+        ['Falha na Cadeia Medicamentosa',String(nMedM),null],
+        ['Uso de Adornos',String(nAdorno),null],
+        ['Queda / quase queda',String(nQuedaM),null],
+        ['Taxa de perda de AVP (meta <10%)',pctFmt(nAvpM,pdAvpMes),avpOk],
+        ['Perdas TOT/CVC/CVD/SNE',String(nDisp),null],
+        ['Falhas nas rotinas assistenciais',String(nRotina),null],
+        ['Eventos Sentinela',String(nSent),nSent===0?true:false],
+        ['Falha de equipamento',String(nEquip),null],
+        ['Outros eventos sem danos',String(nOutrosM),null],
+        ['Total',String(doMes.length),null],
+      ];
+
       const mesesSemestre=semAtual===1?[0,1,2,3,4,5]:[6,7,8,9,10,11];
       const nomesMeses=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
       const porMesSemestre=mesesSemestre.map(m=>{
@@ -4655,6 +4697,28 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       if(topSubtipos.length>0){
         sl.addText('Principais tipos de ocorrencia:', {x:0.4,y:4.55,w:9,h:0.3,fontSize:11,bold:true,color:C2.navy,margin:0});
         sl.addText(topSubtipos.map(([k,v])=>k+' ('+v+')').join('  •  '), {x:0.4,y:4.85,w:9,h:0.4,fontSize:10,color:C2.gray,margin:0});
+      }
+
+      // ── Slide: Eventos Monitorados (tabela oficial NSP) ──
+      sl=pres.addSlide();
+      sl.background={color:C2.white};
+      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:C2.navy}});
+      sl.addText('Eventos Monitorados — '+mesRefStr, {x:0.4,y:0,w:9.2,h:0.7,fontSize:16,bold:true,color:C2.white,valign:'middle',margin:0});
+      const tRows=[[
+        {text:'Evento',options:{bold:true,color:C2.white,fill:{color:C2.navy},fontSize:10}},
+        {text:'Resultado',options:{bold:true,color:C2.white,fill:{color:C2.navy},fontSize:10,align:'center'}},
+      ]];
+      linhasMon.forEach(([lab,val,okFlag],idx)=>{
+        const ehTotal=lab==='Total';
+        const corVal=okFlag===null?'1E293B':okFlag?C2.green:C2.red;
+        tRows.push([
+          {text:lab,options:{fontSize:9.5,bold:ehTotal,fill:{color:idx%2===0?'F1F5F9':'FFFFFF'},color:'1E293B'}},
+          {text:val,options:{fontSize:9.5,bold:ehTotal||okFlag!==null,align:'center',fill:{color:idx%2===0?'F1F5F9':'FFFFFF'},color:corVal}},
+        ]);
+      });
+      sl.addTable(tRows,{x:0.4,y:0.85,w:9.2,colW:[6.7,2.5],border:{pt:0.5,color:'CBD5E1'},rowH:0.29,fontFace:'Calibri',valign:'middle'});
+      if(pdLppMes===0||pdAvpMes===0){
+        sl.addText('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores para calcular as taxas.', {x:0.4,y:5.15,w:9.2,h:0.3,fontSize:8,italic:true,color:C2.gray,margin:0});
       }
 
       sl=pres.addSlide();

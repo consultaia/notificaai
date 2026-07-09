@@ -2493,7 +2493,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     fetch(`${sbUrl}/rest/v1/config_dsm?hospital_id=eq.${h.id}&select=*`,{
       headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}
     }).then(r=>r.ok?r.json():Promise.resolve([])).then(d=>{
-      if(d&&d[0]) setCfgLocal(d[0]);
+      if(d&&d[0]){
+        setCfgLocal(d[0]);
+        if(d[0].gestor_nsp) setGestor(d[0].gestor_nsp);
+        if(d[0].boas_praticas) setBoasPraticasNSP(d[0].boas_praticas);
+      }
     }).catch(()=>{});
   },[sbUrl,sbKey]);
 
@@ -2566,7 +2570,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         method:'POST',
         headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json',
           'Prefer':'resolution=merge-duplicates,return=minimal','on-conflict':'hospital_id'},
-        body:JSON.stringify({...cfgLocal,hospital_id:h.id,updated_at:new Date().toISOString()}),
+        body:JSON.stringify({...cfgLocal,gestor_nsp:gestor||cfgLocal.gestor_nsp||null,boas_praticas:boasPraticasNSP||cfgLocal.boas_praticas||null,hospital_id:h.id,updated_at:new Date().toISOString()}),
       });
       showToast('Documentos institucionais salvos!','success');
     }catch(e){showToast('Erro ao salvar: '+e.message,'error');}
@@ -2649,6 +2653,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     setLoading(false);
   };
 
+  // Auto-gerar: a view abre ja com os dados do semestre atual; trocar o semestre regenera.
+  React.useEffect(()=>{
+    if(sbUrl&&sbKey) gerar();
+  },[sbUrl,sbKey,semestre]);
+
   const imprimir=()=>{
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
@@ -2664,30 +2673,36 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     {/* Modal de edicao */}
     <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
 
-    <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('config','Configurar')}
+    {/* Semestre e um controle global: vale para DSM e ANVISA, e regenera ao trocar */}
+    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+      <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{flex:1,background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none',appearance:'none'}}>
+        {[2024,2025,2026].flatMap(a=>[`${a}-1`,`${a}-2`]).map(s=>{const[a,sem]=s.split('-');return(<option key={s} value={s}>{sem}o semestre de {a}</option>);})}
+      </select>
+      <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal+'22',border:'1px solid '+C.teal+'55',borderRadius:10,padding:'10px 14px',color:loading?C.muted:C.teal,fontSize:12,fontWeight:800,cursor:loading?'default':'pointer',flexShrink:0}}>{loading?'...':'Atualizar'}</button>
     </div>
+
+    <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
+      {tb('dsm','Relatorio DSM')}{tb('anvisa','Avaliacao ANVISA')}{tb('ciclo','Envio DSM')}{tb('config','Documentos')}
+    </div>
+
+    {tab==='ciclo'&&<SemestresDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded/>}
 
     {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Parametros do relatorio</div>
-        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Semestre de referencia</label>
-        <select value={semestre} onChange={e=>setSemestre(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,appearance:'none'}}>
-          {[2024,2025,2026].flatMap(a=>[`${a}-1`,`${a}-2`]).map(s=>{const[a,sem]=s.split('-');return(<option key={s} value={s}>{sem}o semestre de {a}</option>);})}
-        </select>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Assinatura do relatorio</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preenchido uma vez, fica salvo e entra automaticamente em todos os relatorios.</div>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
+        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10}}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Boas praticas gerais do NSP (sera incluido no relatorio)</label>
         <textarea value={boasPraticasNSP} onChange={e=>setBoasPraticasNSP(e.target.value)} rows={3}
-          defaultValue={'Implementacao do sistema NotificaAI para gestao de incidentes em tempo real, permitindo notificacao digital, analise automatizada por inteligencia artificial, geracao de relatorios automaticos e monitoramento continuo dos indicadores de seguranca do paciente. O sistema possibilitou reducao do tempo de resposta aos incidentes e melhora na cultura de notificacao.'}
           placeholder='Boas praticas gerais do NSP...'
-          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,width:'100%',resize:'vertical',marginBottom:10}}/>
-        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
-        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,width:'100%',resize:'vertical',marginBottom:12}}/>
 
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6,marginTop:6,borderTop:'1px solid '+C.border,paddingTop:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
           <span>Documentos Institucionais NSP</span>
           {(cfgLocal.numero_portaria_nsp||cfgLocal.data_atualizacao_psp)&&<span style={{fontSize:10,fontWeight:700,color:C.green,background:C.green+'15',borderRadius:5,padding:'2px 8px'}}>{String.fromCodePoint(10003)} Salvo no banco</span>}
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preencha UMA vez — os dados ficam salvos e alimentam os criterios C.1, C.2 e C.3 da avaliacao ANVISA automaticamente. Edite apenas quando houver atualizacao de portaria ou PSP.</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preencha UMA vez — os dados ficam salvos e alimentam os criterios C.1, C.2 e C.3 da avaliacao ANVISA automaticamente. Estes mesmos documentos tambem podem ser registrados e anexados na aba Protocolos (e a mesma base de dados).</div>
 
         {[
           {label:'Numero da Portaria de criacao do NSP',key:'numero_portaria_nsp',placeholder:'Ex: 001/2024'},
@@ -2735,8 +2750,8 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           {salvandoConfig?'Salvando...':'Salvar documentos institucionais'}
         </button>
 
-        <button onClick={gerar} disabled={loading} style={{width:'100%',background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
-          {loading?'Gerando...':'Gerar Relatorio'}
+        <button onClick={()=>{gerar().then(()=>setTab('dsm'));}} disabled={loading} style={{width:'100%',background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
+          {loading?'Gerando...':'Gerar e ver relatorio'}
         </button>
       </div>
       <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:12,padding:'12px 14px',fontSize:11,color:C.muted,lineHeight:1.7}}>
@@ -2745,15 +2760,17 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     </div>}
 
     {(tab==='dsm'||tab==='anvisa')&&!dados&&<div style={{textAlign:'center',padding:40,color:C.muted}}>
-      <div style={{fontSize:32,marginBottom:12}}>Doc</div>
-      <div style={{fontSize:13,marginBottom:16}}>Configure o semestre e gere o relatorio</div>
-      <button onClick={()=>setTab('config')} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 20px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Configurar</button>
+      {loading?(<div><Dots/><div style={{fontSize:12,marginTop:12}}>Compilando dados do semestre — notificacoes, treinamentos, protocolos e indicadores...</div></div>)
+      :(<div>
+        <div style={{fontSize:13,marginBottom:16}}>Nao foi possivel carregar os dados do semestre.</div>
+        <button onClick={gerar} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 20px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Tentar novamente</button>
+      </div>)}
     </div>}
 
     {tab==='dsm'&&dados&&<div>
       <div style={{display:'flex',gap:8,marginBottom:14}}>
         <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
-        <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Novo relatorio</button>
+        <button onClick={gerar} disabled={loading} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:loading?'default':'pointer'}}>{loading?'Atualizando...':'Atualizar dados'}</button>
       </div>
       <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{width:'100%',background:loadingIA?C.border:C.purple,border:'none',borderRadius:10,padding:'11px',color:loadingIA?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:loadingIA?'default':'pointer',marginBottom:14}}>
         {loadingIA?String.fromCodePoint(8987)+' Gerando narrativa...':String.fromCodePoint(129504)+' Gerar narrativa com IA'}
@@ -5709,7 +5726,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'semestres_dsm',label:'Semestres',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -5778,7 +5795,6 @@ function NotificaAI() {
         {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='semestres_dsm'&&<SemestresDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
@@ -6068,6 +6084,46 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const faltando=PROTOCOLOS_DSM.filter(d=>getStatus(d)==='missing');
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'};
 
+  // ── Documentos institucionais (mesma fonte da aba DSM/ANVISA: config_dsm) ──
+  const DOCS_INST=[
+    {id:'portaria_nsp',nome:'Portaria de criacao do NSP',base:'RDC 36/2013 Art.4 - Criterio C.1',kNum:'numero_portaria_nsp',kData:'data_portaria_nsp',kLink:'link_portaria_nsp'},
+    {id:'portaria_ccih',nome:'Portaria de criacao da CCIH',base:'Portaria 2.616/1998 - Criterio C.2',kNum:'numero_portaria_ccih',kData:'data_portaria_ccih',kLink:'link_portaria_ccih'},
+    {id:'psp',nome:'Plano de Seguranca do Paciente (PSP)',base:'RDC 36/2013 Art.8 - Criterio C.3 - validade 3 anos',kData:'data_atualizacao_psp',kLink:'link_psp',validade3:true},
+    {id:'regimento',nome:'Regimento Interno do NSP',base:'Documento institucional do NSP',kLink:'link_regimento'},
+  ];
+  const [docEdit,setDocEdit]=useState({});
+  const [docSaving,setDocSaving]=useState(false);
+  const docStatus=(d)=>{
+    if(d.validade3){
+      const dt=cfg[d.kData];
+      if(!dt)return'missing';
+      const v=new Date(new Date(dt).setFullYear(new Date(dt).getFullYear()+3)).toISOString().slice(0,10);
+      if(v<hoje)return'vencido';
+      if(v<=new Date(Date.now()+60*86400000).toISOString().slice(0,10))return'proximo';
+      return'ok';
+    }
+    if(d.kData||d.kNum) return (cfg[d.kData]||cfg[d.kNum])?'ok':'missing';
+    return cfg[d.kLink]?'ok':'missing';
+  };
+  const salvarDoc=(d)=>{
+    const ed=docEdit[d.id]||{};
+    setDocSaving(true);
+    const payload={...cfg,hospital_id:h.id,updated_at:new Date().toISOString()};
+    if(d.kNum!==undefined&&ed.numero!==undefined)payload[d.kNum]=ed.numero||null;
+    if(d.kData!==undefined&&ed.data!==undefined)payload[d.kData]=ed.data||null;
+    if(d.kLink!==undefined&&ed.link!==undefined)payload[d.kLink]=ed.link||null;
+    fetch(`${sbUrl}/rest/v1/config_dsm`,{
+      method:'POST',
+      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal','on-conflict':'hospital_id'},
+      body:JSON.stringify(payload),
+    }).then(r=>{
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      showToast('Documento salvo!','success');
+      setDocEdit(e=>{const n={...e};delete n[d.id];return n;});
+      return carregar();
+    }).catch(e=>showToast('Erro ao salvar: '+e.message,'error')).then(()=>setDocSaving(false));
+  };
+
   return(<div style={{padding:'16px 0 80px',display:'flex',flexDirection:'column',gap:10}}>
     <BackHeader title='Protocolos Institucionais' subtitle='Controle de validade - RDC 36/2013'/>
     {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
@@ -6078,6 +6134,52 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
       <div style={{fontSize:12,color:C.muted}}>{faltando.length} protocolo(s) sem data cadastrada.</div>
     </div>}
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}>Carregando...</div>}
+
+    {/* ── Documentos Institucionais ── */}
+    <div style={{fontSize:11,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginTop:4}}>Documentos Institucionais</div>
+    {DOCS_INST.map(d=>{
+      const st=docStatus(d);const stc=ST[st];
+      const ed=docEdit[d.id];
+      const venc=d.validade3&&cfg[d.kData]?new Date(new Date(cfg[d.kData]).setFullYear(new Date(cfg[d.kData]).getFullYear()+3)).toISOString().slice(0,10):null;
+      return(<div key={d.id} style={{background:C.card,border:'1px solid '+stc.color+'44',borderRadius:14,padding:'12px 14px',borderLeft:'4px solid '+stc.color}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>{d.nome}</div>
+            <div style={{fontSize:10,color:C.muted}}>{d.base}</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <span style={{background:stc.color+'22',color:stc.color,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700}}>{stc.label}</span>
+            {!ed&&<button onClick={()=>setDocEdit(e=>({...e,[d.id]:{numero:cfg[d.kNum]||'',data:cfg[d.kData]||'',link:cfg[d.kLink]||''}}))} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 10px',color:C.muted,fontSize:11,cursor:'pointer',fontWeight:700}}>{st==='missing'?'+ Registrar':'Editar'}</button>}
+          </div>
+        </div>
+        {!ed&&st!=='missing'&&<div style={{display:'flex',gap:14,fontSize:11,color:C.muted,flexWrap:'wrap'}}>
+          {d.kNum&&cfg[d.kNum]&&<span>N: {cfg[d.kNum]}</span>}
+          {d.kData&&cfg[d.kData]&&<span>Data: {new Date(cfg[d.kData]+'T12:00:00').toLocaleDateString('pt-BR')}</span>}
+          {venc&&<span style={{color:stc.color}}>Validade: {new Date(venc+'T12:00:00').toLocaleDateString('pt-BR')}</span>}
+          {d.kLink&&cfg[d.kLink]&&<a href={cfg[d.kLink]} target='_blank' rel='noreferrer' style={{color:C.teal}}>Documento</a>}
+        </div>}
+        {!ed&&st==='missing'&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para anexar o documento. Alimenta os criterios da avaliacao ANVISA automaticamente.</div>}
+        {ed&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+            {d.kNum!==undefined&&<div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],numero:e.target.value}}))} placeholder='Ex: 001/2024' style={inp}/></div>}
+            {d.kData!==undefined&&<div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{d.validade3?'Data da ultima atualizacao':'Data do documento'}</label><input type='date' value={ed.data} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],data:e.target.value}}))} style={inp}/></div>}
+          </div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
+            <div style={{display:'flex',gap:6}}>
+              <input type='text' value={ed.link} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],link:e.target.value}}))} placeholder='https://' style={{...inp,flex:1}}/>
+              <StorageUploadBtn tipo='documento_institucional' sbUrl={sbUrl} sbKey={sbKey} meta={{crit:d.id,nomeProt:d.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}} onUploaded={link=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],link}}))} label='Anexar'/>
+            </div>
+          </div>
+          {d.validade3&&<div style={{fontSize:10,color:C.muted}}>Validade: data de atualizacao + 3 anos (calculado automaticamente)</div>}
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>setDocEdit(e=>{const n={...e};delete n[d.id];return n;})} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+            <button onClick={()=>salvarDoc(d)} disabled={docSaving} style={{flex:2,background:docSaving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:docSaving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:docSaving?'default':'pointer'}}>{docSaving?'Salvando...':'Salvar'}</button>
+          </div>
+        </div>}
+      </div>);
+    })}
+
+    <div style={{fontSize:11,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginTop:8}}>Protocolos Assistenciais</div>
     {PROTOCOLOS_DSM.map(def=>{
       const st=getStatus(def);const {label,color}=ST[st];
       const r=registros[def.nome];const ed=editando[def.crit];
@@ -6441,7 +6543,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
+function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const anoAtual=new Date().getFullYear();
   const semAtual=new Date().getMonth()<6?1:2;
@@ -6500,8 +6602,9 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital}) {
 
   const ST={aberto:{label:'Em andamento',color:C.teal},finalizado:{label:'Finalizado',color:C.blue},enviado_dsm:{label:'Enviado DSM',color:C.green}};
 
-  return(<div style={{padding:'16px 0 80px'}}>
-    <BackHeader title='Semestres DSM' subtitle='Gestao e envio do relatorio a DSM'/>
+  return(<div style={{padding:embedded?'0':'16px 0 80px'}}>
+    {!embedded&&<BackHeader title='Semestres DSM' subtitle='Gestao e envio do relatorio a DSM'/>}
+    {embedded&&<div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>Ciclo de vida do relatorio semestral: gere o consolidado oficial (XLSX no Storage) ao fim do semestre e marque quando for enviado a DSM.</div>}
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       {grid.map(({ano,semestre})=>{
         const reg=getSem(ano,semestre);const key=`${ano}-${semestre}`;

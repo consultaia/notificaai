@@ -552,7 +552,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
+          matched={key:perfil,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
       } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
@@ -654,7 +654,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
   const [loading,setLoading]=useState(false);
   const [showForm,setShowForm]=useState(false);
   const [editing,setEditing]=useState(null);
-  const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
+  const [form,setForm]=useState({nome:'',pin:'',confirma:'',perfil:'gestor',subnucleo:'',ativo:true});
   const [saving,setSaving]=useState(false);
   const [deleting,setDeleting]=useState(null);
 
@@ -669,7 +669,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
 
   const openForm=(u=null)=>{
     setEditing(u?u.id:null);
-    setForm(u?{nome:u.nome,pin:'',confirma:'',perfil:u.perfil||'gestor',ativo:u.ativo!==false}:{nome:'',pin:'',confirma:'',perfil:'gestor',ativo:true});
+    setForm(u?{nome:u.nome,pin:'',confirma:'',perfil:u.perfil||'gestor',subnucleo:u.subnucleo||'',ativo:u.ativo!==false}:{nome:'',pin:'',confirma:'',perfil:'gestor',subnucleo:'',ativo:true});
     setShowForm(true);
   };
   const save=async()=>{
@@ -680,7 +680,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
     if(form.pin&&!/^\d{4}$/.test(form.pin)){showToast('Só números no PIN','error');return;}
     setSaving(true);
     try{
-      const payload={nome:form.nome,perfil:form.perfil,ativo:form.ativo};
+      const payload={nome:form.nome,perfil:form.perfil,subnucleo:form.perfil==='membro_nsp'?(form.subnucleo||null):null,ativo:form.ativo};
       if(form.pin) payload.pin_hash=await hashPin(form.pin, hospital?.id);
       if(form.pin&&!editing){
         const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin, hospital?.id)}&limit=1`);
@@ -728,10 +728,18 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
+          <option value="membro_nsp">Membro NSP - subnucleos e indicadores</option>
           <option value="dsg">DSG - apenas manutenção</option>
           <option value="motorista">Motorista - apenas ambulância</option>
           <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
+        {form.perfil==='membro_nsp'&&<React.Fragment>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo do membro</label>
+          <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+            <option value="">Sem subnucleo definido</option>
+            {SUBNUCLEOS_HNSA.map(sn=><option key={sn.id} value={sn.id}>{sn.label}</option>)}
+          </select>
+        </React.Fragment>}
         <div style={{display:'flex',gap:8,marginTop:4}}>
           <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
           <button onClick={save} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Ok Salvar'}</button>
@@ -1477,7 +1485,20 @@ function BackHeader({title,subtitle,onBack,right}) {
   </div>);
 }
 
-function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
+function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userSubnucleo}) {
+  const [aba,setAba]=useState('setor');
+  const tb=(id,l)=><button onClick={()=>setAba(id)} style={{flex:1,padding:'9px 6px',borderRadius:8,border:'none',background:aba===id?C.teal:'transparent',color:aba===id?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>;
+  return(<div style={{padding:'0 0 80px'}}>
+    <BackHeader title='Indicadores' subtitle='Taxas por setor e dados mensais DSM (C.1-C.15)'/>
+    <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
+      {tb('setor','Por Setor (notificacoes)')}{tb('dsm','DSM - C.1 a C.15')}
+    </div>
+    {aba==='setor'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded/>}
+    {aba==='dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
+  </div>);
+}
+
+function IndicadoresView({sbUrl,sbKey,showToast,hospital,embedded}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const setores=h.sectorsInternacao||h.sectors||[]; // so setores com leito (paciente-dia); ambulatoriais (ex: Oncologia) ficam de fora daqui
   const slug=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_');
@@ -1686,7 +1707,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
   const setoresComDados=dados?setores.filter(s=>dados.porSetor[s]):[];
 
   return(<div style={{paddingBottom:80}}>
-    <BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 - Metas OMS - por setor'/>
+    {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 - Metas OMS - por setor'/>}
     <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
 
     {/* Parametros */}
@@ -5901,6 +5922,8 @@ function NotificaAI() {
   const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);try{localStorage.setItem('nai_theme',n);}catch{}};
 
   const [profileMode,setProfileMode]=useState(null);
+  const [userName,setUserName]=useState(null);
+  const [userSubnucleo,setUserSubnucleo]=useState(null);
   const [showMenu,setShowMenu]=useState(false);
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
@@ -5954,8 +5977,8 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores_dsm',label:'Indicadores DSM',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
@@ -5977,7 +6000,7 @@ function NotificaAI() {
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
-        onSuccess={(role)=>{setProfileMode(role);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
+        onSuccess={(role,info)=>{setProfileMode(role);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -6003,7 +6026,7 @@ function NotificaAI() {
             ?<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:15}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:11,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:11,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||''} — Sair</span>
             </button>}
           <button onClick={toggleTheme} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
@@ -6020,8 +6043,8 @@ function NotificaAI() {
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
-        {view==='indicadores'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='indicadores'&&<IndicadoresHubView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
+        {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
@@ -6060,7 +6083,7 @@ function NotificaAI() {
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
@@ -6623,7 +6646,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   </div>);
 }
 
-function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
+function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userSubnucleo,embedded}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const hoje=new Date();
   const [mes,setMes]=useState(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`);
@@ -6646,59 +6669,124 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
   },[h.id,sbUrl,sbKey,salvando]);
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v===''?null:Number(v)}));
+
+  // Ponte com a aba Por Setor: soma dos paciente-dia lancados em indicadores_mensais
+  const [pdPonte,setPdPonte]=useState(null);
+  useEffect(()=>{
+    if(!sbUrl||!sbKey){setPdPonte(null);return;}
+    fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mes}&select=pd_setores,pd_lpp_setores`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}})
+      .then(r=>r.json()).then(d=>{
+        if(d&&d[0]){
+          const soma=o=>o?Object.values(o).reduce((a,v)=>a+(Number(v)||0),0):0;
+          setPdPonte({geral:soma(d[0].pd_setores),lpp:soma(d[0].pd_lpp_setores)});
+        }else setPdPonte(null);
+      }).catch(()=>setPdPonte(null));
+  },[mes,h.id,sbUrl,sbKey]);
+  const BotaoPonte=({valor,campo})=>valor>0&&form[campo]!==valor?(
+    <button onClick={()=>set(campo,String(valor))} style={{marginTop:4,fontSize:10,background:C.teal+'18',border:'1px solid '+C.teal+'55',borderRadius:6,padding:'3px 8px',color:C.teal,fontWeight:700,cursor:'pointer'}}>
+      Usar soma dos setores: {valor}
+    </button>
+  ):null;
   const salvar=async()=>{
     setSalvando(true);
-    try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',{...form,hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()},'hospital_id,mes');showToast('Indicadores salvos!','success');}
+    try{
+      await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',{...form,hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()},'hospital_id,mes');
+      sbAuditLog(sbUrl,sbKey,h.id,null,'DSM_INDICADORES_SALVOS','mes','',mesRef,usuario||perfil||'gestor',perfil||'gestor').catch(()=>{});
+      showToast('Indicadores salvos!','success');
+    }
     catch(e){showToast('Erro: '+e.message,'error');}
     setSalvando(false);
   };
 
   const grupos=[
-    {titulo:'Denominador Geral',campos:[{label:'Pacientes-dia total no mes',key:'paciente_dia_total',hint:'Soma dos dias de internacao de todos os pacientes'}]},
-    {titulo:'C.3 Higienizacao das Maos',campos:[{label:'Alcool gel consumido (mL)',key:'alcool_gel_ml'},{label:'Clorexidina consumida (mL)',key:'clorexidina_ml'},{label:'Sabonete liquido consumido (mL)',key:'sabonete_ml'},{label:'Acoes de HM realizadas',key:'hm_acoes_realizadas'},{label:'Oportunidades de HM observadas',key:'hm_oportunidades'}]},
-    {titulo:'C.4 Identificacao',campos:[{label:'Pacientes com pulseira',key:'pacientes_identificados'},{label:'Total de pacientes atendidos',key:'pacientes_atendidos'}]},
-    {titulo:'C.6 Cirurgia Segura',campos:[{label:'LVCS preenchidas',key:'lvcs_preenchidas'},{label:'Total de cirurgias',key:'cirurgias_realizadas'},{label:'Antibioticoprofilaxia adequada',key:'antibiotico_adequado'},{label:'Total cirurgias (antibiotico)',key:'cirurgias_periodo'},{label:'Obitos cirurgicos ate 7d',key:'obitos_cirurgicos_7d'},{label:'Total cirurgias (mortalidade)',key:'total_cirurgias'}]},
-    {titulo:'C.7 LPP',campos:[{label:'Avaliacao risco LPP admissao',key:'lpp_avaliacao_admissao'},{label:'Total admitidos',key:'total_admitidos'},{label:'Medidas preventivas LPP',key:'lpp_medidas_preventivas'},{label:'Pacientes com risco LPP',key:'lpp_pacientes_risco'},{label:'Avaliacao diaria LPP',key:'lpp_avaliacao_diaria'},{label:'Internados com risco LPP',key:'lpp_internados_risco'},{label:'Casos novos de LPP',key:'lpp_casos_novos'},{label:'Pac-dia risco LPP',key:'lpp_paciente_dia_risco'}]},
-    {titulo:'C.8 Quedas',campos:[{label:'Prontuarios com avaliacao de risco ok',key:'queda_prontuarios_ok'},{label:'Total prontuarios analisados',key:'queda_prontuarios_total'},{label:'Quedas com dano',key:'quedas_com_dano'},{label:'Total de quedas',key:'quedas_total'}]},
-    {titulo:'C.9 Medicamentos',campos:[{label:'Erros na prescricao',key:'erros_prescricao'},{label:'Total prescricoes',key:'total_prescricoes'},{label:'Erros na dispensacao',key:'erros_dispensacao'},{label:'Total dispensacoes',key:'total_dispensacoes'},{label:'Erros na administracao',key:'erros_administracao'},{label:'Total doses administradas',key:'total_doses'}]},
-    {titulo:'C.10 IPCS/CVC',campos:[{label:'IRAS associadas a CVC',key:'ipcs_cvc'},{label:'Cateter-dia CVC',key:'cateter_dia_cvc'}]},
-    {titulo:'C.11 ITU/CVD',campos:[{label:'ITU associadas ao CVD',key:'itu_cvd'},{label:'Pacientes-dia com CVD',key:'paciente_dia_cvd'}]},
-    {titulo:'C.12 PAV',campos:[{label:'Casos novos de PAV',key:'pav_casos_novos'},{label:'Pacientes em VM',key:'pacientes_vm'}]},
-    {titulo:'C.13 ISC',campos:[{label:'Infeccoes sitio cirurgico',key:'isc_casos'},{label:'Procedimentos cirurgicos',key:'procedimentos_cirurgicos'}]},
+    {titulo:'Denominador Geral',sub:'nsp_pleno',campos:[{label:'Pacientes-dia total no mes',key:'paciente_dia_total',hint:'Soma dos dias de internacao de todos os pacientes'}]},
+    {titulo:'C.3 Higienizacao das Maos',sub:'ccih',campos:[{label:'Alcool gel consumido (mL)',key:'alcool_gel_ml'},{label:'Clorexidina consumida (mL)',key:'clorexidina_ml'},{label:'Sabonete liquido consumido (mL)',key:'sabonete_ml'},{label:'Acoes de HM realizadas',key:'hm_acoes_realizadas'},{label:'Oportunidades de HM observadas',key:'hm_oportunidades'}]},
+    {titulo:'C.4 Identificacao',sub:'identificacao',campos:[{label:'Pacientes com pulseira',key:'pacientes_identificados'},{label:'Total de pacientes atendidos',key:'pacientes_atendidos'}]},
+    {titulo:'C.6 Cirurgia Segura',sub:'cirurgia',campos:[{label:'LVCS preenchidas',key:'lvcs_preenchidas'},{label:'Total de cirurgias',key:'cirurgias_realizadas'},{label:'Antibioticoprofilaxia adequada',key:'antibiotico_adequado'},{label:'Total cirurgias (antibiotico)',key:'cirurgias_periodo'},{label:'Obitos cirurgicos ate 7d',key:'obitos_cirurgicos_7d'},{label:'Total cirurgias (mortalidade)',key:'total_cirurgias'}]},
+    {titulo:'C.7 LPP',sub:'lpp',campos:[{label:'Avaliacao risco LPP admissao',key:'lpp_avaliacao_admissao'},{label:'Total admitidos',key:'total_admitidos'},{label:'Medidas preventivas LPP',key:'lpp_medidas_preventivas'},{label:'Pacientes com risco LPP',key:'lpp_pacientes_risco'},{label:'Avaliacao diaria LPP',key:'lpp_avaliacao_diaria'},{label:'Internados com risco LPP',key:'lpp_internados_risco'},{label:'Casos novos de LPP',key:'lpp_casos_novos'},{label:'Pac-dia risco LPP',key:'lpp_paciente_dia_risco'}]},
+    {titulo:'C.8 Quedas',sub:'queda',campos:[{label:'Prontuarios com avaliacao de risco ok',key:'queda_prontuarios_ok'},{label:'Total prontuarios analisados',key:'queda_prontuarios_total'},{label:'Quedas com dano',key:'quedas_com_dano'},{label:'Total de quedas',key:'quedas_total'}]},
+    {titulo:'C.9 Medicamentos',sub:'medicamentos',campos:[{label:'Erros na prescricao',key:'erros_prescricao'},{label:'Total prescricoes',key:'total_prescricoes'},{label:'Erros na dispensacao',key:'erros_dispensacao'},{label:'Total dispensacoes',key:'total_dispensacoes'},{label:'Erros na administracao',key:'erros_administracao'},{label:'Total doses administradas',key:'total_doses'}]},
+    {titulo:'C.10 IPCS/CVC',sub:'ccih',campos:[{label:'IRAS associadas a CVC',key:'ipcs_cvc'},{label:'Cateter-dia CVC',key:'cateter_dia_cvc'}]},
+    {titulo:'C.11 ITU/CVD',sub:'ccih',campos:[{label:'ITU associadas ao CVD',key:'itu_cvd'},{label:'Pacientes-dia com CVD',key:'paciente_dia_cvd'}]},
+    {titulo:'C.12 PAV',sub:'ccih',campos:[{label:'Casos novos de PAV',key:'pav_casos_novos'},{label:'Pacientes em VM',key:'pacientes_vm'}]},
+    {titulo:'C.13 ISC',sub:'ccih',campos:[{label:'Infeccoes sitio cirurgico',key:'isc_casos'},{label:'Procedimentos cirurgicos',key:'procedimentos_cirurgicos'}]},
   ];
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    <BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos para o relatorio C.1-C.15'/>
+    {!embedded&&<BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos para o relatorio C.1-C.15'/>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>
     </div>
-    {grupos.map(g=>(<div key={g.titulo} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:10}}>
-      <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:12,borderBottom:'1px solid '+C.border,paddingBottom:8}}>{g.titulo}</div>
+    {grupos.length>0&&(()=>{ 
+      const completo=g=>g.campos.every(c=>form[c.key]!==null&&form[c.key]!==undefined&&form[c.key]!=='');
+      const parcial=g=>!completo(g)&&g.campos.some(c=>form[c.key]!==null&&form[c.key]!==undefined&&form[c.key]!=='');
+      const nComp=grupos.filter(completo).length;
+      return(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
+          <div style={{fontSize:12,fontWeight:800,color:C.text}}>Completude do mes por subnucleo</div>
+          <div style={{fontSize:11,fontWeight:800,color:nComp===grupos.length?C.green:C.yellow}}>{nComp} de {grupos.length} blocos completos</div>
+        </div>
+        <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+          {grupos.map(g=>{
+            const sn=SUBNUCLEOS_HNSA.find(x=>x.id===g.sub);
+            const st=completo(g)?'ok':parcial(g)?'parc':'vazio';
+            const cor=st==='ok'?C.green:st==='parc'?C.yellow:C.muted;
+            return(<div key={g.titulo} style={{display:'flex',alignItems:'center',gap:5,background:cor+'15',border:'1px solid '+cor+'44',borderRadius:8,padding:'4px 9px'}}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:cor,display:'inline-block'}}></span>
+              <span style={{fontSize:10,fontWeight:700,color:C.text}}>{g.titulo}</span>
+              {sn&&<span style={{fontSize:9,color:sn.color,fontWeight:700}}>{sn.label.split(' ')[0]}</span>}
+            </div>);
+          })}
+        </div>
+        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Cada subnucleo alimenta os seus blocos ao longo do mes; o bloco fica verde quando todos os campos estao preenchidos. Toda gravacao e registrada na trilha de auditoria com autor e perfil.</div>
+      </div>);
+    })()}
+    {[...grupos].sort((a,b)=>{
+      if(!userSubnucleo)return 0;
+      const am=a.sub===userSubnucleo?0:1;const bm=b.sub===userSubnucleo?0:1;
+      return am-bm;
+    }).map(g=>{
+      const sn=SUBNUCLEOS_HNSA.find(x=>x.id===g.sub);
+      const meu=userSubnucleo&&g.sub===userSubnucleo;
+      return(<div key={g.titulo} style={{background:C.card,border:'1px solid '+(meu?(sn?sn.color:C.teal)+'88':C.border),borderLeft:meu?'4px solid '+(sn?sn.color:C.teal):'1px solid '+C.border,borderRadius:12,padding:16,marginBottom:10}}>
+      <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:12,borderBottom:'1px solid '+C.border,paddingBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+        <span>{g.titulo}</span>
+        <span style={{display:'flex',gap:6,alignItems:'center'}}>
+          {sn&&<span style={{fontSize:9,fontWeight:800,color:sn.color,background:sn.color+'18',border:'1px solid '+sn.color+'44',borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap'}}>{sn.label}</span>}
+          {meu&&<span style={{fontSize:9,fontWeight:800,color:'#06101F',background:sn?sn.color:C.teal,borderRadius:6,padding:'2px 8px'}}>Seu subnucleo</span>}
+        </span>
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:10}}>
         {g.campos.map(campo=>(<div key={campo.key}>
           <label style={{display:'block',fontSize:11,fontWeight:700,color:C.muted,marginBottom:3}}>{campo.label}</label>
           {campo.hint&&<div style={{fontSize:10,color:C.muted,opacity:0.7,marginBottom:2}}>{campo.hint}</div>}
           <input type='number' min={0} value={form[campo.key]!==null&&form[campo.key]!==undefined?form[campo.key]:''} onChange={e=>set(campo.key,e.target.value)} style={inp}/>
+          {campo.key==='paciente_dia_total'&&pdPonte&&<BotaoPonte valor={pdPonte.geral} campo='paciente_dia_total'/>}
+          {campo.key==='lpp_paciente_dia_risco'&&pdPonte&&<BotaoPonte valor={pdPonte.lpp} campo='lpp_paciente_dia_risco'/>}
         </div>))}
       </div>
-    </div>))}
+    </div>);})}
     {hist.length>0&&<div style={{marginBottom:10}}>
       <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Dashboard de Indicadores — Acumulado ({hist.length} {hist.length===1?'mes':'meses'})</div>
       {(()=>{
         const sum=(k)=>hist.reduce((a,r)=>a+(Number(r[k])||0),0);
-        // Tendência: comparar último mês vs média dos anteriores
-        const sumMes=(k,idx)=>idx<hist.length?Number(hist[idx][k]||0):0;
-        const ultimo=hist[0]||{};
-        const anteriores=hist.slice(1);
-        const mediaAnt=(k)=>anteriores.length?anteriores.reduce((a,r)=>a+(Number(r[k])||0),0)/anteriores.length:null;
-        const tendencia=(k,inv=false)=>{
-          if(hist.length<2) return null;
-          const ult=Number(ultimo[k]||0);
-          const med=mediaAnt(k);
-          if(med===null||med===0) return null;
+        // Tendência: compara a TAXA (num/den) do mês mais recente COM DADOS vs a média
+        // dos meses anteriores com dados. Mês sem preenchimento é ignorado, nunca vira zero.
+        const tendencia=(k,inv=false,dk=null)=>{
+          const validos=hist.filter(r=>{
+            const temNum=r[k]!==null&&r[k]!==undefined&&r[k]!=='';
+            const temDen=!dk||Number(r[dk])>0;
+            return temNum&&temDen;
+          });
+          if(validos.length<2) return null;
+          const valor=r=>dk?Number(r[k]||0)/Number(r[dk]):Number(r[k]||0);
+          const ult=valor(validos[0]);
+          const ant=validos.slice(1);
+          const med=ant.reduce((a,r)=>a+valor(r),0)/ant.length;
+          if(med===0) return null;
           const delta=(ult-med)/med*100;
           if(Math.abs(delta)<5) return {seta:'→',cor:C.muted,delta:0};
           const melhorou=inv?delta<0:delta>0;
@@ -6710,29 +6798,29 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
         const pdRiscoLpp=sum('lpp_paciente_dia_risco')||pacDia;
         const indicadores=[
           {label:'Taxa de conformidade HM',formula:'acoes/oportunidades',val:pct(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),meta:'>=80%',color:C.teal,
-            tend:tendencia('hm_acoes_realizadas',false),ok:sum('hm_oportunidades')>0&&(sum('hm_acoes_realizadas')/sum('hm_oportunidades'))>=0.8},
+            tend:tendencia('hm_acoes_realizadas',false,'hm_oportunidades'),ok:sum('hm_oportunidades')>0&&(sum('hm_acoes_realizadas')/sum('hm_oportunidades'))>=0.8},
           {label:'Taxa de identificacao',formula:'pulseiras/total pacientes',val:pct(sum('pacientes_identificados'),sum('pacientes_atendidos')),meta:'>=95%',color:'1D6FE8',
-            tend:tendencia('pacientes_identificados',false),ok:sum('pacientes_atendidos')>0&&(sum('pacientes_identificados')/sum('pacientes_atendidos'))>=0.95},
+            tend:tendencia('pacientes_identificados',false,'pacientes_atendidos'),ok:sum('pacientes_atendidos')>0&&(sum('pacientes_identificados')/sum('pacientes_atendidos'))>=0.95},
           {label:'Conformidade avaliacao LPP admissao',formula:'avaliacoes/admitidos',val:pct(sum('lpp_avaliacao_admissao'),sum('total_admitidos')),meta:'>=90%',color:'EF4444',
-            tend:tendencia('lpp_avaliacao_admissao',false),ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
+            tend:tendencia('lpp_avaliacao_admissao',false,'total_admitidos'),ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
           {label:'Incidencia de LPP',formula:'casos/pac-dia risco × 100',val:taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)?taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)+'%':'N/D',meta:'<4%',color:'EF4444',
-            tend:tendencia('lpp_casos_novos',true),ok:pdRiscoLpp>0&&(sum('lpp_casos_novos')/pdRiscoLpp*100)<4},
+            tend:tendencia('lpp_casos_novos',true,'paciente_dia_total'),ok:pdRiscoLpp>0&&(sum('lpp_casos_novos')/pdRiscoLpp*100)<4},
           {label:'Conformidade avaliacao de risco queda',formula:'prontuarios ok/total',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),meta:'>=90%',color:'F59E0B',
-            tend:tendencia('queda_prontuarios_ok',false),ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
+            tend:tendencia('queda_prontuarios_ok',false,'queda_prontuarios_total'),ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
           {label:'Taxa de queda com dano',formula:'quedas com dano/total quedas',val:pct(sum('quedas_com_dano'),sum('quedas_total')),meta:'<10%',color:'F59E0B',
-            tend:tendencia('quedas_com_dano',true),ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
+            tend:tendencia('quedas_com_dano',true,'quedas_total'),ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
           {label:'Taxa de erro na prescricao',formula:'erros/total prescricoes',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),meta:'<1%',color:'8B5CF6',
-            tend:tendencia('erros_prescricao',true),ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},
+            tend:tendencia('erros_prescricao',true,'total_prescricoes'),ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},
           {label:'Densidade de IPCS/CVC',formula:'IRAS/cateter-dia × 100',val:taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'),100,1)?taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'),100,1)+'%':'N/D',meta:'<0.2%',color:'06B6D4',
-            tend:tendencia('ipcs_cvc',true),ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*100)<0.2},
+            tend:tendencia('ipcs_cvc',true,'cateter_dia_cvc'),ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*100)<0.2},
           {label:'Densidade de ITU/CVD',formula:'ITU/pac-dia CVD × 100',val:taxa(sum('itu_cvd'),sum('paciente_dia_cvd'),100,1)?taxa(sum('itu_cvd'),sum('paciente_dia_cvd'),100,1)+'%':'N/D',meta:'<0.3%',color:'06B6D4',
-            tend:tendencia('itu_cvd',true),ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*100)<0.3},
+            tend:tendencia('itu_cvd',true,'paciente_dia_cvd'),ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*100)<0.3},
           {label:'Densidade de PAV',formula:'casos/VM-dia × 100',val:taxa(sum('pav_casos_novos'),sum('pacientes_vm'),100,1)?taxa(sum('pav_casos_novos'),sum('pacientes_vm'),100,1)+'%':'N/D',meta:'<0.5%',color:'EF4444',
-            tend:tendencia('pav_casos_novos',true),ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*100)<0.5},
+            tend:tendencia('pav_casos_novos',true,'pacientes_vm'),ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*100)<0.5},
           {label:'Conformidade LVCS (cirurgia segura)',formula:'LVCS preenchidas/cirurgias',val:pct(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),meta:'>=95%',color:'10B981',
-            tend:tendencia('lvcs_preenchidas',false),ok:sum('cirurgias_realizadas')>0&&(sum('lvcs_preenchidas')/sum('cirurgias_realizadas'))>=0.95},
+            tend:tendencia('lvcs_preenchidas',false,'cirurgias_realizadas'),ok:sum('cirurgias_realizadas')>0&&(sum('lvcs_preenchidas')/sum('cirurgias_realizadas'))>=0.95},
           {label:'Consumo alcool gel',formula:'mL/pac-dia',val:pacDia>0?((sum('alcool_gel_ml')/pacDia)).toFixed(1)+' mL/pac-dia':'N/D',meta:'>20 mL/pac-dia',color:C.teal,
-            tend:tendencia('alcool_gel_ml',false),ok:pacDia>0&&(sum('alcool_gel_ml')/pacDia)>=20},
+            tend:tendencia('alcool_gel_ml',false,'paciente_dia_total'),ok:pacDia>0&&(sum('alcool_gel_ml')/pacDia)>=20},
         ];
         const semaforo=(ind)=>ind.val==='N/D'?C.muted:ind.ok?C.green:C.red;
         return(<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:8}}>

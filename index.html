@@ -2046,9 +2046,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
         <div style={{display:'flex',gap:8,marginBottom:14}}>
         <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{flex:1,background:loadingIA?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}}>{loadingIA?'Gerando...':String.fromCodePoint(129504)+' Narrativa IA'}</button>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}> Imprimir / PDF</button>
-        </div>
-        <div style={{display:'flex',gap:8,marginTop:8}}>
-          <button onClick={gerarExcelDSM} disabled={gerandoXlsDSM} style={{flex:1,background:gerandoXlsDSM?C.border:C.green,border:'none',borderRadius:10,padding:'12px',color:gerandoXlsDSM?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoXlsDSM?'default':'pointer'}}>{gerandoXlsDSM?'Gerando...':'Excel DSM Oficial (Circ 24/2023)'}</button>
+          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Voltar</button>
         </div>
 
         {/* Preview do relatório */}
@@ -3295,10 +3293,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     </div>}
 
     {tab==='dsm'&&dados&&<div>
-      <div style={{display:'flex',gap:8,marginBottom:14}}>
+      <div style={{display:'flex',gap:8,marginBottom:8}}>
         <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
         <button onClick={gerar} disabled={loading} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:loading?'default':'pointer'}}>{loading?'Atualizando...':'Atualizar dados'}</button>
       </div>
+      <button onClick={gerarExcelDSM} disabled={gerandoXlsDSM} style={{width:'100%',background:gerandoXlsDSM?C.border:C.green,border:'none',borderRadius:10,padding:'12px',color:gerandoXlsDSM?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoXlsDSM?'default':'pointer',marginBottom:14}}>{gerandoXlsDSM?'Gerando...':String.fromCodePoint(128202)+' Excel DSM Oficial (Circ 24/2023)'}</button>
       <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{width:'100%',background:loadingIA?C.border:C.purple,border:'none',borderRadius:10,padding:'11px',color:loadingIA?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:loadingIA?'default':'pointer',marginBottom:14}}>
         {loadingIA?String.fromCodePoint(8987)+' Gerando narrativa...':String.fromCodePoint(129504)+' Gerar narrativa com IA'}
       </button>

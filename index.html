@@ -54,6 +54,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2045,7 +2046,9 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
         <div style={{display:'flex',gap:8,marginBottom:14}}>
         <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{flex:1,background:loadingIA?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:700,fontSize:12,cursor:'pointer'}}>{loadingIA?'Gerando...':String.fromCodePoint(129504)+' Narrativa IA'}</button>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}> Imprimir / PDF</button>
-          <button onClick={()=>setDados(null)} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Voltar</button>
+        </div>
+        <div style={{display:'flex',gap:8,marginTop:8}}>
+          <button onClick={gerarExcelDSM} disabled={gerandoXlsDSM} style={{flex:1,background:gerandoXlsDSM?C.border:C.green,border:'none',borderRadius:10,padding:'12px',color:gerandoXlsDSM?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoXlsDSM?'default':'pointer'}}>{gerandoXlsDSM?'Gerando...':'Excel DSM Oficial (Circ 24/2023)'}</button>
         </div>
 
         {/* Preview do relatório */}
@@ -2720,6 +2723,195 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   },[sbUrl,sbKey]);
 
   const [gerandoPPTAud,setGerandoPPTAud]=useState(false);
+  const [gerandoXlsDSM,setGerandoXlsDSM]=useState(false);
+
+  // Gera o Excel no formato EXATO do Anexo da Circ 24/2023 da DSM,
+  // pre-preenchido com os dados do semestre. Campos sem coleta ficam para preenchimento manual.
+  const gerarExcelDSM=()=>{
+    if(!window.XLSX){showToast('SheetJS carregando, tente em 3s','error');return;}
+    if(!dados){showToast('Aguarde o relatorio carregar','error');return;}
+    setGerandoXlsDSM(true);
+    try{
+      const XLSX=window.XLSX;
+      const c=dados.cfg||{};
+      const hojeStr=new Date().toISOString().slice(0,10);
+      const [anoS,semS]=semestre.split('-');
+      const periodo=(semS==='1'?'1º':'2º')+' semestre de '+anoS;
+      const sum=k=>(dados.indDSM||[]).reduce((a,r)=>a+(Number(r[k])||0),0);
+      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'';
+      const pc=(num,den)=>den>0?((num/den*100).toFixed(1)+'% ('+num+'/'+den+')'):'';
+      const mais3anos=d=>{if(!d)return null;const x=new Date(d);x.setFullYear(x.getFullYear()+3);return x.toISOString().slice(0,10);};
+      const vig=d=>d&&mais3anos(d)>=hojeStr;
+      // Protocolo por palavra-chave + treinamentos do subnucleo no semestre
+      const getProt=kws=>(dados.protocolos||[]).find(p=>p.nome&&kws.some(k=>p.nome.toLowerCase().includes(k)))||null;
+      const protVig=p=>!!(p&&(p.proxima_revisao?p.proxima_revisao>=hojeStr:vig(p.aprovado_em)));
+      const trein=sub=>dados.porSubnucleo&&dados.porSubnucleo[sub]?dados.porSubnucleo[sub]:{treinamentos:0,participantes:0};
+      const treinTxt=sub=>{const t=trein(sub);return t.treinamentos>0?(t.treinamentos+' treinamento(s), '+t.participantes+' participante(s) no semestre'):'Nenhum treinamento registrado no semestre';};
+      const boas=c.boas_praticas||'';
+
+      const rows=[];const merges=[];
+      const M=(r1,c1,r2,c2)=>merges.push({s:{r:r1,c:c1},e:{r:r2,c:c2}});
+      const add=(a,b2,cc,d)=>{rows.push([a||'',b2||'',cc||'',d||'']);return rows.length-1;};
+      const title=(txt)=>{const r=add(txt);M(r,0,r,3);};
+
+      title('Anexo da Circ n° 24/2023, da DSM.');
+      title('MARINHA DO BRASIL');
+      title('DIRETORIA DE SAÚDE DA MARINHA');
+      title((h.name||h.short_name||'HOSPITAL NAVAL DE SALVADOR').toUpperCase());
+      title('INDICADORES DE MONITORAMENTO - NÚCLEO DE SEGURANÇA DO PACIENTE');
+      title(periodo);
+      add('Característica do serviço:','','Leitos de UTI Neo/Pediátrica:','Consultórios Odontológicos:');
+      add('Leitos de Internação (não UTI):','','Salas Cirúrgicas Geral e Obstétrica:','Leitos de Emergência/SEP:');
+      add('Leitos de UTI Adulto:','','Consultórios:','');
+      add('Tipo de indicador','Critério','Indicadores mensais/ Respostas no formulário','Informações adicionais');
+
+      // Bloco estrutural: opcoes com ( X ) na detectada; infos alinhadas por linha
+      const crit=(tipo,criterio,opcoes,idx,infos)=>{
+        opcoes.forEach((op,i)=>{
+          const marca=(i===idx?'( X ) ':'(     ) ')+op;
+          add(i===0?tipo:'',i===0?criterio:'',marca,(infos&&infos[i])||'');
+        });
+      };
+      // Indicador quantitativo: linha da formula com valor + linha NAO opcional
+      const ind=(tipo,criterio,formula,valor,objetivo,comNao)=>{
+        const tem=valor!==''&&valor!==null&&valor!==undefined;
+        add(tipo,criterio,(comNao?(tem?'( X ) ':'(     ) '):'')+formula+(tem?('  =>  '+valor):''),objetivo||'');
+        if(comNao)add('','',(tem?'(     ) ':'( X ) ')+'NÃO - o serviço de saúde não monitora este indicador.','');
+      };
+
+      // C.1 NSP
+      const temPort=!!(c.numero_portaria_nsp||c.data_portaria_nsp);
+      const nReun=(dados.reunioes||[]).length;
+      crit('Estrutura','C.1. Núcleo de Segurança do Paciente instituído.',
+        ['SIM, o serviço de saúde tem NSP instituído E apresenta Portaria de designação atualizada E apresenta comprovação ou registro de reuniões, mínimo 2 por semestre.',
+         'O serviço de saúde tem NSP instituído, porém seus documentos comprobatórios estão desatualizados OU não apresentam, pelo menos, registro de duas reuniões do NSP no semestre.',
+         'NÃO, o serviço de saúde não tem NSP instituído.'],
+        temPort&&nReun>=2?0:temPort?1:2,
+        ['Data de Implantação do NSP: '+fmtD(c.data_implantacao_nsp),
+         'Número da Portaria em vigor: '+(c.numero_portaria_nsp||''),
+         'Número de reuniões realizadas no semestre: '+nReun]);
+
+      // C.2 PSP
+      crit('Estrutura','C.2. Plano de Segurança do Paciente (PSP) implantado.',
+        ['SIM, o serviço de saúde tem PSP implantado E o documento encontra-se atualizado (prazo máximo três anos) E cópia do PSP foi anexada a este formulário.',
+         'O serviço de saúde tem PSP implantado, porém encontra-se desatualizado OU não encaminhou cópia do documento.',
+         'NÃO, o serviço de saúde não tem PSP implantado.'],
+        vig(c.data_atualizacao_psp)?0:c.data_atualizacao_psp?1:2,
+        ['Data da última atualização do PSP: '+fmtD(c.data_atualizacao_psp),
+         c.link_psp?('Documento: '+c.link_psp):'']);
+
+      // Protocolos C.3-C.14: [criterio oficial, keywords, subnucleo, temNA]
+      const PROTS=[
+        ['C.3. Protocolo de prática de higienização das mãos implantado.',['higien'],'ccih',false],
+        ['C.4. Protocolo de identificação do paciente implantado.',['identifica'],'identificacao',false],
+        ['C.5. Protocolo de comunicação efetiva.',['comunica'],'comunicacao',false],
+        ['C.6. Protocolo de cirurgia segura implantado.',['cirurgia segura'],'cirurgia',true],
+        ['C.7. Protocolo para prevenção de lesão por pressão (LPP) implantado.',['press','lpp'],'lpp',true],
+        ['C.8. Protocolo para prevenção de quedas implantado.',['queda'],'queda',false],
+        ['C.9. Protocolo para segurança na prescrição, uso e administração de medicamentos, implantado.',['medicament','prescri'],'medicamentos',false],
+        ['C.10. Protocolo para a prevenção de infecção primária de corrente sanguínea associada ao uso de CVC, implantado.',['cvc','corrente'],'ccih',true],
+        ['C.11. Protocolo para a prevenção de infecção do trato urinário relacionado ao uso de CVD, implantado.',['cvd','urin'],'ccih',true],
+        ['C.12. Protocolo para a prevenção de pneumonia associada à ventilação mecânica (PAV), implantado.',['pav','ventila'],'ccih',true],
+        ['C.13. Protocolo para a prevenção de infecção do sítio cirúrgico (ISC), implantado.',['sitio','isc'],'ccih',true],
+        ['C.14. Protocolo de precauções e isolamento, implantado.',['precau','isola'],'ccih',false],
+      ];
+      const protBloco=(criterio,kws,sub)=>{
+        const p=getProt(kws);
+        const tem=!!p, ok=protVig(p), tr=trein(sub).treinamentos>0;
+        const idx=tem&&ok&&tr?0:tem&&!ok?1:tem&&!tr?2:3;
+        return {p,idx};
+      };
+      const indicadoresAposProt={
+        'C.3':()=>{
+          const pdT=sum('paciente_dia_total');
+          ind('Gestão de Risco','C.3.1. Monitoramento mensal do consumo de preparação alcoólica para higiene das mãos.','Consumo de preparação alcoólica por 1.000 pacientes-dia',pdT>0&&sum('alcool_gel_ml')>0?((sum('alcool_gel_ml')/pdT*1000).toFixed(0)+' mL/1.000 pac-dia'):'','Objetivo: avaliar o consumo de preparação alcoólica no processo de higienização das mãos.',true);
+          ind('Gestão de Risco','C.3.2. Monitoramento mensal do consumo de sabonete líquido.','Consumo de sabonete líquido no período',sum('sabonete_ml')>0?(sum('sabonete_ml')+' mL'):'','Objetivo: monitorar o consumo de sabonete no processo de higienização das mãos.',true);
+          ind('Gestão de Risco','C.3.3. Percentual de adesão à higienização das mãos.','Ações de HM realizadas / oportunidades X 100',pc(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),'Objetivo: avaliar a adesão dos profissionais à higienização das mãos.',true);
+        },
+        'C.4':()=>{
+          ind('Processo','C.4.1. Proporção de pacientes com pulseiras de identificação entre os pacientes atendidos/internados.','Pacientes identificados / atendidos X 100',pc(sum('pacientes_identificados'),sum('pacientes_atendidos')),'Objetivo: avaliar a taxa de pacientes com pulseiras padronizadas.');
+          const evId=(dados.nots||[]).filter(n=>((n.event_subtype||'')+(n.description||'')).toLowerCase().includes('identifica')).length;
+          ind('Resultado','C.4.2. Taxa de eventos adversos devido a falhas na identificação do paciente.','EA por falha de identificação / pacientes atendidos X 100',sum('pacientes_atendidos')>0?pc(evId,sum('pacientes_atendidos')):'','Fonte: notificações do NotificaAI no semestre ('+evId+' evento(s)).');
+        },
+        'C.6':()=>{
+          ind('Processo','C.6.1. Taxa de adesão à Lista de Verificação de Segurança Cirúrgica (LVCS).','LVCS preenchidas adequadamente / cirurgias realizadas X 100',pc(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),'Objetivo: avaliar o cumprimento do processo de cirurgia segura.');
+          ind('Processo','C.6.2. Taxa de antibioticoprofilaxia no momento adequado.','Pacientes com antibioticoprofilaxia adequada / cirurgias X 100',pc(sum('antibiotico_adequado'),sum('cirurgias_periodo')),'');
+          ind('Resultado','C.6.3. Taxa de mortalidade cirúrgica intrahospitalar ajustada ao risco.','Óbitos cirúrgicos em até 7 dias / total de cirurgias X 100',pc(sum('obitos_cirurgicos_7d'),sum('total_cirurgias')),'');
+          const cir=t=>(dados.nots||[]).filter(n=>((n.event_subtype||'')+(n.description||'')).toLowerCase().includes(t)).length;
+          ind('Resultado','C.6.4. Número de cirurgias em local errado.','Dado do período',String(cir('local errado')),'Fonte: notificações do NotificaAI.');
+          ind('Resultado','C.6.5. Número de cirurgias em paciente errado.','Dado do período',String(cir('paciente errado')),'Fonte: notificações do NotificaAI.');
+          ind('Resultado','C.6.6. Número de procedimentos errados.','Dado do período',String(cir('procedimento errado')),'Fonte: notificações do NotificaAI.');
+        },
+        'C.7':()=>{
+          ind('Processo','C.7.1. Taxa de conformidade da avaliação do risco de LPP.','Pacientes com avaliação de risco na admissão / admitidos X 100',pc(sum('lpp_avaliacao_admissao'),sum('total_admitidos')),'');
+          ind('Processo','C.7.2. Percentual de pacientes de risco recebendo medidas preventivas apropriadas para LPP.','Pacientes com medidas preventivas / pacientes com risco X 100',pc(sum('lpp_medidas_preventivas'),sum('lpp_pacientes_risco')),'');
+          ind('Processo','C.7.3. Percentual de pacientes recebendo avaliação diária de risco de LPP.','Pacientes com avaliação diária / internados com risco X 100',pc(sum('lpp_avaliacao_diaria'),sum('lpp_internados_risco')),'');
+          ind('Resultado','C.7.4. Incidência de LPP.','Casos novos de LPP / paciente-dia expostos ao risco X 100',pc(sum('lpp_casos_novos'),sum('lpp_paciente_dia_risco')),'');
+        },
+        'C.8':()=>{
+          ind('Processo','C.8.1. Taxa de conformidade da avaliação do risco de queda.','Prontuários com avaliação de risco / prontuários analisados X 100',pc(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),'');
+          ind('Resultado','C.8.2. Taxa de quedas com dano.','Pacientes com dano após queda / pacientes que sofreram queda X 100',pc(sum('quedas_com_dano'),sum('quedas_total')),'');
+          ind('Resultado','C.8.3. Índice de quedas.','Total de quedas no período',sum('quedas_total')>0?String(sum('quedas_total'))+' queda(s)':'','');
+        },
+        'C.9':()=>{
+          ind('Resultado','C.9.1. Taxa de erros na prescrição de medicamentos.','Medicamentos prescritos com erro / total prescritos X 100',pc(sum('erros_prescricao'),sum('total_prescricoes')),'');
+          ind('Resultado','C.9.2. Taxa de erros na dispensação de medicamentos.','Medicamentos dispensados com erro / total dispensados X 100',pc(sum('erros_dispensacao'),sum('total_dispensacoes')),'');
+          ind('Resultado','C.9.3. Taxa de erros na administração de medicamentos.','Erros na administração / total de doses administradas X 100',pc(sum('erros_administracao'),sum('total_doses')),'');
+        },
+        'C.10':()=>{ind('Resultado','C.10.1. Taxa de incidência de IPCS associada a CVC.','Infecções associadas a CVC / cateter-dia X 100',pc(sum('ipcs_cvc'),sum('cateter_dia_cvc')),'');},
+        'C.11':()=>{ind('Resultado','C.11.1. Taxa de incidência de infecção do trato urinário.','ITU associadas a CVD / pacientes-dia com CVD X 100',pc(sum('itu_cvd'),sum('paciente_dia_cvd')),'');},
+        'C.12':()=>{ind('Resultado','C.12.1. Incidência de PAV.','Casos novos de PAV / pacientes em uso de respirador X 100',pc(sum('pav_casos_novos'),sum('pacientes_vm')),'');},
+        'C.13':()=>{ind('Resultado','C.13.1. Taxa de ISC.','ISC relacionadas a procedimento / procedimentos cirúrgicos X 100',pc(sum('isc_casos'),sum('procedimentos_cirurgicos')),'');},
+      };
+
+      PROTS.forEach(([criterio,kws,sub,temNA])=>{
+        const {p,idx}=protBloco(criterio,kws,sub);
+        const opcoes=[
+          'SIM, o serviço de saúde implantou o protocolo E o documento encontra-se atualizado (prazo máximo três anos) E realizou, ao menos, um treinamento no semestre.',
+          'O serviço de saúde tem o Protocolo implantado, porém encontra-se desatualizado OU não encaminhou cópia do documento.',
+          'O serviço de saúde tem o Protocolo implantado, porém não realizou treinamento sobre o tema no semestre avaliado.',
+          'NÃO, o serviço de saúde não implantou o protocolo.',
+        ];
+        if(temNA)opcoes.push('NÃO SE APLICA.');
+        const infos=[
+          'Data da última atualização do Protocolo: '+fmtD(p&&p.aprovado_em)+(p&&p.numero?(' (N '+p.numero+')'):''),
+          'Palestras/treinamentos realizados e número de participantes: '+treinTxt(sub),
+          'Boas Práticas Implementadas: '+boas,
+        ];
+        crit('Estrutura',criterio,opcoes,idx,infos);
+        const key='C.'+criterio.match(/C\.(\d+)/)[1];
+        if(indicadoresAposProt[key])indicadoresAposProt[key]();
+      });
+
+      // C.15 Notivisa
+      crit('Gestão de Risco','C.15. Regularidade da notificação mensal de incidentes/eventos adversos relacionados à assistência à saúde.',
+        ['SIM, o serviço de saúde monitora e notifica incidentes/eventos adversos no sistema Notivisa.',
+         'O serviço de saúde monitora mas NÃO notificou incidentes/eventos adversos no sistema Notivisa.',
+         'NÃO, o serviço de saúde não monitora os incidentes/eventos adversos relacionados à assistência à saúde.'],
+        (dados.notivsaAnalisados||0)>0?0:(dados.nots||[]).length>0?1:2,
+        ['Fichas Notivisa geradas no NotificaAI: '+(dados.notivsaAnalisados||0),
+         'Notificações monitoradas no semestre: '+(dados.nots||[]).length]);
+      const obitos=(dados.nots||[]).filter(n=>((n.patient_outcome||'')+(n.gravidade||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('obito')).length;
+      const eas=(dados.nots||[]).filter(n=>(n.gravidade||'').startsWith('Evento adverso')||n.gravidade==='Evento sentinela').length;
+      ind('Resultado','C.15.1. Taxa de Eventos Adversos que resultaram em óbito.','EA que resultaram em óbito / EA ocorridos no período X 100',eas>0?pc(obitos,eas):'','Identificação de causa raiz: ver RCAs no NotificaAI.');
+
+      add('');
+      add('Local, data: '+(h.city||'')+', '+new Date().toLocaleDateString('pt-BR'),'','Nome: '+(gestor||c.gestor_nsp||''),'');
+      add('','','Posto:','');
+      add('','','Função: Encarregado do NSP','');
+      add('','','ASSINADO DIGITALMENTE','');
+
+      const ws=XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols']=[{wch:16},{wch:42},{wch:80},{wch:60}];
+      ws['!merges']=merges;
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb,ws,'Monitoramento NSP SSM');
+      XLSX.writeFile(wb,'Circ24-2023-DSM-NSP-'+(h.short_name||'OM')+'-'+semestre+'.xlsx');
+      showToast('Excel oficial DSM gerado!','success');
+    }catch(e){showToast('Erro ao gerar Excel: '+e.message,'error');}
+    setGerandoXlsDSM(false);
+  };
+
   const gerarPPTAuditor=async()=>{
     if(!window.PptxGenJS){showToast('PptxGenJS carregando, tente em 3s','error');return;}
     if(!dados){showToast('Gere o relatorio primeiro','error');return;}
@@ -7001,9 +7193,9 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
             tend:tendencia('lpp_avaliacao_admissao',false,'total_admitidos'),ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
           {label:'Incidencia de LPP',formula:'casos/pac-dia risco × 100',val:taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)?taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)+'%':'N/D',meta:'<4%',color:'EF4444',
             tend:tendencia('lpp_casos_novos',true,'paciente_dia_total'),ok:pdRiscoLpp>0&&(sum('lpp_casos_novos')/pdRiscoLpp*100)<4},
-          {label:'Conformidade avaliacao de risco queda',formula:'prontuarios ok/total',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),meta:'>=90%',color:'F59E0B',
+          {label:'Conformidade avaliacao de risco queda',formula:'prontuarios ok/total ('+sum('queda_prontuarios_ok')+'/'+sum('queda_prontuarios_total')+')',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),meta:'>=90%',color:'F59E0B',
             tend:tendencia('queda_prontuarios_ok',false,'queda_prontuarios_total'),ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
-          {label:'Taxa de queda com dano',formula:'quedas com dano/total quedas',val:pct(sum('quedas_com_dano'),sum('quedas_total')),meta:'<10%',color:'F59E0B',
+          {label:'Taxa de queda com dano',formula:'quedas c/ dano / total quedas ('+sum('quedas_com_dano')+'/'+sum('quedas_total')+')',val:pct(sum('quedas_com_dano'),sum('quedas_total')),meta:'<10%',color:'F59E0B',
             tend:tendencia('quedas_com_dano',true,'quedas_total'),ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
           {label:'Taxa de erro na prescricao',formula:'erros/total prescricoes',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),meta:'<1%',color:'8B5CF6',
             tend:tendencia('erros_prescricao',true,'total_prescricoes'),ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},

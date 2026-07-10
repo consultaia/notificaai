@@ -1584,13 +1584,13 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
           nearMiss:lista.filter(isNearMiss).length,sentinela:lista.filter(isSentinela).length,
           pd,pdLpp:pdLppN,pdAvp:pdAvpN,
         };
-        r.txQueda=(r.quedas/pd*1000).toFixed(2);
-        // LPP e AVP: percentual (x100) sobre a populacao exposta - padrao institucional HNSA.
-        // Sem denominador informado, a taxa fica N/D (nao usa o PD geral, que superestimaria a populacao exposta).
+        // Todas as taxas em percentual (x100) - padrao institucional HNSA.
+        r.txQueda=(r.quedas/pd*100).toFixed(2);
+        // LPP e AVP sobre a populacao exposta; sem denominador, N/D (o PD geral superestimaria).
         r.txLP=pdLppN>0?(r.lp/pdLppN*100).toFixed(1):null;
         r.txAVP=pdAvpN>0?(r.avp/pdAvpN*100).toFixed(1):null;
-        r.txIRAS=(r.iras/pd*1000).toFixed(2);
-        r.txMed=(r.medicacao/pd*1000).toFixed(2);
+        r.txIRAS=(r.iras/pd*100).toFixed(2);
+        r.txMed=(r.medicacao/pd*100).toFixed(2);
         r.txNearMiss=r.total>0?Math.round(r.nearMiss/r.total*100):0;
         return r;
       };
@@ -1619,20 +1619,20 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
           const v=cmSet(k,st3);
           if(v===null||!porSetor[st3])return;
           porSetor[st3][campo]=v;
-          if(tx==='txQueda')porSetor[st3].txQueda=(v/(Number(pdSetores[st3])||1)*1000).toFixed(2);
+          if(tx==='txQueda')porSetor[st3].txQueda=(v/(Number(pdSetores[st3])||1)*100).toFixed(2);
           if(tx==='txLP')porSetor[st3].txLP=(Number(pdLpp[st3])||0)>0?(v/Number(pdLpp[st3])*100).toFixed(1):null;
           if(tx==='txAVP')porSetor[st3].txAVP=(Number(pdAvp[st3])||0)>0?(v/Number(pdAvp[st3])*100).toFixed(1):null;
-          if(tx==='txIRAS')porSetor[st3].txIRAS=(v/(Number(pdSetores[st3])||1)*1000).toFixed(2);
-          if(tx==='txMed')porSetor[st3].txMed=(v/(Number(pdSetores[st3])||1)*1000).toFixed(2);
+          if(tx==='txIRAS')porSetor[st3].txIRAS=(v/(Number(pdSetores[st3])||1)*100).toFixed(2);
+          if(tx==='txMed')porSetor[st3].txMed=(v/(Number(pdSetores[st3])||1)*100).toFixed(2);
         });
         const labels={quedas:'Quedas',lpp:'LPP',avp:'Perda de AVP',iras:'IRAS',med:'Medicacao'};
         manuaisUsados.push(labels[k]+' ('+setoresCM(k).join(', ')+')');
       };
-      aplica('quedas','quedas','txQueda',v=>{geral.txQueda=(v/pdTotal*1000).toFixed(2);});
+      aplica('quedas','quedas','txQueda',v=>{geral.txQueda=(v/pdTotal*100).toFixed(2);});
       aplica('lpp','lp','txLP',v=>{geral.txLP=pdLppTotal>0?(v/pdLppTotal*100).toFixed(1):null;});
       aplica('avp','avp','txAVP',v=>{geral.txAVP=pdAvpTotal>0?(v/pdAvpTotal*100).toFixed(1):null;});
-      aplica('iras','iras','txIRAS',v=>{geral.txIRAS=(v/pdTotal*1000).toFixed(2);});
-      aplica('med','medicacao','txMed',v=>{geral.txMed=(v/pdTotal*1000).toFixed(2);});
+      aplica('iras','iras','txIRAS',v=>{geral.txIRAS=(v/pdTotal*100).toFixed(2);});
+      aplica('med','medicacao','txMed',v=>{geral.txMed=(v/pdTotal*100).toFixed(2);});
       geral.manuaisUsados=manuaisUsados;
 
       setDados({geral,porSetor,pdTotal});
@@ -1641,11 +1641,11 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const INDICADORES_DEF=[
-    {key:'txQueda',label:'Taxa de quedas',unidade:'/1000 p-d',meta:1.5,menor:true,desc:'Quedas / paciente-dia x 1000'},
+    {key:'txQueda',label:'Taxa de quedas',unidade:'%',meta:0.15,menor:true,desc:'Quedas / paciente-dia x 100 - Meta < 0.15% (equiv. 1.5/1000)'},
     {key:'txLP',label:'Incidencia de LPP',unidade:'%',meta:4,menor:true,desc:'LPP adquirida / paciente-dia COM RISCO de LPP x 100 - Meta institucional < 4%'},
     {key:'txAVP',label:'Taxa de perda de AVP',unidade:'%',meta:10,menor:true,desc:'Perdas de AVP / paciente-dia EM USO de AVP x 100 - Meta institucional < 10%'},
-    {key:'txIRAS',label:'Taxa de IRAS',unidade:'/1000 p-d',meta:2.0,menor:true,desc:'Infeccoes relacionadas a assistencia / paciente-dia x 1000 - Meta < 2'},
-    {key:'txMed',label:'Erros de medicação notif.',unidade:'/1000 p-d',meta:0.5,menor:true,desc:'Erros de medicação notificados / paciente-dia x 1000'},
+    {key:'txIRAS',label:'Taxa de IRAS',unidade:'%',meta:0.2,menor:true,desc:'Infeccoes relacionadas a assistencia / paciente-dia x 100 - Meta < 0.2% (equiv. 2/1000)'},
+    {key:'txMed',label:'Erros de medicação notif.',unidade:'%',meta:0.05,menor:true,desc:'Erros de medicação notificados / paciente-dia x 100 - Meta < 0.05% (equiv. 0.5/1000)'},
     {key:'txNearMiss',label:'Near miss / Total notif.',unidade:'%',meta:20,menor:false,desc:'% de near miss sobre total - meta > 20% indica boa cultura de notificacao'},
   ];
 
@@ -2959,9 +2959,9 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               {label:'C.8 Avaliacao risco queda',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),unit:''},
               {label:'C.8 Quedas com dano',val:sum('quedas_com_dano'),unit:'casos'},
               {label:'C.9 Erros na prescricao',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),unit:''},
-              {label:'C.10 IPCS/CVC (taxa por 1000 cateter-dia)',val:sum('cateter_dia_cvc')>0?((sum('ipcs_cvc')/sum('cateter_dia_cvc'))*1000).toFixed(2):'N/D',unit:''},
-              {label:'C.11 ITU/CVD (taxa por 1000 pac-dia CVD)',val:sum('paciente_dia_cvd')>0?((sum('itu_cvd')/sum('paciente_dia_cvd'))*1000).toFixed(2):'N/D',unit:''},
-              {label:'C.12 PAV (taxa por 1000 VM-dia)',val:sum('pacientes_vm')>0?((sum('pav_casos_novos')/sum('pacientes_vm'))*1000).toFixed(2):'N/D',unit:''},
+              {label:'C.10 IPCS/CVC (% por cateter-dia)',val:sum('cateter_dia_cvc')>0?((sum('ipcs_cvc')/sum('cateter_dia_cvc'))*100).toFixed(1):'N/D',unit:'%'},
+              {label:'C.11 ITU/CVD (% por pac-dia CVD)',val:sum('paciente_dia_cvd')>0?((sum('itu_cvd')/sum('paciente_dia_cvd'))*100).toFixed(1):'N/D',unit:'%'},
+              {label:'C.12 PAV (% por VM-dia)',val:sum('pacientes_vm')>0?((sum('pav_casos_novos')/sum('pacientes_vm'))*100).toFixed(1):'N/D',unit:'%'},
               {label:'C.13 ISC',val:pct(sum('isc_casos'),sum('procedimentos_cirurgicos')),unit:''},
             ];
             return(<table><thead><tr><th>Indicador</th><th style={{textAlign:'right'}}>Resultado</th></tr></thead>
@@ -6707,6 +6707,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
         const pct=(n,d,dec=1)=>d>0?((n/d)*100).toFixed(dec)+'%':'N/D';
         const taxa=(n,d,mul=1000,dec=2)=>d>0?((n/d)*mul).toFixed(dec):null;
         const pacDia=sum('paciente_dia_total');
+        const pdRiscoLpp=sum('lpp_paciente_dia_risco')||pacDia;
         const indicadores=[
           {label:'Taxa de conformidade HM',formula:'acoes/oportunidades',val:pct(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),meta:'>=80%',color:C.teal,
             tend:tendencia('hm_acoes_realizadas',false),ok:sum('hm_oportunidades')>0&&(sum('hm_acoes_realizadas')/sum('hm_oportunidades'))>=0.8},
@@ -6714,20 +6715,20 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital}) {
             tend:tendencia('pacientes_identificados',false),ok:sum('pacientes_atendidos')>0&&(sum('pacientes_identificados')/sum('pacientes_atendidos'))>=0.95},
           {label:'Conformidade avaliacao LPP admissao',formula:'avaliacoes/admitidos',val:pct(sum('lpp_avaliacao_admissao'),sum('total_admitidos')),meta:'>=90%',color:'EF4444',
             tend:tendencia('lpp_avaliacao_admissao',false),ok:sum('total_admitidos')>0&&(sum('lpp_avaliacao_admissao')/sum('total_admitidos'))>=0.9},
-          {label:'Incidencia de LPP',formula:'casos/pac-dia × 1000',val:taxa(sum('lpp_casos_novos'),pacDia)?taxa(sum('lpp_casos_novos'),pacDia)+'/1000 pac-dia':'N/D',meta:'<3/1000',color:'EF4444',
-            tend:tendencia('lpp_casos_novos',true),ok:pacDia>0&&(sum('lpp_casos_novos')/pacDia*1000)<3},
+          {label:'Incidencia de LPP',formula:'casos/pac-dia risco × 100',val:taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)?taxa(sum('lpp_casos_novos'),pdRiscoLpp,100,1)+'%':'N/D',meta:'<4%',color:'EF4444',
+            tend:tendencia('lpp_casos_novos',true),ok:pdRiscoLpp>0&&(sum('lpp_casos_novos')/pdRiscoLpp*100)<4},
           {label:'Conformidade avaliacao de risco queda',formula:'prontuarios ok/total',val:pct(sum('queda_prontuarios_ok'),sum('queda_prontuarios_total')),meta:'>=90%',color:'F59E0B',
             tend:tendencia('queda_prontuarios_ok',false),ok:sum('queda_prontuarios_total')>0&&(sum('queda_prontuarios_ok')/sum('queda_prontuarios_total'))>=0.9},
           {label:'Taxa de queda com dano',formula:'quedas com dano/total quedas',val:pct(sum('quedas_com_dano'),sum('quedas_total')),meta:'<10%',color:'F59E0B',
             tend:tendencia('quedas_com_dano',true),ok:sum('quedas_total')>0&&(sum('quedas_com_dano')/sum('quedas_total'))<0.1},
           {label:'Taxa de erro na prescricao',formula:'erros/total prescricoes',val:pct(sum('erros_prescricao'),sum('total_prescricoes')),meta:'<1%',color:'8B5CF6',
             tend:tendencia('erros_prescricao',true),ok:sum('total_prescricoes')>0&&(sum('erros_prescricao')/sum('total_prescricoes'))<0.01},
-          {label:'Densidade de IPCS/CVC',formula:'IRAS/cateter-dia × 1000',val:taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'))?taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'))+'/1000 cat-dia':'N/D',meta:'<2/1000',color:'06B6D4',
-            tend:tendencia('ipcs_cvc',true),ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*1000)<2},
-          {label:'Densidade de ITU/CVD',formula:'ITU/pac-dia CVD × 1000',val:taxa(sum('itu_cvd'),sum('paciente_dia_cvd'))?taxa(sum('itu_cvd'),sum('paciente_dia_cvd'))+'/1000 pac-dia':'N/D',meta:'<3/1000',color:'06B6D4',
-            tend:tendencia('itu_cvd',true),ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*1000)<3},
-          {label:'Densidade de PAV',formula:'casos/VM-dia × 1000',val:taxa(sum('pav_casos_novos'),sum('pacientes_vm'))?taxa(sum('pav_casos_novos'),sum('pacientes_vm'))+'/1000 VM-dia':'N/D',meta:'<5/1000',color:'EF4444',
-            tend:tendencia('pav_casos_novos',true),ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*1000)<5},
+          {label:'Densidade de IPCS/CVC',formula:'IRAS/cateter-dia × 100',val:taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'),100,1)?taxa(sum('ipcs_cvc'),sum('cateter_dia_cvc'),100,1)+'%':'N/D',meta:'<0.2%',color:'06B6D4',
+            tend:tendencia('ipcs_cvc',true),ok:sum('cateter_dia_cvc')>0&&(sum('ipcs_cvc')/sum('cateter_dia_cvc')*100)<0.2},
+          {label:'Densidade de ITU/CVD',formula:'ITU/pac-dia CVD × 100',val:taxa(sum('itu_cvd'),sum('paciente_dia_cvd'),100,1)?taxa(sum('itu_cvd'),sum('paciente_dia_cvd'),100,1)+'%':'N/D',meta:'<0.3%',color:'06B6D4',
+            tend:tendencia('itu_cvd',true),ok:sum('paciente_dia_cvd')>0&&(sum('itu_cvd')/sum('paciente_dia_cvd')*100)<0.3},
+          {label:'Densidade de PAV',formula:'casos/VM-dia × 100',val:taxa(sum('pav_casos_novos'),sum('pacientes_vm'),100,1)?taxa(sum('pav_casos_novos'),sum('pacientes_vm'),100,1)+'%':'N/D',meta:'<0.5%',color:'EF4444',
+            tend:tendencia('pav_casos_novos',true),ok:sum('pacientes_vm')>0&&(sum('pav_casos_novos')/sum('pacientes_vm')*100)<0.5},
           {label:'Conformidade LVCS (cirurgia segura)',formula:'LVCS preenchidas/cirurgias',val:pct(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),meta:'>=95%',color:'10B981',
             tend:tendencia('lvcs_preenchidas',false),ok:sum('cirurgias_realizadas')>0&&(sum('lvcs_preenchidas')/sum('cirurgias_realizadas'))>=0.95},
           {label:'Consumo alcool gel',formula:'mL/pac-dia',val:pacDia>0?((sum('alcool_gel_ml')/pacDia)).toFixed(1)+' mL/pac-dia':'N/D',meta:'>20 mL/pac-dia',color:C.teal,

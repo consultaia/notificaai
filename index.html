@@ -54,7 +54,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2723,15 +2723,24 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   const [gerandoPPTAud,setGerandoPPTAud]=useState(false);
   const [gerandoXlsDSM,setGerandoXlsDSM]=useState(false);
 
-  // Gera o Excel no formato EXATO do Anexo da Circ 24/2023 da DSM,
-  // pre-preenchido com os dados do semestre. Campos sem coleta ficam para preenchimento manual.
+  // Gera o Excel no layout FIEL do Anexo da Circ 24/2023 da DSM (5 colunas,
+  // mesclas, cores por tipo de indicador e bordas), pre-preenchido com os dados do semestre.
   const gerarExcelDSM=()=>{
-    if(!window.XLSX){showToast('SheetJS carregando, tente em 3s','error');return;}
+    if(!window.XLSX){showToast('Biblioteca XLSX carregando, tente em 3s','error');return;}
     if(!dados){showToast('Aguarde o relatorio carregar','error');return;}
     setGerandoXlsDSM(true);
     try{
       const XLSX=window.XLSX;
       const c=dados.cfg||{};
+      const faltas=[];
+      if(!(c.numero_portaria_nsp||c.data_portaria_nsp))faltas.push('Portaria do NSP (aba Documentos ou Protocolos > Documentos Institucionais)');
+      if(!c.data_atualizacao_psp)faltas.push('Data de atualizacao do PSP (aba Documentos)');
+      if(!(dados.protocolos||[]).length)faltas.push('Protocolos com data de aprovacao (aba Protocolos)');
+      if(!(dados.reunioes||[]).length)faltas.push('Reunioes do NSP no semestre selecionado (aba Treinamentos, tipo Reuniao)');
+      if(faltas.length){
+        const ok=confirm('ATENCAO: os itens abaixo nao estao cadastrados e sairao marcados como NAO no Excel oficial:\n\n- '+faltas.join('\n- ')+'\n\nGerar mesmo assim? (Cancele para cadastrar primeiro e gerar um relatorio favoravel)');
+        if(!ok){setGerandoXlsDSM(false);return;}
+      }
       const hojeStr=new Date().toISOString().slice(0,10);
       const [anoS,semS]=semestre.split('-');
       const periodo=(semS==='1'?'1º':'2º')+' semestre de '+anoS;
@@ -2740,44 +2749,99 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       const pc=(num,den)=>den>0?((num/den*100).toFixed(1)+'% ('+num+'/'+den+')'):'';
       const mais3anos=d=>{if(!d)return null;const x=new Date(d);x.setFullYear(x.getFullYear()+3);return x.toISOString().slice(0,10);};
       const vig=d=>d&&mais3anos(d)>=hojeStr;
-      // Protocolo por palavra-chave + treinamentos do subnucleo no semestre
       const getProt=kws=>(dados.protocolos||[]).find(p=>p.nome&&kws.some(k=>p.nome.toLowerCase().includes(k)))||null;
       const protVig=p=>!!(p&&(p.proxima_revisao?p.proxima_revisao>=hojeStr:vig(p.aprovado_em)));
       const trein=sub=>dados.porSubnucleo&&dados.porSubnucleo[sub]?dados.porSubnucleo[sub]:{treinamentos:0,participantes:0};
       const treinTxt=sub=>{const t=trein(sub);return t.treinamentos>0?(t.treinamentos+' treinamento(s), '+t.participantes+' participante(s) no semestre'):'Nenhum treinamento registrado no semestre';};
       const boas=c.boas_praticas||'';
 
-      const rows=[];const merges=[];
-      const M=(r1,c1,r2,c2)=>merges.push({s:{r:r1,c:c1},e:{r:r2,c:c2}});
-      const add=(a,b2,cc,d)=>{rows.push([a||'',b2||'',cc||'',d||'']);return rows.length-1;};
-      const title=(txt)=>{const r=add(txt);M(r,0,r,3);};
-
-      title('Anexo da Circ n° 24/2023, da DSM.');
-      title('MARINHA DO BRASIL');
-      title('DIRETORIA DE SAÚDE DA MARINHA');
-      title((h.name||h.short_name||'HOSPITAL NAVAL DE SALVADOR').toUpperCase());
-      title('INDICADORES DE MONITORAMENTO - NÚCLEO DE SEGURANÇA DO PACIENTE');
-      title(periodo);
-      add('Característica do serviço:','','Leitos de UTI Neo/Pediátrica:','Consultórios Odontológicos:');
-      add('Leitos de Internação (não UTI):','','Salas Cirúrgicas Geral e Obstétrica:','Leitos de Emergência/SEP:');
-      add('Leitos de UTI Adulto:','','Consultórios:','');
-      add('Tipo de indicador','Critério','Indicadores mensais/ Respostas no formulário','Informações adicionais');
-
-      // Bloco estrutural: opcoes com ( X ) na detectada; infos alinhadas por linha
-      const crit=(tipo,criterio,opcoes,idx,infos)=>{
-        opcoes.forEach((op,i)=>{
-          const marca=(i===idx?'( X ) ':'(     ) ')+op;
-          add(i===0?tipo:'',i===0?criterio:'',marca,(infos&&infos[i])||'');
-        });
+      // ── Estilos (paleta extraida do modelo oficial) ──
+      const BD={top:{style:'thin',color:{rgb:'000000'}},bottom:{style:'thin',color:{rgb:'000000'}},left:{style:'thin',color:{rgb:'000000'}},right:{style:'thin',color:{rgb:'000000'}}};
+      const wrapC={wrapText:true,vertical:'center'};
+      const S={
+        title:{font:{bold:true,sz:11},border:BD,alignment:{horizontal:'left',vertical:'center'}},
+        carHead:{font:{bold:true,sz:10},fill:{fgColor:{rgb:'D9D9D9'}},border:BD,alignment:wrapC},
+        carLab:{font:{sz:10},border:BD,alignment:wrapC},
+        head:{font:{bold:true,sz:10},fill:{fgColor:{rgb:'A6A6A6'}},border:BD,alignment:{horizontal:'center',vertical:'center',wrapText:true}},
+        crit:{font:{bold:true,sz:10},border:BD,alignment:wrapC},
+        resp:{font:{sz:10},border:BD,alignment:wrapC},
+        respX:{font:{sz:10,bold:true},border:BD,alignment:wrapC},
+        info:{font:{sz:10},border:BD,alignment:wrapC},
+        assin:{font:{bold:true,sz:10},border:BD,alignment:{horizontal:'center',vertical:'center'}},
       };
-      // Indicador quantitativo: linha da formula com valor + linha NAO opcional
+      const TIPO_CORES={'Estrutura':['376092','FFFFFF'],'Gestão de Risco':['C3D69B','000000'],'Processo':['DCE6F2','000000'],'Resultado':['F2DCDB','000000']};
+      const sTipo=t=>{const cc=TIPO_CORES[t]||['FFFFFF','000000'];return{font:{bold:true,sz:10,color:{rgb:cc[1]}},fill:{fgColor:{rgb:cc[0]}},border:BD,alignment:{horizontal:'center',vertical:'center',wrapText:true}};};
+
+      const rows=[];const merges=[];const rh=[];
+      const M=(r1,c1,r2,c2)=>merges.push({s:{r:r1,c:c1},e:{r:r2,c:c2}});
+      const cell=(v,st)=>({v:v==null?'':String(v),s:st||S.resp});
+      const altura=(txts)=>{ // altura estimada pela coluna mais "cheia"
+        const linhas=Math.max(1,...txts.map(([t,w])=>Math.ceil(String(t||'').length/w)||1));
+        return Math.min(90,linhas*12+6);
+      };
+      const push5=(a,b2,cd,e,sa,sb,scd,se,h)=>{
+        const r=rows.length;
+        rows.push([cell(a,sa),cell(b2,sb),cell('',scd),cell(cd,scd),cell(e,se)]);
+        // resposta ocupa C:D mescladas — texto vai em C
+        rows[r][2]=cell(cd,scd);rows[r][3]=cell('',scd);
+        M(r,2,r,3);
+        rh.push({hpt:h||altura([[a,16],[b2,22],[cd,78],[e,50]])});
+        return r;
+      };
+      const titleRow=(txt,bold)=>{
+        const r=rows.length;
+        rows.push([cell(txt,S.title),cell('',S.title),cell('',S.title),cell('',S.title),cell('',S.title)]);
+        M(r,0,r,4);rh.push({hpt:16});
+      };
+
+      titleRow('Anexo da Circ n° 24/2023, da DSM.');
+      titleRow('MARINHA DO BRASIL');
+      titleRow('DIRETORIA DE SAÚDE DA MARINHA');
+      titleRow((h.name||h.short_name||'HOSPITAL NAVAL DE SALVADOR').toUpperCase());
+      titleRow('INDICADORES DE MONITORAMENTO - NÚCLEO DE SEGURANÇA DO PACIENTE');
+      titleRow(periodo.charAt(0).toUpperCase()+periodo.slice(1));
+
+      // Caracteristica do servico: A:B | C:D | E
+      const carRow=(ab,cd,e,firstGrey)=>{
+        const r=rows.length;
+        const sa=firstGrey?S.carHead:S.carLab;
+        rows.push([cell(ab,sa),cell('',sa),cell(cd,S.carLab),cell('',S.carLab),cell(e,S.carLab)]);
+        M(r,0,r,1);M(r,2,r,3);rh.push({hpt:16});
+      };
+      carRow('Característica do serviço:','Leitos de UTI Neo/Pediátrica:','Consultórios Odontológicos:',true);
+      carRow('Leitos de Internação (não UTI):','Salas Cirúrgicas Geral e Obstétrica:','Leitos de Emergência/SEP:',false);
+      carRow('Leitos de UTI Adulto:','Consultórios:','',false);
+
+      // Cabecalho da tabela
+      {
+        const r=rows.length;
+        rows.push([cell('Tipo de indicador',S.head),cell('Critério',S.head),cell('Indicadores mensais/ Respostas no formulário',S.head),cell('',S.head),cell('Informações adicionais',S.head)]);
+        M(r,2,r,3);rh.push({hpt:22});
+      }
+
+      // Bloco de criterio estrutural: tipo/criterio mesclados verticalmente
+      const crit=(tipo,criterio,opcoes,idx,infos)=>{
+        const r0=rows.length;
+        opcoes.forEach((op,i)=>{
+          const marcado=i===idx;
+          const txt=(marcado?'( X ) ':'(     ) ')+op;
+          push5(i===0?tipo:'',i===0?criterio:'',txt,(infos&&infos[i])||'',
+            sTipo(tipo),S.crit,marcado?S.respX:S.resp,S.info);
+        });
+        const rN=rows.length-1;
+        if(rN>r0){M(r0,0,rN,0);M(r0,1,rN,1);}
+      };
       const ind=(tipo,criterio,formula,valor,objetivo,comNao)=>{
         const tem=valor!==''&&valor!==null&&valor!==undefined;
-        add(tipo,criterio,(comNao?(tem?'( X ) ':'(     ) '):'')+formula+(tem?('  =>  '+valor):''),objetivo||'');
-        if(comNao)add('','',(tem?'(     ) ':'( X ) ')+'NÃO - o serviço de saúde não monitora este indicador.','');
+        const r0=push5(tipo,criterio,(comNao?(tem?'( X ) ':'(     ) '):'')+formula+(tem?('  =>  '+valor):''),objetivo||'',
+          sTipo(tipo),S.crit,tem?S.respX:S.resp,S.info);
+        if(comNao){
+          push5('','',(tem?'(     ) ':'( X ) ')+'NÃO - o serviço de saúde não monitora este indicador.','',
+            sTipo(tipo),S.crit,tem?S.resp:S.respX,S.info);
+          M(r0,0,r0+1,0);M(r0,1,r0+1,1);
+        }
       };
 
-      // C.1 NSP
       const temPort=!!(c.numero_portaria_nsp||c.data_portaria_nsp);
       const nReun=(dados.reunioes||[]).length;
       crit('Estrutura','C.1. Núcleo de Segurança do Paciente instituído.',
@@ -2789,7 +2853,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
          'Número da Portaria em vigor: '+(c.numero_portaria_nsp||''),
          'Número de reuniões realizadas no semestre: '+nReun]);
 
-      // C.2 PSP
       crit('Estrutura','C.2. Plano de Segurança do Paciente (PSP) implantado.',
         ['SIM, o serviço de saúde tem PSP implantado E o documento encontra-se atualizado (prazo máximo três anos) E cópia do PSP foi anexada a este formulário.',
          'O serviço de saúde tem PSP implantado, porém encontra-se desatualizado OU não encaminhou cópia do documento.',
@@ -2798,7 +2861,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         ['Data da última atualização do PSP: '+fmtD(c.data_atualizacao_psp),
          c.link_psp?('Documento: '+c.link_psp):'']);
 
-      // Protocolos C.3-C.14: [criterio oficial, keywords, subnucleo, temNA]
       const PROTS=[
         ['C.3. Protocolo de prática de higienização das mãos implantado.',['higien'],'ccih',false],
         ['C.4. Protocolo de identificação do paciente implantado.',['identifica'],'identificacao',false],
@@ -2813,12 +2875,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         ['C.13. Protocolo para a prevenção de infecção do sítio cirúrgico (ISC), implantado.',['sitio','isc'],'ccih',true],
         ['C.14. Protocolo de precauções e isolamento, implantado.',['precau','isola'],'ccih',false],
       ];
-      const protBloco=(criterio,kws,sub)=>{
-        const p=getProt(kws);
-        const tem=!!p, ok=protVig(p), tr=trein(sub).treinamentos>0;
-        const idx=tem&&ok&&tr?0:tem&&!ok?1:tem&&!tr?2:3;
-        return {p,idx};
-      };
       const indicadoresAposProt={
         'C.3':()=>{
           const pdT=sum('paciente_dia_total');
@@ -2863,7 +2919,9 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       };
 
       PROTS.forEach(([criterio,kws,sub,temNA])=>{
-        const {p,idx}=protBloco(criterio,kws,sub);
+        const p=getProt(kws);
+        const tem=!!p, okv=protVig(p), tr=trein(sub).treinamentos>0;
+        const idx=tem&&okv&&tr?0:tem&&!okv?1:tem&&!tr?2:3;
         const opcoes=[
           'SIM, o serviço de saúde implantou o protocolo E o documento encontra-se atualizado (prazo máximo três anos) E realizou, ao menos, um treinamento no semestre.',
           'O serviço de saúde tem o Protocolo implantado, porém encontra-se desatualizado OU não encaminhou cópia do documento.',
@@ -2881,7 +2939,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         if(indicadoresAposProt[key])indicadoresAposProt[key]();
       });
 
-      // C.15 Notivisa
       crit('Gestão de Risco','C.15. Regularidade da notificação mensal de incidentes/eventos adversos relacionados à assistência à saúde.',
         ['SIM, o serviço de saúde monitora e notifica incidentes/eventos adversos no sistema Notivisa.',
          'O serviço de saúde monitora mas NÃO notificou incidentes/eventos adversos no sistema Notivisa.',
@@ -2891,139 +2948,25 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
          'Notificações monitoradas no semestre: '+(dados.nots||[]).length]);
       const obitos=(dados.nots||[]).filter(n=>((n.patient_outcome||'')+(n.gravidade||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('obito')).length;
       const eas=(dados.nots||[]).filter(n=>(n.gravidade||'').startsWith('Evento adverso')||n.gravidade==='Evento sentinela').length;
-      ind('Resultado','C.15.1. Taxa de Eventos Adversos que resultaram em óbito.','EA que resultaram em óbito / EA ocorridos no período X 100',eas>0?pc(obitos,eas):'','Identificação de causa raiz: ver RCAs no NotificaAI.');
+      ind('Resultado','C15.1. Taxa de Eventos Adversos que resultaram em óbito.','Eventos adversos que resultaram em óbito / eventos adversos ocorridos no período X 100',eas>0?pc(obitos,eas):'','Identificação de causa raiz: ver RCAs no NotificaAI.');
 
-      add('');
-      add('Local, data: '+(h.city||'')+', '+new Date().toLocaleDateString('pt-BR'),'','Nome: '+(gestor||c.gestor_nsp||''),'');
-      add('','','Posto:','');
-      add('','','Função: Encarregado do NSP','');
-      add('','','ASSINADO DIGITALMENTE','');
+      // linha em branco + assinatura (layout do modelo)
+      {const r=rows.length;rows.push([cell('',S.carLab),cell('',S.carLab),cell('',S.carLab),cell('',S.carLab),cell('',S.carLab)]);rh.push({hpt:14});}
+      {const r=rows.length;rows.push([cell('Local, data: '+new Date().toLocaleDateString('pt-BR'),S.carLab),cell('',S.carLab),cell('Nome: '+(gestor||c.gestor_nsp||''),S.carLab),cell('',S.carLab),cell('',S.carLab)]);M(r,0,r,1);M(r,2,r,4);rh.push({hpt:16});}
+      {const r=rows.length;rows.push([cell('',S.carLab),cell('',S.carLab),cell('Posto:',S.carLab),cell('',S.carLab),cell('',S.carLab)]);M(r,0,r,1);M(r,2,r,4);rh.push({hpt:16});}
+      {const r=rows.length;rows.push([cell('',S.carLab),cell('',S.carLab),cell('Função: Encarregado do NSP',S.carLab),cell('',S.carLab),cell('',S.carLab)]);M(r,0,r,1);M(r,2,r,4);rh.push({hpt:16});}
+      {const r=rows.length;rows.push([cell('',S.carLab),cell('',S.carLab),cell('ASSINADO DIGITALMENTE',S.assin),cell('',S.assin),cell('',S.assin)]);M(r,2,r,4);rh.push({hpt:18});}
 
       const ws=XLSX.utils.aoa_to_sheet(rows);
-      ws['!cols']=[{wch:16},{wch:42},{wch:80},{wch:60}];
+      ws['!cols']=[{wch:15},{wch:19},{wch:4},{wch:44},{wch:48}];
       ws['!merges']=merges;
+      ws['!rows']=rh;
       const wb=XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb,ws,'Monitoramento NSP SSM');
       XLSX.writeFile(wb,'Circ24-2023-DSM-NSP-'+(h.short_name||'OM')+'-'+semestre+'.xlsx');
       showToast('Excel oficial DSM gerado!','success');
     }catch(e){showToast('Erro ao gerar Excel: '+e.message,'error');}
     setGerandoXlsDSM(false);
-  };
-
-  const gerarPPTAuditor=async()=>{
-    if(!window.PptxGenJS){showToast('PptxGenJS carregando, tente em 3s','error');return;}
-    if(!dados){showToast('Gere o relatorio primeiro','error');return;}
-    setGerandoPPTAud(true);
-    try{
-      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
-      const hojeStr=new Date().toISOString().slice(0,10);
-      const P={navy:'0B1F3A',teal:'00C9B8',green:'10B981',red:'EF4444',yellow:'F59E0B',gray:'64748B',white:'FFFFFF'};
-      const pres=new window.PptxGenJS();
-      pres.defineLayout({name:'W',width:10,height:5.63});pres.layout='W';
-      const [anoS,semS]=semestre.split('-');
-      const semLabel=semS+'o semestre de '+anoS;
-      const header=(sl,t)=>{sl.background={color:'F8FAFC'};sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:P.navy}});sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0.7,w:10,h:0.06,fill:{color:P.teal}});sl.addText(t,{x:0.4,y:0,w:7,h:0.7,fontSize:16,bold:true,color:P.white,valign:'middle',margin:0});sl.addText(semLabel,{x:7.4,y:0,w:2.2,h:0.7,fontSize:11,color:P.teal,valign:'middle',align:'right',margin:0});};
-      const stCell=(ok)=>({text:ok===null?'N/D':ok?'OK':'ATENCAO',options:{fontSize:9,bold:true,align:'center',color:ok===null?P.gray:ok?P.green:P.red}});
-      const rowFill=i=>({color:i%2===0?'FFFFFF':'F1F5F9'});
-      const sum=k=>(dados.indDSM||[]).reduce((a,r)=>a+(Number(r[k])||0),0);
-
-      // 1. Capa
-      let sl=pres.addSlide();
-      sl.background={color:P.navy};
-      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:3.9,w:10,h:0.08,fill:{color:P.teal}});
-      sl.addText('Dossie do Auditor',{x:0.6,y:1.5,w:8.8,h:0.9,fontSize:34,bold:true,color:P.white,margin:0});
-      sl.addText('Nucleo de Seguranca do Paciente — '+(h.name||h.short_name||''),{x:0.6,y:2.4,w:8.8,h:0.5,fontSize:15,color:P.teal,margin:0});
-      sl.addText(semLabel.charAt(0).toUpperCase()+semLabel.slice(1),{x:0.6,y:2.95,w:8.8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
-      sl.addText('Gerado em '+new Date().toLocaleDateString('pt-BR')+(gestor?' · Responsavel: '+gestor:'')+' · NotificaAI',{x:0.6,y:4.2,w:8.8,h:0.4,fontSize:10,color:'8FA5C0',margin:0});
-
-      // 2. Documentos institucionais
-      sl=pres.addSlide();header(sl,'Documentos Institucionais');
-      const c=dados.cfg||{};
-      const pspVal=c.data_atualizacao_psp?new Date(new Date(c.data_atualizacao_psp).setFullYear(new Date(c.data_atualizacao_psp).getFullYear()+3)).toISOString().slice(0,10):null;
-      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
-      const docRows=[[{text:'Documento',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Detalhe',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10,align:'center'}}]];
-      [['Portaria de criacao do NSP (C.1)',(c.numero_portaria_nsp?'N '+c.numero_portaria_nsp+' · ':'')+fmtD(c.data_portaria_nsp),!!(c.numero_portaria_nsp||c.data_portaria_nsp)],
-       ['Portaria da CCIH (C.2)',(c.numero_portaria_ccih?'N '+c.numero_portaria_ccih+' · ':'')+fmtD(c.data_portaria_ccih),!!(c.numero_portaria_ccih||c.data_portaria_ccih)],
-       ['Plano de Seguranca do Paciente (C.3)',c.data_atualizacao_psp?('Atualizado '+fmtD(c.data_atualizacao_psp)+' · validade '+fmtD(pspVal)):'-',c.data_atualizacao_psp?(pspVal>=hojeStr):null],
-       ['Regimento Interno do NSP',c.link_regimento?'Documento anexado':'-',!!c.link_regimento],
-      ].forEach(([lab,det,ok],i)=>docRows.push([{text:lab,options:{fontSize:10,fill:rowFill(i)}},{text:det,options:{fontSize:10,fill:rowFill(i)}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]));
-      sl.addTable(docRows,{x:0.4,y:1.0,w:9.2,colW:[3.9,3.6,1.7],border:{pt:0.5,color:'E2E8F0'},rowH:0.42,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      // 3. Notificacoes do semestre
-      sl=pres.addSlide();header(sl,'Notificacoes do Semestre');
-      const nots=dados.nots||[];
-      const graves=nots.filter(n=>n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave');
-      const gravesRCA=graves.filter(n=>n.rca_gerado).length;
-      const kpi=(x,val,lab,cor)=>{sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x,y:1.0,w:2.15,h:1.15,fill:{color:P.white},rectRadius:0.08,line:{color:cor,width:1.2}});sl.addText(String(val),{x,y:1.08,w:2.15,h:0.6,fontSize:26,bold:true,color:cor,align:'center',margin:0});sl.addText(lab,{x,y:1.68,w:2.15,h:0.4,fontSize:9,color:P.gray,align:'center',margin:0});};
-      kpi(0.4,nots.length,'Notificacoes no periodo',P.navy);
-      kpi(2.75,dados.sentinela||0,'Eventos sentinela',(dados.sentinela||0)===0?P.green:P.red);
-      kpi(5.1,graves.length?Math.round(gravesRCA/graves.length*100)+'%':'N/A','Graves com RCA concluida',graves.length===0||gravesRCA===graves.length?P.green:P.yellow);
-      kpi(7.45,dados.notivsaAnalisados||0,'Fichas Notivisa geradas',P.teal);
-      const porSetor={};nots.forEach(n=>{const st=n.sector||'Nao informado';porSetor[st]=(porSetor[st]||0)+1;});
-      const topSet=Object.entries(porSetor).sort((a,b)=>b[1]-a[1]).slice(0,6);
-      const setRows=[[{text:'Setor',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Notificacoes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      topSet.forEach(([st,n2],i)=>setRows.push([{text:st,options:{fontSize:9.5,fill:rowFill(i)}},{text:String(n2),options:{fontSize:9.5,bold:true,align:'center',fill:rowFill(i),color:P.navy}}]));
-      sl.addText('Setores com mais notificacoes',{x:0.4,y:2.45,w:9.2,h:0.3,fontSize:11,bold:true,color:'1E293B',margin:0});
-      sl.addTable(setRows,{x:0.4,y:2.8,w:6.0,colW:[4.4,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      // 4. Indicadores DSM (acumulado)
-      sl=pres.addSlide();header(sl,'Indicadores DSM — Acumulado do Semestre');
-      const pctV=(n,d)=>d>0?(n/d*100):null;
-      const pdT=sum('paciente_dia_total');
-      const pdRisco=sum('lpp_paciente_dia_risco')||pdT;
-      const indList=[
-        ['Conformidade Higiene das Maos',pctV(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),'>=80%',v=>v>=80],
-        ['Identificacao do paciente',pctV(sum('pacientes_identificados'),sum('pacientes_atendidos')),'>=95%',v=>v>=95],
-        ['Incidencia de LPP',pctV(sum('lpp_casos_novos'),pdRisco),'<4%',v=>v<4],
-        ['Quedas com dano',pctV(sum('quedas_com_dano'),sum('quedas_total')),'<10%',v=>v<10],
-        ['Erros na prescricao',pctV(sum('erros_prescricao'),sum('total_prescricoes')),'<1%',v=>v<1],
-        ['IPCS/CVC',pctV(sum('ipcs_cvc'),sum('cateter_dia_cvc')),'<0.2%',v=>v<0.2],
-        ['ITU/CVD',pctV(sum('itu_cvd'),sum('paciente_dia_cvd')),'<0.3%',v=>v<0.3],
-        ['PAV',pctV(sum('pav_casos_novos'),sum('pacientes_vm')),'<0.5%',v=>v<0.5],
-        ['Conformidade LVCS',pctV(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),'>=95%',v=>v>=95],
-        ['Alcool gel (mL/pac-dia)',pdT>0?sum('alcool_gel_ml')/pdT:null,'>20',v=>v>=20],
-      ];
-      const indRows=[[{text:'Indicador',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Resultado',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Meta',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      indList.forEach(([lab,v,meta,okFn],i)=>{
-        const ok=v===null?null:okFn(v);
-        const vt=v===null?'N/D':(lab.includes('gel')?v.toFixed(1):v.toFixed(1)+'%');
-        indRows.push([{text:lab,options:{fontSize:9,fill:rowFill(i)}},{text:vt,options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:ok===null?P.gray:ok?P.green:P.red}},{text:meta,options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]);
-      });
-      sl.addTable(indRows,{x:0.4,y:0.92,w:9.2,colW:[4.4,1.7,1.5,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.365,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      // 5. Protocolos e Treinamentos
-      sl=pres.addSlide();header(sl,'Protocolos e Educacao Permanente');
-      const prots=dados.protocolos||[];
-      const pVenc=prots.filter(p=>p.proxima_revisao&&p.proxima_revisao<hojeStr).length;
-      kpi(0.4,prots.length,'Protocolos cadastrados',P.navy);
-      kpi(2.75,prots.length-pVenc,'Vigentes',P.green);
-      kpi(5.1,pVenc,'Com revisao vencida',pVenc===0?P.green:P.red);
-      kpi(7.45,(dados.treinsTodos||[]).length,'Treinamentos/reunioes',P.teal);
-      const trRows=[[{text:'Subnucleo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Registros',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Participantes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      SUBNUCLEOS_HNSA.forEach((sn,i)=>{
-        const regs=(dados.treinsTodos||[]).filter(t=>t.subnucleo===sn.id);
-        const parts=regs.reduce((a,t)=>a+(Number(t.qtd)||0),0);
-        trRows.push([{text:sn.label,options:{fontSize:9,fill:rowFill(i)}},{text:String(regs.length),options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:regs.length>0?P.navy:P.gray}},{text:String(parts),options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}}]);
-      });
-      sl.addTable(trRows,{x:0.4,y:2.45,w:9.2,colW:[6.0,1.6,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.34,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      // 6. Planos de acao e cultura
-      sl=pres.addSlide();header(sl,'Planos de Acao e Cultura de Seguranca');
-      const pl=planos||[];
-      const plConc=pl.filter(p=>p.status==='concluido');
-      const plEfet=plConc.filter(p=>p.efetividade_verificada);
-      const plAtras=pl.filter(p=>p.status!=='concluido'&&p.status!=='cancelado'&&p.prazo&&p.prazo<hojeStr);
-      kpi(0.4,pl.length,'Acoes no total',P.navy);
-      kpi(2.75,plConc.length,'Concluidas',P.green);
-      kpi(5.1,plEfet.length,'Com efetividade verificada',plConc.length>0&&plEfet.length===plConc.length?P.green:P.yellow);
-      kpi(7.45,plAtras.length,'Com prazo vencido',plAtras.length===0?P.green:P.red);
-      sl.addText('Pesquisa de Cultura de Seguranca (HSOPSC): '+((dados.saqResp||[]).length)+' resposta(s) no periodo.',{x:0.4,y:2.6,w:9.2,h:0.35,fontSize:11,color:'1E293B',margin:0});
-      sl.addText('Trilha de auditoria completa (audit_log), notificacoes, RCAs, fichas Notivisa e atas disponiveis no Pacote de Auditoria (ZIP) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
-
-      await pres.writeFile({fileName:'Dossie_Auditor_'+(h.short_name||'NSP')+'_'+semestre+'.pptx'});
-      showToast('PPT do Auditor gerado!','success');
-    }catch(e){showToast('Erro ao gerar PPT: '+e.message,'error');}
-    setGerandoPPTAud(false);
   };
 
   const gerarPacoteAuditoria=async()=>{

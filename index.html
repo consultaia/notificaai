@@ -2969,6 +2969,116 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     setGerandoXlsDSM(false);
   };
 
+  const gerarPPTAuditor=async()=>{
+    if(!window.PptxGenJS){showToast('PptxGenJS carregando, tente em 3s','error');return;}
+    if(!dados){showToast('Gere o relatorio primeiro','error');return;}
+    setGerandoPPTAud(true);
+    try{
+      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
+      const hojeStr=new Date().toISOString().slice(0,10);
+      const P={navy:'0B1F3A',teal:'00C9B8',green:'10B981',red:'EF4444',yellow:'F59E0B',gray:'64748B',white:'FFFFFF'};
+      const pres=new window.PptxGenJS();
+      pres.defineLayout({name:'W',width:10,height:5.63});pres.layout='W';
+      const [anoS,semS]=semestre.split('-');
+      const semLabel=semS+'o semestre de '+anoS;
+      const header=(sl,t)=>{sl.background={color:'F8FAFC'};sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:P.navy}});sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0.7,w:10,h:0.06,fill:{color:P.teal}});sl.addText(t,{x:0.4,y:0,w:7,h:0.7,fontSize:16,bold:true,color:P.white,valign:'middle',margin:0});sl.addText(semLabel,{x:7.4,y:0,w:2.2,h:0.7,fontSize:11,color:P.teal,valign:'middle',align:'right',margin:0});};
+      const stCell=(ok)=>({text:ok===null?'N/D':ok?'OK':'ATENCAO',options:{fontSize:9,bold:true,align:'center',color:ok===null?P.gray:ok?P.green:P.red}});
+      const rowFill=i=>({color:i%2===0?'FFFFFF':'F1F5F9'});
+      const sum=k=>(dados.indDSM||[]).reduce((a,r)=>a+(Number(r[k])||0),0);
+
+      let sl=pres.addSlide();
+      sl.background={color:P.navy};
+      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:3.9,w:10,h:0.08,fill:{color:P.teal}});
+      sl.addText('Dossie do Auditor',{x:0.6,y:1.5,w:8.8,h:0.9,fontSize:34,bold:true,color:P.white,margin:0});
+      sl.addText('Nucleo de Seguranca do Paciente — '+(h.name||h.short_name||''),{x:0.6,y:2.4,w:8.8,h:0.5,fontSize:15,color:P.teal,margin:0});
+      sl.addText(semLabel.charAt(0).toUpperCase()+semLabel.slice(1),{x:0.6,y:2.95,w:8.8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
+      sl.addText('Gerado em '+new Date().toLocaleDateString('pt-BR')+(gestor?' · Responsavel: '+gestor:'')+' · NotificaAI',{x:0.6,y:4.2,w:8.8,h:0.4,fontSize:10,color:'8FA5C0',margin:0});
+
+      sl=pres.addSlide();header(sl,'Documentos Institucionais');
+      const c=dados.cfg||{};
+      const pspVal=c.data_atualizacao_psp?new Date(new Date(c.data_atualizacao_psp).setFullYear(new Date(c.data_atualizacao_psp).getFullYear()+3)).toISOString().slice(0,10):null;
+      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
+      const docRows=[[{text:'Documento',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Detalhe',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10,align:'center'}}]];
+      [['Portaria de criacao do NSP (C.1)',(c.numero_portaria_nsp?'N '+c.numero_portaria_nsp+' · ':'')+fmtD(c.data_portaria_nsp),!!(c.numero_portaria_nsp||c.data_portaria_nsp)],
+       ['Portaria da CCIH (C.2)',(c.numero_portaria_ccih?'N '+c.numero_portaria_ccih+' · ':'')+fmtD(c.data_portaria_ccih),!!(c.numero_portaria_ccih||c.data_portaria_ccih)],
+       ['Plano de Seguranca do Paciente (C.3)',c.data_atualizacao_psp?('Atualizado '+fmtD(c.data_atualizacao_psp)+' · validade '+fmtD(pspVal)):'-',c.data_atualizacao_psp?(pspVal>=hojeStr):null],
+       ['Regimento Interno do NSP',c.link_regimento?'Documento anexado':'-',!!c.link_regimento],
+      ].forEach(([lab,det,ok],i)=>docRows.push([{text:lab,options:{fontSize:10,fill:rowFill(i)}},{text:det,options:{fontSize:10,fill:rowFill(i)}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]));
+      sl.addTable(docRows,{x:0.4,y:1.0,w:9.2,colW:[3.9,3.6,1.7],border:{pt:0.5,color:'E2E8F0'},rowH:0.42,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Notificacoes do Semestre');
+      const nots=dados.nots||[];
+      const graves=nots.filter(n=>n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave');
+      const gravesRCA=graves.filter(n=>n.rca_gerado).length;
+      const kpi=(x,val,lab,cor)=>{sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x,y:1.0,w:2.15,h:1.15,fill:{color:P.white},rectRadius:0.08,line:{color:cor,width:1.2}});sl.addText(String(val),{x,y:1.08,w:2.15,h:0.6,fontSize:26,bold:true,color:cor,align:'center',margin:0});sl.addText(lab,{x,y:1.68,w:2.15,h:0.4,fontSize:9,color:P.gray,align:'center',margin:0});};
+      kpi(0.4,nots.length,'Notificacoes no periodo',P.navy);
+      kpi(2.75,dados.sentinela||0,'Eventos sentinela',(dados.sentinela||0)===0?P.green:P.red);
+      kpi(5.1,graves.length?Math.round(gravesRCA/graves.length*100)+'%':'N/A','Graves com RCA concluida',graves.length===0||gravesRCA===graves.length?P.green:P.yellow);
+      kpi(7.45,dados.notivsaAnalisados||0,'Fichas Notivisa geradas',P.teal);
+      const porSetor={};nots.forEach(n=>{const st=n.sector||'Nao informado';porSetor[st]=(porSetor[st]||0)+1;});
+      const topSet=Object.entries(porSetor).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const setRows=[[{text:'Setor',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Notificacoes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+      topSet.forEach(([st,n2],i)=>setRows.push([{text:st,options:{fontSize:9.5,fill:rowFill(i)}},{text:String(n2),options:{fontSize:9.5,bold:true,align:'center',fill:rowFill(i),color:P.navy}}]));
+      sl.addText('Setores com mais notificacoes',{x:0.4,y:2.45,w:9.2,h:0.3,fontSize:11,bold:true,color:'1E293B',margin:0});
+      sl.addTable(setRows,{x:0.4,y:2.8,w:6.0,colW:[4.4,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Indicadores DSM — Acumulado do Semestre');
+      const pctV=(nu,d)=>d>0?(nu/d*100):null;
+      const pdT=sum('paciente_dia_total');
+      const pdRisco=sum('lpp_paciente_dia_risco')||pdT;
+      const indList=[
+        ['Conformidade Higiene das Maos',pctV(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),'>=80%',v=>v>=80],
+        ['Identificacao do paciente',pctV(sum('pacientes_identificados'),sum('pacientes_atendidos')),'>=95%',v=>v>=95],
+        ['Incidencia de LPP',pctV(sum('lpp_casos_novos'),pdRisco),'<4%',v=>v<4],
+        ['Quedas com dano',pctV(sum('quedas_com_dano'),sum('quedas_total')),'<10%',v=>v<10],
+        ['Erros na prescricao',pctV(sum('erros_prescricao'),sum('total_prescricoes')),'<1%',v=>v<1],
+        ['IPCS/CVC',pctV(sum('ipcs_cvc'),sum('cateter_dia_cvc')),'<0.2%',v=>v<0.2],
+        ['ITU/CVD',pctV(sum('itu_cvd'),sum('paciente_dia_cvd')),'<0.3%',v=>v<0.3],
+        ['PAV',pctV(sum('pav_casos_novos'),sum('pacientes_vm')),'<0.5%',v=>v<0.5],
+        ['Conformidade LVCS',pctV(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),'>=95%',v=>v>=95],
+        ['Alcool gel (mL/pac-dia)',pdT>0?sum('alcool_gel_ml')/pdT:null,'>20',v=>v>=20],
+      ];
+      const indRows=[[{text:'Indicador',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Resultado',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Meta',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+      indList.forEach(([lab,v,meta,okFn],i)=>{
+        const ok=v===null?null:okFn(v);
+        const vt=v===null?'N/D':(lab.includes('gel')?v.toFixed(1):v.toFixed(1)+'%');
+        indRows.push([{text:lab,options:{fontSize:9,fill:rowFill(i)}},{text:vt,options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:ok===null?P.gray:ok?P.green:P.red}},{text:meta,options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]);
+      });
+      sl.addTable(indRows,{x:0.4,y:0.92,w:9.2,colW:[4.4,1.7,1.5,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.365,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Protocolos e Educacao Permanente');
+      const prots=dados.protocolos||[];
+      const pVenc=prots.filter(p=>p.proxima_revisao&&p.proxima_revisao<hojeStr).length;
+      kpi(0.4,prots.length,'Protocolos cadastrados',P.navy);
+      kpi(2.75,prots.length-pVenc,'Vigentes',P.green);
+      kpi(5.1,pVenc,'Com revisao vencida',pVenc===0?P.green:P.red);
+      kpi(7.45,(dados.treinsTodos||[]).length,'Treinamentos/reunioes',P.teal);
+      const trRows=[[{text:'Subnucleo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Registros',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Participantes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+      SUBNUCLEOS_HNSA.forEach((sn,i)=>{
+        const regs=(dados.treinsTodos||[]).filter(t=>t.subnucleo===sn.id);
+        const parts=regs.reduce((a,t)=>a+(Number(t.qtd)||0),0);
+        trRows.push([{text:sn.label,options:{fontSize:9,fill:rowFill(i)}},{text:String(regs.length),options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:regs.length>0?P.navy:P.gray}},{text:String(parts),options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}}]);
+      });
+      sl.addTable(trRows,{x:0.4,y:2.45,w:9.2,colW:[6.0,1.6,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.34,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Planos de Acao e Cultura de Seguranca');
+      const pl=planos||[];
+      const plConc=pl.filter(p=>p.status==='concluido');
+      const plEfet=plConc.filter(p=>p.efetividade_verificada);
+      const plAtras=pl.filter(p=>p.status!=='concluido'&&p.status!=='cancelado'&&p.prazo&&p.prazo<hojeStr);
+      kpi(0.4,pl.length,'Acoes no total',P.navy);
+      kpi(2.75,plConc.length,'Concluidas',P.green);
+      kpi(5.1,plEfet.length,'Com efetividade verificada',plConc.length>0&&plEfet.length===plConc.length?P.green:P.yellow);
+      kpi(7.45,plAtras.length,'Com prazo vencido',plAtras.length===0?P.green:P.red);
+      sl.addText('Pesquisa de Cultura de Seguranca (HSOPSC): '+((dados.saqResp||[]).length)+' resposta(s) no periodo.',{x:0.4,y:2.6,w:9.2,h:0.35,fontSize:11,color:'1E293B',margin:0});
+      sl.addText('Trilha de auditoria completa (audit_log), notificacoes, RCAs, fichas Notivisa e atas disponiveis no Pacote de Auditoria (ZIP) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
+
+      await pres.writeFile({fileName:'Dossie_Auditor_'+(h.short_name||'NSP')+'_'+semestre+'.pptx'});
+      showToast('PPT do Auditor gerado!','success');
+    }catch(e){showToast('Erro ao gerar PPT: '+e.message,'error');}
+    setGerandoPPTAud(false);
+  };
+
   const gerarPacoteAuditoria=async()=>{
     if(!window.JSZip){showToast('JSZip carregando, tente em 3s','error');return;}
     if(!dados){showToast('Gere o relatorio primeiro','error');return;}

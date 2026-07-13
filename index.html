@@ -3844,7 +3844,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
         .cabecalho{color:#64748B;font-size:11px;margin-bottom:16px}
         @media print{button{display:none}}</style></head><body>
         <h1>Dossie de Auditoria — ${h.name||h.short_name||''}</h1>
-        <div class="cabecalho">${range.label} · Gerado em ${new Date().toLocaleString('pt-BR')}${gestor?' · Responsavel: '+gestor:''}</div>
+        <div class="cabecalho">${range.label} · Gerado em ${new Date().toLocaleString('pt-BR')}${cfg.gestor_nsp?' · Responsavel: '+cfg.gestor_nsp:''}</div>
         ${sec('Documentos Institucionais',[
           ['Portaria do NSP',temPortNSP?`<span class="ok">Cadastrada</span> — N ${cfg.numero_portaria_nsp||'-'} de ${fmtD(cfg.data_portaria_nsp)}`:'<span class="nok">Nao cadastrada</span>'],
           ['Portaria da CCIH',(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)?`N ${cfg.numero_portaria_ccih||'-'} de ${fmtD(cfg.data_portaria_ccih)}`:'<span class="nok">Nao cadastrada</span>'],

@@ -360,7 +360,7 @@ function LineChart({data,lines,height=170}) {
   const maxV=Math.max(...all,1),w=340,h=height,pad=28;
   const xs=(w-pad*2)/Math.max(data.length-1,1);
   const gridN=4;
-  return(<svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}} preserveAspectRatio="none">
+  return(<svg width={w} height={h} viewBox={'0 0 '+w+' '+h} style={{width:'100%',height:'auto',display:'block'}}>
     {Array.from({length:gridN+1}).map((_,i)=>{
       const y=h-pad-(i/gridN)*(h-pad*2);
       return(<g key={i}>
@@ -388,7 +388,7 @@ function BarChart({data,xKey,yKey,color,height=170}) {
   const trunc=s=>{s=String(s??'');return s.length>9?s.slice(0,8)+'…':s;};
   const gridN=4;
   return(<div style={{overflowX:data.length>6?'auto':'visible',width:'100%'}}>
-    <svg viewBox={'0 0 '+w+' '+h} style={{width:data.length>6?w*2.1:'100%',minWidth:'100%',height,display:'block'}} preserveAspectRatio="none">
+    <svg width={w} height={h} viewBox={'0 0 '+w+' '+h} style={{width:data.length>6?w:'100%',height:'auto',display:'block'}}>
       {Array.from({length:gridN+1}).map((_,i)=>{
         const y=h-pad-(i/gridN)*(h-pad*2-16);
         return(<g key={i}>
@@ -3973,7 +3973,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                   <button onClick={()=>setFormTrein(f=>({...f,link_gdrive:''}))} style={{fontSize:10,color:C.muted,background:'none',border:'none',cursor:'pointer'}}>Trocar</button>
                 </div>
               : <StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista de presenca'
-                  meta={{subnucleo:sub.id,data:formTrein.data||new Date().toISOString().slice(0,10),participantes:formTrein.participantes||''}}
+                  meta={{subnucleo:sub.id,data:formTrein.data||new Date().toISOString().slice(0,10),participantes:formTrein.participantes||'',
+                    ano:String(new Date((formTrein.data||new Date().toISOString().slice(0,10))+'T12:00:00').getFullYear()),
+                    semestre:new Date((formTrein.data||new Date().toISOString().slice(0,10))+'T12:00:00').getMonth()<6?'1':'2'}}
                   onUploaded={link=>setFormTrein(f=>({...f,link_gdrive:link}))}/>}
             <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>Foto ou PDF da folha de assinaturas. Sem isso o registro nao aparece na Biblioteca de Documentos do gestor.</div>
           </div>

@@ -354,32 +354,59 @@ function Dots({color}) {
     {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:'pulse 1.2s '+(i*0.2)+'s ease-in-out infinite'}}/>)}
   </div>);
 }
-function LineChart({data,lines,height=150}) {
+function LineChart({data,lines,height=170}) {
   if(!data||!data.length) return null;
   const all=data.flatMap(d=>lines.map(l=>d[l.key]||0));
-  const maxV=Math.max(...all,1),w=300,h=height,pad=24;
+  const maxV=Math.max(...all,1),w=340,h=height,pad=28;
   const xs=(w-pad*2)/Math.max(data.length-1,1);
+  const gridN=4;
   return(<svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}} preserveAspectRatio="none">
-    {lines.map(line=>{
-      const pts=data.map((d,i)=>{const x=pad+i*xs;const y=h-pad-((d[line.key]||0)/maxV)*(h-pad*2);return`${x},${y}`;}).join(' ');
-      return<polyline key={line.key} points={pts} fill="none" stroke={line.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>;
-    })}
-    {data.map((d,i)=><text key={i} x={pad+i*xs} y={h-4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d.mes}</text>)}
-  </svg>);
-}
-function BarChart({data,xKey,yKey,color,height=150}) {
-  if(!data||!data.length) return null;
-  const maxV=Math.max(...data.map(d=>d[yKey]||0),1),w=300,h=height,pad=24;
-  const bw=(w-pad*2)/data.length-4;
-  return(<svg viewBox={'0 0 '+w+' '+h} style={{width:'100%',height}}>
-    {data.map((d,i)=>{
-      const bh=((d[yKey]||0)/maxV)*(h-pad*2),x=pad+i*((w-pad*2)/data.length)+2,y=h-pad-bh;
-      return(<g key={i}><rect x={x} y={y} width={bw} height={bh} fill={color} rx="3" opacity="0.85"/>
-        <text x={x+bw/2} y={h-4} textAnchor="middle" fontSize="9" fill="#5A7AA0">{d[xKey]}</text>
-        {bh>12&&<text x={x+bw/2} y={y+10} textAnchor="middle" fontSize="9" fill="#fff">{d[yKey]}</text>}
+    {Array.from({length:gridN+1}).map((_,i)=>{
+      const y=h-pad-(i/gridN)*(h-pad*2);
+      return(<g key={i}>
+        <line x1={pad} x2={w-4} y1={y} y2={y} stroke={C.border} strokeWidth="1" strokeDasharray="2,3"/>
+        <text x={pad-4} y={y+3} textAnchor="end" fontSize="8" fill={C.muted}>{Math.round(maxV*i/gridN)}</text>
       </g>);
     })}
+    {lines.map(line=>{
+      const pts=data.map((d,i)=>{const x=pad+i*xs;const y=h-pad-((d[line.key]||0)/maxV)*(h-pad*2);return`${x},${y}`;}).join(' ');
+      return(<g key={line.key}>
+        <polyline points={pts} fill="none" stroke={line.color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        {data.map((d,i)=>{const x=pad+i*xs,y=h-pad-((d[line.key]||0)/maxV)*(h-pad*2);
+          return<circle key={i} cx={x} cy={y} r="2.6" fill={line.color}><title>{d.mes}: {d[line.key]||0}</title></circle>;})}
+      </g>);
+    })}
+    {data.map((d,i)=><text key={i} x={pad+i*xs} y={h-6} textAnchor="middle" fontSize="9" fill={C.muted}>{d.mes}</text>)}
   </svg>);
+}
+function BarChart({data,xKey,yKey,color,height=170}) {
+  if(!data||!data.length) return null;
+  const maxV=Math.max(...data.map(d=>d[yKey]||0),1);
+  const pad=26,perBar=Math.max(56,300/data.length);
+  const w=Math.max(300,data.length*perBar),h=height;
+  const bw=perBar-22;
+  const trunc=s=>{s=String(s??'');return s.length>9?s.slice(0,8)+'…':s;};
+  const gridN=4;
+  return(<div style={{overflowX:data.length>6?'auto':'visible',width:'100%'}}>
+    <svg viewBox={'0 0 '+w+' '+h} style={{width:data.length>6?w*2.1:'100%',minWidth:'100%',height,display:'block'}} preserveAspectRatio="none">
+      {Array.from({length:gridN+1}).map((_,i)=>{
+        const y=h-pad-(i/gridN)*(h-pad*2-16);
+        return(<g key={i}>
+          <line x1={pad-6} x2={w-6} y1={y} y2={y} stroke={C.border} strokeWidth="1" strokeDasharray="2,3"/>
+          <text x={pad-10} y={y+3} textAnchor="end" fontSize="8" fill={C.muted}>{Math.round(maxV*i/gridN)}</text>
+        </g>);
+      })}
+      {data.map((d,i)=>{
+        const bh=((d[yKey]||0)/maxV)*(h-pad*2-16),x=pad+i*perBar,y=h-pad-bh;
+        return(<g key={i}>
+          <title>{d[xKey]}: {d[yKey]}</title>
+          <rect x={x} y={y} width={bw} height={Math.max(bh,bh>0?2:0)} fill={color} rx="4" opacity="0.88"/>
+          <text x={x+bw/2} y={h-8} textAnchor="middle" fontSize="9" fill={C.muted}>{trunc(d[xKey])}</text>
+          <text x={x+bw/2} y={y-5} textAnchor="middle" fontSize="10" fontWeight="700" fill={C.text}>{d[yKey]>0?d[yKey]:''}</text>
+        </g>);
+      })}
+    </svg>
+  </div>);
 }
 function PieChart({data,size=160}) {
   if(!data||!data.length) return null;
@@ -391,16 +418,16 @@ function PieChart({data,size=160}) {
     const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
     angle+=sweep;
     const x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
-    return{path:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${sweep>Math.PI?1:0},1 ${x2},${y2} Z`,color:d.color,name:d.name,pct:Math.round(d.value/total*100)};
+    return{path:`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${sweep>Math.PI?1:0},1 ${x2},${y2} Z`,color:d.color,name:d.name,value:d.value||0,pct:Math.round(d.value/total*100)};
   });
   return(<div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
     <svg viewBox={'0 0 '+size+' '+size} style={{width:size,height:size,flexShrink:0}}>
-      {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke={C.card} strokeWidth="1.5"/>)}
+      {slices.map((s,i)=><path key={i} d={s.path} fill={s.color} stroke={C.card} strokeWidth="1.5"><title>{s.name}: {s.value} ({s.pct}%)</title></path>)}
     </svg>
     <div style={{display:'flex',flexDirection:'column',gap:6}}>
       {slices.map((s,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:6}}>
         <div style={{width:10,height:10,borderRadius:2,background:s.color,flexShrink:0}}/>
-        <span style={{fontSize:11,color:C.muted}}>{s.name} <span style={{color:C.text,fontWeight:700}}>{s.pct}%</span></span>
+        <span style={{fontSize:11,color:C.muted}}>{s.name} <span style={{color:C.text,fontWeight:700}}>{s.value}</span> <span style={{color:C.muted}}>({s.pct}%)</span></span>
       </div>)}
     </div>
   </div>);
@@ -2479,7 +2506,7 @@ const SUBNUCLEOS_HNSA=[
   {id:'ccih',label:'SCIH - Higienizacao das Maos e IRAS',icon:String.fromCodePoint(129440),color:'#06B6D4'},
 ];
 
-function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode,driveUrl,onSaveDrive}) {
+function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState([]);
   const [loading,setLoading]=useState(false);
@@ -2578,14 +2605,6 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         </div>}
       </div>
 
-      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10}}>
-        <span style={{fontSize:18}}>{String.fromCodePoint(128194)}</span>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{fontSize:11,fontWeight:700,color:C.text}}>Repositorio NSP (Google Drive)</div>
-          {driveUrl?<a href={driveUrl} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.teal,fontWeight:700}}>{driveUrl.length>45?driveUrl.slice(0,45)+'...':driveUrl}</a>:<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Nenhum link configurado</div>}
-        </div>
-        {canEdit&&<button onClick={()=>{const u=window.prompt('Cole o link da pasta do Google Drive:',driveUrl||'');if(u!==null&&onSaveDrive)onSaveDrive(u.trim());}} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.muted,fontSize:10,fontWeight:700,cursor:'pointer',flexShrink:0}}>Configurar</button>}
-      </div>
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
 
       {/* Reunioes NSP */}
@@ -6383,7 +6402,6 @@ function NotificaAI() {
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
   const [nspEmail,setNspEmail]=useState('');
-  const [driveUrl,setDriveUrl]=useState('');
   const [testMode,setTestMode]=useState(false);
   const [hospital,setHospital]=useState(DEFAULT_HOSPITAL);
   const [refreshKey,setRefreshKey]=useState(0);
@@ -6404,7 +6422,7 @@ function NotificaAI() {
         const r=await window.storage.get('notificai-sb');
         const c=r?.value?JSON.parse(r.value):HNSA;
         setSbUrl(c.url||HNSA.url);setSbKey(c.key||HNSA.key);
-        setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');setDriveUrl(c.driveUrl||'');
+        setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');
         setTestMode(c.testMode!==undefined?c.testMode:true);
         const hId=getHospitalIdFromUrl()||'hnsa';
         const h=await loadHospital(c.url||HNSA.url,c.key||HNSA.key,hId);
@@ -6415,7 +6433,7 @@ function NotificaAI() {
   },[]);
 
   const saveAll=async(overrides={})=>{
-    const d={url:sbUrl,key:sbKey,webhook:webhookUrl,email:nspEmail,testMode,driveUrl,...overrides};
+    const d={url:sbUrl,key:sbKey,webhook:webhookUrl,email:nspEmail,testMode,...overrides};
     try{await window.storage.set('notificai-sb',JSON.stringify(d));}catch{}
   };
   const handleSaveConfig=async(url,key,wh)=>{
@@ -6426,7 +6444,6 @@ function NotificaAI() {
     setHospital(h);
   };
   const handleSaveEmail=email=>{setNspEmail(email);saveAll({email});};
-  const handleSaveDrive=url=>{setDriveUrl(url);saveAll({driveUrl:url});};
   const handleToggleTestMode=()=>{const nv=!testMode;setTestMode(nv);saveAll({testMode:nv});showToast(nv?'teste Modo TESTE ativado':'OK Modo PRODUÇÃO ativado','success');};
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
@@ -6504,7 +6521,7 @@ function NotificaAI() {
         {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
-        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode} driveUrl={driveUrl} onSaveDrive={handleSaveDrive}/>}
+        {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
@@ -7540,7 +7557,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
               <div style={{fontSize:11,fontWeight:600,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{p.nome}</div>
               <div style={{fontSize:9,color:cor,fontWeight:700}}>{vencido?'VENCIDO em ':prox60?'Vence em ':'Valido ate '}{p.proxima_revisao?new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'sem data'}</div>
             </div>
-            {p.link&&<a href={p.link} target='_blank' rel='noreferrer' style={{fontSize:10,color:C.teal,fontWeight:700,textDecoration:'none',marginLeft:8}}>Abrir</a>}
+            {p.link?<a href={p.link} target='_blank' rel='noreferrer' style={{fontSize:10,color:C.teal,fontWeight:700,textDecoration:'none',marginLeft:8}}>Abrir</a>:<span style={{fontSize:9,color:C.yellow,fontWeight:700,marginLeft:8,whiteSpace:'nowrap'}}>Sem doc.</span>}
           </div>);
         })}
       </div>

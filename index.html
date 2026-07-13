@@ -3090,7 +3090,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       kpi(5.1,plEfet.length,'Com efetividade verificada',plConc.length>0&&plEfet.length===plConc.length?P.green:P.yellow);
       kpi(7.45,plAtras.length,'Com prazo vencido',plAtras.length===0?P.green:P.red);
       sl.addText('Pesquisa de Cultura de Seguranca (HSOPSC): '+((dados.saqResp||[]).length)+' resposta(s) no periodo.',{x:0.4,y:2.6,w:9.2,h:0.35,fontSize:11,color:'1E293B',margin:0});
-      sl.addText('Trilha de auditoria completa (audit_log), notificacoes, RCAs, fichas Notivisa e atas disponiveis no Pacote de Auditoria (ZIP) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
+      sl.addText('Trilha de auditoria completa (audit_log), notificacoes, RCAs, fichas Notivisa e atas disponiveis no Pacote de Auditoria (Excel) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
 
       await pres.writeFile({fileName:'Dossie_Auditor_'+(h.short_name||'NSP')+'_'+semestre+'.pptx'});
       showToast('PPT do Auditor gerado!','success');
@@ -3099,63 +3099,55 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const gerarPacoteAuditoria=async()=>{
-    if(!window.JSZip){showToast('JSZip carregando, tente em 3s','error');return;}
+    if(!window.XLSX){showToast('Biblioteca de Excel carregando, tente em 3s','error');return;}
     if(!dados){showToast('Gere o relatorio primeiro','error');return;}
     showToast('Gerando pacote de auditoria...','success');
     try{
-      const zip=new window.JSZip();
+      const XLSX=window.XLSX;
       const hoje=new Date().toISOString().slice(0,10);
-      const csvEscape=(v)=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r')?'"'+s.replace(/"/g,'""')+'"':s;};
-      const toCSV=(rows,cols)=>'\ufeff'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n');
-
-      // 1. Notificações do período
-      if(dados.nots?.length){
-        zip.file('01_notificacoes.csv',toCSV(dados.nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description']));
-      }
-      // 2. Audit log
-      const audit=await sbSelect(sbUrl,sbKey,'audit_log',`hospital_id=eq.${h.id}&order=created_at.desc&limit=1000`).catch(()=>[]);
-      if(audit?.length) zip.file('02_audit_log.csv',toCSV(audit,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil']));
-      // 3. Treinamentos
-      if(dados.treinsTodos?.length) zip.file('03_treinamentos.csv',toCSV(dados.treinsTodos,['data','tipo','subnucleo','protocolo','qtd','participantes']));
-      // 4. Protocolos
-      if(dados.protocolos?.length) zip.file('04_protocolos.csv',toCSV(dados.protocolos,['nome','aprovado_em','proxima_revisao','link']));
-      // 5. Planos de ação
-      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
-      if(planos?.length) zip.file('05_planos_acao.csv',toCSV(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em']));
-      // 6. Indicadores DSM
-      if(dados.indDSM?.length) zip.file('06_indicadores_dsm.csv',toCSV(dados.indDSM,Object.keys(dados.indDSM[0]||{})));
-      // 7. Status dos 24 critérios ANVISA
+      const wb=XLSX.utils.book_new();
       const cfg2=dados.cfg||{};
-      const resumoAnvisa=['PACOTE DE AUDITORIA NSP — '+h.name,'Gerado em: '+new Date().toLocaleString('pt-BR'),'Periodo: '+label,'',
-        'DOCUMENTOS INSTITUCIONAIS:',
-        'Portaria NSP: '+(cfg2.numero_portaria_nsp||'NAO CADASTRADA')+(cfg2.data_portaria_nsp?' de '+cfg2.data_portaria_nsp:''),
-        'Portaria CCIH: '+(cfg2.numero_portaria_ccih||'NAO CADASTRADA'),
-        'PSP atualizado em: '+(cfg2.data_atualizacao_psp||'NAO CADASTRADO'),
-        '',
-        'RESUMO DO PERIODO:',
-        'Total de notificacoes: '+(dados.total||0),
-        'Seguranca do Paciente: '+(dados.sp||0),
-        'Eventos sentinela: '+(dados.sentinela||0),
-        'Reunioes NSP: '+(dados.reunioes?.length||0),
-        'Treinamentos: '+(dados.treinsTodos?.length||0),
-        'Registros de auditoria: '+(audit?.length||0),
-        'Planos de acao: '+(planos?.length||0),
-        '',
-        'Conteudo do pacote:',
-        '01_notificacoes.csv — todas as notificacoes do periodo',
-        '02_audit_log.csv — trilha de auditoria completa',
-        '03_treinamentos.csv — capacitacoes registradas',
-        '04_protocolos.csv — protocolos e validades',
-        '05_planos_acao.csv — planos com efetividade (PDCA)',
-        '06_indicadores_dsm.csv — indicadores mensais',
-      ].join('\n');
-      zip.file('00_LEIA-ME.txt',resumoAnvisa);
 
-      const blob=await zip.generateAsync({type:'blob'});
-      const u=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=u;a.download='Pacote_Auditoria_NSP_'+h.short_name+'_'+hoje+'.zip';
-      a.click();URL.revokeObjectURL(u);
+      XLSX.utils.book_append_sheet(wb,buildResumoSheet('Resumo',[
+        ['Hospital',h.name||h.short_name||''],
+        ['Periodo',label],
+        ['Gerado em',new Date().toLocaleString('pt-BR')],
+        ['Portaria NSP',(cfg2.numero_portaria_nsp||'NAO CADASTRADA')+(cfg2.data_portaria_nsp?' de '+cfg2.data_portaria_nsp:'')],
+        ['Portaria CCIH',cfg2.numero_portaria_ccih||'NAO CADASTRADA'],
+        ['PSP atualizado em',cfg2.data_atualizacao_psp||'NAO CADASTRADO'],
+        ['Total de notificacoes',dados.total||0],
+        ['Seguranca do Paciente',dados.sp||0],
+        ['Eventos sentinela',dados.sentinela||0],
+        ['Reunioes NSP',dados.reunioes?.length||0],
+        ['Treinamentos',dados.treinsTodos?.length||0],
+      ]),'Resumo');
+
+      if(dados.nots?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(dados.nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description'],
+          ['ID','Criado em','Data do evento','Setor','Tipo','Subtipo','Gravidade','Status','RCA gerado','RCA autor','RCA concluido em','Notivisa enviado','Notivisa enviado em','Desfecho','Descricao']),'Notificacoes');
+
+      const audit=await sbSelect(sbUrl,sbKey,'audit_log',`hospital_id=eq.${h.id}&order=created_at.desc&limit=1000`).catch(()=>[]);
+      if(audit?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(audit,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil'],
+          ['Data/Hora','Notificacao ID','Acao','Campo','Valor anterior','Valor novo','Usuario','Perfil']),'Auditoria');
+
+      if(dados.treinsTodos?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(dados.treinsTodos,['data','tipo','subnucleo','protocolo','qtd','participantes'],
+          ['Data','Tipo','Subnucleo','Protocolo/Tema','Qtd','Participantes']),'Treinamentos');
+
+      if(dados.protocolos?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(dados.protocolos,['nome','aprovado_em','proxima_revisao','link'],
+          ['Nome','Aprovado em','Proxima revisao','Link do documento']),'Protocolos');
+
+      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
+      if(planos?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em'],
+          ['Criado em','Acao','Responsavel','Prazo','Prioridade','Status','Concluido em','Efetividade verificada','Efetividade em']),'Planos de Acao');
+
+      if(dados.indDSM?.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(dados.indDSM,Object.keys(dados.indDSM[0]||{})),'Indicadores DSM');
+
+      XLSX.writeFile(wb,'Pacote_Auditoria_NSP_'+h.short_name+'_'+hoje+'.xlsx');
       showToast('Pacote de auditoria baixado!','success');
     }catch(e){showToast('Erro: '+e.message,'error');}
   };
@@ -3589,7 +3581,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         </div>
         <div style={{display:'flex',gap:8,marginBottom:4}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Imprimir</button>
-          <button onClick={gerarPacoteAuditoria} style={{flex:1,background:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>{String.fromCodePoint(128230)+' Pacote de Auditoria'}</button>
+          <button onClick={gerarPacoteAuditoria} style={{flex:1,background:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>{String.fromCodePoint(128230)+' Pacote de Auditoria (Excel)'}</button>
           <button onClick={gerarPPTAuditor} disabled={gerandoPPTAud} style={{flex:1,background:gerandoPPTAud?C.border:C.teal,border:'none',borderRadius:10,padding:'11px',color:gerandoPPTAud?C.muted:'#06101F',fontWeight:800,fontSize:12,cursor:gerandoPPTAud?'default':'pointer'}}>{gerandoPPTAud?'Gerando...':'PPT do Auditor'}</button>
         </div>
 
@@ -3886,34 +3878,52 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   const gerarZipEvidencias=async()=>{
-    if(!window.JSZip){showToast('JSZip carregando, tente em 3s','error');return;}
+    if(!window.XLSX){showToast('Biblioteca de Excel carregando, tente em 3s','error');return;}
     setGerandoZip(true);
     try{
-      const zip=new window.JSZip();
-      const csvEscape=v=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r')?'"'+s.replace(/"/g,'""')+'"':s;};
-      const toCSV=(rows,cols)=>'\ufeff'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n');
-      if(nots.length)zip.file('01_notificacoes.csv',toCSV(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description']));
-      if(auditLog.length)zip.file('02_audit_log.csv',toCSV(auditLog,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil']));
-      if(treins.length)zip.file('03_treinamentos.csv',toCSV(treins,['data','tipo','subnucleo','protocolo','participantes','responsavel','link_gdrive']));
-      if(protocolos.length)zip.file('04_protocolos.csv',toCSV(protocolos,['nome','aprovado_em','proxima_revisao','link']));
-      if(planos.length)zip.file('05_planos_acao.csv',toCSV(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em']));
-      if(saq.length)zip.file('06_saq_respostas.csv',toCSV(saq,Object.keys(saq[0]||{})));
-      const resumo=['PACOTE DE EVIDENCIAS DE AUDITORIA — '+(h.name||h.short_name),'Gerado em: '+new Date().toLocaleString('pt-BR'),'Periodo: '+range.label,'',
-        'DOCUMENTOS INSTITUCIONAIS:',
-        'Portaria NSP: '+(cfg.numero_portaria_nsp||'NAO CADASTRADA'),
-        'PSP atualizado em: '+(cfg.data_atualizacao_psp||'NAO CADASTRADO'),'',
-        'RESUMO:',
-        'Notificacoes: '+nots.length,'Eventos sentinela: '+sentinela,
-        'Protocolos vigentes: '+protVigentes+' de '+protocolos.length,
-        'Treinamentos: '+treins.length+' ('+participantes+' participantes)',
-        'Planos de acao: '+planos.length+' ('+planosAbertos+' em aberto)',
-        'Respostas HSOPSC: '+saq.length,
-      ].join('\n');
-      zip.file('00_RESUMO.txt',resumo);
-      const content=await zip.generateAsync({type:'blob'});
-      const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download='Evidencias-Auditoria-'+(h.short_name||'NSP')+'-'+hojeStr+'.zip';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      const XLSX=window.XLSX;
+      const wb=XLSX.utils.book_new();
+
+      XLSX.utils.book_append_sheet(wb,buildResumoSheet('Resumo',[
+        ['Hospital',h.name||h.short_name||''],
+        ['Periodo',range.label],
+        ['Gerado em',new Date().toLocaleString('pt-BR')],
+        ['Portaria NSP',cfg.numero_portaria_nsp||'NAO CADASTRADA'],
+        ['PSP atualizado em',cfg.data_atualizacao_psp||'NAO CADASTRADO'],
+        ['Notificacoes',nots.length],
+        ['Eventos sentinela',sentinela],
+        ['Protocolos vigentes',protVigentes+' de '+protocolos.length],
+        ['Treinamentos',treins.length+' ('+participantes+' participantes)'],
+        ['Planos de acao',planos.length+' ('+planosAbertos+' em aberto)'],
+        ['Respostas HSOPSC',saq.length],
+      ]),'Resumo');
+
+      if(nots.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description'],
+          ['ID','Criado em','Data do evento','Setor','Tipo','Subtipo','Gravidade','Status','RCA gerado','RCA autor','RCA concluido em','Notivisa enviado','Notivisa enviado em','Desfecho','Descricao']),'Notificacoes');
+
+      if(auditLog.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(auditLog,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil'],
+          ['Data/Hora','Notificacao ID','Acao','Campo','Valor anterior','Valor novo','Usuario','Perfil']),'Auditoria');
+
+      if(treins.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(treins,['data','tipo','subnucleo','protocolo','participantes','responsavel','link_gdrive'],
+          ['Data','Tipo','Subnucleo','Protocolo/Tema','Participantes','Responsavel','Lista de presenca']),'Treinamentos');
+
+      if(protocolos.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(protocolos,['nome','aprovado_em','proxima_revisao','link'],
+          ['Nome','Aprovado em','Proxima revisao','Link do documento']),'Protocolos');
+
+      if(planos.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em'],
+          ['Criado em','Acao','Responsavel','Prazo','Prioridade','Status','Concluido em','Efetividade verificada','Efetividade em']),'Planos de Acao');
+
+      if(saq.length) XLSX.utils.book_append_sheet(wb,
+        buildStyledSheet(saq,Object.keys(saq[0]||{})),'Pesquisa HSOPSC');
+
+      XLSX.writeFile(wb,'Evidencias-Auditoria-'+(h.short_name||'NSP')+'-'+hojeStr+'.xlsx');
       showToast('Pacote de evidencias gerado!','success');
-    }catch(e){showToast('Erro ao gerar ZIP: '+e.message,'error');}
+    }catch(e){showToast('Erro ao gerar Excel: '+e.message,'error');}
     setGerandoZip(false);
   };
 
@@ -3953,7 +3963,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         <button onClick={gerarPPTAuditoria} disabled={gerandoPPT} style={{background:gerandoPPT?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:gerandoPPT?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoPPT?'default':'pointer'}}>{gerandoPPT?'Gerando...':'PPT - Dossie Executivo (apresentacao)'}</button>
         <button onClick={gerarPDFConsolidado} disabled={gerandoPDF} style={{background:gerandoPDF?C.border:C.blue,border:'none',borderRadius:10,padding:'13px',color:gerandoPDF?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoPDF?'default':'pointer'}}>{gerandoPDF?'Gerando...':'PDF - Dossie Consolidado (imprimir/salvar)'}</button>
-        <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'13px',color:gerandoZip?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'ZIP - Pacote de Evidencias (planilhas brutas)'}</button>
+        <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'13px',color:gerandoZip?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'Excel - Pacote de Evidencias (varias abas)'}</button>
       </div>
       <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Para a resposta oficial da Circular 24/2023 (DSM/Marinha), use o Excel especifico na aba DSM/ANVISA — este dossie cobre auditorias e acreditacoes em geral (ONA e correlatos), com evidencias de todos os subnucleos.</div>
     </div>
@@ -6871,6 +6881,42 @@ function NotificaAI() {
 // ================================================================
 
 // Supabase Storage upload
+// Monta uma aba de Excel estilizada (cabecalho navy/branco, bordas finas, largura auto) a partir de linhas de objetos.
+// cols: chaves dos campos na ordem desejada. labels: rotulos em portugues na mesma ordem (opcional, usa cols se omitido).
+function buildStyledSheet(rows, cols, labels) {
+  const XLSX = window.XLSX;
+  labels = labels || cols;
+  const fmt = v => {
+    if (v === null || v === undefined || v === '') return '';
+    if (typeof v === 'boolean') return v ? 'Sim' : 'Nao';
+    return v;
+  };
+  const aoa = [labels, ...rows.map(r => cols.map(c => fmt(r[c])))];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const BORDER = { top: { style: 'thin', color: { rgb: 'D0D5DD' } }, bottom: { style: 'thin', color: { rgb: 'D0D5DD' } }, left: { style: 'thin', color: { rgb: 'D0D5DD' } }, right: { style: 'thin', color: { rgb: 'D0D5DD' } } };
+  const nRows = aoa.length, nCols = cols.length;
+  for (let R = 0; R < nRows; R++) {
+    for (let C = 0; C < nCols; C++) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C });
+      if (!ws[ref]) continue;
+      ws[ref].s = R === 0
+        ? { font: { bold: true, color: { rgb: 'FFFFFF' }, sz: 10 }, fill: { fgColor: { rgb: '0B1F3A' } }, border: BORDER, alignment: { vertical: 'center', wrapText: true } }
+        : { font: { sz: 9 }, border: BORDER, alignment: { vertical: 'center' } };
+    }
+  }
+  ws['!cols'] = cols.map((c, i) => {
+    const maxLen = Math.max(String(labels[i] || '').length, ...rows.map(r => String(fmt(r[c])).length), 6);
+    return { wch: Math.min(Math.max(maxLen + 2, 10), 55) };
+  });
+  ws['!rows'] = [{ hpt: 20 }];
+  return ws;
+}
+// Aba de resumo (label/valor) no mesmo estilo, para a capa do pacote.
+function buildResumoSheet(titulo, linhas) {
+  const rows = linhas.map(([label, valor]) => ({ label, valor }));
+  return buildStyledSheet(rows, ['label', 'valor'], ['Item', 'Valor']);
+}
+
 function buildStoragePath(tipo, meta, originalName) {
   const ext = (originalName.includes('.')?originalName.split('.').pop():'pdf').toLowerCase();
   const safe = s => (s||'').replace(/[^a-zA-Z0-9\-_.]/g,'_').replace(/__+/g,'_').trim();

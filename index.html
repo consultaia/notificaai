@@ -2543,8 +2543,6 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     setSaving(false);
   };
 
-  const filtered=subnucleoAtivo==='todos'?registros:registros.filter(r=>r.subnucleo===subnucleoAtivo);
-
   // Filtro de periodo: Semestre atual (DSM), Ano anterior (ANVISA), Ano atual, Personalizado
   const periodoRange=(()=>{
     const hoje=new Date();
@@ -2561,14 +2559,15 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     return{de:null,ate:null,label:'Todos os periodos'};
   })();
 
-  const filteredPeriodo=periodoRange.de&&periodoRange.ate
-    ? filtered.filter(r=>r.data&&r.data>=periodoRange.de&&r.data<=periodoRange.ate)
-    : filtered;
+  const filteredPeriodoAll=periodoRange.de&&periodoRange.ate
+    ? registros.filter(r=>r.data&&r.data>=periodoRange.de&&r.data<=periodoRange.ate)
+    : registros;
+  const filteredPeriodo=subnucleoAtivo==='todos'?filteredPeriodoAll:filteredPeriodoAll.filter(r=>r.subnucleo===subnucleoAtivo);
 
-  const reunioesNSP=filteredPeriodo.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
+  const reunioesNSP=filteredPeriodoAll.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
   const totaisPorSub={};
   SUBNUCLEOS_HNSA.forEach(s=>{
-    const recs=filteredPeriodo.filter(r=>r.subnucleo===s.id);
+    const recs=filteredPeriodoAll.filter(r=>r.subnucleo===s.id);
     totaisPorSub[s.id]={
       treinamentos:recs.filter(r=>r.tipo==='treinamento').length,
       reunioes:recs.filter(r=>r.tipo==='reuniao').length,

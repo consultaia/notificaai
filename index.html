@@ -136,6 +136,7 @@ const IconChev=mkIco(`<polyline points="9 18 15 12 9 6"/>`);
 const IconTrash=mkIco(`<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>`);
 const IconShield=mkIco(`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`);
 const IconTool=mkIco(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`);
+const IconAudit=mkIco(`<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M9 11l1.5 1.5L14 9"/>`);
 const IconGear=mkIco(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`);
 
 async function sbReq(url,key,path,opts={}) {
@@ -3686,6 +3687,279 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
+function AuditarView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [periodo,setPeriodo]=useState('tudo');
+  const [customDe,setCustomDe]=useState('');
+  const [customAte,setCustomAte]=useState('');
+  const [loading,setLoading]=useState(true);
+  const [dados,setDados]=useState(null);
+  const [gerandoPPT,setGerandoPPT]=useState(false);
+  const [gerandoPDF,setGerandoPDF]=useState(false);
+  const [gerandoZip,setGerandoZip]=useState(false);
+
+  const range=(()=>{
+    const hoje=new Date().toISOString().slice(0,10);
+    if(periodo==='ano'){const ano=new Date().getFullYear();return{de:`${ano}-01-01`,ate:hoje,label:`Ano ${ano}`};}
+    if(periodo==='12m'){const d=new Date();d.setMonth(d.getMonth()-12);return{de:d.toISOString().slice(0,10),ate:hoje,label:'Ultimos 12 meses'};}
+    if(periodo==='custom')return{de:customDe,ate:customAte,label:customDe&&customAte?'Periodo personalizado':'Selecione as datas'};
+    return{de:null,ate:null,label:'Todo o historico'};
+  })();
+
+  const carregar=async()=>{
+    if(!sbUrl||!sbKey)return;
+    setLoading(true);
+    try{
+      const fd=range.de&&range.ate?`&event_date=gte.${range.de}&event_date=lte.${range.ate}`:'';
+      const [nots,protocolos,treinsRaw,planos,saq,auditLog,cfgArr]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}${fd}&is_test=neq.true&order=event_date.desc`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&order=nome.asc`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&order=data.desc`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'saq_respostas',`hospital_id=eq.${h.id}`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'audit_log',`hospital_id=eq.${h.id}&order=created_at.desc&limit=500`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'config_dsm',`hospital_id=eq.${h.id}`).catch(()=>[]),
+      ]);
+      const treins=range.de&&range.ate?(treinsRaw||[]).filter(t=>t.data&&t.data>=range.de&&t.data<=range.ate):(treinsRaw||[]);
+      setDados({nots:nots||[],protocolos:protocolos||[],treins,planos:planos||[],saq:saq||[],auditLog:auditLog||[],cfg:(cfgArr&&cfgArr[0])||{}});
+    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
+    setLoading(false);
+  };
+  useEffect(()=>{carregar();},[sbUrl,sbKey,periodo,customDe,customAte]);
+
+  if(loading||!dados) return(<div style={{padding:'0 0 80px'}}><BackHeader title='Auditar' subtitle='Evidencias consolidadas para auditoria e acreditacao'/><div style={{display:'flex',justifyContent:'center',padding:60}}><Dots/></div></div>);
+
+  const hojeStr=new Date().toISOString().slice(0,10);
+  const {nots,protocolos,treins,planos,saq,auditLog,cfg}=dados;
+  const sentinela=nots.filter(n=>n.gravidade==='Evento sentinela').length;
+  const graves=nots.filter(n=>n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave');
+  const gravesRCA=graves.filter(n=>n.rca_gerado).length;
+  const protVigentes=protocolos.filter(p=>p.proxima_revisao&&p.proxima_revisao>=hojeStr).length;
+  const protVencidos=protocolos.filter(p=>p.proxima_revisao&&p.proxima_revisao<hojeStr).length;
+  const participantes=treins.reduce((a,t)=>a+(Number(t.participantes)||0),0);
+  const planosAbertos=planos.filter(p=>p.status!=='concluido').length;
+  const planosConcluidos=planos.filter(p=>p.status==='concluido').length;
+  const planosEfetiv=planos.filter(p=>p.status==='concluido'&&p.efetividade_verificada).length;
+  const temPortNSP=!!(cfg.numero_portaria_nsp||cfg.data_portaria_nsp);
+  const pspVig=cfg.data_atualizacao_psp&&(()=>{const d=new Date(cfg.data_atualizacao_psp);d.setFullYear(d.getFullYear()+3);return d.toISOString().slice(0,10)>=hojeStr;})();
+
+  const KPI=({label,val,color,sub})=>(<div style={{background:C.card,border:'1px solid '+color+'33',borderLeft:'3px solid '+color,borderRadius:10,padding:'10px 12px'}}>
+    <div style={{fontSize:22,fontWeight:900,color}}>{val}</div>
+    <div style={{fontSize:10,fontWeight:700,color:C.text,marginTop:2}}>{label}</div>
+    {sub&&<div style={{fontSize:9,color:C.muted}}>{sub}</div>}
+  </div>);
+
+  const gerarPPTAuditoria=async()=>{
+    if(!window.PptxGenJS){showToast('PptxGenJS carregando, tente em 3s','error');return;}
+    setGerandoPPT(true);
+    try{
+      const P={navy:'0B1F3A',teal:'00C9B8',green:'10B981',red:'EF4444',yellow:'F59E0B',gray:'64748B',white:'FFFFFF'};
+      const pres=new window.PptxGenJS();
+      pres.defineLayout({name:'W',width:10,height:5.63});pres.layout='W';
+      const header=(sl,t)=>{sl.background={color:'F8FAFC'};sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:P.navy}});sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0.7,w:10,h:0.06,fill:{color:P.teal}});sl.addText(t,{x:0.4,y:0,w:7,h:0.7,fontSize:16,bold:true,color:P.white,valign:'middle',margin:0});sl.addText(range.label,{x:7.4,y:0,w:2.2,h:0.7,fontSize:11,color:P.teal,valign:'middle',align:'right',margin:0});};
+      const rowFill=i=>({color:i%2===0?'FFFFFF':'F1F5F9'});
+      const kpiBox=(x,val,lab,cor)=>{pres._sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x,y:1.0,w:2.15,h:1.15,fill:{color:P.white},rectRadius:0.08,line:{color:cor,width:1.2}});pres._sl.addText(String(val),{x,y:1.08,w:2.15,h:0.6,fontSize:26,bold:true,color:cor,align:'center',margin:0});pres._sl.addText(lab,{x,y:1.68,w:2.15,h:0.4,fontSize:9,color:P.gray,align:'center',margin:0});};
+
+      let sl=pres.addSlide();sl.background={color:P.navy};
+      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:3.9,w:10,h:0.08,fill:{color:P.teal}});
+      sl.addText('Dossie de Auditoria',{x:0.6,y:1.5,w:8.8,h:0.9,fontSize:34,bold:true,color:P.white,margin:0});
+      sl.addText('Acreditacao e Seguranca do Paciente — '+(h.name||h.short_name||''),{x:0.6,y:2.4,w:8.8,h:0.5,fontSize:15,color:P.teal,margin:0});
+      sl.addText(range.label,{x:0.6,y:2.95,w:8.8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
+      sl.addText('Gerado em '+new Date().toLocaleDateString('pt-BR')+(cfg.gestor_nsp?' · Responsavel: '+cfg.gestor_nsp:'')+' · NotificaAI',{x:0.6,y:4.2,w:8.8,h:0.4,fontSize:10,color:'8FA5C0',margin:0});
+
+      sl=pres.addSlide();header(sl,'Documentos Institucionais');pres._sl=sl;
+      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
+      const stCell=ok=>({text:ok===null?'N/D':ok?'OK':'ATENCAO',options:{fontSize:9,bold:true,align:'center',color:ok===null?P.gray:ok?P.green:P.red}});
+      const docRows=[[{text:'Documento',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Detalhe',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10,align:'center'}}]];
+      [['Portaria de criacao do NSP',(cfg.numero_portaria_nsp?'N '+cfg.numero_portaria_nsp+' · ':'')+fmtD(cfg.data_portaria_nsp),temPortNSP],
+       ['Portaria da CCIH',(cfg.numero_portaria_ccih?'N '+cfg.numero_portaria_ccih+' · ':'')+fmtD(cfg.data_portaria_ccih),!!(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)],
+       ['Plano de Seguranca do Paciente (PSP)',cfg.data_atualizacao_psp?'Atualizado '+fmtD(cfg.data_atualizacao_psp):'-',cfg.data_atualizacao_psp?pspVig:null],
+      ].forEach(([lab,det,ok],i)=>docRows.push([{text:lab,options:{fontSize:10,fill:rowFill(i)}},{text:det,options:{fontSize:10,fill:rowFill(i)}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]));
+      sl.addTable(docRows,{x:0.4,y:1.0,w:9.2,colW:[3.9,3.6,1.7],border:{pt:0.5,color:'E2E8F0'},rowH:0.42,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Protocolos Institucionais');pres._sl=sl;
+      kpiBox(0.4,protocolos.length,'Protocolos cadastrados',P.navy);
+      kpiBox(2.75,protVigentes,'Vigentes',P.green);
+      kpiBox(5.1,protVencidos,'Com revisao vencida',protVencidos===0?P.green:P.red);
+      kpiBox(7.45,protocolos.filter(p=>p.link).length,'Com documento anexado',P.teal);
+      if(protVencidos>0){
+        const pRows=[[{text:'Protocolo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Venceu em',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+        protocolos.filter(p=>p.proxima_revisao&&p.proxima_revisao<hojeStr).slice(0,10).forEach((p,i)=>pRows.push([{text:p.nome,options:{fontSize:9.5,fill:rowFill(i)}},{text:fmtD(p.proxima_revisao),options:{fontSize:9.5,align:'center',color:P.red,bold:true,fill:rowFill(i)}}]));
+        sl.addTable(pRows,{x:0.4,y:2.45,w:9.2,colW:[6.6,2.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+      }
+
+      sl=pres.addSlide();header(sl,'Notificacoes e Gestao de Risco');pres._sl=sl;
+      kpiBox(0.4,nots.length,'Notificacoes no periodo',P.navy);
+      kpiBox(2.75,sentinela,'Eventos sentinela',sentinela===0?P.green:P.red);
+      kpiBox(5.1,graves.length?Math.round(gravesRCA/graves.length*100)+'%':'N/A','Graves com RCA concluida',graves.length===0||gravesRCA===graves.length?P.green:P.yellow);
+      kpiBox(7.45,nots.filter(n=>n.notivisa_enviado).length,'Fichas Notivisa enviadas',P.teal);
+      const porSetor={};nots.forEach(n=>{const st=n.sector||'Nao informado';porSetor[st]=(porSetor[st]||0)+1;});
+      const topSet=Object.entries(porSetor).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      sl.addText('Setores com mais notificacoes',{x:0.4,y:2.45,w:9.2,h:0.3,fontSize:11,bold:true,color:'1E293B',margin:0});
+      const setRows=[[{text:'Setor',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Notificacoes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+      topSet.forEach(([st,n2],i)=>setRows.push([{text:st,options:{fontSize:9.5,fill:rowFill(i)}},{text:String(n2),options:{fontSize:9.5,bold:true,align:'center',fill:rowFill(i),color:P.navy}}]));
+      sl.addTable(setRows,{x:0.4,y:2.8,w:6.0,colW:[4.4,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Educacao Permanente');pres._sl=sl;
+      kpiBox(0.4,treins.length,'Treinamentos/reunioes',P.navy);
+      kpiBox(2.75,participantes,'Participantes capacitados',P.teal);
+      const trRows=[[{text:'Subnucleo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Registros',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Participantes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Com anexo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
+      SUBNUCLEOS_HNSA.forEach((sn,i)=>{
+        const regs=treins.filter(t=>t.subnucleo===sn.id);
+        const part=regs.reduce((a,t)=>a+(Number(t.participantes)||0),0);
+        const comAnexo=regs.filter(t=>t.link_gdrive).length;
+        trRows.push([{text:sn.label,options:{fontSize:9,fill:rowFill(i)}},{text:String(regs.length),options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:regs.length>0?P.navy:P.gray}},{text:String(part),options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}},{text:regs.length>0?comAnexo+'/'+regs.length:'-',options:{fontSize:9,align:'center',fill:rowFill(i),color:comAnexo<regs.length?P.yellow:P.green}}]);
+      });
+      sl.addTable(trRows,{x:0.4,y:2.0,w:9.2,colW:[4.4,1.6,1.6,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+
+      sl=pres.addSlide();header(sl,'Planos de Acao e Cultura de Seguranca');pres._sl=sl;
+      kpiBox(0.4,planos.length,'Acoes no total',P.navy);
+      kpiBox(2.75,planosConcluidos,'Concluidas',P.green);
+      kpiBox(5.1,planosConcluidos>0?planosEfetiv:0,'Com efetividade verificada',planosConcluidos===0||planosEfetiv===planosConcluidos?P.green:P.yellow);
+      kpiBox(7.45,planosAbertos,'Em aberto',planosAbertos===0?P.green:P.yellow);
+      sl.addText('Pesquisa de Cultura de Seguranca (HSOPSC): '+saq.length+' resposta(s) no periodo analisado.',{x:0.4,y:2.6,w:9.2,h:0.35,fontSize:11,color:'1E293B',margin:0});
+      sl.addText('Trilha de auditoria completa ('+auditLog.length+' registros), notificacoes, RCAs e protocolos disponiveis no Pacote de Evidencias (ZIP) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
+
+      await pres.writeFile({fileName:'Dossie_Auditoria_'+(h.short_name||'NSP')+'_'+hojeStr+'.pptx'});
+      showToast('PPT de Auditoria gerado!','success');
+    }catch(e){showToast('Erro ao gerar PPT: '+e.message,'error');}
+    setGerandoPPT(false);
+  };
+
+  const gerarPDFConsolidado=()=>{
+    setGerandoPDF(true);
+    try{
+      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
+      const sec=(titulo,rows)=>`<h2>${titulo}</h2><table>${rows.map(([l,v])=>`<tr><th>${l}</th><td>${v}</td></tr>`).join('')}</table>`;
+      const porSetor={};nots.forEach(n=>{const st=n.sector||'Nao informado';porSetor[st]=(porSetor[st]||0)+1;});
+      const topSet=Object.entries(porSetor).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const html=`<html><head><meta charset="utf-8"><title>Dossie de Auditoria - ${h.name||h.short_name}</title>
+        <style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}
+        h1{font-size:20px;color:#0B1F3A;border-bottom:3px solid #00C9B8;padding-bottom:8px}
+        h2{font-size:14px;color:#0B1F3A;border-bottom:1px solid #ddd;padding-bottom:4px;margin:22px 0 8px}
+        table{width:100%;border-collapse:collapse;margin-bottom:8px}
+        th{background:#F1F5F9;text-align:left;padding:6px 10px;width:38%;font-weight:700}
+        td{padding:6px 10px;border-bottom:1px solid #eee}
+        .ok{color:#10B981;font-weight:700}.nok{color:#EF4444;font-weight:700}
+        .cabecalho{color:#64748B;font-size:11px;margin-bottom:16px}
+        @media print{button{display:none}}</style></head><body>
+        <h1>Dossie de Auditoria — ${h.name||h.short_name||''}</h1>
+        <div class="cabecalho">${range.label} · Gerado em ${new Date().toLocaleString('pt-BR')}${gestor?' · Responsavel: '+gestor:''}</div>
+        ${sec('Documentos Institucionais',[
+          ['Portaria do NSP',temPortNSP?`<span class="ok">Cadastrada</span> — N ${cfg.numero_portaria_nsp||'-'} de ${fmtD(cfg.data_portaria_nsp)}`:'<span class="nok">Nao cadastrada</span>'],
+          ['Portaria da CCIH',(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)?`N ${cfg.numero_portaria_ccih||'-'} de ${fmtD(cfg.data_portaria_ccih)}`:'<span class="nok">Nao cadastrada</span>'],
+          ['Plano de Seguranca do Paciente',cfg.data_atualizacao_psp?(pspVig?'<span class="ok">Vigente</span>':'<span class="nok">Vencido</span>')+' — atualizado em '+fmtD(cfg.data_atualizacao_psp):'<span class="nok">Nao cadastrado</span>'],
+        ])}
+        ${sec('Protocolos Institucionais',[
+          ['Total cadastrados',protocolos.length],
+          ['Vigentes',`<span class="ok">${protVigentes}</span>`],
+          ['Com revisao vencida',protVencidos>0?`<span class="nok">${protVencidos}</span>`:'0'],
+          ['Sem documento anexado',protocolos.filter(p=>!p.link).length],
+        ])}
+        ${sec('Notificacoes e Gestao de Risco',[
+          ['Total no periodo',nots.length],
+          ['Eventos sentinela',sentinela>0?`<span class="nok">${sentinela}</span>`:'0'],
+          ['Eventos graves com RCA concluida',graves.length?`${gravesRCA} de ${graves.length}`:'N/A'],
+          ['Fichas Notivisa enviadas',nots.filter(n=>n.notivisa_enviado).length],
+        ])}
+        <h2>Setores com mais notificacoes</h2>
+        <table>${topSet.map(([st,n2])=>`<tr><th>${st}</th><td>${n2}</td></tr>`).join('')}</table>
+        ${sec('Educacao Permanente',[
+          ['Treinamentos e reunioes registrados',treins.length],
+          ['Participantes capacitados',participantes],
+          ['Registros sem lista de presenca anexada',treins.filter(t=>t.tipo==='treinamento'&&!t.link_gdrive).length],
+        ])}
+        ${sec('Planos de Acao e Cultura de Seguranca',[
+          ['Acoes no total',planos.length],
+          ['Concluidas',planosConcluidos],
+          ['Com efetividade verificada',planosConcluidos?`${planosEfetiv} de ${planosConcluidos}`:'N/A'],
+          ['Em aberto',planosAbertos>0?`<span class="nok">${planosAbertos}</span>`:'0'],
+          ['Respostas da pesquisa HSOPSC',saq.length],
+        ])}
+        <div class="cabecalho" style="margin-top:24px">Trilha de auditoria: ${auditLog.length} registro(s) disponiveis no Pacote de Evidencias (ZIP). Documento gerado pelo NotificaAI, nao substitui laudos ou certificacoes oficiais.</div>
+        </body></html>`;
+      const w=window.open('','_blank');
+      w.document.write(html);w.document.close();w.print();
+      showToast('PDF pronto para impressao/salvar!','success');
+    }catch(e){showToast('Erro ao gerar PDF: '+e.message,'error');}
+    setGerandoPDF(false);
+  };
+
+  const gerarZipEvidencias=async()=>{
+    if(!window.JSZip){showToast('JSZip carregando, tente em 3s','error');return;}
+    setGerandoZip(true);
+    try{
+      const zip=new window.JSZip();
+      const csvEscape=v=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;};
+      const toCSV=(rows,cols)=>cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n');
+      if(nots.length)zip.file('01_notificacoes.csv',toCSV(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description']));
+      if(auditLog.length)zip.file('02_audit_log.csv',toCSV(auditLog,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil']));
+      if(treins.length)zip.file('03_treinamentos.csv',toCSV(treins,['data','tipo','subnucleo','protocolo','participantes','responsavel','link_gdrive']));
+      if(protocolos.length)zip.file('04_protocolos.csv',toCSV(protocolos,['nome','aprovado_em','proxima_revisao','link']));
+      if(planos.length)zip.file('05_planos_acao.csv',toCSV(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em']));
+      if(saq.length)zip.file('06_saq_respostas.csv',toCSV(saq,Object.keys(saq[0]||{})));
+      const resumo=['PACOTE DE EVIDENCIAS DE AUDITORIA — '+(h.name||h.short_name),'Gerado em: '+new Date().toLocaleString('pt-BR'),'Periodo: '+range.label,'',
+        'DOCUMENTOS INSTITUCIONAIS:',
+        'Portaria NSP: '+(cfg.numero_portaria_nsp||'NAO CADASTRADA'),
+        'PSP atualizado em: '+(cfg.data_atualizacao_psp||'NAO CADASTRADO'),'',
+        'RESUMO:',
+        'Notificacoes: '+nots.length,'Eventos sentinela: '+sentinela,
+        'Protocolos vigentes: '+protVigentes+' de '+protocolos.length,
+        'Treinamentos: '+treins.length+' ('+participantes+' participantes)',
+        'Planos de acao: '+planos.length+' ('+planosAbertos+' em aberto)',
+        'Respostas HSOPSC: '+saq.length,
+      ].join('\n');
+      zip.file('00_RESUMO.txt',resumo);
+      const content=await zip.generateAsync({type:'blob'});
+      const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download='Evidencias-Auditoria-'+(h.short_name||'NSP')+'-'+hojeStr+'.zip';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      showToast('Pacote de evidencias gerado!','success');
+    }catch(e){showToast('Erro ao gerar ZIP: '+e.message,'error');}
+    setGerandoZip(false);
+  };
+
+  return(<div style={{padding:'0 0 80px'}}>
+    <BackHeader title='Auditar' subtitle='Evidencias consolidadas para auditoria e acreditacao (ONA e correlatos)' right={<button onClick={carregar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <div style={{padding:'0 16px'}}>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
+        {[['tudo','Todo o historico'],['ano','Ano atual'],['12m','Ultimos 12 meses'],['custom','Personalizado']].map(([id,lb])=>(
+          <button key={id} onClick={()=>setPeriodo(id)} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(periodo===id?C.teal:C.border),background:periodo===id?C.teal+'22':'transparent',color:periodo===id?C.teal:C.muted,fontSize:11,fontWeight:periodo===id?700:500,cursor:'pointer'}}>{lb}</button>
+        ))}
+      </div>
+      {periodo==='custom'&&<div style={{display:'flex',gap:8,marginBottom:14}}>
+        <input type='date' value={customDe} onChange={e=>setCustomDe(e.target.value)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none'}}/>
+        <input type='date' value={customAte} onChange={e=>setCustomAte(e.target.value)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none'}}/>
+      </div>}
+
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8,marginBottom:16}}>
+        <KPI label='Notificacoes' val={nots.length} color={C.teal} sub={range.label}/>
+        <KPI label='Eventos sentinela' val={sentinela} color={sentinela===0?C.green:C.red}/>
+        <KPI label='Protocolos vigentes' val={protVigentes+'/'+protocolos.length} color={protVencidos===0?C.green:C.yellow}/>
+        <KPI label='Treinamentos' val={treins.length} color={C.blue} sub={participantes+' participantes'}/>
+        <KPI label='Planos em aberto' val={planosAbertos} color={planosAbertos===0?C.green:C.yellow}/>
+        <KPI label='Respostas HSOPSC' val={saq.length} color='#8B5CF6'/>
+      </div>
+
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,marginBottom:16}}>
+        <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Documentos Institucionais</div>
+        {[['Portaria do NSP',temPortNSP],['Portaria da CCIH',!!(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)],['Plano de Seguranca do Paciente (PSP)',cfg.data_atualizacao_psp?pspVig:null]].map(([lab,ok],i)=>(
+          <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'5px 0',borderBottom:i<2?'1px solid '+C.border:'none'}}>
+            <span style={{fontSize:12,color:C.text}}>{lab}</span>
+            <span style={{fontSize:10,fontWeight:800,color:ok===null?C.muted:ok?C.green:C.red}}>{ok===null?'N/D':ok?'OK':'ATENCAO'}</span>
+          </div>
+        ))}
+        <div style={{fontSize:10,color:C.muted,marginTop:8}}>Editaveis na aba DSM/ANVISA - Documentos.</div>
+      </div>
+
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        <button onClick={gerarPPTAuditoria} disabled={gerandoPPT} style={{background:gerandoPPT?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:gerandoPPT?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoPPT?'default':'pointer'}}>{gerandoPPT?'Gerando...':'PPT - Dossie Executivo (apresentacao)'}</button>
+        <button onClick={gerarPDFConsolidado} disabled={gerandoPDF} style={{background:gerandoPDF?C.border:C.blue,border:'none',borderRadius:10,padding:'13px',color:gerandoPDF?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoPDF?'default':'pointer'}}>{gerandoPDF?'Gerando...':'PDF - Dossie Consolidado (imprimir/salvar)'}</button>
+        <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'13px',color:gerandoZip?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'ZIP - Pacote de Evidencias (planilhas brutas)'}</button>
+      </div>
+      <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Para a resposta oficial da Circular 24/2023 (DSM/Marinha), use o Excel especifico na aba DSM/ANVISA — este dossie cobre auditorias e acreditacoes em geral (ONA e correlatos), com evidencias de todos os subnucleos.</div>
+    </div>
+  </div>);
+}
+
 function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo:userSubnucleoApp}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [userSubnucleo,setUserSubnucleo]=useState(userSubnucleoApp||null);
@@ -6450,7 +6724,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -6524,6 +6798,7 @@ function NotificaAI() {
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}

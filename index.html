@@ -270,7 +270,7 @@ function computeStats(notifications) {
   const isSentinela=n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela'||n.occurrence_subtype==='Evento sentinela';
   const sevts=notifications.filter(isSentinela).sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
   const diasSemSentinela=sevts.length>0?Math.floor((Date.now()-new Date(sevts[0].event_date||sevts[0].created_at))/86400000):null;
-  const nmCount=notifications.filter(n=>n.gravidade==='Near miss').length;
+  const nmCount=notifications.filter(n=>n.gravidade==='Near miss'||n.gravidade==='Circunstancia de risco').length;
   const concl=notifications.filter(n=>n.status==='concluido').length;
   const nSets=new Set(notifications.map(n=>n.sector).filter(Boolean)).size;
   const ratioNM=notifications.length>0?Math.round(nmCount/notifications.length*100):0;
@@ -2297,12 +2297,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         <select value={editForm.event_subtype||''} onChange={e=>setEditForm(f=>({...f,event_subtype:e.target.value}))}
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
           <option value="">-- Selecione --</option>
-          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Perda de TOT','Perda de CVC','Perda de CVD','Falha nas rotinas assistenciais','Falha de equipamento','Near miss','Evento sentinela','Outro','Seguranca Organica','Acidente de trabalho','Acidente com perfurocortante','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
+          {editForm.event_subtype&&!['Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao','Cirurgia segura','Perda de SNE','Perda de TOT','Perda de CVC','Perda de CVD','Falha nas rotinas assistenciais','Falha de equipamento','Circunstancia de risco','Near miss','Evento sentinela','Outro','Seguranca Organica','Acidente de trabalho','Acidente com perfurocortante','Laboratorio','Hotelaria / limpeza','Nutricao / dieta','Vestimenta / adornos','Farmacia','Infraestrutura / manutencao','Comunicacao / documentacao'].includes(editForm.event_subtype)&&<option value={editForm.event_subtype}>{editForm.event_subtype}</option>}
           {editForm.notification_type==='seguranca_paciente'&&[
             'Queda','Lesao por pressao','Perda de AVP','Erro de medicacao','Falha na identificacao',
             'Cirurgia segura','Perda de SNE','Perda de TOT','Perda de CVC','Perda de CVD',
             'Falha nas rotinas assistenciais','Falha de equipamento','Comunicacao / documentacao',
-            'Near miss','Evento sentinela','Acidente com perfurocortante','Outro'
+            'Circunstancia de risco','Near miss','Evento sentinela','Acidente com perfurocortante','Outro'
           ].map(v=><option key={v} value={v}>{v}</option>)}
           {editForm.notification_type==='administrativa'&&[
             'Seguranca Organica','Acidente de trabalho','Acidente com perfurocortante','Laboratorio','Hotelaria / limpeza','Nutricao / dieta',
@@ -4443,7 +4443,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
           dados.notifier_type?'Notificador: '+dados.notifier_type:'',
         ].filter(Boolean).join(' | ')||null,
         ai_summary:dados.ai_summary||null,
-        gravidade:dados.event_subtype==='Evento sentinela'?'Evento sentinela':dados.event_subtype==='Near miss'?'Near miss':null,
+        gravidade:dados.event_subtype==='Evento sentinela'?'Evento sentinela':dados.event_subtype==='Near miss'?'Near miss':dados.event_subtype==='Circunstancia de risco'?'Circunstancia de risco':null,
         is_test:testMode||false,
         hospital_id:h.id,
         chat_history:messages.slice(-10),
@@ -4528,7 +4528,8 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       {v:'Perda de CVD',l:'Perda de CVD (cateter vesical)'},
       {v:'Falha nas rotinas assistenciais',l:'Falha nas rotinas assistenciais'},
       {v:'Falha de equipamento',l:'Falha de equipamento'},
-      {v:'Near miss',l:'Near miss (quase erro)'},
+      {v:'Circunstancia de risco',l:'Circunstancia de risco (condicao insegura, nada aconteceu)'},
+      {v:'Near miss',l:'Near miss (quase erro, processo chegou a iniciar)'},
       {v:'Evento sentinela',l:'Evento sentinela'},
       {v:'Outro',l:'Outro evento'},
     ],

@@ -2743,7 +2743,6 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     }).catch(()=>{});
   },[sbUrl,sbKey]);
 
-  const [gerandoPPTAud,setGerandoPPTAud]=useState(false);
   const [gerandoXlsDSM,setGerandoXlsDSM]=useState(false);
 
   // Gera o Excel no layout FIEL do Anexo da Circ 24/2023 da DSM (5 colunas,
@@ -2992,168 +2991,77 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     setGerandoXlsDSM(false);
   };
 
-  const gerarPPTAuditor=async()=>{
-    if(!window.PptxGenJS){showToast('PptxGenJS carregando, tente em 3s','error');return;}
-    if(!dados){showToast('Gere o relatorio primeiro','error');return;}
-    setGerandoPPTAud(true);
+  const [gerandoZipANVISA,setGerandoZipANVISA]=useState(false);
+  const gerarPacoteANVISA=async()=>{
+    if(!window.JSZip){showToast('JSZip carregando, tente em 3s','error');return;}
+    setGerandoZipANVISA(true);
     try{
-      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
-      const hojeStr=new Date().toISOString().slice(0,10);
-      const P={navy:'0B1F3A',teal:'00C9B8',green:'10B981',red:'EF4444',yellow:'F59E0B',gray:'64748B',white:'FFFFFF'};
-      const pres=new window.PptxGenJS();
-      pres.defineLayout({name:'W',width:10,height:5.63});pres.layout='W';
       const [anoS,semS]=semestre.split('-');
-      const semLabel=semS+'o semestre de '+anoS;
-      const header=(sl,t)=>{sl.background={color:'F8FAFC'};sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:10,h:0.7,fill:{color:P.navy}});sl.addShape(pres.shapes.RECTANGLE,{x:0,y:0.7,w:10,h:0.06,fill:{color:P.teal}});sl.addText(t,{x:0.4,y:0,w:7,h:0.7,fontSize:16,bold:true,color:P.white,valign:'middle',margin:0});sl.addText(semLabel,{x:7.4,y:0,w:2.2,h:0.7,fontSize:11,color:P.teal,valign:'middle',align:'right',margin:0});};
-      const stCell=(ok)=>({text:ok===null?'N/D':ok?'OK':'ATENCAO',options:{fontSize:9,bold:true,align:'center',color:ok===null?P.gray:ok?P.green:P.red}});
-      const rowFill=i=>({color:i%2===0?'FFFFFF':'F1F5F9'});
-      const sum=k=>(dados.indDSM||[]).reduce((a,r)=>a+(Number(r[k])||0),0);
+      const sem=`${anoS}/${semS}S`;
+      const hoje=new Date();const anoAtual=hoje.getFullYear();const semAtual=hoje.getMonth()<6?1:2;
+      const pastasVigencia=[];{let a=anoAtual,s=semAtual;for(let i=0;i<7;i++){pastasVigencia.push(`${a}/${s}S`);s--;if(s<1){s=2;a--;}}}
+      const [treins,protsPorPasta]=await Promise.all([
+        listarSubpastas(sbUrl,sbKey,`treinamentos/${sem}`),
+        Promise.all(pastasVigencia.map(p=>listarPasta(sbUrl,sbKey,`protocolos/${p}`).then(arr=>arr.filter(f=>f.metadata).map(f=>({...f,path:`protocolos/${p}/${f.name}`}))).catch(()=>[]))),
+      ]);
+      const protocolosArquivos=protsPorPasta.flat();
+      const BUCKET=`${sbUrl}/storage/v1/object/public/nsp-documentos`;
+      const zip=new window.JSZip();
+      let ok=0,faltando=[];
 
-      let sl=pres.addSlide();
-      sl.background={color:P.navy};
-      sl.addShape(pres.shapes.RECTANGLE,{x:0,y:3.9,w:10,h:0.08,fill:{color:P.teal}});
-      sl.addText('Dossie do Auditor',{x:0.6,y:1.5,w:8.8,h:0.9,fontSize:34,bold:true,color:P.white,margin:0});
-      sl.addText('Nucleo de Seguranca do Paciente — '+(h.name||h.short_name||''),{x:0.6,y:2.4,w:8.8,h:0.5,fontSize:15,color:P.teal,margin:0});
-      sl.addText(semLabel.charAt(0).toUpperCase()+semLabel.slice(1),{x:0.6,y:2.95,w:8.8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
-      sl.addText('Gerado em '+new Date().toLocaleDateString('pt-BR')+(gestor?' · Responsavel: '+gestor:'')+' · NotificaAI',{x:0.6,y:4.2,w:8.8,h:0.4,fontSize:10,color:'8FA5C0',margin:0});
-
-      sl=pres.addSlide();header(sl,'Documentos Institucionais');
-      const c=dados.cfg||{};
-      const pspVal=c.data_atualizacao_psp?new Date(new Date(c.data_atualizacao_psp).setFullYear(new Date(c.data_atualizacao_psp).getFullYear()+3)).toISOString().slice(0,10):null;
-      const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'-';
-      const docRows=[[{text:'Documento',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Detalhe',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:10,align:'center'}}]];
-      [['Portaria de criacao do NSP (C.1)',(c.numero_portaria_nsp?'N '+c.numero_portaria_nsp+' · ':'')+fmtD(c.data_portaria_nsp),!!(c.numero_portaria_nsp||c.data_portaria_nsp)],
-       ['Portaria da CCIH (C.2)',(c.numero_portaria_ccih?'N '+c.numero_portaria_ccih+' · ':'')+fmtD(c.data_portaria_ccih),!!(c.numero_portaria_ccih||c.data_portaria_ccih)],
-       ['Plano de Seguranca do Paciente (C.3)',c.data_atualizacao_psp?('Atualizado '+fmtD(c.data_atualizacao_psp)+' · validade '+fmtD(pspVal)):'-',c.data_atualizacao_psp?(pspVal>=hojeStr):null],
-       ['Regimento Interno do NSP',c.link_regimento?'Documento anexado':'-',!!c.link_regimento],
-      ].forEach(([lab,det,ok],i)=>docRows.push([{text:lab,options:{fontSize:10,fill:rowFill(i)}},{text:det,options:{fontSize:10,fill:rowFill(i)}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]));
-      sl.addTable(docRows,{x:0.4,y:1.0,w:9.2,colW:[3.9,3.6,1.7],border:{pt:0.5,color:'E2E8F0'},rowH:0.42,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      sl=pres.addSlide();header(sl,'Notificacoes do Semestre');
-      const nots=dados.nots||[];
-      const graves=nots.filter(n=>n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave');
-      const gravesRCA=graves.filter(n=>n.rca_gerado).length;
-      const kpi=(x,val,lab,cor)=>{sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x,y:1.0,w:2.15,h:1.15,fill:{color:P.white},rectRadius:0.08,line:{color:cor,width:1.2}});sl.addText(String(val),{x,y:1.08,w:2.15,h:0.6,fontSize:26,bold:true,color:cor,align:'center',margin:0});sl.addText(lab,{x,y:1.68,w:2.15,h:0.4,fontSize:9,color:P.gray,align:'center',margin:0});};
-      kpi(0.4,nots.length,'Notificacoes no periodo',P.navy);
-      kpi(2.75,dados.sentinela||0,'Eventos sentinela',(dados.sentinela||0)===0?P.green:P.red);
-      kpi(5.1,graves.length?Math.round(gravesRCA/graves.length*100)+'%':'N/A','Graves com RCA concluida',graves.length===0||gravesRCA===graves.length?P.green:P.yellow);
-      kpi(7.45,dados.notivsaAnalisados||0,'Fichas Notivisa geradas',P.teal);
-      const porSetor={};nots.forEach(n=>{const st=n.sector||'Nao informado';porSetor[st]=(porSetor[st]||0)+1;});
-      const topSet=Object.entries(porSetor).sort((a,b)=>b[1]-a[1]).slice(0,6);
-      const setRows=[[{text:'Setor',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Notificacoes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      topSet.forEach(([st,n2],i)=>setRows.push([{text:st,options:{fontSize:9.5,fill:rowFill(i)}},{text:String(n2),options:{fontSize:9.5,bold:true,align:'center',fill:rowFill(i),color:P.navy}}]));
-      sl.addText('Setores com mais notificacoes',{x:0.4,y:2.45,w:9.2,h:0.3,fontSize:11,bold:true,color:'1E293B',margin:0});
-      sl.addTable(setRows,{x:0.4,y:2.8,w:6.0,colW:[4.4,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.32,fontFace:'Calibri',valign:'middle',color:'1E293B'});
-
-      sl=pres.addSlide();header(sl,'Indicadores DSM — Acumulado do Semestre');
-      const pctV=(nu,d)=>d>0?(nu/d*100):null;
-      const pdT=sum('paciente_dia_total');
-      const pdRisco=sum('lpp_paciente_dia_risco')||pdT;
-      const indList=[
-        ['Conformidade Higiene das Maos',pctV(sum('hm_acoes_realizadas'),sum('hm_oportunidades')),'>=80%',v=>v>=80],
-        ['Identificacao do paciente',pctV(sum('pacientes_identificados'),sum('pacientes_atendidos')),'>=95%',v=>v>=95],
-        ['Incidencia de LPP',pctV(sum('lpp_casos_novos'),pdRisco),'<4%',v=>v<4],
-        ['Quedas com dano',pctV(sum('quedas_com_dano'),sum('quedas_total')),'<10%',v=>v<10],
-        ['Erros na prescricao',pctV(sum('erros_prescricao'),sum('total_prescricoes')),'<1%',v=>v<1],
-        ['IPCS/CVC',pctV(sum('ipcs_cvc'),sum('cateter_dia_cvc')),'<0.2%',v=>v<0.2],
-        ['ITU/CVD',pctV(sum('itu_cvd'),sum('paciente_dia_cvd')),'<0.3%',v=>v<0.3],
-        ['PAV',pctV(sum('pav_casos_novos'),sum('pacientes_vm')),'<0.5%',v=>v<0.5],
-        ['Conformidade LVCS',pctV(sum('lvcs_preenchidas'),sum('cirurgias_realizadas')),'>=95%',v=>v>=95],
-        ['Alcool gel (mL/pac-dia)',pdT>0?sum('alcool_gel_ml')/pdT:null,'>20',v=>v>=20],
+      const docsInst=[
+        ['numero_portaria_nsp','link_portaria_nsp','Portaria NSP'],
+        ['numero_portaria_ccih','link_portaria_ccih','Portaria CCIH'],
+        ['data_atualizacao_psp','link_psp','Plano de Seguranca do Paciente (PSP)'],
+        [null,'link_regimento','Regimento Interno do NSP'],
       ];
-      const indRows=[[{text:'Indicador',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Resultado',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Meta',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Status',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      indList.forEach(([lab,v,meta,okFn],i)=>{
-        const ok=v===null?null:okFn(v);
-        const vt=v===null?'N/D':(lab.includes('gel')?v.toFixed(1):v.toFixed(1)+'%');
-        indRows.push([{text:lab,options:{fontSize:9,fill:rowFill(i)}},{text:vt,options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:ok===null?P.gray:ok?P.green:P.red}},{text:meta,options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}},{...stCell(ok),options:{...stCell(ok).options,fill:rowFill(i)}}]);
-      });
-      sl.addTable(indRows,{x:0.4,y:0.92,w:9.2,colW:[4.4,1.7,1.5,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.365,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+      for(const[,linkKey,label] of docsInst){
+        const link=cfgLocal[linkKey];
+        if(link){
+          try{const resp=await fetch(link);if(resp.ok){const ext=link.includes('.')?link.split('.').pop().split('?')[0]:'pdf';zip.file(`01-Documentos-Institucionais/${label}.${ext}`,await resp.blob());ok++;}else faltando.push(label);}
+          catch{faltando.push(label);}
+        } else faltando.push(label+' (sem documento anexado)');
+      }
 
-      sl=pres.addSlide();header(sl,'Protocolos e Educacao Permanente');
-      const prots=dados.protocolos||[];
-      const pVenc=prots.filter(p=>p.proxima_revisao&&p.proxima_revisao<hojeStr).length;
-      kpi(0.4,prots.length,'Protocolos cadastrados',P.navy);
-      kpi(2.75,prots.length-pVenc,'Vigentes',P.green);
-      kpi(5.1,pVenc,'Com revisao vencida',pVenc===0?P.green:P.red);
-      kpi(7.45,(dados.treinsTodos||[]).length,'Treinamentos/reunioes',P.teal);
-      const trRows=[[{text:'Subnucleo',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5}},{text:'Registros',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}},{text:'Participantes',options:{bold:true,color:P.white,fill:{color:P.navy},fontSize:9.5,align:'center'}}]];
-      SUBNUCLEOS_HNSA.forEach((sn,i)=>{
-        const regs=(dados.treinsTodos||[]).filter(t=>t.subnucleo===sn.id);
-        const parts=regs.reduce((a,t)=>a+(Number(t.qtd)||0),0);
-        trRows.push([{text:sn.label,options:{fontSize:9,fill:rowFill(i)}},{text:String(regs.length),options:{fontSize:9,bold:true,align:'center',fill:rowFill(i),color:regs.length>0?P.navy:P.gray}},{text:String(parts),options:{fontSize:9,align:'center',fill:rowFill(i),color:P.gray}}]);
-      });
-      sl.addTable(trRows,{x:0.4,y:2.45,w:9.2,colW:[6.0,1.6,1.6],border:{pt:0.5,color:'E2E8F0'},rowH:0.34,fontFace:'Calibri',valign:'middle',color:'1E293B'});
+      for(const doc of protocolosArquivos){
+        try{const resp=await fetch(`${BUCKET}/${doc.path}`);if(resp.ok){zip.file(`02-Protocolos/${doc.name}`,await resp.blob());ok++;}}catch(e){}
+      }
+      if(protocolosArquivos.length===0) faltando.push('Nenhum protocolo com documento anexado');
 
-      sl=pres.addSlide();header(sl,'Planos de Acao e Cultura de Seguranca');
-      const pl=planos||[];
-      const plConc=pl.filter(p=>p.status==='concluido');
-      const plEfet=plConc.filter(p=>p.efetividade_verificada);
-      const plAtras=pl.filter(p=>p.status!=='concluido'&&p.status!=='cancelado'&&p.prazo&&p.prazo<hojeStr);
-      kpi(0.4,pl.length,'Acoes no total',P.navy);
-      kpi(2.75,plConc.length,'Concluidas',P.green);
-      kpi(5.1,plEfet.length,'Com efetividade verificada',plConc.length>0&&plEfet.length===plConc.length?P.green:P.yellow);
-      kpi(7.45,plAtras.length,'Com prazo vencido',plAtras.length===0?P.green:P.red);
-      sl.addText('Pesquisa de Cultura de Seguranca (HSOPSC): '+((dados.saqResp||[]).length)+' resposta(s) no periodo.',{x:0.4,y:2.6,w:9.2,h:0.35,fontSize:11,color:'1E293B',margin:0});
-      sl.addText('Trilha de auditoria completa (audit_log), notificacoes, RCAs, fichas Notivisa e atas disponiveis no Pacote de Auditoria (Excel) e no sistema em notificaai.ia.br.',{x:0.4,y:3.05,w:9.2,h:0.6,fontSize:10,color:P.gray,margin:0});
+      const porSub={};
+      treins.forEach(t=>{const s=t.subpasta||'geral';(porSub[s]=porSub[s]||[]).push(t);});
+      for(const[subId,arqs] of Object.entries(porSub)){
+        const subInfo=SUBNUCLEOS_HNSA.find(s=>s.id===subId||subId.startsWith(s.id));
+        const pastaLabel=subInfo?subInfo.label:subId;
+        for(const doc of arqs){
+          try{const resp=await fetch(`${BUCKET}/${doc.path}`);if(resp.ok){zip.file(`03-Treinamentos-por-Subnucleo/${pastaLabel}/${doc.name}`,await resp.blob());ok++;}}catch(e){}
+        }
+      }
+      if(treins.length===0) faltando.push('Nenhuma lista de treinamento anexada no semestre selecionado');
 
-      await pres.writeFile({fileName:'Dossie_Auditor_'+(h.short_name||'NSP')+'_'+semestre+'.pptx'});
-      showToast('PPT do Auditor gerado!','success');
-    }catch(e){showToast('Erro ao gerar PPT: '+e.message,'error');}
-    setGerandoPPTAud(false);
-  };
+      const reunioesTab=await sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&tipo=in.(reuniao_mensal,reuniao_extraordinaria)&order=data.desc`).catch(()=>[]);
+      const reunioesComAnexo=(reunioesTab||[]).filter(r=>r.link_gdrive);
+      for(const r of reunioesComAnexo){
+        try{const resp=await fetch(r.link_gdrive);if(resp.ok){const ext=r.link_gdrive.includes('.')?r.link_gdrive.split('.').pop().split('?')[0]:'pdf';zip.file(`04-Reunioes-NSP/${r.data||'sem-data'}-${(r.tipo==='reuniao_mensal'?'Mensal':'Extraordinaria')}.${ext}`,await resp.blob());ok++;}}catch(e){}
+      }
+      if(reunioesComAnexo.length===0) faltando.push('Nenhuma ata/lista de reuniao do NSP anexada');
 
-  const gerarPacoteAuditoria=async()=>{
-    if(!window.XLSX){showToast('Biblioteca de Excel carregando, tente em 3s','error');return;}
-    if(!dados){showToast('Gere o relatorio primeiro','error');return;}
-    showToast('Gerando pacote de auditoria...','success');
-    try{
-      const XLSX=window.XLSX;
-      const hoje=new Date().toISOString().slice(0,10);
-      const wb=XLSX.utils.book_new();
-      const cfg2=dados.cfg||{};
+      const checklist=[
+        'PACOTE PARA AVALIACAO ANVISA — '+(h.name||h.short_name),
+        'Semestre de referencia: '+semS+'o semestre de '+anoS,
+        'Gerado em: '+new Date().toLocaleString('pt-BR'),
+        '',
+        'ARQUIVOS INCLUIDOS: '+ok,
+        '',
+        faltando.length?('PENDENCIAS (nao encontrados/nao anexados):\n- '+faltando.join('\n- ')):'Nenhuma pendencia detectada.',
+      ].join('\n');
+      zip.file('00_LEIA-ME.txt',checklist);
 
-      XLSX.utils.book_append_sheet(wb,buildResumoSheet('Resumo',[
-        ['Hospital',h.name||h.short_name||''],
-        ['Periodo',label],
-        ['Gerado em',new Date().toLocaleString('pt-BR')],
-        ['Portaria NSP',(cfg2.numero_portaria_nsp||'NAO CADASTRADA')+(cfg2.data_portaria_nsp?' de '+cfg2.data_portaria_nsp:'')],
-        ['Portaria CCIH',cfg2.numero_portaria_ccih||'NAO CADASTRADA'],
-        ['PSP atualizado em',cfg2.data_atualizacao_psp||'NAO CADASTRADO'],
-        ['Total de notificacoes',dados.total||0],
-        ['Seguranca do Paciente',dados.sp||0],
-        ['Eventos sentinela',dados.sentinela||0],
-        ['Reunioes NSP',dados.reunioes?.length||0],
-        ['Treinamentos',dados.treinsTodos?.length||0],
-      ]),'Resumo');
-
-      if(dados.nots?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(dados.nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description'],
-          ['ID','Criado em','Data do evento','Setor','Tipo','Subtipo','Gravidade','Status','RCA gerado','RCA autor','RCA concluido em','Notivisa enviado','Notivisa enviado em','Desfecho','Descricao']),'Notificacoes');
-
-      const audit=await sbSelect(sbUrl,sbKey,'audit_log',`hospital_id=eq.${h.id}&order=created_at.desc&limit=1000`).catch(()=>[]);
-      if(audit?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(audit,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil'],
-          ['Data/Hora','Notificacao ID','Acao','Campo','Valor anterior','Valor novo','Usuario','Perfil']),'Auditoria');
-
-      if(dados.treinsTodos?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(dados.treinsTodos,['data','tipo','subnucleo','protocolo','qtd','participantes'],
-          ['Data','Tipo','Subnucleo','Protocolo/Tema','Qtd','Participantes']),'Treinamentos');
-
-      if(dados.protocolos?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(dados.protocolos,['nome','aprovado_em','proxima_revisao','link'],
-          ['Nome','Aprovado em','Proxima revisao','Link do documento']),'Protocolos');
-
-      const planos=await sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&order=created_at.desc`).catch(()=>[]);
-      if(planos?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(planos,['created_at','acao','responsavel','prazo','prioridade','status','concluido_em','efetividade_verificada','efetividade_em'],
-          ['Criado em','Acao','Responsavel','Prazo','Prioridade','Status','Concluido em','Efetividade verificada','Efetividade em']),'Planos de Acao');
-
-      if(dados.indDSM?.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(dados.indDSM,Object.keys(dados.indDSM[0]||{})),'Indicadores DSM');
-
-      XLSX.writeFile(wb,'Pacote_Auditoria_NSP_'+h.short_name+'_'+hoje+'.xlsx');
-      showToast('Pacote de auditoria baixado!','success');
-    }catch(e){showToast('Erro: '+e.message,'error');}
+      const content=await zip.generateAsync({type:'blob'});
+      const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download='Pacote-ANVISA-'+(h.short_name||'NSP')+'-'+semestre+'.zip';document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      showToast(faltando.length?'Pacote gerado com '+faltando.length+' pendencia(s) — veja o LEIA-ME':'Pacote ANVISA completo!','success');
+    }catch(e){showToast('Erro ao gerar pacote: '+e.message,'error');}
+    setGerandoZipANVISA(false);
   };
 
   const salvarConfig=async()=>{
@@ -3305,6 +3213,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           {label:'Numero da Portaria de criacao da CCIH',key:'numero_portaria_ccih',placeholder:'Ex: 002/2024'},
           {label:'Data da Portaria CCIH',key:'data_portaria_ccih',type:'date'},
           {label:'Data de implantacao da CCIH',key:'data_implantacao_ccih',type:'date'},
+          {label:'Link da Portaria CCIH (GDrive ou Storage)',key:'link_portaria_ccih',placeholder:'https://...'},
           {label:'Data da ultima atualizacao do PSP (validade 3 anos)',key:'data_atualizacao_psp',type:'date'},
           {label:'Link do PSP (GDrive ou Storage)',key:'link_psp',placeholder:'https://...'},
           {label:'Link do Regimento Interno do NSP',key:'link_regimento',placeholder:'https://...'},
@@ -3585,8 +3494,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         </div>
         <div style={{display:'flex',gap:8,marginBottom:4}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Imprimir</button>
-          <button onClick={gerarPacoteAuditoria} style={{flex:1,background:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>{String.fromCodePoint(128230)+' Pacote de Auditoria (Excel)'}</button>
-          <button onClick={gerarPPTAuditor} disabled={gerandoPPTAud} style={{flex:1,background:gerandoPPTAud?C.border:C.teal,border:'none',borderRadius:10,padding:'11px',color:gerandoPPTAud?C.muted:'#06101F',fontWeight:800,fontSize:12,cursor:gerandoPPTAud?'default':'pointer'}}>{gerandoPPTAud?'Gerando...':'PPT do Auditor'}</button>
+          <button onClick={gerarPacoteANVISA} disabled={gerandoZipANVISA} style={{flex:1,background:gerandoZipANVISA?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:gerandoZipANVISA?C.muted:'#fff',fontWeight:800,fontSize:12,cursor:gerandoZipANVISA?'default':'pointer'}}>{gerandoZipANVISA?'Gerando...':String.fromCodePoint(128230)+' Pacote ANVISA (ZIP)'}</button>
         </div>
 
         {/* Score geral */}
@@ -6921,6 +6829,20 @@ function buildResumoSheet(titulo, linhas) {
   return buildStyledSheet(rows, ['label', 'valor'], ['Item', 'Valor']);
 }
 
+async function listarPasta(sbUrl,sbKey,prefixo){
+  const r=await fetch(`${sbUrl}/storage/v1/object/list/nsp-documentos`,{method:'POST',headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json'},body:JSON.stringify({prefix:prefixo,limit:200,sortBy:{column:'name',order:'asc'}})});
+  const d=await r.json();return Array.isArray(d)?d:[];
+}
+async function listarSubpastas(sbUrl,sbKey,prefixo){
+  const pastas=await listarPasta(sbUrl,sbKey,prefixo);const arquivos=[];
+  for(const item of pastas){
+    if(!item.name)continue;
+    if(item.metadata===null){const sub=await listarPasta(sbUrl,sbKey,`${prefixo}/${item.name}`);sub.filter(f=>f.metadata).forEach(f=>arquivos.push({...f,path:`${prefixo}/${item.name}/${f.name}`,subpasta:item.name}));}
+    else{arquivos.push({...item,path:`${prefixo}/${item.name}`,subpasta:null});}
+  }
+  return arquivos;
+}
+
 function buildStoragePath(tipo, meta, originalName) {
   const ext = (originalName.includes('.')?originalName.split('.').pop():'pdf').toLowerCase();
   const safe = s => (s||'').replace(/[^a-zA-Z0-9\-_.]/g,'_').replace(/__+/g,'_').trim();
@@ -7766,21 +7688,6 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   const [baixando,setBaixando]=useState(false);
   const BUCKET=`${sbUrl}/storage/v1/object/public/nsp-documentos`;
 
-  const listarPasta=async(prefixo)=>{
-    const r=await fetch(`${sbUrl}/storage/v1/object/list/nsp-documentos`,{method:'POST',headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json'},body:JSON.stringify({prefix:prefixo,limit:200,sortBy:{column:'name',order:'asc'}})});
-    const d=await r.json();return Array.isArray(d)?d:[];
-  };
-
-  const listarSubpastas=async(prefixo)=>{
-    const pastas=await listarPasta(prefixo);const arquivos=[];
-    for(const item of pastas){
-      if(!item.name)continue;
-      if(item.metadata===null){const sub=await listarPasta(`${prefixo}/${item.name}`);sub.filter(f=>f.metadata).forEach(f=>arquivos.push({...f,path:`${prefixo}/${item.name}/${f.name}`,subpasta:item.name}));}
-      else{arquivos.push({...item,path:`${prefixo}/${item.name}`,subpasta:null});}
-    }
-    return arquivos;
-  };
-
   const carregar=async()=>{
     if(!sbUrl||!sbKey)return;setLoading(true);
     const sem=`${ano}/${semestre}S`;
@@ -7794,11 +7701,11 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
       const iniciSem=semS===1?`${ano2}-01-01`:`${ano2}-07-01`;
       const fimSem=semS===1?`${ano2}-06-30`:`${ano2}-12-31`;
       const [treins,rels,protsTab,treinsTabela,...protsPorPasta]=await Promise.all([
-        listarSubpastas(`treinamentos/${sem}`),
-        listarPasta(`relatorios/${sem}`),
+        listarSubpastas(sbUrl,sbKey,`treinamentos/${sem}`),
+        listarPasta(sbUrl,sbKey,`relatorios/${sem}`),
         sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&order=nome.asc&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&tipo=eq.treinamento&data=gte.${iniciSem}&data=lte.${fimSem}&select=id,link_gdrive`).catch(()=>[]),
-        ...pastasVigencia.map(p=>listarPasta(`protocolos/${p}`).then(arr=>arr.filter(f=>f.metadata).map(f=>({...f,path:`protocolos/${p}/${f.name}`,subpasta:p.replace('/',' - ')}))).catch(()=>[])),
+        ...pastasVigencia.map(p=>listarPasta(sbUrl,sbKey,`protocolos/${p}`).then(arr=>arr.filter(f=>f.metadata).map(f=>({...f,path:`protocolos/${p}/${f.name}`,subpasta:p.replace('/',' - ')}))).catch(()=>[])),
       ]);
       setSemAnexo((treinsTabela||[]).filter(t=>!t.link_gdrive).length);
       setProtsVigentes(protsTab||[]);

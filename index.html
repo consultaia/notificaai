@@ -263,7 +263,7 @@ function computeStats(notifications) {
   const heatmapPeak=pv>0?{turno:pt,dia:pd,val:pv}:null;
   const mm={};
   notifications.forEach(n=>{
-    const d=new Date(n.created_at);
+    const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);
     const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     const label=d.toLocaleDateString('pt-BR',{month:'short'});
     if(!mm[k]) mm[k]={mes:label,sp:0,adm:0,ccih:0};
@@ -5632,7 +5632,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
 
   const s=stats||{sectorData:MOCK_SECTORS,typeData:MOCK_TYPES,heatmap:MOCK_HEATMAP,monthly:MOCK_MONTHLY,total:0,heatmapPeak:null,culturaScore:0,ratioNM:0,txC:0,nSets:0,diasSemSentinela:null};
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const anos=[...new Set(rawData.map(n=>new Date(n.created_at).getFullYear()))].sort((a,b)=>b-a);
+  const anos=[...new Set(rawData.map(n=>new Date(n.event_date?n.event_date+'T12:00:00':n.created_at).getFullYear()))].sort((a,b)=>b-a);
   
 
 const filtered=rawData.filter(n=>{

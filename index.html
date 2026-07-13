@@ -5751,11 +5751,11 @@ ESTRUTURA:
         <div style={{display:'flex',gap:14,marginBottom:10}}>
           {[['SP',C.teal],['Adm',C.purple]].map(([l,c])=><div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.muted}}><div style={{width:10,height:10,borderRadius:2,background:c}}/>{l}</div>)}
         </div>
-        <LineChart data={sf.monthly?.length?sf.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={150}/>
+        <LineChart data={sf.monthly?.length?sf.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={110}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Eventos por Setor</div>
-        <BarChart data={sf.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={150}/>
+        <BarChart data={sf.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={110}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição por Tipo</div>

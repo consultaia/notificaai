@@ -3105,7 +3105,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const zip=new window.JSZip();
       const hoje=new Date().toISOString().slice(0,10);
-      const csvEscape=(v)=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;};
+      const csvEscape=(v)=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r')?'"'+s.replace(/"/g,'""')+'"':s;};
       const toCSV=(rows,cols)=>'\ufeff'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n');
 
       // 1. Notificações do período
@@ -3890,7 +3890,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
     setGerandoZip(true);
     try{
       const zip=new window.JSZip();
-      const csvEscape=v=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;};
+      const csvEscape=v=>{const s=String(v??'');return s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r')?'"'+s.replace(/"/g,'""')+'"':s;};
       const toCSV=(rows,cols)=>'\ufeff'+cols.join(',')+'\n'+rows.map(r=>cols.map(c=>csvEscape(r[c])).join(',')).join('\n');
       if(nots.length)zip.file('01_notificacoes.csv',toCSV(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description']));
       if(auditLog.length)zip.file('02_audit_log.csv',toCSV(auditLog,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil']));

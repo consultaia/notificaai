@@ -211,7 +211,11 @@ function getTag(n){
   return{label:'ADM',color:C.purple};
 }
 function getTitle(n){
-  return n.event_subtype||n.occurrence_subtype||n.infection_topography||(n.description||'').slice(0,30)||'Notificação';
+  if(n.event_subtype) return n.event_subtype;
+  if(n.occurrence_subtype) return n.occurrence_subtype;
+  if(n.infection_topography) return n.infection_topography;
+  if(n.description) return '(sem tipo classificado) '+n.description.slice(0,30);
+  return 'Notificação';
 }
 function md(t){
   return t.replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g,'<br/>');

@@ -5517,17 +5517,37 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
       const topSubtipos=Object.entries(porSubtipo).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
       // ── Eventos monitorados (tabela oficial do NSP) ──
-      const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores,casos_manuais`).catch(()=>[]);
-      const somaPd=(obj)=>obj?Object.values(obj).reduce((a2,v)=>a2+(Number(v)||0),0):0;
-      const pdLppMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores);
-      const pdAvpMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores);
-      const cmMes=(indMesArr&&indMesArr[0]&&indMesArr[0].casos_manuais)||{};
-      const cmNum=k=>{
-        const v=cmMes[k];
+      const cmNumRaw=(obj,k)=>{
+        const v=obj?obj[k]:undefined;
         if(v===undefined||v===null||v==='')return null;
         if(typeof v==='object'){let tem=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){tem=true;tot+=Number(x)||0;}});return tem?tot:null;}
         return Number(v);
       };
+      const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores,casos_manuais`).catch(()=>[]);
+      const somaPd=(obj)=>obj?Object.values(obj).reduce((a2,v)=>a2+(Number(v)||0),0):0;
+      let pdLppMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores);
+      let pdAvpMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores);
+      let cmMes=(indMesArr&&indMesArr[0]&&indMesArr[0].casos_manuais)||{};
+      // Fallback: se o banco nao tem o dado (tabela inexistente, RLS, ou salvamento antigo que falhou em silencio),
+      // le do localStorage — mesmas chaves que a aba Indicadores > Por Setor usa ao digitar (pd_YYYY-MM_lpp_setor etc.)
+      {
+        const slugLS=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_');
+        const setsLS=h.sectorsInternacao||h.sectors||[];
+        const somaLS=(pref)=>setsLS.reduce((a2,s)=>{try{return a2+(Number(localStorage.getItem(`pd_${mesPPT}_${pref}_${slugLS(s)}`))||0);}catch(e){return a2;}},0);
+        if(pdLppMes===0)pdLppMes=somaLS('lpp');
+        if(pdAvpMes===0)pdAvpMes=somaLS('avp');
+        if(cmNumRaw(cmMes,'avp')===null){
+          const cmLS={};let temCm=false;
+          setsLS.forEach(s=>{try{const v=localStorage.getItem(`pd_${mesPPT}_cm_avp_${slugLS(s)}`);if(v!==null&&v!==''){cmLS[s]=v;temCm=true;}}catch(e){}});
+          if(temCm)cmMes={...cmMes,avp:cmLS};
+        }
+        if(cmNumRaw(cmMes,'lpp')===null){
+          const cmLS={};let temCm=false;
+          setsLS.forEach(s=>{try{const v=localStorage.getItem(`pd_${mesPPT}_cm_lpp_${slugLS(s)}`);if(v!==null&&v!==''){cmLS[s]=v;temCm=true;}}catch(e){}});
+          if(temCm)cmMes={...cmMes,lpp:cmLS};
+        }
+      }
+      const cmNum=k=>cmNumRaw(cmMes,k);
       const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
       const st2=n=>(n.event_subtype||'').toLowerCase();
       const usadosMon=new Set();

@@ -1678,13 +1678,9 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital,embedded,userSubnucleo}
     if(cm)CM_ALL.forEach(k=>{setores.forEach(st3=>{try{localStorage.setItem(pdKey('cm_'+k+'_'+slug(st3)),(cm[k]&&cm[k][st3])||'');}catch{}});});
     if(!sbUrl||!sbKey) return;
     try{
-      await fetch(`${sbUrl}/rest/v1/indicadores_mensais`,{
-        method:'POST',
-        headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},
-        body:JSON.stringify({hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},casos_manuais:cm||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()})
-      });
+      await sbUpsertDSM(sbUrl,sbKey,'indicadores_mensais',{hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},casos_manuais:cm||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()},'hospital_id,mes_ref');
       setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
-    }catch(err){console.warn('Erro ao salvar PD:',err);}
+    }catch(err){console.warn('Erro ao salvar PD:',err);showToast('Erro ao salvar paciente-dia no banco: '+err.message,'error');}
   };
 
   React.useEffect(()=>{

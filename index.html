@@ -26,8 +26,17 @@
     try{
       var tgt=ev.target;
       if(tgt && (tgt.tagName==='SCRIPT'||tgt.tagName==='LINK')){
+        var srcFalha=(tgt.src||tgt.href||'');
+        // Bibliotecas de EXPORTACAO (pptxgenjs, papaparse, xlsx) nao sao essenciais para abrir o app:
+        // os botoes de exportar ja verificam window.PptxGenJS/XLSX/Papa antes de usar.
+        // So trava a tela se falhar o essencial (React/Babel), senao o app abre e avisa no console.
+        var essencial=/react|babel/i.test(srcFalha);
+        if(!essencial){
+          console.warn('NotificaAI: biblioteca opcional nao carregou (exportacoes podem ficar indisponiveis): '+srcFalha);
+          return;
+        }
         // Falha ao CARREGAR o recurso (rede, firewall, CDN fora do ar) — nao e erro de codigo.
-        showBootError('Falha ao CARREGAR um recurso externo (nao e erro de codigo):\n\n'+(tgt.src||tgt.href)+'\n\nIsso costuma ser bloqueio de rede/firewall da instituicao para o dominio acima, CDN fora do ar, ou falta de internet no dispositivo. Teste: (1) abrir o link acima direto no navegador; (2) testar em outra rede (dados moveis); (3) verificar se o firewall do HNSA libera cdnjs.cloudflare.com, cdn.jsdelivr.net.');
+        showBootError('Falha ao CARREGAR um recurso externo (nao e erro de codigo):\n\n'+srcFalha+'\n\nIsso costuma ser bloqueio de rede/firewall da instituicao para o dominio acima, CDN fora do ar, ou falta de internet no dispositivo. Teste: (1) abrir o link acima direto no navegador; (2) testar em outra rede (dados moveis); (3) verificar se o firewall do HNSA libera cdnjs.cloudflare.com, cdn.jsdelivr.net.');
         return;
       }
       var msg=ev.message||'Erro desconhecido';
@@ -36,14 +45,16 @@
       showBootError('Erro ao carregar o NotificaAI\n\n'+msg+loc+stack+'\n\nSe a mensagem for so "Script error." sem localizacao/stack: isso indica que o proprio Babel (que transforma o codigo no navegador) encontrou um problema ao rodar o script transformado, mas o navegador nao expoe detalhes desse tipo especifico de execucao. Copie este texto inteiro e envie para o desenvolvedor.');
     }catch(e){}
   }, true);
-  // Se depois de 8s as bibliotecas essenciais nao carregaram, e quase certo bloqueio de rede/firewall.
+  // Se depois de 8s as bibliotecas ESSENCIAIS nao carregaram, e quase certo bloqueio de rede/firewall.
   setTimeout(function(){
     if(document.getElementById('boot-error')) return; // ja tem erro mostrado
     var faltando=[];
     if(typeof window.React==='undefined') faltando.push('React (cdnjs.cloudflare.com)');
     if(typeof window.Babel==='undefined') faltando.push('Babel (cdnjs.cloudflare.com)');
-    if(typeof window.JSZip==='undefined') faltando.push('JSZip (cdnjs.cloudflare.com)');
-    if(typeof window.PptxGenJS==='undefined') faltando.push('PptxGenJS (cdn.jsdelivr.net)');
+    var opcionais=[];
+    if(typeof window.JSZip==='undefined') opcionais.push('JSZip');
+    if(typeof window.PptxGenJS==='undefined') opcionais.push('PptxGenJS');
+    if(opcionais.length) console.warn('NotificaAI: bibliotecas de exportacao nao carregadas (botoes de exportar podem nao funcionar): '+opcionais.join(', '));
     if(faltando.length && !document.getElementById('app-container')){
       showBootError('O NotificaAI nao terminou de carregar apos 8 segundos.\n\nBibliotecas que nao carregaram:\n- '+faltando.join('\n- ')+'\n\nIsso normalmente e bloqueio de rede/firewall da instituicao para os dominios de CDN, ou falta de internet no dispositivo. Teste em outra rede (dados moveis) para confirmar.');
     }
@@ -1672,13 +1683,21 @@ function IndicadoresView({sbUrl,sbKey,showToast,hospital,embedded,userSubnucleo}
   const salvarPD=async(vals,valsLpp,valsAvp,cm)=>{
     setores.forEach(s=>{try{
       localStorage.setItem(pdKey(slug(s)),vals[s]||'');
-      localStorage.setItem(pdKey('lpp_'+slug(s)),(valsLpp&&valsLpp[s])||'');
-      localStorage.setItem(pdKey('avp_'+slug(s)),(valsAvp&&valsAvp[s])||'');
+      if(!subCfg||subCfg.lpp)localStorage.setItem(pdKey('lpp_'+slug(s)),(valsLpp&&valsLpp[s])||'');
+      if(!subCfg||subCfg.avp)localStorage.setItem(pdKey('avp_'+slug(s)),(valsAvp&&valsAvp[s])||'');
     }catch{}});
     if(cm)CM_ALL.forEach(k=>{setores.forEach(st3=>{try{localStorage.setItem(pdKey('cm_'+k+'_'+slug(st3)),(cm[k]&&cm[k][st3])||'');}catch{}});});
     if(!sbUrl||!sbKey) return;
     try{
-      await sbUpsertDSM(sbUrl,sbKey,'indicadores_mensais',{hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_lpp_setores:valsLpp||{},pd_avp_setores:valsAvp||{},casos_manuais:cm||{},pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()},'hospital_id,mes_ref');
+      // Payload cirurgico: cada perfil so envia os campos que enxerga na tela.
+      // Campos omitidos NAO sao tocados pelo upsert — assim o membro de LPP nunca
+      // sobrescreve o AVP preenchido pelo membro de Medicamentos, e vice-versa.
+      const payload={hospital_id:h.id,mes_ref:mesRef,pd_setores:vals,pd_geral:setores.reduce((acc,s)=>acc+(Number(vals[s])||0),0),updated_at:new Date().toISOString()};
+      if(!subCfg||subCfg.lpp)payload.pd_lpp_setores=valsLpp||{};
+      if(!subCfg||subCfg.avp)payload.pd_avp_setores=valsAvp||{};
+      if(!subCfg)payload.casos_manuais=cm||{};
+      else if(cm&&subCfg.avp&&cm.avp)payload.casos_manuais={...(cm||{})};
+      await sbUpsertDSM(sbUrl,sbKey,'indicadores_mensais',payload,'hospital_id,mes_ref');
       setPdSalvo(true);setTimeout(()=>setPdSalvo(false),2000);
     }catch(err){console.warn('Erro ao salvar PD:',err);showToast('Erro ao salvar paciente-dia no banco: '+err.message,'error');}
   };
@@ -5525,17 +5544,17 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
       };
       const indMesArr=await sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mesPPT}&select=pd_lpp_setores,pd_avp_setores,casos_manuais`).catch(()=>[]);
       const somaPd=(obj)=>obj?Object.values(obj).reduce((a2,v)=>a2+(Number(v)||0),0):0;
-      let pdLppMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores);
-      let pdAvpMes=somaPd(indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores);
+      const slugLS=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_');
+      const setsLS=h.sectorsInternacao||h.sectors||[];
+      let pdLppObj={...((indMesArr&&indMesArr[0]&&indMesArr[0].pd_lpp_setores)||{})};
+      let pdAvpObj={...((indMesArr&&indMesArr[0]&&indMesArr[0].pd_avp_setores)||{})};
       let cmMes=(indMesArr&&indMesArr[0]&&indMesArr[0].casos_manuais)||{};
       // Fallback: se o banco nao tem o dado (tabela inexistente, RLS, ou salvamento antigo que falhou em silencio),
       // le do localStorage — mesmas chaves que a aba Indicadores > Por Setor usa ao digitar (pd_YYYY-MM_lpp_setor etc.)
       {
-        const slugLS=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_');
-        const setsLS=h.sectorsInternacao||h.sectors||[];
-        const somaLS=(pref)=>setsLS.reduce((a2,s)=>{try{return a2+(Number(localStorage.getItem(`pd_${mesPPT}_${pref}_${slugLS(s)}`))||0);}catch(e){return a2;}},0);
-        if(pdLppMes===0)pdLppMes=somaLS('lpp');
-        if(pdAvpMes===0)pdAvpMes=somaLS('avp');
+        const lsGet=(pref,s)=>{try{const v=localStorage.getItem(`pd_${mesPPT}_${pref}_${slugLS(s)}`);return v===null||v===''?null:(Number(v)||0);}catch(e){return null;}};
+        if(somaPd(pdLppObj)===0){setsLS.forEach(s=>{const v=lsGet('lpp',s);if(v)pdLppObj[s]=v;});}
+        if(somaPd(pdAvpObj)===0){setsLS.forEach(s=>{const v=lsGet('avp',s);if(v)pdAvpObj[s]=v;});}
         if(cmNumRaw(cmMes,'avp')===null){
           const cmLS={};let temCm=false;
           setsLS.forEach(s=>{try{const v=localStorage.getItem(`pd_${mesPPT}_cm_avp_${slugLS(s)}`);if(v!==null&&v!==''){cmLS[s]=v;temCm=true;}}catch(e){}});
@@ -5547,20 +5566,34 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
           if(temCm)cmMes={...cmMes,lpp:cmLS};
         }
       }
+      let pdLppMes=somaPd(pdLppObj);
+      let pdAvpMes=somaPd(pdAvpObj);
+      // Fallback final: paciente-dia TOTAL do mes (Indicadores > DSM C.1-C.15).
+      // Denominador especifico (com risco / em uso) e o ideal epidemiologico; na ausencia dele,
+      // a taxa e calculada sobre o paciente-dia total — pratica comum — com aviso explicito no slide.
+      let lppDenTotal=false,avpDenTotal=false;
+      if(pdLppMes===0||pdAvpMes===0){
+        const dsmArr=await sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=eq.${mesPPT}-01&select=paciente_dia_total`).catch(()=>[]);
+        const pdTot=dsmArr&&dsmArr[0]?(Number(dsmArr[0].paciente_dia_total)||0):0;
+        if(pdLppMes===0&&pdTot>0){pdLppMes=pdTot;lppDenTotal=true;}
+        if(pdAvpMes===0&&pdTot>0){pdAvpMes=pdTot;avpDenTotal=true;}
+      }
       const cmNum=k=>cmNumRaw(cmMes,k);
       const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
       const st2=n=>(n.event_subtype||'').toLowerCase();
       const usadosMon=new Set();
       const contaExcl=(f)=>{let c=0;doMes.forEach(n=>{const k=n.id||JSON.stringify(n);if(!usadosMon.has(k)&&f(n)){usadosMon.add(k);c++;}});return c;};
+      const isLppN=n=>txt(n).includes('press')||txt(n).includes('lpp');
+      const isAvpN=n=>st2(n).includes('avp')||st2(n).includes('acesso venoso');
       const nSent=contaExcl(n=>n.gravidade==='Evento sentinela');
       const nIdent=contaExcl(n=>st2(n).includes('identifica')&&!st2(n).startsWith('perda de'));
-      const nLpp=contaExcl(n=>txt(n).includes('press')||txt(n).includes('lpp'));
+      const nLpp=contaExcl(isLppN);
       const nCom=contaExcl(n=>txt(n).includes('comunic')||txt(n).includes('prontuario')||txt(n).includes('documenta'));
       const nCir=contaExcl(n=>txt(n).includes('cirurg')||txt(n).includes('lvcs'));
       const nMedM=contaExcl(n=>txt(n).includes('medic')||txt(n).includes('farmac')||txt(n).includes('prescri'));
       const nAdorno=contaExcl(n=>txt(n).includes('adorno')||txt(n).includes('vestimenta'));
       const nQuedaM=contaExcl(n=>txt(n).includes('queda'));
-      const nAvpM=contaExcl(n=>st2(n).includes('avp')||st2(n).includes('acesso venoso'));
+      const nAvpM=contaExcl(isAvpN);
       const nDisp=contaExcl(n=>st2(n).includes('sne')||st2(n).includes('sng')||st2(n).includes('sonda')||st2(n).includes('cvc')||st2(n).includes('cvd')||st2(n).includes('dispositivo')||st2(n).includes('exterioriz')||st2(n).includes('cateter')||/\btot\b/.test(st2(n)));
       const nRotina=contaExcl(n=>txt(n).includes('rotina'));
       const nEquip=contaExcl(n=>txt(n).includes('equipamento')||txt(n).includes('infraestrutura')||txt(n).includes('manuten'));
@@ -5654,12 +5687,12 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
 
       // Cartoes KPI a direita: os itens com meta merecem destaque, nao linha de tabela
       const kpis=[
-        {t:'Incidencia de LPP',meta:'Meta < 4% (pac-dia com risco)',casos:cmNum('lpp')!==null?cmNum('lpp'):nLpp,manual:cmNum('lpp')!==null,pd:pdLppMes,limite:4},
-        {t:'Perda de AVP',meta:'Meta < 10% (pac-dia em uso)',casos:cmNum('avp')!==null?cmNum('avp'):nAvpM,manual:cmNum('avp')!==null,pd:pdAvpMes,limite:10},
+        {t:'Incidencia de LPP',meta:lppDenTotal?'Meta < 4% · calc. sobre pac-dia TOTAL':'Meta < 4% (pac-dia com risco)',casos:cmNum('lpp')!==null?cmNum('lpp'):nLpp,manual:cmNum('lpp')!==null,pd:pdLppMes,limite:4},
+        {t:'Perda de AVP',meta:avpDenTotal?'Meta < 10% · calc. sobre pac-dia TOTAL':'Meta < 10% (pac-dia em uso)',casos:cmNum('avp')!==null?cmNum('avp'):nAvpM,manual:cmNum('avp')!==null,pd:pdAvpMes,limite:10},
         {t:'Eventos Sentinela',meta:'Meta: zero — RCA em 72h',casos:nSent,pd:null,limite:null},
       ];
       kpis.forEach((k,i)=>{
-        const y=0.95+i*1.65;
+        const y=0.95+i*1.28;
         let valTxt,cor2,statusTxt;
         if(k.limite===null){
           valTxt=String(k.casos);cor2=k.casos===0?C2.green:C2.red;statusTxt=k.casos===0?'DENTRO DA META':'ATENCAO';
@@ -5669,15 +5702,46 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
         }else{
           valTxt='N/D';cor2=C2.gray;statusTxt=k.casos+' caso(s) — sem denominador';
         }
-        sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:6.4,y,w:3.1,h:1.45,fill:{color:'FFFFFF'},rectRadius:0.1,line:{color:cor2,width:1.5},shadow:{type:'outer',blur:4,offset:1,angle:90,color:'CBD5E1',opacity:0.4}});
-        sl.addShape(pres.shapes.RECTANGLE,{x:6.4,y,w:0.1,h:1.45,fill:{color:cor2}});
-        sl.addText(k.t,{x:6.65,y:y+0.1,w:2.7,h:0.32,fontSize:12,bold:true,color:'1E293B',margin:0});
-        sl.addText(valTxt,{x:6.65,y:y+0.42,w:2.7,h:0.55,fontSize:27,bold:true,color:cor2,margin:0});
-        sl.addText(statusTxt,{x:6.65,y:y+0.98,w:2.7,h:0.2,fontSize:9,bold:true,color:cor2,margin:0});
-        sl.addText(k.meta,{x:6.65,y:y+1.18,w:2.7,h:0.2,fontSize:8.5,color:'64748B',margin:0});
+        sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:6.4,y,w:3.1,h:1.12,fill:{color:'FFFFFF'},rectRadius:0.1,line:{color:cor2,width:1.5},shadow:{type:'outer',blur:4,offset:1,angle:90,color:'CBD5E1',opacity:0.4}});
+        sl.addShape(pres.shapes.RECTANGLE,{x:6.4,y,w:0.1,h:1.12,fill:{color:cor2}});
+        sl.addText(k.t,{x:6.62,y:y+0.06,w:2.75,h:0.24,fontSize:10.5,bold:true,color:'1E293B',margin:0});
+        sl.addText(valTxt,{x:6.62,y:y+0.28,w:2.75,h:0.46,fontSize:22,bold:true,color:cor2,margin:0});
+        sl.addText(statusTxt,{x:6.62,y:y+0.74,w:2.75,h:0.17,fontSize:7.5,bold:true,color:cor2,margin:0});
+        sl.addText(k.meta,{x:6.62,y:y+0.91,w:2.75,h:0.17,fontSize:7,color:'64748B',margin:0});
       });
+
+      // ── Incidencia por setor: usa os denominadores setoriais + contagem de casos do proprio setor ──
+      const cmSet=(k,s)=>{const o=cmMes&&cmMes[k];if(o&&typeof o==='object'&&o[s]!==undefined&&o[s]!==null&&o[s]!==''){return Number(o[s])||0;}return null;};
+      const linhasSetor=setsLS.map(s=>{
+        const lc=cmSet('lpp',s)!==null?cmSet('lpp',s):doMes.filter(n=>n.sector===s&&isLppN(n)).length;
+        const ac=cmSet('avp',s)!==null?cmSet('avp',s):doMes.filter(n=>n.sector===s&&isAvpN(n)).length;
+        const ld=Number(pdLppObj[s])||0, ad=Number(pdAvpObj[s])||0;
+        return {s,lc,ac,ld,ad};
+      }).filter(r=>r.lc>0||r.ac>0||r.ld>0||r.ad>0);
+      if(linhasSetor.length>0){
+        const fmtTx=(c,d)=>d>0?((c/d*100).toFixed(1)+'% ('+c+')'):(c>0?String(c)+' caso(s)':'—');
+        const hdrOpt={bold:true,color:C2.navy,fill:{color:C2.tableHead},fontSize:8.5,align:'center'};
+        const rowsSet=[[{text:'Setor',options:{...hdrOpt,align:'left'}},{text:'LPP',options:hdrOpt},{text:'Perda AVP',options:hdrOpt}]];
+        linhasSetor.slice(0,4).forEach((r,i2)=>{
+          const fl={color:i2%2?'F8FAFC':'FFFFFF'};
+          rowsSet.push([
+            {text:r.s,options:{fontSize:8.5,fill:fl,color:'1E293B'}},
+            {text:fmtTx(r.lc,r.ld),options:{fontSize:8.5,align:'center',fill:fl,color:r.ld>0?(r.lc/r.ld*100<4?C2.green:C2.red):'64748B',bold:r.ld>0}},
+            {text:fmtTx(r.ac,r.ad),options:{fontSize:8.5,align:'center',fill:fl,color:r.ad>0?(r.ac/r.ad*100<10?C2.green:C2.red):'64748B',bold:r.ad>0}},
+          ]);
+        });
+        const casosLppG=kpis[0].casos, casosAvpG=kpis[1].casos;
+        rowsSet.push([
+          {text:'GERAL'+((lppDenTotal||avpDenTotal)?' (pac-dia total)':''),options:{fontSize:8.5,bold:true,fill:{color:'EEF2F7'},color:C2.navy}},
+          {text:fmtTx(casosLppG,pdLppMes),options:{fontSize:8.5,bold:true,align:'center',fill:{color:'EEF2F7'},color:pdLppMes>0?(casosLppG/pdLppMes*100<4?C2.green:C2.red):'64748B'}},
+          {text:fmtTx(casosAvpG,pdAvpMes),options:{fontSize:8.5,bold:true,align:'center',fill:{color:'EEF2F7'},color:pdAvpMes>0?(casosAvpG/pdAvpMes*100<10?C2.green:C2.red):'64748B'}},
+        ]);
+        sl.addText('Incidencia por Setor',{x:6.4,y:4.72,w:3.1,h:0.2,fontSize:9,bold:true,color:C2.navy,margin:0});
+        sl.addTable(rowsSet,{x:6.4,y:4.94,w:3.1,colW:[1.34,0.88,0.88],border:{pt:0.5,color:'E2E8F0'},rowH:0.26,fontFace:'Calibri',valign:'middle'});
+      }
       const notasRodape=[];
-      if(pdLppMes===0||pdAvpMes===0)notasRodape.push('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores.');
+      if(pdLppMes===0||pdAvpMes===0)notasRodape.push('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores > Por Setor, ou o paciente-dia total em Indicadores > DSM.');
+      if(lppDenTotal||avpDenTotal)notasRodape.push('Taxa calculada sobre o paciente-dia TOTAL (DSM); para o denominador especifico (pac-dia com risco / em uso), preencha em Indicadores > Por Setor.');
       if(cmNum('lpp')!==null||cmNum('avp')!==null)notasRodape.push('* casos com lancamento manual do NSP (inclui subnotificacao); a tabela mostra apenas o notificado no sistema.');
       if(notasRodape.length)sl.addText(notasRodape.join('  '), {x:0.5,y:6.6,w:8.9,h:0.4,fontSize:8.5,italic:true,color:C2.gray,margin:0});
 

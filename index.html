@@ -1884,55 +1884,38 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       <input type="month" value={mesRef} onChange={e=>setMesRef(e.target.value)}
         style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
 
-      {/* Paciente-dia por setor */}
+      {/* Paciente-dia por setor — tudo junto, um card por setor */}
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:10}}>Total paciente-dia por setor (soma dos dias de internacao no mes)</div>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia por Setor</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preencha o total geral (soma dos dias de internacao no mes) e, se aplicavel ao setor, os denominadores especificos — cada taxa (LPP, AVP) usa seu proprio denominador de risco, nao o total geral.</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-          {setores.map(s=>(
-            <div key={s}>
-              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
+          {setores.map(s=>{
+            const temLpp=!subCfg||subCfg.lpp, temAvp=!subCfg||subCfg.avp;
+            return (
+            <div key={s} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px'}}>
+              <div style={{fontSize:11,color:C.text,fontWeight:700,marginBottom:8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</div>
+              <label style={{fontSize:9,color:C.muted,display:'block',marginBottom:3}}>Total paciente-dia</label>
               <input type="number" value={pdSetores[s]||''} onChange={e=>setPdSetor(s,e.target.value)} placeholder="0"
-                style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+                style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:(temLpp||temAvp)?8:0}}/>
+              {temLpp&&<React.Fragment>
+                <label style={{fontSize:9,color:C.yellow,display:'block',marginBottom:3}}>Paciente-dia com risco de LPP</label>
+                <input type="number" value={pdLpp[s]||''} onChange={e=>setPdLpp(s,e.target.value)} placeholder="0"
+                  style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:temAvp?8:0}}/>
+              </React.Fragment>}
+              {temAvp&&<React.Fragment>
+                <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Paciente-dia em uso de AVP</label>
+                <input type="number" value={pdAvp[s]||''} onChange={e=>setPdAvp(s,e.target.value)} placeholder="0"
+                  style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:8}}/>
+                <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Perdas de AVP no mes (lancamento manual)</label>
+                <input type="number" value={(casosManuais.avp&&casosManuais.avp[s])||''} onChange={e=>setCM('avp',s,e.target.value)} placeholder="auto"
+                  style={{background:C.surface,border:'1px solid '+((casosManuais.avp&&casosManuais.avp[s])?C.blue+'88':C.border),borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+              </React.Fragment>}
             </div>
-          ))}
+          );})}
         </div>
         <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.6,borderTop:'1px solid '+C.border,paddingTop:8}}>
-          Deixe em branco os setores que nao deseja calcular individualmente. O paciente-dia e obtido no censo hospitalar ou SAME. O total Geral e a soma de todos os setores preenchidos.</div>
+          Deixe em branco os setores que nao deseja calcular individualmente. O total geral e a soma de todos os setores preenchidos. Perdas de AVP em branco = contagem automatica das notificacoes do setor; preenchido = valor do controle manual do NSP (cobre subnotificacao). Paciente-dia em branco deixa a taxa correspondente como N/D.</div>
       </div>
-
-      {/* Denominadores especificos: populacao exposta ao risco, nao a populacao geral */}
-      {(!subCfg||subCfg.lpp)&&<div style={{background:C.surface,border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia COM RISCO de LPP (por setor)</div>
-        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Soma dos dias de internacao apenas dos pacientes classificados com risco de LPP (ex: Braden). A taxa de LPP sera calculada sobre este denominador — nao sobre o paciente-dia geral.</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-          {setores.map(s=>(
-            <div key={s}>
-              <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
-              <input type="number" value={pdLpp[s]||''} onChange={e=>setPdLpp(s,e.target.value)} placeholder="0"
-                style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-            </div>
-          ))}
-        </div>
-      </div>}
-
-      {(!subCfg||subCfg.avp)&&<div style={{background:C.surface,border:'1px solid '+C.blue+'44',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia EM USO de AVP (por setor)</div>
-        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Soma dos dias de internacao apenas dos pacientes com acesso venoso periferico instalado. A taxa de perda de AVP sera calculada sobre este denominador.</div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-          {setores.map(s=>(
-            <div key={s} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'8px 10px'}}>
-              <label style={{fontSize:10,color:C.text,fontWeight:700,display:'block',marginBottom:6,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s}</label>
-              <label style={{fontSize:9,color:C.muted,display:'block',marginBottom:3}}>Paciente-dia em uso de AVP</label>
-              <input type="number" value={pdAvp[s]||''} onChange={e=>setPdAvp(s,e.target.value)} placeholder="0"
-                style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:6}}/>
-              <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Perdas no mes (lancamento manual)</label>
-              <input type="number" value={(casosManuais.avp&&casosManuais.avp[s])||''} onChange={e=>setCM('avp',s,e.target.value)} placeholder="auto"
-                style={{background:C.surface,border:'1px solid '+((casosManuais.avp&&casosManuais.avp[s])?C.blue+'88':C.border),borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
-            </div>
-          ))}
-        </div>
-        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Perdas em branco = contagem automatica das notificacoes do setor. Preenchido = valor do controle manual do NSP (cobre subnotificacao). Paciente-dia em branco deixa a taxa como N/D.</div>
-      </div>}
 
       {/* Ajuste manual de casos por setor: cobre a subnotificacao com o controle manual do NSP */}
       {CM_VISIVEIS.length>0&&<div style={{background:C.surface,border:'1px dashed '+C.purple+'66',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
@@ -1957,7 +1940,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       {pdSalvo&&<div style={{textAlign:'center',fontSize:11,color:'#22C55E',marginBottom:6}}>
         {String.fromCodePoint(9989)} Paciente-dia salvo no banco
       </div>}
-      <button onClick={()=>salvarPD(pdSetores,pdLpp,pdAvp,casosManuais)} disabled={!setores.some(s=>pdSetores[s])}
+      <button onClick={()=>salvarPD(pdSetores,pdLpp,pdAvp,casosManuais)} disabled={!setores.some(s=>pdSetores[s]||pdLpp[s]||pdAvp[s])}
         style={{width:'100%',background:'transparent',border:'1px solid #0D9488',borderRadius:10,padding:'8px',color:'#0D9488',fontSize:12,fontWeight:600,cursor:'pointer',marginBottom:6}}>
         Salvar paciente-dia sem calcular
       </button>

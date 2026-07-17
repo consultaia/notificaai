@@ -1642,14 +1642,144 @@ function ChecklistANVISAView({sbUrl,sbKey,showToast,hospital,perfil,userSubnucle
   </div>);
 }
 
+function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const anoAtual=new Date().getFullYear();
+  const [modo,setModo]=useState('mes');
+  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
+  const [ano,setAno]=useState(anoAtual);
+  const [sem,setSem]=useState(new Date().getMonth()<6?1:2);
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(false);
+
+  const periodo=()=>{
+    if(modo==='mes'){const [a2,m2]=mes.split('-').map(Number);return{ini:mes+'-01',fim:new Date(a2,m2,0).toISOString().slice(0,10),label:new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};}
+    if(modo==='sem')return sem===1?{ini:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1º semestre de ${ano}`}:{ini:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2º semestre de ${ano}`};
+    return{ini:`${ano}-01-01`,fim:`${ano}-12-31`,label:`Ano de ${ano}`};
+  };
+
+  const carregar=async()=>{
+    setLoading(true);
+    try{
+      const {ini,fim}=periodo();
+      const [nots,indMesArr,dsmArr]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&select=event_subtype,description,gravidade,event_date,created_at,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${ini.slice(0,7)}&mes_ref=lte.${fim.slice(0,7)}&select=pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${ini}&mes=lte.${fim}&select=*`).catch(()=>[]),
+      ]);
+      const getD=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
+      const doMes=(nots||[]).filter(n=>{const d2=getD(n);return d2&&d2>=ini&&d2<=fim;});
+      // Agrega objetos {setor:valor} de varios meses somando por chave
+      const numv=v=>Number(v)||0;
+      const sumObjs=(rows,campo)=>{const acc={};(rows||[]).forEach(r=>{const o=r[campo];if(o&&typeof o==='object')Object.entries(o).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)acc[k]=(acc[k]||0)+numv(v);});});return acc;};
+      // Casos manuais: soma o valor de cada mes (objeto por setor OU escalar), null se nenhum mes lancou
+      const cmMesVal=(o,k)=>{const v=o?o[k]:undefined;if(v===undefined||v===null||v==='')return null;if(typeof v==='object'){let t=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){t=true;tot+=numv(x);}});return t?tot:null;}return numv(v);};
+      const cmAgg={};['lpp','avp'].forEach(k=>{let t=false,tot=0;(indMesArr||[]).forEach(r=>{const v=cmMesVal(r.casos_manuais,k);if(v!==null){t=true;tot+=v;}});cmAgg[k]=t?tot:null;});
+      const im={pd_setores:sumObjs(indMesArr,'pd_setores'),pd_lpp_setores:sumObjs(indMesArr,'pd_lpp_setores'),pd_avp_setores:sumObjs(indMesArr,'pd_avp_setores'),pd_geral:(indMesArr||[]).reduce((a2,r)=>a2+numv(r.pd_geral),0)};
+      // DSM: soma campo a campo, preservando "nunca lancado" como undefined (para N/D honesto)
+      const dsm={};(dsmArr||[]).forEach(r=>{Object.entries(r).forEach(([k,v])=>{if(['id','hospital_id','mes','updated_at','created_at'].includes(k))return;if(v!==null&&v!==''&&v!==undefined&&!isNaN(Number(v))){dsm[k]=(dsm[k]||0)+Number(v);}});});
+      setDados({doMes,im,dsm,cmAgg,meses:(dsmArr||[]).length||(indMesArr||[]).length});
+    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
+    setLoading(false);
+  };
+  useEffect(()=>{carregar();},[modo,mes,ano,sem,sbUrl,sbKey]);
+
+  if(loading||!dados) return <div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div>;
+
+  const {doMes,im,dsm,cmAgg}=dados;
+  const num=v=>Number(v)||0;
+  const soma=obj=>obj?Object.values(obj).reduce((a2,v)=>a2+(num(v)),0):0;
+  const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
+  const st2=n=>(n.event_subtype||'').toLowerCase();
+  const cmVal=k=>cmAgg[k];
+
+  const pdGeral=num(im.pd_geral)||soma(im.pd_setores)||num(dsm.paciente_dia_total);
+  const pdLpp=soma(im.pd_lpp_setores);
+  const pdAvp=soma(im.pd_avp_setores);
+  const casosLpp=cmVal('lpp')!==null?cmVal('lpp'):doMes.filter(n=>txt(n).includes('press')||txt(n).includes('lpp')).length;
+  const casosAvp=cmVal('avp')!==null?cmVal('avp'):doMes.filter(n=>st2(n).includes('avp')||st2(n).includes('acesso venoso')).length;
+  const quedas=num(dsm.quedas_total)||doMes.filter(n=>st2(n).includes('queda')).length;
+  const sentinelas=doMes.filter(n=>n.gravidade==='Evento sentinela').length;
+
+  // taxa: {v: valor formatado ou null, ok: true/false/null, den: descricao do denominador}
+  const pct=(c,d)=>d>0?(c/d*100):null;
+  const F1=v=>v===null?null:v.toFixed(1);
+  const F2=v=>v===null?null:v.toFixed(2);
+
+  const grupos=[
+    {titulo:'Assistenciais',cor:C.teal,itens:[
+      {n:'Incidencia de LPP',v:F1(pct(casosLpp,pdLpp||pdGeral)),un:'%',meta:'< 4%',ok:pct(casosLpp,pdLpp||pdGeral)!==null?pct(casosLpp,pdLpp||pdGeral)<4:null,den:pdLpp>0?casosLpp+' casos / '+pdLpp+' pac-dia com risco':(pdGeral>0?casosLpp+' casos / '+pdGeral+' pac-dia total*':'preencha o paciente-dia (Por Setor ou DSM)')},
+      {n:'Taxa de perda de AVP',v:F1(pct(casosAvp,pdAvp||pdGeral)),un:'%',meta:'< 10%',ok:pct(casosAvp,pdAvp||pdGeral)!==null?pct(casosAvp,pdAvp||pdGeral)<10:null,den:pdAvp>0?casosAvp+' perdas / '+pdAvp+' pac-dia em uso':(pdGeral>0?casosAvp+' perdas / '+pdGeral+' pac-dia total*':'preencha o paciente-dia')},
+      {n:'Taxa de quedas',v:F2(pct(quedas,pdGeral)),un:'%',meta:'< 0.15%',ok:pct(quedas,pdGeral)!==null?pct(quedas,pdGeral)<0.15:null,den:quedas+' quedas / '+(pdGeral||'?')+' pac-dia'},
+      {n:'Quedas com dano',v:dsm.quedas_com_dano!==undefined&&dsm.quedas_com_dano!==null&&dsm.quedas_com_dano!==''?String(num(dsm.quedas_com_dano)):null,un:'',meta:'0',ok:dsm.quedas_com_dano!==undefined&&dsm.quedas_com_dano!==null&&dsm.quedas_com_dano!==''?num(dsm.quedas_com_dano)===0:null,den:'lancado no DSM C.8'},
+      {n:'Eventos sentinela',v:String(sentinelas),un:'',meta:'0',ok:sentinelas===0,den:'notificacoes do mes'},
+    ]},
+    {titulo:'IRAS (densidade de incidencia)',cor:C.yellow,itens:[
+      {n:'IPCS / CVC',v:F2(pct(num(dsm.ipcs_cvc),num(dsm.cateter_dia_cvc))),un:'/100 cat-dia',meta:'monitorar',ok:null,den:num(dsm.ipcs_cvc)+' casos / '+(num(dsm.cateter_dia_cvc)||'?')+' cateter-dia (DSM C.10)'},
+      {n:'ITU / CVD',v:F2(pct(num(dsm.itu_cvd),num(dsm.paciente_dia_cvd))),un:'/100 pd-CVD',meta:'monitorar',ok:null,den:num(dsm.itu_cvd)+' casos / '+(num(dsm.paciente_dia_cvd)||'?')+' pac-dia CVD'},
+      {n:'PAV',v:F2(pct(num(dsm.pav_casos_novos),num(dsm.pacientes_vm))),un:'/100 pac-VM',meta:'monitorar',ok:null,den:num(dsm.pav_casos_novos)+' casos / '+(num(dsm.pacientes_vm)||'?')+' pacientes-VM'},
+      {n:'Taxa de ISC',v:F1(pct(num(dsm.isc_casos),num(dsm.cirurgias_realizadas))),un:'%',meta:'monitorar',ok:null,den:num(dsm.isc_casos)+' ISC / '+(num(dsm.cirurgias_realizadas)||'?')+' cirurgias'},
+    ]},
+    {titulo:'Conformidade de processos',cor:C.blue,itens:[
+      {n:'LVCS preenchida',v:F1(pct(num(dsm.lvcs_preenchidas),num(dsm.cirurgias_realizadas))),un:'%',meta:'100%',ok:pct(num(dsm.lvcs_preenchidas),num(dsm.cirurgias_realizadas))!==null?pct(num(dsm.lvcs_preenchidas),num(dsm.cirurgias_realizadas))>=95:null,den:num(dsm.lvcs_preenchidas)+' / '+(num(dsm.cirurgias_realizadas)||'?')+' cirurgias'},
+      {n:'Avaliacao risco de queda',v:F1(pct(num(dsm.queda_prontuarios_ok),num(dsm.queda_prontuarios_total))),un:'%',meta:'100%',ok:pct(num(dsm.queda_prontuarios_ok),num(dsm.queda_prontuarios_total))!==null?pct(num(dsm.queda_prontuarios_ok),num(dsm.queda_prontuarios_total))>=90:null,den:num(dsm.queda_prontuarios_ok)+' / '+(num(dsm.queda_prontuarios_total)||'?')+' prontuarios'},
+      {n:'Avaliacao LPP na admissao',v:F1(pct(num(dsm.lpp_avaliacao_admissao),num(dsm.total_admitidos))),un:'%',meta:'100%',ok:pct(num(dsm.lpp_avaliacao_admissao),num(dsm.total_admitidos))!==null?pct(num(dsm.lpp_avaliacao_admissao),num(dsm.total_admitidos))>=90:null,den:num(dsm.lpp_avaliacao_admissao)+' / '+(num(dsm.total_admitidos)||'?')+' admitidos'},
+      {n:'Adesao a higiene das maos',v:F1(pct(num(dsm.hm_acoes_realizadas),num(dsm.hm_oportunidades))),un:'%',meta:'> 70%',ok:pct(num(dsm.hm_acoes_realizadas),num(dsm.hm_oportunidades))!==null?pct(num(dsm.hm_acoes_realizadas),num(dsm.hm_oportunidades))>=70:null,den:num(dsm.hm_acoes_realizadas)+' acoes / '+(num(dsm.hm_oportunidades)||'?')+' oportunidades'},
+    ]},
+    {titulo:'Consumo e cultura',cor:C.purple,itens:[
+      {n:'Alcool gel por pac-dia',v:pdGeral>0&&num(dsm.alcool_gel_ml)>0?(num(dsm.alcool_gel_ml)/pdGeral).toFixed(0):null,un:'mL/pd',meta:'> 20',ok:pdGeral>0&&num(dsm.alcool_gel_ml)>0?(num(dsm.alcool_gel_ml)/pdGeral)>=20:null,den:num(dsm.alcool_gel_ml)+' mL / '+(pdGeral||'?')+' pac-dia'},
+      {n:'DDD antimicrobianos (UTI)',v:F1(pct(num(dsm.ddd_antimicrobianos),num(dsm.paciente_dia_uti))),un:'/100 pd-UTI',meta:'monitorar',ok:null,den:num(dsm.ddd_antimicrobianos)+' DDD / '+(num(dsm.paciente_dia_uti)||'?')+' pac-dia UTI'},
+      {n:'Taxa de notificacao',v:F1(pct(doMes.length,pdGeral)),un:'/100 pd',meta:'quanto maior, melhor',ok:null,den:doMes.length+' notificacoes / '+(pdGeral||'?')+' pac-dia'},
+    ]},
+  ];
+
+  const mesLabel=periodo().label;
+  const usouTotal=(pdLpp===0||pdAvp===0)&&pdGeral>0;
+  const anosOpts=[];for(let a3=2025;a3<=anoAtual;a3++)anosOpts.push(a3);
+  const mb=(id,l)=><button onClick={()=>setModo(id)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid '+(modo===id?C.teal:C.border),background:modo===id?C.teal+'22':'transparent',color:modo===id?C.teal:C.muted,fontSize:12,fontWeight:modo===id?800:500,cursor:'pointer'}}>{l}</button>;
+
+  return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
+    <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+      {mb('mes','Mes')}{mb('sem','Semestre')}{mb('ano','Ano')}
+      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}/>}
+      {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
+      {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
+      <div style={{fontSize:12,color:C.muted}}>Panorama de <span style={{fontWeight:800,color:C.text}}>{mesLabel}</span></div>
+    </div>
+    {grupos.map(g=>(<div key={g.titulo} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
+      <div style={{fontSize:12,fontWeight:800,color:g.cor,marginBottom:10,textTransform:'uppercase',letterSpacing:0.5}}>{g.titulo}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
+        {g.itens.map(it=>{
+          const cor=it.v===null?C.muted:(it.ok===null?g.cor:(it.ok?'#22C55E':'#EF4444'));
+          return(<div key={it.n} style={{background:C.card,border:'1px solid '+(it.v===null?C.border:cor+'55'),borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:4}}>{it.n}</div>
+            <div style={{display:'flex',alignItems:'baseline',gap:5}}>
+              <span style={{fontSize:24,fontWeight:900,color:cor}}>{it.v===null?'N/D':it.v}</span>
+              {it.v!==null&&it.un&&<span style={{fontSize:10,color:C.muted,fontWeight:700}}>{it.un}</span>}
+              <span style={{marginLeft:'auto',fontSize:9,color:C.muted}}>meta {it.meta}</span>
+            </div>
+            <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>{it.den}</div>
+          </div>);
+        })}
+      </div>
+    </div>))}
+    <div style={{fontSize:10,color:C.muted,lineHeight:1.6,padding:'0 4px'}}>
+      {usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
+      {modo!=='mes'&&'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
+      N/D = denominador ou numerador ainda nao alimentado no periodo (abas Por Setor e DSM). Prevalencia pontual (ex: prevalencia de LPP em um dia de censo) exige coleta propria de censo pontual, ainda nao registrada no sistema — os valores acima sao incidencias, densidades e conformidades.
+    </div>
+  </div>);
+}
+
 function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userSubnucleo}) {
   const [aba,setAba]=useState('setor');
   const tb=(id,l)=><button onClick={()=>setAba(id)} style={{flex:1,padding:'9px 6px',borderRadius:8,border:'none',background:aba===id?C.teal:'transparent',color:aba===id?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>;
   return(<div style={{padding:'0 0 80px'}}>
     <BackHeader title='Indicadores' subtitle='Taxas por setor, dados mensais DSM e checklist ANVISA'/>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('setor','Por Setor (notificacoes)')}{tb('dsm','DSM - C.1 a C.15')}{tb('anvisa','Checklist ANVISA')}
+      {tb('panorama','Panorama')}{tb('setor','Por Setor')}{tb('dsm','DSM C.1-C.15')}{tb('anvisa','Checklist ANVISA')}
     </div>
+    {aba==='panorama'&&<PanoramaMensalView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
     {aba==='setor'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded userSubnucleo={userSubnucleo}/>}
     {aba==='dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
     {aba==='anvisa'&&<ChecklistANVISAView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} perfil={perfil} userSubnucleo={userSubnucleo}/>}

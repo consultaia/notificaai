@@ -1702,7 +1702,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   const btn=(l,cor,fn,dis)=><button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
 
   return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
-    <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.</div>
+    <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{'Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.'}</div>
     <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
       {kpi(vencidas.length,'Vencidas','#EF4444')}{kpi(proximas.length,'Vencem em 7 dias','#F59E0B')}{kpi(emDia.length,'Em dia',C.teal)}{kpi(aguardaEfic.length,'Aguardam efic\u00e1cia'+(eficAtrasada.length?' ('+eficAtrasada.length+' h\u00e1 +30d)':''),'#8B5CF6')}
     </div>
@@ -1714,7 +1714,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
       {proximas.map(a2=>linha(a2,'#F59E0B','at\u00e9 '+new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR'),
         <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>concluir(a2),busy===a2.id)}</div>))}
     </div>}
-    {aguardaEfic.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#8B5CF6',marginBottom:8}}>CONCLU\u00cdDAS \u2014 AGUARDAM VERIFICA\u00c7\u00c3O DE EFIC\u00c1CIA</div>
+    {aguardaEfic.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#8B5CF6',marginBottom:8}}>{'CONCLU\u00cdDAS \u2014 AGUARDAM VERIFICA\u00c7\u00c3O DE EFIC\u00c1CIA'}</div>
       {aguardaEfic.map(a2=>linha(a2,'#8B5CF6',a2.concluido_em?('conclu\u00edda '+new Date(a2.concluido_em).toLocaleDateString('pt-BR')):'conclu\u00edda',
         <div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
           {btn('Efetiva','#22C55E',()=>verificar(a2,'efetiva'),busy===a2.id)}
@@ -1725,7 +1725,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
     {emDia.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:C.teal,marginBottom:8}}>EM DIA ({emDia.length})</div>
       {emDia.map(a2=>linha(a2,C.teal,a2.prazo?('at\u00e9 '+new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR')):'sem prazo',null))}
     </div>}
-    {acoes.length===0&&<div style={{textAlign:'center',color:C.muted,padding:30,fontSize:12}}>Nenhuma a\u00e7\u00e3o de plano cadastrada ainda. Crie a\u00e7\u00f5es dentro da notifica\u00e7\u00e3o (RCA {'>'} Plano de A\u00e7\u00e3o).</div>}
+    {acoes.length===0&&<div style={{textAlign:'center',color:C.muted,padding:30,fontSize:12}}>{'Nenhuma a\u00e7\u00e3o de plano cadastrada ainda. Crie a\u00e7\u00f5es dentro da notifica\u00e7\u00e3o (RCA > Plano de A\u00e7\u00e3o).'}</div>}
   </div>);
 }
 
@@ -5240,20 +5240,6 @@ idade:'Idade do paciente',
           </div>
         )}
 
-        {/* NIP - só texto (sem chips) */}
-        {step==='nip'&&!loading&&!saving&&chips.length===0&&(
-          <div style={{padding:'8px 14px 12px',display:'flex',gap:10}}>
-            <input type={(step==='data'||step==='data_admissao')?'date':'text'} value={input} onChange={e=>setInput(e.target.value)}
-              onKeyDown={e=>e.key==='Enter'&&input.trim()&&(responder(input.trim(),input.trim()),setInput(''))}
-              placeholder="Digite o NIP do paciente..."
-              style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:22,padding:'10px 16px',color:C.text,fontSize:14,outline:'none'}}/>
-            <button onClick={()=>{if(input.trim()){responder(input.trim(),input.trim());setInput('');}}}
-              disabled={!input.trim()}
-              style={{width:44,height:44,borderRadius:'50%',border:'none',background:input.trim()?C.teal:C.border,cursor:input.trim()?'pointer':'default',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <IconSend size={17} color={input.trim()?'#06101F':C.muted}/>
-            </button>
-          </div>
-        )}
       </div>
     )}
   </div>);

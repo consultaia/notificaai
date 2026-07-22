@@ -1642,6 +1642,93 @@ function ChecklistANVISAView({sbUrl,sbKey,showToast,hospital,perfil,userSubnucle
   </div>);
 }
 
+function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [acoes,setAcoes]=useState(null);
+  const [nots,setNots]=useState({});
+  const [busy,setBusy]=useState(null);
+  const carregar=async()=>{
+    try{
+      const [a2,n2]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*&order=prazo.asc`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&select=id,event_subtype,sector`).catch(()=>[]),
+      ]);
+      const map={};(n2||[]).forEach(n=>{map[n.id]=n;});
+      setAcoes(a2||[]);setNots(map);
+    }catch(e){showToast('Erro: '+e.message,'error');setAcoes([]);}
+  };
+  useEffect(()=>{carregar();},[sbUrl,sbKey]);
+  if(acoes===null) return <div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div>;
+
+  const hoje=new Date().toISOString().slice(0,10);
+  const em7=new Date(Date.now()+7*864e5).toISOString().slice(0,10);
+  const d30=new Date(Date.now()-30*864e5).toISOString();
+  const pend=acoes.filter(a2=>a2.status==='pendente'||!a2.status);
+  const vencidas=pend.filter(a2=>a2.prazo&&a2.prazo<hoje);
+  const proximas=pend.filter(a2=>a2.prazo&&a2.prazo>=hoje&&a2.prazo<=em7);
+  const emDia=pend.filter(a2=>!a2.prazo||a2.prazo>em7);
+  const aguardaEfic=acoes.filter(a2=>a2.status&&a2.status!=='pendente'&&!a2.efetividade_verificada);
+  const eficAtrasada=aguardaEfic.filter(a2=>a2.concluido_em&&a2.concluido_em<d30);
+
+  const concluir=async(a2)=>{
+    setBusy(a2.id);
+    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluida',concluido_em:new Date().toISOString()});await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
+    catch(e){showToast('Erro: '+e.message,'error');}
+    setBusy(null);
+  };
+  const verificar=async(a2,val)=>{
+    setBusy(a2.id);
+    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{efetividade_verificada:val,efetividade_em:new Date().toISOString()});await carregar();showToast('Efic\u00e1cia registrada','success');}
+    catch(e){showToast('Erro: '+e.message,'error');}
+    setBusy(null);
+  };
+
+  const kpi=(n,l,cor)=>(<div style={{flex:1,minWidth:110,background:C.card,border:'1px solid '+cor+'44',borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px'}}>
+    <div style={{fontSize:24,fontWeight:900,color:cor}}>{n}</div><div style={{fontSize:10,color:C.muted}}>{l}</div>
+  </div>);
+  const linha=(a2,cor,badge,extra)=>{
+    const n=nots[a2.notification_id]||{};
+    return(<div key={a2.id} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
+      <div style={{display:'flex',justifyContent:'space-between',gap:8,alignItems:'flex-start'}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:3}}>{a2.acao}</div>
+          <div style={{fontSize:10,color:C.muted}}>{(a2.responsavel||'-')+' \u00b7 prazo '+(a2.prazo?new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(n.event_subtype?' \u00b7 '+n.event_subtype:'')+(n.sector?' ('+n.sector+')':'')}</div>
+        </div>
+        <span style={{fontSize:9,fontWeight:800,color:cor,whiteSpace:'nowrap'}}>{badge}</span>
+      </div>
+      {extra}
+    </div>);
+  };
+  const btn=(l,cor,fn,dis)=><button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
+
+  return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
+    <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.</div>
+    <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+      {kpi(vencidas.length,'Vencidas','#EF4444')}{kpi(proximas.length,'Vencem em 7 dias','#F59E0B')}{kpi(emDia.length,'Em dia',C.teal)}{kpi(aguardaEfic.length,'Aguardam efic\u00e1cia'+(eficAtrasada.length?' ('+eficAtrasada.length+' h\u00e1 +30d)':''),'#8B5CF6')}
+    </div>
+    {vencidas.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#EF4444',marginBottom:8}}>VENCIDAS</div>
+      {vencidas.map(a2=>linha(a2,'#EF4444',Math.ceil((new Date(hoje)-new Date(a2.prazo))/864e5)+'d atraso',
+        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>concluir(a2),busy===a2.id)}</div>))}
+    </div>}
+    {proximas.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#F59E0B',marginBottom:8}}>VENCEM EM 7 DIAS</div>
+      {proximas.map(a2=>linha(a2,'#F59E0B','at\u00e9 '+new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR'),
+        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>concluir(a2),busy===a2.id)}</div>))}
+    </div>}
+    {aguardaEfic.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#8B5CF6',marginBottom:8}}>CONCLU\u00cdDAS \u2014 AGUARDAM VERIFICA\u00c7\u00c3O DE EFIC\u00c1CIA</div>
+      {aguardaEfic.map(a2=>linha(a2,'#8B5CF6',a2.concluido_em?('conclu\u00edda '+new Date(a2.concluido_em).toLocaleDateString('pt-BR')):'conclu\u00edda',
+        <div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
+          {btn('Efetiva','#22C55E',()=>verificar(a2,'efetiva'),busy===a2.id)}
+          {btn('Parcialmente efetiva','#F59E0B',()=>verificar(a2,'parcial'),busy===a2.id)}
+          {btn('N\u00e3o efetiva (reabrir a\u00e7\u00e3o)','#EF4444',()=>verificar(a2,'inefetiva'),busy===a2.id)}
+        </div>))}
+    </div>}
+    {emDia.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:C.teal,marginBottom:8}}>EM DIA ({emDia.length})</div>
+      {emDia.map(a2=>linha(a2,C.teal,a2.prazo?('at\u00e9 '+new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR')):'sem prazo',null))}
+    </div>}
+    {acoes.length===0&&<div style={{textAlign:'center',color:C.muted,padding:30,fontSize:12}}>Nenhuma a\u00e7\u00e3o de plano cadastrada ainda. Crie a\u00e7\u00f5es dentro da notifica\u00e7\u00e3o (RCA {'>'} Plano de A\u00e7\u00e3o).</div>}
+  </div>);
+}
+
 function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const anoAtual=new Date().getFullYear();
@@ -5743,15 +5830,15 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
 
       let sl=pres.addSlide();
       sl.background={color:C2.navy};
-      sl.addText('Analise Mensal', {x:0.55,y:2.9,w:8,h:1,fontSize:44,bold:true,color:C2.white,fontFace:'Calibri',margin:0});
+      sl.addText('An\u00e1lise Mensal', {x:0.55,y:2.9,w:8,h:1,fontSize:44,bold:true,color:C2.white,fontFace:'Calibri',margin:0});
       sl.addText(mesRefStr.charAt(0).toUpperCase()+mesRefStr.slice(1), {x:0.55,y:3.95,w:8,h:0.6,fontSize:24,color:C2.teal,margin:0});
-      sl.addText((h.name||'Hospital')+' — Nucleo de Seguranca do Paciente', {x:0.55,y:6.4,w:8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
+      sl.addText((h.name||'Hospital')+' \u2014 N\u00facleo de Seguran\u00e7a do Paciente', {x:0.55,y:6.4,w:8,h:0.4,fontSize:13,color:'C8D8E8',margin:0});
       sl.addText('Gerado em '+hoje.toLocaleDateString('pt-BR'), {x:0.55,y:6.8,w:8,h:0.3,fontSize:11,color:'9FB5CC',margin:0});
 
       sl=pres.addSlide();
       sl.background={color:C2.white};
       fundoAutentico(sl);
-      sl.addText('Notificacoes por Setor — '+mesRefStr, {x:1.3,y:0.3,w:7.4,h:0.5,fontSize:19,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+      sl.addText('Notifica\u00e7\u00f5es por Setor \u2014 '+mesRefStr, {x:1.3,y:0.3,w:7.4,h:0.5,fontSize:19,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
       if(setorLabels.length>0){
         sl.addChart(pres.charts.BAR, [{name:'Notificacoes',labels:setorLabels,values:setorValues}], {
           x:0.6,y:1.15,w:8.8,h:5.6,
@@ -5759,17 +5846,17 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
           chartColors:[C2.teal],dataLabelColor:C2.navy,dataLabelFontSize:12,
         });
       } else {
-        sl.addText('Nenhuma notificacao registrada neste periodo.', {x:0.6,y:3.4,w:8.8,h:0.5,fontSize:15,color:C2.gray,align:'center',margin:0});
+        sl.addText('Nenhuma notifica\u00e7\u00e3o registrada neste per\u00edodo.', {x:0.6,y:3.4,w:8.8,h:0.5,fontSize:15,color:C2.gray,align:'center',margin:0});
       }
 
       sl=pres.addSlide();
       sl.background={color:C2.white};
       fundoAutentico(sl);
-      sl.addText('Resumo do Mes', {x:1.3,y:0.3,w:7.4,h:0.5,fontSize:19,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+      sl.addText('Resumo do M\u00eas', {x:1.3,y:0.3,w:7.4,h:0.5,fontSize:19,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
       const cards=[
-        {n:doMes.length,l:'Total de notificacoes',c:C2.navy},
-        {n:spMes,l:'Seguranca do Paciente',c:C2.blue},
-        {n:ccihMes,l:'CCIH / Infeccao',c:C2.yellow},
+        {n:doMes.length,l:'Total de notifica\u00e7\u00f5es',c:C2.navy},
+        {n:spMes,l:'Seguran\u00e7a do Paciente',c:C2.blue},
+        {n:ccihMes,l:'CCIH / Infec\u00e7\u00e3o',c:C2.yellow},
         {n:admMes,l:'Administrativa',c:C2.gray},
         {n:semRcaMes,l:'Sem RCA (pendente)',c:C2.red},
         {n:sentinelaMes,l:'Eventos sentinela',c:C2.purple},
@@ -5792,9 +5879,9 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
       sl.addText('Eventos Monitorados — '+mesRefStr+'  ·  Total: '+doMes.length, {x:1.3,y:0.3,w:7.4,h:0.45,fontSize:16,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
 
       const countRows=[
-        ['Falha na identificacao',nIdent],
-        ['Lesao por pressao (casos notificados)',nLpp],
-        ['Erro de Comunicacao / Prontuario',nCom],
+        ['Falha na identifica\u00e7\u00e3o',nIdent],
+        ['Les\u00e3o por press\u00e3o (casos notificados)',nLpp],
+        ['Erro de Comunica\u00e7\u00e3o / Prontu\u00e1rio',nCom],
         ['Falha na Cirurgia Segura',nCir],['Falha na Cadeia Medicamentosa',nMedM],
         ['Uso de Adornos',nAdorno],['Queda / quase queda',nQuedaM],
         ['Perda de AVP (casos notificados)',nAvpM],
@@ -5817,7 +5904,7 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
 
       // Cartoes KPI a direita: os itens com meta merecem destaque, nao linha de tabela
       const kpis=[
-        {t:'Incidencia de LPP',meta:lppDenTotal?'Meta < 4% · calc. sobre pac-dia TOTAL':'Meta < 4% (pac-dia com risco)',casos:cmNum('lpp')!==null?cmNum('lpp'):nLpp,manual:cmNum('lpp')!==null,pd:pdLppMes,limite:4},
+        {t:'Incid\u00eancia de LPP',meta:lppDenTotal?'Meta < 4% · calc. sobre pac-dia TOTAL':'Meta < 4% (pac-dia com risco)',casos:cmNum('lpp')!==null?cmNum('lpp'):nLpp,manual:cmNum('lpp')!==null,pd:pdLppMes,limite:4},
         {t:'Perda de AVP',meta:avpDenTotal?'Meta < 10% · calc. sobre pac-dia TOTAL':'Meta < 10% (pac-dia em uso)',casos:cmNum('avp')!==null?cmNum('avp'):nAvpM,manual:cmNum('avp')!==null,pd:pdAvpMes,limite:10},
         {t:'Eventos Sentinela',meta:'Meta: zero — RCA em 72h',casos:nSent,pd:null,limite:null},
       ];
@@ -5825,7 +5912,7 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
         const y=0.95+i*1.28;
         let valTxt,cor2,statusTxt;
         if(k.limite===null){
-          valTxt=String(k.casos);cor2=k.casos===0?C2.green:C2.red;statusTxt=k.casos===0?'DENTRO DA META':'ATENCAO';
+          valTxt=String(k.casos);cor2=k.casos===0?C2.green:C2.red;statusTxt=k.casos===0?'DENTRO DA META':'ATEN\u00c7\u00c3O';
         }else if(k.pd>0){
           const pct=k.casos/k.pd*100;
           valTxt=pct.toFixed(1)+'%';cor2=pct<k.limite?C2.green:C2.red;statusTxt=(pct<k.limite?'DENTRO DA META':'ACIMA DA META')+'  ·  '+k.casos+' caso(s)'+(k.manual?' *':'');
@@ -5866,27 +5953,27 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
           {text:fmtTx(casosLppG,pdLppMes),options:{fontSize:8.5,bold:true,align:'center',fill:{color:'EEF2F7'},color:pdLppMes>0?(casosLppG/pdLppMes*100<4?C2.green:C2.red):'64748B'}},
           {text:fmtTx(casosAvpG,pdAvpMes),options:{fontSize:8.5,bold:true,align:'center',fill:{color:'EEF2F7'},color:pdAvpMes>0?(casosAvpG/pdAvpMes*100<10?C2.green:C2.red):'64748B'}},
         ]);
-        sl.addText('Incidencia por Setor',{x:6.4,y:4.72,w:3.1,h:0.2,fontSize:9,bold:true,color:C2.navy,margin:0});
+        sl.addText('Incid\u00eancia por Setor',{x:6.4,y:4.72,w:3.1,h:0.2,fontSize:9,bold:true,color:C2.navy,margin:0});
         sl.addTable(rowsSet,{x:6.4,y:4.94,w:3.1,colW:[1.34,0.88,0.88],border:{pt:0.5,color:'E2E8F0'},rowH:0.26,fontFace:'Calibri',valign:'middle'});
       }
       const notasRodape=[];
       if(pdLppMes===0||pdAvpMes===0)notasRodape.push('N/D: preencha o paciente-dia com risco de LPP e em uso de AVP na aba Indicadores > Por Setor, ou o paciente-dia total em Indicadores > DSM.');
-      if(lppDenTotal||avpDenTotal)notasRodape.push('Taxa calculada sobre o paciente-dia TOTAL (DSM); para o denominador especifico (pac-dia com risco / em uso), preencha em Indicadores > Por Setor.');
-      if(cmNum('lpp')!==null||cmNum('avp')!==null)notasRodape.push('* casos com lancamento manual do NSP (inclui subnotificacao); a tabela mostra apenas o notificado no sistema.');
+      if(lppDenTotal||avpDenTotal)notasRodape.push('Taxa calculada sobre o paciente-dia TOTAL (DSM); para o denominador espec\u00edfico (pac-dia com risco / em uso), preencha em Indicadores > Por Setor.');
+      if(cmNum('lpp')!==null||cmNum('avp')!==null)notasRodape.push('* casos com lan\u00e7amento manual do NSP (inclui subnotifica\u00e7\u00e3o); a tabela mostra apenas o notificado no sistema.');
       if(notasRodape.length)sl.addText(notasRodape.join('  '), {x:0.5,y:6.6,w:8.9,h:0.4,fontSize:8.5,italic:true,color:C2.gray,margin:0});
 
       sl=pres.addSlide();
       sl.background={color:C2.white};
       fundoAutentico(sl);
       sl.addText('Acumulado '+anoRefN+' (Jan a '+nomesMeses[mesRefN-1]+')', {x:1.3,y:0.3,w:7.4,h:0.5,fontSize:19,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
-      sl.addChart(pres.charts.LINE, [{name:'Notificacoes por mes',labels:mesesAno.map(m=>nomesMeses[m]),values:porMesAno}], {
+      sl.addChart(pres.charts.LINE, [{name:'Notifica\u00e7\u00f5es por m\u00eas',labels:mesesAno.map(m=>nomesMeses[m]),values:porMesAno}], {
         x:0.6,y:1.15,w:8.8,h:4.6,
         lineColor:C2.teal,lineSize:3,lineDataSymbol:'circle',showValue:true,
         valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,dataLabelColor:C2.navy,
       });
       const mesesComDados=mesesAno.length||1;
       sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.6,y:5.95,w:8.8,h:0.65,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.5}});
-      sl.addText('Total no ano ate '+nomesMeses[mesRefN-1]+': '+doAno.length+' notificacoes  •  Media mensal: '+(doAno.length/mesesComDados).toFixed(1), {x:0.8,y:5.95,w:8.4,h:0.65,fontSize:13,bold:true,color:C2.tealDk,valign:'middle',margin:0});
+      sl.addText('Total no ano at\u00e9 '+nomesMeses[mesRefN-1]+': '+doAno.length+' notifica\u00e7\u00f5es  \u2022  M\u00e9dia mensal: '+(doAno.length/mesesComDados).toFixed(1), {x:0.8,y:5.95,w:8.4,h:0.65,fontSize:13,bold:true,color:C2.tealDk,valign:'middle',margin:0});
 
       await pres.writeFile({fileName:'Analise_Mensal_'+(h.short_name||'NSP')+'_'+mesPPT+'.pptx'});
       showToast('Analise mensal gerada!','success');
@@ -7007,7 +7094,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -7082,6 +7169,7 @@ function NotificaAI() {
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}

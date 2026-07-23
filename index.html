@@ -6720,117 +6720,129 @@ function CartilhaPaciente() {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 landscape;margin:0}
-*{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{width:297mm;height:209mm;display:flex;page-break-after:always;overflow:hidden}
-.p{width:99mm;height:100%;padding:7mm 6.5mm;display:flex;flex-direction:column}
-.p+.p{border-left:1px dashed #CCC}
-.hdr{font-weight:900;font-size:16px;color:#000066;display:flex;align-items:center;gap:7px;margin-bottom:5px}
-.hdr:after{content:'';flex:1;height:3px;background:#F2C230;border-radius:2px}
-svg{display:block}
-.it{display:flex;gap:7px;align-items:center;margin-bottom:4.5px;background:#F7F9FD;border-radius:12px;padding:5px 8px}
-.it .tx{font-size:10.6px;line-height:1.32}.it b{color:#000066}
-.big{font-size:12px;font-weight:900;color:#000066}
-.bub{position:relative;background:#FDF3CF;border-radius:14px;padding:8px 11px;font-weight:800;font-size:11px;color:#000066;text-align:center}
-.heib{position:relative;border:3.2px solid #000066;border-radius:18px;padding:10px 12px;font-weight:900;color:#000066;text-align:center;background:#fff;font-size:19px;line-height:1.15}
-.heib:after{content:'';position:absolute;bottom:-12px;left:26px;width:16px;height:16px;background:#F2C230;border:3.2px solid #000066;border-top:none;border-right:none;transform:rotate(-45deg)}
-.heisub{font-size:10.5px;font-weight:800;color:#333;margin-top:4px;letter-spacing:.4px}
-.qrbox{text-align:center;border:2.5px solid #000066;border-radius:14px;padding:7px;background:#fff}
-.qrbox .t{font-size:11px;font-weight:900;color:#000066;margin-bottom:4px}
-.qrbox .u{font-size:9px;color:#444;margin-top:3px;font-weight:800}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#14213D;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:297mm;height:209mm;display:flex;page-break-after:always;overflow:hidden;background:#fff}
+.p{width:99mm;height:100%;display:flex;flex-direction:column;overflow:hidden}
+.p+.p{border-left:1px dashed #C9CFDB}
+.band{background:#000066;color:#fff;padding:6mm 6mm 4mm;position:relative}
+.band .tt{font-size:17px;font-weight:900;letter-spacing:.3px}
+.band .sb{font-size:9.5px;color:#FFD34D;font-weight:800;margin-top:2px;letter-spacing:.6px}
+.band:after{content:'';position:absolute;left:0;right:0;bottom:-3.2mm;height:3.2mm;background:#F2C230}
+.body{padding:6mm 6mm 5mm;display:flex;flex-direction:column;flex:1;gap:2.6mm}
+.it{display:flex;gap:3mm;align-items:center;background:#F2F5FB;border-radius:3.5mm;padding:2.6mm 3mm;flex:1}
+.it .tx{font-size:10.8px;line-height:1.38}.it b{color:#000066}
+svg{display:block;flex-shrink:0}
+.gold{background:#FDF1C7;border:none}
+.num{min-width:8mm;height:8mm;border-radius:50%;background:#000066;color:#FFD34D;font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+.chip{display:inline-block;border:1.6px solid #000066;border-radius:99px;padding:1.4mm 3mm;font-size:9.3px;font-weight:800;color:#000066;margin:1mm 1mm 0 0;background:#fff}
+.heib{position:relative;border:1.2mm solid #000066;border-radius:5mm;padding:4mm 3mm;font-weight:900;color:#000066;text-align:center;background:#fff;line-height:1.12}
+.heib:after{content:'';position:absolute;bottom:-4.4mm;left:9mm;width:5mm;height:5mm;background:#F2C230;border:1.2mm solid #000066;border-top:none;border-right:none;transform:rotate(-45deg)}
+.qrw{background:#fff;border:1.2mm solid #000066;border-radius:5mm;padding:3.5mm;text-align:center}
+.qrw .u{font-size:11px;font-weight:900;color:#000066;margin-top:2mm;letter-spacing:.4px}
 #qr1,#qr2{display:flex;justify-content:center}
+.foot{background:#F2F5FB;border-top:1mm solid #F2C230;padding:2.6mm 6mm;font-size:8.6px;color:#4A5568;text-align:center}
+.m5{display:flex;gap:1.6mm}
+.m5 .s{flex:1;border:1.4px solid #000066;border-radius:2.5mm;padding:1.8mm 1mm;text-align:center;font-size:8.2px;font-weight:800;color:#000066;line-height:1.25;background:#F2F5FB}
+.m5 .s i{display:block;font-style:normal;font-size:12px;color:#B98A00;font-weight:900}
 @media print{.noprint{display:none}}
-.noprint{position:fixed;top:6px;right:8px;z-index:9}.noprint button{background:#000066;color:#FFCC00;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:bold;cursor:pointer}
+.noprint{position:fixed;top:6px;right:8px;z-index:9;background:#000066;color:#FFD34D;border-radius:9px;padding:8px 12px;font-size:11px;font-weight:800}
+.noprint button{background:#FFD34D;color:#000066;border:none;border-radius:7px;padding:7px 14px;font-weight:900;cursor:pointer;margin-left:8px}
 </style></head><body>
-<div class="noprint"><button onclick="window.print()">Imprimir (frente e verso)</button></div>
+<div class="noprint">Paisagem \u00b7 Escala 100% \u00b7 Frente/verso margem curta \u00b7 Gr\u00e1ficos de fundo<button onclick="window.print()">Imprimir</button></div>
 <div id="root"></div>
 <script>
 var NAVY='#000066',GOLD='#F2C230',SKIN='#F6D7B0',LB='#DCE8F8';
 function sv(vb,inner,w2){return '<svg viewBox="'+vb+'" style="width:'+w2+'mm" fill="none" stroke="'+NAVY+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">'+inner+'</svg>';}
-// mascote robo NotificaAI
-function robo(w2){return sv('0 0 100 120',
- '<line x1="50" y1="6" x2="50" y2="16"/><circle cx="50" cy="6" r="3.5" fill="'+GOLD+'"/>'+
- '<rect x="26" y="16" width="48" height="40" rx="14" fill="#fff"/>'+
- '<circle cx="41" cy="34" r="4.5" fill="'+NAVY+'"/><circle cx="59" cy="34" r="4.5" fill="'+NAVY+'"/>'+
- '<path d="M40 45 Q50 52 60 45"/>'+
- '<rect x="30" y="60" width="40" height="34" rx="12" fill="'+LB+'"/>'+
- '<path d="M50 66 l9 4 v8 c0 7 -5 11 -9 12 c-4 -1 -9 -5 -9 -12 v-8 z" fill="'+GOLD+'"/>'+
- '<path d="M45 76 l4 4 l7 -7"/>'+
- '<line x1="30" y1="72" x2="20" y2="80"/><line x1="70" y1="72" x2="80" y2="80"/>'+
- '<line x1="40" y1="94" x2="40" y2="106"/><line x1="60" y1="94" x2="60" y2="106"/>',w2);}
-// icones-cena 0 0 48 48
 var IC={
  pulseira:'<circle cx="17" cy="24" r="10" fill="'+SKIN+'"/><rect x="24" y="17" width="18" height="14" rx="4" fill="'+GOLD+'"/><line x1="28" y1="22" x2="38" y2="22"/><line x1="28" y1="26" x2="35" y2="26"/>',
  remedio:'<rect x="10" y="14" width="14" height="24" rx="4" fill="#fff"/><rect x="10" y="10" width="14" height="7" rx="2" fill="'+GOLD+'"/><ellipse cx="34" cy="30" rx="8" ry="5.5" transform="rotate(-30 34 30)" fill="'+LB+'"/><line x1="30" y1="32" x2="38" y2="27"/>',
  maos:'<path d="M12 30 q0 -12 10 -14 q-2 6 2 8 h12 q4 0 4 5 q0 9 -9 9 h-9 q-10 0 -10 -8z" fill="'+SKIN+'"/><path d="M30 8 q4 6 0 9 q-4 -3 0 -9z" fill="'+LB+'"/>',
  alergia:'<path d="M24 8 l16 28 h-32 z" fill="'+GOLD+'"/><line x1="24" y1="18" x2="24" y2="27"/><circle cx="24" cy="31.5" r="1.6" fill="'+NAVY+'"/>',
- casa:'<path d="M10 24 L24 12 L38 24" /><rect x="14" y="24" width="20" height="14" fill="#fff"/><path d="M20 32 q0 -4 4 -4 q4 0 4 4" fill="'+LB+'"/>',
+ casa:'<path d="M10 24 L24 12 L38 24"/><rect x="14" y="24" width="20" height="14" fill="#fff"/><path d="M20 32 q0 -4 4 -4 q4 0 4 4" fill="'+LB+'"/>',
  queda:'<circle cx="20" cy="12" r="5" fill="'+SKIN+'"/><path d="M20 17 l-4 10 l8 4 M16 27 l-6 8 M24 31 l4 9"/><path d="M34 12 l6 0 M37 9 l0 6" stroke="'+GOLD+'" stroke-width="3.4"/>',
  leito:'<rect x="8" y="24" width="34" height="9" rx="3" fill="'+LB+'"/><circle cx="15" cy="20" r="4.5" fill="'+SKIN+'"/><rect x="20" y="18" width="20" height="7" rx="3.5" fill="#fff"/><line x1="8" y1="33" x2="8" y2="39"/><line x1="42" y1="33" x2="42" y2="39"/>',
- cirurgia:'<rect x="10" y="10" width="22" height="28" rx="3" fill="#fff"/><path d="M14 18 l3 3 l6 -6 M14 27 l3 3 l6 -6" /><circle cx="36" cy="32" r="6" fill="'+GOLD+'"/><path d="M33 32 l2 2 l4 -4"/>',
+ cirurgia:'<rect x="10" y="10" width="22" height="28" rx="3" fill="#fff"/><path d="M14 18 l3 3 l6 -6 M14 27 l3 3 l6 -6"/><circle cx="36" cy="32" r="6" fill="'+GOLD+'"/><path d="M33 32 l2 2 l4 -4"/>',
  lupa:'<circle cx="21" cy="21" r="10" fill="#fff"/><line x1="29" y1="29" x2="39" y2="39"/><path d="M17 21 l3 3 l6 -6"/>',
  escudo:'<path d="M24 6 l14 6 v11 c0 11 -8 16 -14 18 c-6 -2 -14 -7 -14 -18 v-11 z" fill="'+GOLD+'"/><path d="M17 23 l5 5 l9 -9"/>',
- sino:'<path d="M24 8 q10 0 10 12 v6 l4 6 h-28 l4 -6 v-6 q0 -12 10 -12z" fill="'+GOLD+'"/><path d="M20 34 q4 4 8 0"/>',
- alta:'<rect x="8" y="12" width="24" height="28" rx="3" fill="#fff"/><line x1="13" y1="20" x2="27" y2="20"/><line x1="13" y1="26" x2="27" y2="26"/><line x1="13" y1="32" x2="22" y2="32"/><path d="M30 30 l8 0 m-4 -4 l4 4 l-4 4" stroke-width="3"/>'};
-function ico(n,w2){return sv('0 0 48 48',IC[n],w2||13);}
-function it(icn,txt){return '<div class="it">'+ico(icn)+'<div class="tx">'+txt+'</div></div>';}
-function meta(n,icn,txt){return '<div class="it" style="background:#FDF6DC">'+'<div style="min-width:20px;height:20px;border-radius:50%;border:2.4px solid '+NAVY+';color:'+NAVY+';font-weight:900;font-size:11px;display:flex;align-items:center;justify-content:center">'+n+'</div>'+ico(icn)+'<div class="tx"><b>'+txt+'</b></div></div>';}
+ alta:'<rect x="8" y="12" width="24" height="28" rx="3" fill="#fff"/><line x1="13" y1="20" x2="27" y2="20"/><line x1="13" y1="26" x2="27" y2="26"/><line x1="13" y1="32" x2="22" y2="32"/><path d="M30 30 l8 0 m-4 -4 l4 4 l-4 4" stroke-width="3"/>',
+ fone:'<rect x="16" y="6" width="16" height="36" rx="4" fill="#fff"/><rect x="19" y="11" width="10" height="10" fill="'+NAVY+'"/><line x1="21" y1="34" x2="27" y2="34"/>'};
+function ico(n,w2){return sv('0 0 48 48',IC[n],w2||11);}
+function it(icn,txt,cls){return '<div class="it '+(cls||'')+'">'+ico(icn)+'<div class="tx">'+txt+'</div></div>';}
+function nit(n,txt){return '<div class="it gold"><div class="num">'+n+'</div><div class="tx">'+txt+'</div></div>';}
+function hero(){return sv('0 0 120 60','<path d="M60 8 l22 8 v14 c0 16 -13 23 -22 26 c-9 -3 -22 -10 -22 -26 v-14 z" fill="'+GOLD+'"/><path d="M52 30 h6 v-6 h4 v6 h6 v4 h-6 v6 h-4 v-6 h-6 z" fill="#fff" stroke-width="2"/><circle cx="20" cy="30" r="9" fill="'+SKIN+'"/><path d="M12 52 q8 -12 16 0" fill="'+LB+'"/><circle cx="100" cy="30" r="9" fill="'+SKIN+'"/><path d="M92 52 q8 -12 16 0" fill="#fff"/>',52);}
 
+function band(t,sb){return '<div class="band"><div class="tt">'+t+'</div>'+(sb?'<div class="sb">'+sb+'</div>':'')+'</div>';}
 var html='';
-// FRENTE
+// ===== FRENTE =====
 html+='<div class="page">';
-html+='<div class="p"><div class="hdr">Voc\u00ea sabia?</div>'
- +'<div class="heib" style="margin-bottom:11px">Hei, Notifica<span style="color:'+GOLD+'">AI</span>!<div class="heisub">VIU ALGO? NOTIFIQUE.</div></div>'
- +it('lupa','<b>1 em cada 10 pacientes</b> no mundo sofre um incidente no cuidado \u2014 e a maioria <b>pode ser evitada</b>. (OMS)')
- +it('maos','A <b>higiene das m\u00e3os</b> \u00e9 a a\u00e7\u00e3o isolada que mais previne infec\u00e7\u00f5es no hospital.')
- +it('pulseira','Conferir a <b>pulseira</b> n\u00e3o \u00e9 desconfian\u00e7a: evita trocas de exame, dieta e rem\u00e9dio.')
- +it('escudo','Quem <b>pergunta e participa</b> do pr\u00f3prio cuidado tem melhores resultados.')
- +'<div style="margin-top:auto"><div class="bub">Seguran\u00e7a do paciente \u00e9 responsabilidade de <b>todos</b>: equipe, paciente e acompanhante!</div>'
- +'<div style="font-size:8.4px;color:#555;margin-top:7px;text-align:center">Hospital Naval de Salvador \u00b7 NSP \u00b7 RDC 36/2013</div></div></div>';
-html+='<div class="p"><div class="hdr">Colabore de onde estiver</div>'
- +'<div style="text-align:center"><div class="big" style="font-size:14px;line-height:1.3">Viu algo que pode melhorar?<br/>Registre voc\u00ea mesmo!</div>'
- 
- +'<div class="qrbox" style="display:inline-block;padding:8px 14px"><div id="qr1"></div><div class="u">notificaai.ia.br</div></div></div>'
- +'<div class="hdr" style="font-size:13px;margin-top:6px">Antes da alta, confira</div>'
+// P1 aba interna
+html+='<div class="p">'+band('Voc\u00ea sabia?','FATOS QUE PROTEGEM VOC\u00ca')
+ +'<div class="body">'
+ +it('lupa','<b>1 em cada 10 pacientes</b> no mundo sofre um incidente durante o cuidado \u2014 e a maioria <b>pode ser evitada</b> com atitudes simples. <i>(OMS)</i>')
+ +it('maos','A <b>higiene das m\u00e3os</b> \u00e9 a a\u00e7\u00e3o isolada que mais previne infec\u00e7\u00f5es no hospital \u2014 por isso \u00e9 repetida tantas vezes ao dia.')
+ +it('pulseira','Conferir a <b>pulseira</b> n\u00e3o \u00e9 desconfian\u00e7a: evita troca de exame, dieta e medicamento.')
+ +it('escudo','Quem <b>pergunta e participa</b> do pr\u00f3prio cuidado tem melhores resultados \u2014 participar \u00e9 se proteger.')
+ +it('lupa','<b>Quase-erro tamb\u00e9m conta:</b> registrar o que <i>quase</i> aconteceu evita que aconte\u00e7a com o pr\u00f3ximo.','gold')
+ +'</div><div class="foot">Hospital Naval de Salvador \u00b7 N\u00facleo de Seguran\u00e7a do Paciente \u00b7 RDC 36/2013 \u00b7 Programa Nacional de Seguran\u00e7a do Paciente</div></div>';
+// P2 contracapa
+html+='<div class="p">'+band('Colabore de onde estiver','PACIENTES E ACOMPANHANTES TAMB\u00c9M NOTIFICAM')
+ +'<div class="body">'
+ +'<div style="display:flex;gap:3mm;align-items:center">'+ico('fone',13)+'<div style="font-size:12.5px;font-weight:900;color:#000066;line-height:1.3">Viu algo que pode melhorar?<br/>Registre voc\u00ea mesmo, agora.</div></div>'
+ +'<div class="qrw"><div id="qr1"></div><div class="u">notificaai.ia.br</div></div>'
+ +'<div style="text-align:center"><span class="chip">\u23f1 3 minutos</span><span class="chip">an\u00f4nimo se quiser</span><span class="chip">n\u00e3o \u00e9 den\u00fancia</span></div>'
+ +'<div style="font-size:10.5px;font-weight:900;color:#000066;margin-top:1mm">Antes da alta, confira:</div>'
  +it('alta','Entendeu <b>as receitas</b>: qual rem\u00e9dio, dose e hor\u00e1rio?')
  +it('casa','Sabe <b>quando retornar</b> e os sinais de alerta em casa?')
- +it('lupa','Ficou d\u00favida? <b>Pergunte antes de sair</b> \u2014 \u00e9 seu direito.')+'</div>';
-html+='<div class="p"><div style="text-align:center;margin-top:7mm">'+'<div class="heib" style="font-size:27px;padding:15px 10px;margin:0 4mm">Hei,<br/>Notifica<span style="color:'+GOLD+'">AI</span>!</div>'
- +'<div style="font-size:26px;font-weight:900;color:'+NAVY+';line-height:1.1;margin-top:4mm">Seguran\u00e7a<br/>do Paciente</div>'
- +'<div style="width:30mm;height:2.5mm;background:'+GOLD+';border-radius:2mm;margin:4mm auto"></div>'
- +'<div style="font-size:14px;color:'+NAVY+';font-weight:900">Voc\u00ea faz parte do seu cuidado!</div>'
- +'<div style="font-size:10px;color:#444;margin-top:3mm">Cartilha do paciente e do acompanhante</div></div>'
- +'<div style="margin-top:auto;text-align:center"><div style="font-size:20px;font-weight:900;color:'+NAVY+'">Notifica<span style="color:'+GOLD+'">AI</span></div>'
- +'<div style="font-size:9.5px;color:#555">Hospital Naval de Salvador</div></div></div>';
+ +'</div></div>';
+// P3 capa
+html+='<div class="p"><div class="band" style="padding-bottom:5mm"><div class="sb">HOSPITAL NAVAL DE SALVADOR \u00b7 NSP</div><div class="tt" style="font-size:23px;margin-top:1mm">Seguran\u00e7a<br/>do Paciente</div><div style="font-size:11px;color:#DCE8F8;margin-top:2mm">Cartilha do paciente e do acompanhante</div></div>'
+ +'<div class="body" style="justify-content:space-between;text-align:center">'
+ +'<div style="display:flex;justify-content:center;margin-top:2mm">'+hero()+'</div>'
+ +'<div style="font-size:13.5px;font-weight:900;color:#000066">Voc\u00ea faz parte do seu cuidado.</div>'
+ +'<div class="heib" style="font-size:24px;margin:0 6mm 4mm">Hei,<br/>Notifica<span style="color:'+GOLD+'">AI</span>!<div style="font-size:9.5px;letter-spacing:1px;margin-top:1.5mm">VIU ALGO? NOTIFIQUE.</div></div>'
+ +'<div style="font-size:9px;color:#4A5568;margin-top:2mm">Leia nos primeiros dias de interna\u00e7\u00e3o \u2014<br/>5 minutos que evitam quedas, trocas e infec\u00e7\u00f5es.</div>'
+ +'</div></div>';
 html+='</div>';
-// VERSO
+// ===== VERSO =====
 html+='<div class="page">';
-html+='<div class="p"><div class="hdr">Atitudes seguras</div>'
- +it('pulseira','<b>Pulseira:</b> confira nome e nascimento; avise se soltar.')
- +it('remedio','<b>Medicamentos:</b> saiba o que recebe e para qu\u00ea.')
- +it('alergia','<b>Alergias:</b> informe todas \u2014 rem\u00e9dio, alimento, esparadrapo.')
+// P4 atitudes
+html+='<div class="p">'+band('Atitudes seguras','SEUS DIREITOS NA INTERNA\u00c7\u00c3O')
+ +'<div class="body">'
+ +it('pulseira','<b>Pulseira:</b> confira nome e nascimento; avise se soltar ou estiver errada.')
+ +it('remedio','<b>Medicamentos:</b> saiba o que recebe e para qu\u00ea \u2014 antes de tomar, confirme que \u00e9 para voc\u00ea.')
+ +it('alergia','<b>Alergias:</b> informe todas \u2014 rem\u00e9dio, alimento, esparadrapo \u2014 mesmo j\u00e1 tendo dito.')
  +it('casa','<b>Rem\u00e9dios de casa e ch\u00e1s:</b> conte o que usa; alguns interferem no tratamento.')
- +it('maos','<b>Higiene das m\u00e3os:</b> o \u00e1lcool gel tamb\u00e9m \u00e9 para voc\u00ea e sua visita.')
  +it('queda','<b>Tontura?</b> Use a campainha e espere apoio antes de levantar.')
  +it('leito','<b>Pele:</b> mude de posi\u00e7\u00e3o no leito e avise se notar vermelhid\u00e3o.')
- +it('cirurgia','<b>Cirurgia:</b> confirme procedimento e local certo; a marca\u00e7\u00e3o faz parte.')+'</div>';
-html+='<div class="p"><div class="hdr">As 6 metas internacionais</div>'
- +meta(1,'pulseira','Identifica\u00e7\u00e3o correta do paciente')
- +meta(2,'sino','Comunica\u00e7\u00e3o efetiva entre a equipe')
- +meta(3,'remedio','Seguran\u00e7a dos medicamentos')
- +meta(4,'cirurgia','Cirurgia segura')
- +meta(5,'maos','Higiene das m\u00e3os')
- +meta(6,'leito','Preven\u00e7\u00e3o de quedas e les\u00f5es por press\u00e3o')
- +'<div class="bub" style="margin-top:auto">Metas da <b>OMS</b>, adotadas no Brasil pelo Programa Nacional de Seguran\u00e7a do Paciente.</div></div>';
-html+='<div class="p"><div class="hdr">Viu algo? Notifique!</div>'
- +it('lupa','<b>1.</b> Algo <b>quase causou ou causou</b> um problema? Erro de rem\u00e9dio, queda, pulseira trocada, defeito\u2026')
- +it('escudo','<b>2.</b> Aponte a c\u00e2mera no <b>QR code</b> e toque em <b>Notificar</b>.')
- +it('sino','<b>3.</b> Responda o assistente: <b>3 minutos</b>, pode ser <b>an\u00f4nimo</b>.')
- +'<div class="bub" style="margin:4px 0">Depois? O hospital estuda a <b>causa</b> e cria um <b>plano de melhoria</b>. Ningu\u00e9m \u00e9 punido \u2014 o foco \u00e9 o processo!</div>'
- +'<div class="qrbox" style="margin-top:auto"><div class="t">Notifique pelo NotificaAI</div><div id="qr2"></div><div class="u">notificaai.ia.br</div></div></div>';
+ +it('cirurgia','<b>Cirurgia:</b> confirme procedimento e local certo \u2014 a marca\u00e7\u00e3o no corpo faz parte.')
+ +'</div></div>';
+// P5 metas + 5 momentos
+html+='<div class="p">'+band('As 6 metas internacionais','OMS \u00b7 PROGRAMA NACIONAL DE SEGURAN\u00c7A DO PACIENTE')
+ +'<div class="body">'
+ +nit(1,'<b>Identifica\u00e7\u00e3o correta</b> em todo exame, dieta e medica\u00e7\u00e3o')
+ +nit(2,'<b>Comunica\u00e7\u00e3o efetiva</b> entre os profissionais')
+ +nit(3,'<b>Seguran\u00e7a dos medicamentos</b>: dose, via, hor\u00e1rio e paciente certos')
+ +nit(4,'<b>Cirurgia segura</b> com checklist antes, durante e depois')
+ +nit(5,'<b>Higiene das m\u00e3os</b> nos 5 momentos do cuidado')
+ +nit(6,'<b>Preven\u00e7\u00e3o de quedas</b> e les\u00f5es por press\u00e3o')
+ +'<div style="font-size:10px;font-weight:900;color:#000066">Os 5 momentos da higiene das m\u00e3os:</div>'
+ +'<div class="m5"><div class="s"><i>1</i>antes de tocar o paciente</div><div class="s"><i>2</i>antes de procedimento limpo</div><div class="s"><i>3</i>ap\u00f3s risco de fluidos</div><div class="s"><i>4</i>ap\u00f3s tocar o paciente</div><div class="s"><i>5</i>ap\u00f3s tocar o entorno</div></div>'
+ +'</div></div>';
+// P6 notifique
+html+='<div class="p">'+band('Viu algo? Notifique!','SUA INFORMA\u00c7\u00c3O PROTEGE O PR\u00d3XIMO PACIENTE')
+ +'<div class="body">'
+ +nit(1,'Algo <b>quase causou ou causou</b> um problema? Vale registrar.')
+ +nit(2,'Aponte a c\u00e2mera no <b>QR code</b> ou digite <b>notificaai.ia.br</b> e toque em <b>Notificar</b>.')
+ +nit(3,'Responda o assistente: <b>3 minutos</b>, an\u00f4nimo se preferir.')
+ +'<div>O que registrar? '+'<span class="chip">erro de rem\u00e9dio</span><span class="chip">queda</span><span class="chip">pulseira trocada</span><span class="chip">equipamento com defeito</span><span class="chip">quase-erro</span></div>'
+ +it('escudo','<b>E depois?</b> O hospital estuda a causa e cria um plano de melhoria. Ningu\u00e9m \u00e9 punido \u2014 o foco \u00e9 o processo.','gold')
+ +'<div class="qrw"><div id="qr2"></div><div class="u">notificaai.ia.br</div></div>'
+ +'</div></div>';
 html+='</div>';
 document.getElementById('root').innerHTML=html;
-new QRCode(document.getElementById('qr1'),{text:'https://notificaai.ia.br',width:108,height:108,correctLevel:QRCode.CorrectLevel.M});
-new QRCode(document.getElementById('qr2'),{text:'https://notificaai.ia.br',width:82,height:82,correctLevel:QRCode.CorrectLevel.M});
+new QRCode(document.getElementById('qr1'),{text:'https://notificaai.ia.br',width:132,height:132,correctLevel:QRCode.CorrectLevel.M});
+new QRCode(document.getElementById('qr2'),{text:'https://notificaai.ia.br',width:92,height:92,correctLevel:QRCode.CorrectLevel.M});
 <\/script>
 </body></html>`);
     w.document.close();

@@ -6716,52 +6716,155 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
 function CartilhaPaciente() {
   const imprimirCartilha=()=>{
     const w=window.open('','_blank');
-    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartilha de Seguran\u00e7a do Paciente - HNSA</title>
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartilha do Paciente - HNSA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
-@page{size:A4;margin:12mm}body{font-family:Calibri,Arial,sans-serif;color:#1E293B;margin:0}
-.hd{background:#000066;color:#fff;padding:16px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center}
-.hd h1{margin:0;font-size:22px}.hd .sub{color:#FFCC00;font-size:13px;margin-top:4px}
-h2{color:#000066;font-size:15px;border-bottom:2px solid #FFCC00;padding-bottom:3px;margin:14px 0 8px}
-.cols{display:flex;gap:16px}.col{flex:1}
-ul{margin:6px 0;padding-left:18px;font-size:11.5px;line-height:1.55}
-.meta{background:#F1F5F9;border-left:4px solid #000066;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:11px}
+@page{size:A4 landscape;margin:0}
+*{box-sizing:border-box}body{font-family:Calibri,Arial,sans-serif;color:#1E293B;margin:0}
+.page{width:297mm;height:209mm;display:flex;page-break-after:always;overflow:hidden}
+.p{width:99mm;height:100%;padding:9mm 8mm;position:relative}
+.p+.p{border-left:1px dashed #D8DEE8}
+.navy{background:#000066;color:#fff}
+h2{font-size:13.5px;color:#000066;margin:0 0 6px;border-bottom:2.5px solid #FFCC00;padding-bottom:3px}
+ul{margin:4px 0;padding-left:0;list-style:none}
+li{font-size:9.6px;line-height:1.45;margin-bottom:6px;display:flex;gap:6px}
+li .ic{font-size:13px;flex-shrink:0;width:16px;text-align:center}
+.meta{background:#F1F5F9;border-left:4px solid #000066;border-radius:5px;padding:5px 8px;margin-bottom:5px;font-size:9.6px}
 .meta b{color:#000066}
-.qrbox{text-align:center;border:2px dashed #BF8D07;border-radius:10px;padding:10px;margin-top:10px}
-.qrbox .t{font-size:12px;font-weight:bold;color:#000066;margin-bottom:6px}
-#qr{display:flex;justify-content:center}
-.ft{margin-top:12px;background:#000066;color:#FFCC00;text-align:center;border-radius:8px;padding:8px;font-size:11px;font-weight:bold}
+.passo{display:flex;gap:7px;align-items:flex-start;margin-bottom:7px}
+.passo .n{width:17px;height:17px;border-radius:50%;background:#000066;color:#FFCC00;font-weight:900;font-size:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.passo .t{font-size:9.6px;line-height:1.4}
+.qrbox{text-align:center;border:2.5px dashed #BF8D07;border-radius:9px;padding:7px;background:#FFFDF4}
+.qrbox .t{font-size:9.5px;font-weight:bold;color:#000066;margin-bottom:5px}
+.qrbox .u{font-size:8.5px;color:#64748B;margin-top:4px}
+#qr1,#qr2{display:flex;justify-content:center}
+.gold{background:#FFCC00;color:#000066;border-radius:8px;padding:8px 10px;font-weight:900}
+.tag{font-size:8.5px;color:#64748B;font-style:italic}
 @media print{.noprint{display:none}}
-.noprint{text-align:center;margin:10px}.noprint button{background:#000066;color:#FFCC00;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:bold;cursor:pointer}
+.noprint{position:fixed;top:6px;right:8px;z-index:9}
+.noprint button{background:#000066;color:#FFCC00;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:bold;cursor:pointer}
 </style></head><body>
-<div class="noprint"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
-<div class="hd"><div><h1>Seguran\u00e7a do Paciente</h1><div class="sub">Voc\u00ea faz parte do seu cuidado \u2014 Hospital Naval de Salvador</div></div><div style="font-size:26px;font-weight:900">NotificaAI</div></div>
-<div class="cols"><div class="col">
-<h2>Seus direitos durante a interna\u00e7\u00e3o</h2>
-<ul><li>Ser identificado corretamente pela <b>pulseira</b> \u2014 confira nome completo e data de nascimento; avise se estiver errada ou soltar.</li>
-<li>Saber <b>quais medicamentos</b> recebe e para qu\u00ea. Pergunte sempre.</li>
-<li>Ver a equipe <b>higienizar as m\u00e3os</b> antes de tocar em voc\u00ea \u2014 pode cobrar, sem constrangimento.</li>
-<li>Pedir ajuda antes de levantar se sentir tontura ou fraqueza (preven\u00e7\u00e3o de <b>quedas</b>).</li>
-<li>Ter dor avaliada e tratada; mudar de posi\u00e7\u00e3o no leito (preven\u00e7\u00e3o de <b>les\u00e3o por press\u00e3o</b>).</li>
-<li>Antes de cirurgia: confirmar <b>procedimento e local certo</b> com a equipe.</li></ul>
-<h2>As 6 metas internacionais</h2>
-<div class="meta"><b>1.</b> Identifica\u00e7\u00e3o correta do paciente</div>
-<div class="meta"><b>2.</b> Comunica\u00e7\u00e3o efetiva entre a equipe</div>
-<div class="meta"><b>3.</b> Seguran\u00e7a dos medicamentos</div>
-<div class="meta"><b>4.</b> Cirurgia segura</div>
-<div class="meta"><b>5.</b> Higiene das m\u00e3os</div>
-<div class="meta"><b>6.</b> Preven\u00e7\u00e3o de quedas e les\u00f5es por press\u00e3o</div>
-</div><div class="col">
-<h2>Viu algo? Notifique!</h2>
-<ul><li>Qualquer situa\u00e7\u00e3o que quase causou ou causou dano pode ser comunicada: erro de medica\u00e7\u00e3o, queda, identifica\u00e7\u00e3o trocada, atraso, equipamento com defeito.</li>
-<li>A notifica\u00e7\u00e3o <b>n\u00e3o \u00e9 den\u00fancia</b>: serve para o hospital aprender e prevenir. Pode ser <b>an\u00f4nima</b>.</li>
-<li>Pacientes e acompanhantes tamb\u00e9m podem notificar \u2014 fale com a enfermagem ou use o QR code abaixo.</li></ul>
-<div class="qrbox"><div class="t">Aponte a c\u00e2mera do celular<br/>e notifique pelo NotificaAI</div><div id="qr"></div><div style="font-size:10px;color:#64748B;margin-top:6px">notificaai.ia.br</div></div>
-<h2>Fale com o NSP</h2>
-<ul><li>N\u00facleo de Seguran\u00e7a do Paciente \u2014 HNSA.</li><li>Procure a enfermagem do setor e pe\u00e7a para falar com o NSP.</li></ul>
-</div></div>
-<div class="ft">Guarde esta cartilha \u2014 sua participa\u00e7\u00e3o torna o cuidado mais seguro.</div>
-<script>new QRCode(document.getElementById('qr'),{text:'https://notificaai.ia.br',width:110,height:110,correctLevel:QRCode.CorrectLevel.M});<\/script>
+<div class="noprint"><button onclick="window.print()">Imprimir (frente e verso)</button></div>
+
+<!-- FRENTE: aba interna | contracapa | CAPA -->
+<div class="page">
+  <div class="p">
+    <h2>Fale com o NSP</h2>
+    <ul>
+      <li><span class="ic">\ud83e\udd1d</span><span>O <b>N\u00facleo de Seguran\u00e7a do Paciente (NSP)</b> \u00e9 a equipe do HNSA dedicada a tornar o seu cuidado mais seguro.</span></li>
+      <li><span class="ic">\ud83d\udde3</span><span>Procure a <b>enfermagem do seu setor</b> e pe\u00e7a para falar com o NSP \u2014 sugest\u00f5es, d\u00favidas e relatos s\u00e3o bem-vindos.</span></li>
+      <li><span class="ic">\u2705</span><span>Sua notifica\u00e7\u00e3o <b>n\u00e3o \u00e9 den\u00fancia</b> e n\u00e3o prejudica ningu\u00e9m: ela ajuda o hospital a aprender e prevenir.</span></li>
+      <li><span class="ic">\ud83d\udd12</span><span>Pode ser <b>an\u00f4nima</b>. Nenhum dado seu \u00e9 obrigat\u00f3rio.</span></li>
+    </ul>
+    <div style="position:absolute;bottom:9mm;left:8mm;right:8mm">
+      <div class="gold" style="text-align:center;font-size:10px">Guarde esta cartilha \u2014 sua participa\u00e7\u00e3o torna o cuidado mais seguro.</div>
+      <div class="tag" style="margin-top:5px;text-align:center">Hospital Naval de Salvador \u00b7 N\u00facleo de Seguran\u00e7a do Paciente \u00b7 RDC 36/2013</div>
+    </div>
+  </div>
+  <div class="p">
+    <div style="text-align:center;margin-top:4mm">
+      <div style="font-size:15px;font-weight:900;color:#000066;line-height:1.25">Voc\u00ea sabia que pode colaborar<br/>para um cuidado mais seguro?</div>
+      <div style="font-size:10px;color:#334155;margin:7px 0 9px">Pacientes e acompanhantes tamb\u00e9m notificam.<br/>Aponte a c\u00e2mera do celular:</div>
+      <div class="qrbox" style="display:inline-block;padding:10px 14px">
+        <div id="qr1"></div>
+        <div class="u">notificaai.ia.br</div>
+      </div>
+      <div style="font-size:9.5px;color:#334155;margin-top:9px">Sem celular? Pe\u00e7a \u00e0 enfermagem \u2014 ela notifica por voc\u00ea.</div>
+    </div>
+  </div>
+  <div class="p navy">
+    <div style="margin-top:14mm">
+      <div style="font-size:26px;font-weight:900;line-height:1.1">Seguran\u00e7a<br/>do Paciente</div>
+      <div style="width:26mm;height:2.5mm;background:#FFCC00;margin:6mm 0"></div>
+      <div style="font-size:13px;color:#FFCC00;font-weight:bold">Voc\u00ea faz parte do seu cuidado</div>
+      <div style="font-size:10px;color:#C8D8E8;margin-top:3mm">Cartilha do paciente e do acompanhante</div>
+    </div>
+    <div style="position:absolute;bottom:10mm;left:8mm;right:8mm">
+      <div style="font-size:19px;font-weight:900">NotificaAI</div>
+      <div style="font-size:9.5px;color:#C8D8E8">Hospital Naval de Salvador \u2014 NSP</div>
+    </div>
+  </div>
+</div>
+
+<!-- VERSO (parte interna): direitos | 6 metas | como notificar -->
+<div class="page">
+  <div class="p">
+    <h2>Seus direitos na interna\u00e7\u00e3o</h2>
+    <ul>
+      <li><span class="ic">\ud83c\udff7</span><span>Ser identificado pela <b>pulseira</b> \u2014 confira nome e data de nascimento; avise se estiver errada ou soltar.</span></li>
+      <li><span class="ic">\ud83d\udc8a</span><span>Saber <b>quais medicamentos</b> recebe e para qu\u00ea. Pergunte sempre.</span></li>
+      <li><span class="ic">\ud83e\uddfc</span><span>Ver a equipe <b>higienizar as m\u00e3os</b> antes de tocar em voc\u00ea \u2014 pode cobrar, sem constrangimento.</span></li>
+      <li><span class="ic">\ud83d\udeb6</span><span>Pedir ajuda antes de levantar se sentir tontura (<b>preven\u00e7\u00e3o de quedas</b>).</span></li>
+      <li><span class="ic">\ud83d\udecf</span><span>Ter a dor avaliada e mudar de posi\u00e7\u00e3o no leito (<b>preven\u00e7\u00e3o de les\u00e3o por press\u00e3o</b>).</span></li>
+      <li><span class="ic">\u2702</span><span>Antes de cirurgia: confirmar <b>procedimento e local certo</b> com a equipe.</span></li>
+    </ul>
+  </div>
+  <div class="p">
+    <h2>As 6 metas internacionais</h2>
+    <div class="meta"><b>1. Identifica\u00e7\u00e3o correta</b> do paciente</div>
+    <div class="meta"><b>2. Comunica\u00e7\u00e3o efetiva</b> entre a equipe</div>
+    <div class="meta"><b>3. Seguran\u00e7a dos medicamentos</b></div>
+    <div class="meta"><b>4. Cirurgia segura</b></div>
+    <div class="meta"><b>5. Higiene das m\u00e3os</b></div>
+    <div class="meta"><b>6. Preven\u00e7\u00e3o de quedas</b> e les\u00f5es por press\u00e3o</div>
+    <div style="margin-top:6px" class="tag">Metas da Organiza\u00e7\u00e3o Mundial da Sa\u00fade adotadas pelo Programa Nacional de Seguran\u00e7a do Paciente.</div>
+  </div>
+  <div class="p">
+    <h2>Viu algo? Notifique!</h2>
+    <div class="passo"><div class="n">1</div><div class="t">Percebeu algo que <b>quase causou ou causou</b> um problema? Erro de medica\u00e7\u00e3o, queda, pulseira trocada, atraso, equipamento com defeito\u2026</div></div>
+    <div class="passo"><div class="n">2</div><div class="t">Aponte a c\u00e2mera do celular no QR code (ou acesse <b>notificaai.ia.br</b>) e toque em <b>Notificar</b>.</div></div>
+    <div class="passo"><div class="n">3</div><div class="t">Responda o passo a passo do assistente. Leva <b>menos de 3 minutos</b> e pode ser <b>an\u00f4nimo</b>.</div></div>
+    <div class="qrbox" style="margin-top:6px">
+      <div class="t">Notifique pelo NotificaAI</div>
+      <div id="qr2"></div>
+      <div class="u">notificaai.ia.br</div>
+    </div>
+  </div>
+</div>
+<script>
+new QRCode(document.getElementById('qr1'),{text:'https://notificaai.ia.br',width:120,height:120,correctLevel:QRCode.CorrectLevel.M});
+new QRCode(document.getElementById('qr2'),{text:'https://notificaai.ia.br',width:88,height:88,correctLevel:QRCode.CorrectLevel.M});
+<\/script>
+</body></html>`);
+    w.document.close();
+  };
+  const imprimirCartaz=()=>{
+    const w=window.open('','_blank');
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - Hei, NotificaAI!</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box}body{margin:0;font-family:Calibri,Arial,sans-serif}
+.poster{width:210mm;height:296mm;background:#000066;color:#fff;padding:16mm 14mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+.hei{font-size:64px;font-weight:900;line-height:1.02;margin-top:6mm}
+.hei .ai{color:#FFCC00}
+.bar{width:52mm;height:3mm;background:#FFCC00;margin:8mm 0}
+.chamada{font-size:24px;font-weight:800;line-height:1.3}
+.sub{font-size:15px;color:#C8D8E8;margin-top:4mm;line-height:1.5}
+.qrwrap{background:#fff;border-radius:14px;padding:9mm;margin:10mm 0 6mm;box-shadow:0 0 0 3mm #FFCC00}
+#qr{display:flex;justify-content:center}
+.url{font-size:19px;font-weight:900;color:#FFCC00;letter-spacing:.5px}
+.pill{display:inline-block;background:rgba(255,204,0,.14);border:1.5px solid #FFCC00;color:#FFCC00;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:800;margin:3px}
+.ft{margin-top:auto;font-size:11.5px;color:#C8D8E8}
+@media print{.noprint{display:none}}
+.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#FFCC00;color:#000066;border:none;border-radius:8px;padding:10px 20px;font-weight:900;cursor:pointer;font-size:13px}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">Imprimir</button></div>
+<div class="poster">
+  <div class="hei">Hei, <span class="ai">NotificaAI!</span></div>
+  <div class="bar"></div>
+  <div class="chamada">Viu algo errado? Quase aconteceu?<br/>N\u00e3o guarde s\u00f3 pra voc\u00ea.</div>
+  <div class="sub">Erro de medica\u00e7\u00e3o \u00b7 queda \u00b7 identifica\u00e7\u00e3o trocada \u00b7 equipamento com defeito<br/>quase-erro tamb\u00e9m conta \u2014 <b>notificar \u00e9 cuidar</b>.</div>
+  <div class="qrwrap"><div id="qr"></div></div>
+  <div class="url">notificaai.ia.br</div>
+  <div style="margin-top:7mm">
+    <span class="pill">\u23f1 menos de 3 minutos</span>
+    <span class="pill">\ud83d\udd12 pode ser an\u00f4nimo</span>
+    <span class="pill">\u2705 n\u00e3o \u00e9 den\u00fancia</span>
+  </div>
+  <div class="ft">Hospital Naval de Salvador \u2014 N\u00facleo de Seguran\u00e7a do Paciente<br/>Pacientes, acompanhantes e profissionais: todos podem notificar.</div>
+</div>
+<script>new QRCode(document.getElementById('qr'),{text:'https://notificaai.ia.br',width:210,height:210,correctLevel:QRCode.CorrectLevel.M});<\/script>
 </body></html>`);
     w.document.close();
   };
@@ -6831,6 +6934,7 @@ ul{margin:6px 0;padding-left:18px;font-size:11.5px;line-height:1.55}
       <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
       <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Segurança do Paciente</div>
       <button onClick={imprimirCartilha} style={{background:C.teal+"18",border:"1px solid "+C.teal+"55",borderRadius:10,padding:"8px 14px",color:C.teal,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>{String.fromCodePoint(128424)+" Baixar para impress\u00e3o (com QR code)"}</button>
+      <button onClick={imprimirCartaz} style={{background:"#FFCC0018",border:"1px solid #BF8D0766",borderRadius:10,padding:"8px 14px",color:"#BF8D07",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128226)+" Cartaz A4 \u201cHei, NotificaAI!\u201d (setores)"}</button>
       <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para você e seus familiares</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
         {[

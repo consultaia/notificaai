@@ -6716,7 +6716,7 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
 function CartilhaPaciente() {
   const imprimirCartilha=()=>{
     const w=window.open('','_blank');
-    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartilha do Paciente - HNSA</title>
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Folder do Paciente - HNSA</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 landscape;margin:0}
@@ -6725,10 +6725,10 @@ body{font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#243B53;-webkit-print
 .page{width:297mm;height:209mm;display:flex;page-break-after:always;overflow:hidden;background:#fff}
 .p{width:99mm;height:100%;padding:10mm 8mm;position:relative;overflow:hidden;display:flex;flex-direction:column}
 .p+.p{border-left:1px dashed #E1E6EF}
-h1{font-size:21px;line-height:1.12;color:#1D6FE8;font-weight:900;margin:0 0 4mm}
+h1{font-size:25px;line-height:1.12;color:#1D6FE8;font-weight:900;margin:0 0 4mm}
 h1 span{color:#000066}
-.li{display:flex;gap:2.6mm;margin-bottom:3.4mm;font-size:10.8px;line-height:1.45}
-.li .b{color:#F2A800;font-weight:900;font-size:13px;line-height:1.1}
+.li{display:flex;gap:3mm;margin-bottom:4.6mm;font-size:12.4px;line-height:1.5}
+.li .b{color:#F2A800;font-weight:900;font-size:16px;line-height:1.05}
 .li b{color:#000066}
 .fig{width:33mm;height:33mm;border-radius:50%;background:#EAF1FD;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.8mm #fff,0 0 0 3mm #1D6FE8}
 .figG{box-shadow:0 0 0 1.8mm #fff,0 0 0 3mm #F2C230}
@@ -6744,7 +6744,7 @@ svg{display:block}
 #qr1,#qr2{display:flex;justify-content:center}
 .heib{position:relative;border:1.1mm solid #fff;border-radius:5mm;padding:3.5mm 3mm;font-weight:900;color:#fff;text-align:center;line-height:1.12}
 .heib:after{content:'';position:absolute;bottom:-4mm;left:9mm;width:4.5mm;height:4.5mm;background:#F2C230;border:1.1mm solid #fff;border-top:none;border-right:none;transform:rotate(-45deg)}
-.tag{font-size:9px;letter-spacing:1.4px;font-weight:900;color:#1D6FE8;margin-bottom:2mm}
+.tag{font-size:9.8px;letter-spacing:1.4px;font-weight:900;color:#1D6FE8;margin-bottom:2mm}
 .foot{margin-top:auto;font-size:8.6px;color:#5A6B85;border-top:2px solid #EAF1FD;padding-top:2.5mm}
 @media print{.noprint{display:none}}
 .noprint{position:fixed;top:6px;right:8px;z-index:9;background:#000066;color:#FFD34D;border-radius:9px;padding:8px 12px;font-size:11px;font-weight:800}
@@ -6776,9 +6776,9 @@ var html='';
 html+='<div class="page">';
 // P1
 html+='<div class="p">'
- +'<span class="pl" style="top:7mm;right:9mm">+</span><span class="dot o" style="top:16mm;right:20mm"></span><span class="pl b s" style="bottom:34mm;right:8mm">+</span><span class="dot" style="bottom:14mm;left:6mm"></span>'
+ +''
  +'<div class="tag">FATOS QUE PROTEGEM VOC\u00ca</div><h1>Voc\u00ea<br/>sabia?</h1>'
- +'<div style="display:flex;justify-content:center;margin:2mm 0 5mm">'+fig('lupa')+'</div>'
+ +'<div style="display:flex;justify-content:center;margin:2mm 0 5mm">'+'</div>'
  +li('<b>1 em cada 10 pacientes</b> no mundo sofre um incidente no cuidado \u2014 e a maioria <b>pode ser evitada</b>. (OMS)')
  +li('A <b>higiene das m\u00e3os</b> \u00e9 a a\u00e7\u00e3o que mais previne infec\u00e7\u00f5es no hospital.')
  +li('Conferir a <b>pulseira</b> evita troca de exame, dieta e medicamento.')
@@ -6787,9 +6787,9 @@ html+='<div class="p">'
  +'<div class="foot">Hospital Naval de Salvador \u00b7 N\u00facleo de Seguran\u00e7a do Paciente \u00b7 RDC 36/2013</div></div>';
 // P2
 html+='<div class="p">'
- +'<span class="pl b" style="top:8mm;right:8mm">+</span><span class="dot" style="top:30mm;left:6mm"></span><span class="pl s" style="bottom:12mm;right:10mm">+</span>'
+ +''
  +'<div class="tag">PACIENTES E ACOMPANHANTES TAMB\u00c9M</div><h1>Colabore de<br/><span>onde estiver</span></h1>'
- +'<div style="display:flex;align-items:center;gap:4mm;margin-bottom:4mm">'+fig('fone',1)+'<div style="font-size:11.5px;font-weight:900;color:#000066;line-height:1.35">Viu algo que pode<br/>melhorar? Registre<br/>voc\u00ea mesmo, agora.</div></div>'
+ +'<div style="display:flex;align-items:center;gap:4mm;margin-bottom:4mm">'+'<div style="font-size:13.5px;font-weight:900;color:#000066;line-height:1.4">Viu algo que pode<br/>melhorar? Registre<br/>voc\u00ea mesmo, agora.</div></div>'
  +'<div style="position:relative"><div class="qrw"><div id="qr1"></div><div class="u">notificaai.ia.br</div></div>'
  +'<div class="badge" style="position:absolute;top:-6mm;right:-2mm"><i>3</i>min</div></div>'
  +'<div style="margin:4mm 0 2mm;font-size:10px;font-weight:900;color:#1D6FE8;letter-spacing:.6px">AN\u00d4NIMO SE QUISER \u00b7 N\u00c3O \u00c9 DEN\u00daNCIA</div>'
@@ -6798,11 +6798,11 @@ html+='<div class="p">'
  +'</div>';
 // P3 capa azul
 html+='<div class="p" style="background:'+BLUE+';color:#fff">'
- +'<span class="pl" style="top:9mm;left:8mm">+</span><span class="dot" style="top:20mm;right:9mm"></span><span class="pl s" style="top:44mm;right:16mm;color:#fff">+</span><span class="dot o" style="bottom:60mm;left:7mm;border-color:#fff"></span>'
+ +''
  +'<div class="tag" style="color:#FFD34D">HOSPITAL NAVAL DE SALVADOR \u00b7 NSP</div>'
  +'<div style="font-size:25px;font-weight:900;line-height:1.12">Seguran\u00e7a do<br/>paciente come\u00e7a<br/>com <span style="color:#FFD34D">voc\u00ea</span>.</div>'
- +'<div style="font-size:10.5px;color:#EAF1FD;margin-top:3mm">Cartilha do paciente e do acompanhante \u2014 leia nos primeiros dias de interna\u00e7\u00e3o.</div>'
- +'<div style="display:flex;justify-content:center;margin:7mm 0">'+ '<div class="fig" style="background:#fff;box-shadow:0 0 0 1.8mm '+BLUE+',0 0 0 3mm #fff">'+sv('0 0 48 48',IC.hero,19)+'</div>'+'</div>'
+ +'<div style="font-size:12px;color:#EAF1FD;margin-top:3mm">Cartilha do paciente e do acompanhante \u2014 leia nos primeiros dias de interna\u00e7\u00e3o.</div>'
+ 
  +'<div class="heib" style="font-size:22px;margin:0 8mm">Hei,<br/>Notifica<span style="color:#FFD34D">AI</span>!<div style="font-size:9px;letter-spacing:1.2px;margin-top:1.5mm">VIU ALGO? NOTIFIQUE.</div></div>'
  +'<div style="margin-top:auto;text-align:center;font-size:9px;color:#EAF1FD">notificaai.ia.br</div></div>';
 html+='</div>';
@@ -6810,9 +6810,9 @@ html+='</div>';
 html+='<div class="page">';
 // P4
 html+='<div class="p">'
- +'<span class="pl" style="top:8mm;right:9mm">+</span><span class="dot b" style="bottom:20mm;right:7mm"></span>'
+ +''
  +'<div class="tag">SEUS DIREITOS NA INTERNA\u00c7\u00c3O</div><h1>Atitudes<br/><span>seguras</span></h1>'
- +'<div style="display:flex;gap:4mm;justify-content:center;margin:1mm 0 4mm">'+fig('pulseira')+fig('maos',1)+'</div>'
+ +'<div style="display:flex;gap:4mm;justify-content:center;margin:1mm 0 4mm">'+'</div>'
  +li('<b>Pulseira:</b> confira nome e nascimento; avise se soltar.')
  +li('<b>Medicamentos:</b> saiba o que recebe e para qu\u00ea.')
  +li('<b>Alergias:</b> informe todas \u2014 rem\u00e9dio, alimento, esparadrapo.')
@@ -6823,9 +6823,9 @@ html+='<div class="p">'
  +'</div>';
 // P5
 html+='<div class="p">'
- +'<span class="pl b" style="top:9mm;right:8mm">+</span><span class="dot" style="top:52mm;left:6mm"></span><span class="pl s" style="bottom:10mm;left:8mm">+</span>'
+ +''
  +'<div class="tag">OMS \u00b7 PROGRAMA NACIONAL</div><h1>As 6 metas<br/><span>internacionais</span></h1>'
- +'<div style="display:flex;gap:4mm;justify-content:center;margin:1mm 0 4mm">'+fig('remedio',1)+fig('cirurgia')+'</div>'
+ +'<div style="display:flex;gap:4mm;justify-content:center;margin:1mm 0 4mm">'+'</div>'
  +li('<b>1. Identifica\u00e7\u00e3o correta</b> em todo exame, dieta e medica\u00e7\u00e3o.')
  +li('<b>2. Comunica\u00e7\u00e3o efetiva</b> entre os profissionais.')
  +li('<b>3. Seguran\u00e7a dos medicamentos:</b> dose, via, hor\u00e1rio, paciente.')
@@ -6835,9 +6835,9 @@ html+='<div class="p">'
  +'</div>';
 // P6
 html+='<div class="p">'
- +'<span class="pl" style="top:8mm;left:60mm">+</span><span class="dot o" style="top:26mm;right:7mm"></span>'
+ +''
  +'<div class="tag">SUA INFORMA\u00c7\u00c3O PROTEGE O PR\u00d3XIMO</div><h1>Viu algo?<br/><span>Notifique!</span></h1>'
- +'<div style="display:flex;justify-content:center;margin:1mm 0 4mm">'+fig('escudo',1)+'</div>'
+ +'<div style="display:flex;justify-content:center;margin:1mm 0 4mm">'+'</div>'
  +li('Algo <b>quase causou ou causou</b> um problema? Vale registrar: erro de rem\u00e9dio, queda, pulseira trocada, defeito.')
  +li('Aponte a c\u00e2mera no <b>QR code</b> ou digite <b>notificaai.ia.br</b>.')
  +li('Responda o assistente: <b>3 minutos</b>, an\u00f4nimo se preferir.')

@@ -6720,97 +6720,107 @@ function CartilhaPaciente() {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 landscape;margin:0}
-*{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#1E293B;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+*{box-sizing:border-box}body{margin:0;font-family:'Segoe UI',Calibri,Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{width:297mm;height:209mm;display:flex;page-break-after:always;overflow:hidden}
-.p{width:99mm;height:100%;padding:8mm 7mm;position:relative}
-.hdr{border-radius:12px;color:#fff;font-weight:900;font-size:15px;padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.hdr .e{font-size:20px}
-.card{display:flex;gap:8px;align-items:flex-start;background:#fff;border-radius:11px;padding:7px 9px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,60,.12)}
-.card .ic{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-.card .tx{font-size:10.3px;line-height:1.42}
-.meta{display:flex;gap:8px;align-items:center;background:#fff;border-radius:11px;padding:7px 9px;margin-bottom:6px;box-shadow:0 1px 3px rgba(0,0,60,.12)}
-.meta .n{width:24px;height:24px;border-radius:50%;background:#FFCC00;color:#000066;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.meta .tx{font-size:10.6px;font-weight:700;color:#000066}
-.passo{display:flex;gap:8px;align-items:flex-start;margin-bottom:7px;background:#fff;border-radius:11px;padding:7px 9px;box-shadow:0 1px 3px rgba(0,0,60,.12)}
-.passo .n{width:24px;height:24px;border-radius:50%;background:#000066;color:#FFCC00;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.passo .t{font-size:10.3px;line-height:1.42}
-.qrbox{text-align:center;background:#fff;border-radius:12px;padding:8px;box-shadow:0 1px 4px rgba(0,0,60,.18)}
+.p{width:99mm;height:100%;padding:8mm 7mm;display:flex;flex-direction:column}
+.p+.p{border-left:1px dashed #BBB}
+.hdr{border:2.2px solid #000066;border-radius:11px;font-weight:900;font-size:14.5px;color:#000066;padding:7px 11px;display:flex;align-items:center;gap:8px;margin-bottom:7px;background:#F4F6FB}
+.hdr .e{font-size:19px}
+.card{display:flex;gap:8px;align-items:flex-start;border:1.4px solid #C7CEDB;border-radius:10px;padding:6px 9px;margin-bottom:5px;background:#fff}
+.card .ic{width:24px;height:24px;border-radius:50%;border:1.6px solid #000066;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;background:#fff}
+.card .tx{font-size:10.4px;line-height:1.42}
+.meta{display:flex;gap:8px;align-items:flex-start;border:1.4px solid #C7CEDB;border-radius:10px;padding:6px 9px;margin-bottom:5px}
+.meta .n{width:22px;height:22px;border-radius:50%;border:2px solid #BF8D07;color:#BF8D07;font-weight:900;font-size:11.5px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.meta .tx{font-size:10.2px;line-height:1.4}.meta b{color:#000066}
+.sabia{border:2px dashed #BF8D07;border-radius:10px;background:#FDFAF0;padding:6px 9px;margin-bottom:5px;font-size:10px;line-height:1.45}
+.sabia b{color:#000066}
+.qrbox{text-align:center;border:2.2px solid #000066;border-radius:12px;padding:8px;background:#fff}
 .qrbox .t{font-size:11px;font-weight:900;color:#000066;margin-bottom:5px}
-.qrbox .u{font-size:9px;color:#64748B;margin-top:4px;font-weight:700}
+.qrbox .u{font-size:9px;color:#444;margin-top:4px;font-weight:700}
 #qr1,#qr2{display:flex;justify-content:center}
-.bub{background:#FFCC00;color:#000066;border-radius:14px;padding:9px 12px;font-weight:900;font-size:12.5px;text-align:center;position:relative}
-.bub:after{content:'';position:absolute;bottom:-7px;left:24px;border:8px solid transparent;border-top-color:#FFCC00;border-bottom:0}
+.bub{border:2.2px solid #BF8D07;background:#FDF6DC;color:#000066;border-radius:13px;padding:8px 11px;font-weight:900;font-size:11.5px;text-align:center}
+h4{margin:5px 0 4px;font-size:11px;color:#000066}
 @media print{.noprint{display:none}}
 .noprint{position:fixed;top:6px;right:8px;z-index:9}.noprint button{background:#000066;color:#FFCC00;border:none;border-radius:8px;padding:9px 18px;font-size:13px;font-weight:bold;cursor:pointer}
 </style></head><body>
 <div class="noprint"><button onclick="window.print()">Imprimir (frente e verso)</button></div>
 
 <div class="page">
-  <div class="p" style="background:#EDF2FA">
-    <div class="hdr" style="background:#0D9488"><span class="e">\ud83e\udd1d</span> Fale com o NSP</div>
-    <div class="card"><div class="ic" style="background:#CCFBF1">\ud83d\udc65</div><div class="tx">O <b>N\u00facleo de Seguran\u00e7a do Paciente</b> \u00e9 a equipe do HNSA dedicada a tornar o seu cuidado mais seguro.</div></div>
-    <div class="card"><div class="ic" style="background:#CCFBF1">\ud83d\udde3</div><div class="tx">Procure a <b>enfermagem do seu setor</b> e pe\u00e7a para falar com o NSP.</div></div>
-    <div class="card"><div class="ic" style="background:#CCFBF1">\ud83d\udc9b</div><div class="tx">Notificar <b>n\u00e3o \u00e9 den\u00fancia</b> e n\u00e3o prejudica ningu\u00e9m: ajuda o hospital a aprender e prevenir.</div></div>
-    <div class="card"><div class="ic" style="background:#CCFBF1">\ud83d\udd12</div><div class="tx">Pode ser <b>an\u00f4nima</b>. Nenhum dado seu \u00e9 obrigat\u00f3rio.</div></div>
-    <div style="position:absolute;bottom:8mm;left:7mm;right:7mm">
-      <div class="bub">Guarde esta cartilha: sua participa\u00e7\u00e3o torna o cuidado mais seguro!</div>
-      <div style="font-size:8.5px;color:#64748B;margin-top:10px;text-align:center">Hospital Naval de Salvador \u00b7 NSP \u00b7 RDC 36/2013</div>
+  <div class="p">
+    <div class="hdr"><span class="e">\ud83d\udca1</span> Voc\u00ea sabia?</div>
+    <div class="sabia"><b>1 em cada 10 pacientes</b> no mundo sofre algum incidente durante o cuidado de sa\u00fade \u2014 e a maior parte <b>poderia ser evitada</b> com a\u00e7\u00f5es simples. (OMS)</div>
+    <div class="sabia">A <b>higiene das m\u00e3os</b> \u00e9 a medida isolada mais eficaz para prevenir infec\u00e7\u00f5es em hospitais \u2014 por isso ela \u00e9 repetida tantas vezes por dia.</div>
+    <div class="sabia">A <b>pulseira de identifica\u00e7\u00e3o</b> evita trocas de exames, dietas e medicamentos. Conferir o nome n\u00e3o \u00e9 desconfian\u00e7a: \u00e9 seguran\u00e7a.</div>
+    <div class="sabia">Perguntar \u00e9 um ato de seguran\u00e7a: <b>pacientes que participam do pr\u00f3prio cuidado</b> t\u00eam melhores resultados.</div>
+    <div class="sabia">Notificar um problema <b>n\u00e3o busca culpados</b>: o objetivo \u00e9 entender a causa e melhorar o processo para o pr\u00f3ximo paciente.</div>
+    <div style="margin-top:auto">
+      <div class="bub">Seguran\u00e7a do paciente \u00e9 responsabilidade de todos: equipe, paciente e acompanhante \u2014 cada um faz a sua parte.</div>
+      <div style="font-size:8.5px;color:#555;margin-top:8px;text-align:center">Hospital Naval de Salvador \u00b7 N\u00facleo de Seguran\u00e7a do Paciente \u00b7 RDC 36/2013</div>
     </div>
   </div>
-  <div class="p" style="background:#FFF7DC">
-    <div style="text-align:center;margin-top:3mm">
-      <div style="font-size:17px;font-weight:900;color:#000066;line-height:1.25">Voc\u00ea sabia que pode colaborar<br/>para um cuidado mais seguro?</div>
-      <div style="font-size:11px;color:#334155;margin:7px 0 9px">Pacientes e acompanhantes tamb\u00e9m notificam.<br/><b>Aponte a c\u00e2mera do celular:</b></div>
-      <div class="qrbox" style="display:inline-block;padding:10px 16px"><div id="qr1"></div><div class="u">notificaai.ia.br</div></div>
-      <div style="margin-top:9px;font-size:10px;color:#334155">Sem celular? Pe\u00e7a \u00e0 enfermagem \u2014<br/>ela notifica por voc\u00ea. \ud83d\ude0a</div>
+  <div class="p">
+    <div class="hdr"><span class="e">\ud83d\udcf1</span> Colabore de onde estiver</div>
+    <div style="text-align:center;margin-top:2mm">
+      <div style="font-size:15px;font-weight:900;color:#000066;line-height:1.3">Viu algo que pode melhorar?<br/>Registre voc\u00ea mesmo.</div>
+      <div style="font-size:10.5px;color:#333;margin:6px 0 8px">Pacientes e acompanhantes tamb\u00e9m notificam,<br/>direto do celular:</div>
+      <div class="qrbox" style="display:inline-block;padding:9px 15px"><div id="qr1"></div><div class="u">notificaai.ia.br</div></div>
     </div>
+    <h4>\u2708 Antes da alta, confira:</h4>
+    <div class="card"><div class="ic">\ud83d\udcc4</div><div class="tx">Entendeu <b>as receitas</b>: qual rem\u00e9dio, dose e hor\u00e1rio?</div></div>
+    <div class="card"><div class="ic">\ud83d\udcc5</div><div class="tx">Sabe <b>quando retornar</b> e quais sinais de alerta observar em casa?</div></div>
+    <div class="card"><div class="ic">\u2753</div><div class="tx">Ficou d\u00favida? <b>Pergunte antes de sair</b> \u2014 \u00e9 seu direito.</div></div>
   </div>
-  <div class="p" style="background:#000066;color:#fff">
-    <div style="margin-top:12mm">
-      <div style="font-size:44px">\ud83e\ude7a</div>
-      <div style="font-size:27px;font-weight:900;line-height:1.08;margin-top:4mm">Seguran\u00e7a<br/>do Paciente</div>
-      <div style="width:26mm;height:3mm;background:#FFCC00;border-radius:2mm;margin:6mm 0"></div>
-      <div style="font-size:14px;color:#FFCC00;font-weight:900">Voc\u00ea faz parte<br/>do seu cuidado!</div>
-      <div style="font-size:10.5px;color:#C8D8E8;margin-top:4mm">Cartilha do paciente<br/>e do acompanhante</div>
+  <div class="p" style="border-left:1px dashed #BBB">
+    <div style="margin-top:10mm;text-align:left">
+      <div style="font-size:42px">\ud83e\ude7a</div>
+      <div style="font-size:27px;font-weight:900;color:#000066;line-height:1.08;margin-top:4mm">Seguran\u00e7a<br/>do Paciente</div>
+      <div style="width:30mm;height:2.5mm;background:#BF8D07;border-radius:2mm;margin:5mm 0"></div>
+      <div style="font-size:14px;color:#000066;font-weight:900">Voc\u00ea faz parte<br/>do seu cuidado!</div>
+      <div style="font-size:10.5px;color:#444;margin-top:4mm">Cartilha do paciente e do acompanhante</div>
+      <div style="border:2.2px solid #000066;border-radius:11px;padding:7px 10px;margin-top:7mm;font-size:10px;line-height:1.45">Leia nos primeiros dias de interna\u00e7\u00e3o. S\u00e3o 5 minutos que ajudam a evitar quedas, trocas e infec\u00e7\u00f5es.</div>
     </div>
-    <div style="position:absolute;bottom:10mm;left:7mm">
-      <div style="font-size:20px;font-weight:900">Notifica<span style="color:#FFCC00">AI</span></div>
-      <div style="font-size:9.5px;color:#C8D8E8">Hospital Naval de Salvador</div>
+    <div style="margin-top:auto">
+      <div style="font-size:20px;font-weight:900;color:#000066">Notifica<span style="color:#BF8D07">AI</span></div>
+      <div style="font-size:9.5px;color:#555">Hospital Naval de Salvador</div>
     </div>
   </div>
 </div>
 
 <div class="page">
-  <div class="p" style="background:#E8F0FE">
-    <div class="hdr" style="background:#1D6FE8"><span class="e">\ud83d\udee1</span> Seus direitos na interna\u00e7\u00e3o</div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\ud83c\udff7</div><div class="tx">Ser identificado pela <b>pulseira</b>: confira nome e nascimento; avise se estiver errada ou soltar.</div></div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\ud83d\udc8a</div><div class="tx">Saber <b>quais medicamentos</b> recebe e para qu\u00ea. Pergunte sempre!</div></div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\ud83e\uddfc</div><div class="tx">Ver a equipe <b>higienizar as m\u00e3os</b> antes de tocar em voc\u00ea. Pode cobrar, sem constrangimento.</div></div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\ud83d\udeb6</div><div class="tx">Sentiu tontura? <b>Pe\u00e7a ajuda antes de levantar</b> (preven\u00e7\u00e3o de quedas).</div></div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\ud83d\udecf</div><div class="tx">Ter a dor avaliada e <b>mudar de posi\u00e7\u00e3o no leito</b> (preven\u00e7\u00e3o de les\u00e3o por press\u00e3o).</div></div>
-    <div class="card"><div class="ic" style="background:#DBEAFE">\u2702</div><div class="tx">Antes de cirurgia: confirmar <b>procedimento e local certo</b> com a equipe.</div></div>
+  <div class="p">
+    <div class="hdr"><span class="e">\ud83d\udee1</span> Seus direitos e atitudes seguras</div>
+    <div class="card"><div class="ic">\ud83c\udff7</div><div class="tx"><b>Pulseira:</b> confira nome e data de nascimento; avise se estiver errada ou soltar.</div></div>
+    <div class="card"><div class="ic">\ud83d\udc8a</div><div class="tx"><b>Medicamentos:</b> saiba o que recebe e para qu\u00ea. Antes de tomar, confirme que \u00e9 para voc\u00ea.</div></div>
+    <div class="card"><div class="ic">\u26a0</div><div class="tx"><b>Alergias:</b> informe todas \u2014 rem\u00e9dios, alimentos, esparadrapo \u2014 mesmo que j\u00e1 tenha dito antes.</div></div>
+    <div class="card"><div class="ic">\ud83c\udfe0</div><div class="tx"><b>Rem\u00e9dios de casa:</b> conte quais usa (incluindo ch\u00e1s e naturais); alguns interferem no tratamento.</div></div>
+    <div class="card"><div class="ic">\ud83e\uddfc</div><div class="tx"><b>Higiene das m\u00e3os:</b> \u00e9 seu direito ver a equipe higienizar as m\u00e3os \u2014 e o \u00e1lcool gel tamb\u00e9m \u00e9 para voc\u00ea e sua visita.</div></div>
+    <div class="card"><div class="ic">\ud83d\udeb6</div><div class="tx"><b>Quedas:</b> sentiu tontura ou fraqueza? Use a campainha e aguarde apoio antes de levantar. Chinelo antiderrapante ajuda.</div></div>
+    <div class="card"><div class="ic">\ud83d\udecf</div><div class="tx"><b>Pele:</b> mude de posi\u00e7\u00e3o no leito com regularidade e avise se notar vermelhid\u00e3o \u2014 previne les\u00e3o por press\u00e3o.</div></div>
+    <div class="card"><div class="ic">\u2702</div><div class="tx"><b>Cirurgia:</b> confirme procedimento e local certo; a marca\u00e7\u00e3o no corpo faz parte da seguran\u00e7a.</div></div>
   </div>
-  <div class="p" style="background:#FFF7DC">
-    <div class="hdr" style="background:#BF8D07"><span class="e">\ud83c\udfaf</span> As 6 metas internacionais</div>
-    <div class="meta"><div class="n">1</div><div class="tx">Identifica\u00e7\u00e3o correta do paciente</div></div>
-    <div class="meta"><div class="n">2</div><div class="tx">Comunica\u00e7\u00e3o efetiva entre a equipe</div></div>
-    <div class="meta"><div class="n">3</div><div class="tx">Seguran\u00e7a dos medicamentos</div></div>
-    <div class="meta"><div class="n">4</div><div class="tx">Cirurgia segura</div></div>
-    <div class="meta"><div class="n">5</div><div class="tx">Higiene das m\u00e3os</div></div>
-    <div class="meta"><div class="n">6</div><div class="tx">Preven\u00e7\u00e3o de quedas e les\u00f5es por press\u00e3o</div></div>
-    <div style="font-size:8.7px;color:#64748B;font-style:italic;margin-top:7px">Metas da Organiza\u00e7\u00e3o Mundial da Sa\u00fade adotadas pelo Programa Nacional de Seguran\u00e7a do Paciente.</div>
+  <div class="p">
+    <div class="hdr"><span class="e">\ud83c\udfaf</span> As 6 metas internacionais</div>
+    <div class="meta"><div class="n">1</div><div class="tx"><b>Identifica\u00e7\u00e3o correta</b> \u2014 pulseira conferida em todo exame, dieta e medica\u00e7\u00e3o.</div></div>
+    <div class="meta"><div class="n">2</div><div class="tx"><b>Comunica\u00e7\u00e3o efetiva</b> \u2014 informa\u00e7\u00f5es claras entre os profissionais nas trocas de turno.</div></div>
+    <div class="meta"><div class="n">3</div><div class="tx"><b>Seguran\u00e7a dos medicamentos</b> \u2014 dose certa, via certa, hor\u00e1rio certo, paciente certo.</div></div>
+    <div class="meta"><div class="n">4</div><div class="tx"><b>Cirurgia segura</b> \u2014 checklist antes, durante e depois do procedimento.</div></div>
+    <div class="meta"><div class="n">5</div><div class="tx"><b>Higiene das m\u00e3os</b> \u2014 nos 5 momentos do cuidado.</div></div>
+    <div class="meta"><div class="n">6</div><div class="tx"><b>Preven\u00e7\u00e3o de quedas e les\u00f5es por press\u00e3o</b> \u2014 avalia\u00e7\u00e3o de risco e medidas para cada paciente.</div></div>
+    <div class="sabia" style="margin-top:4px">Metas da <b>Organiza\u00e7\u00e3o Mundial da Sa\u00fade</b>, adotadas no Brasil pelo Programa Nacional de Seguran\u00e7a do Paciente desde 2013.</div>
   </div>
-  <div class="p" style="background:#E6F7F1">
-    <div class="hdr" style="background:#E53E3E"><span class="e">\ud83d\udce2</span> Viu algo? Notifique!</div>
-    <div class="passo"><div class="n">1</div><div class="t">Percebeu algo que <b>quase causou ou causou</b> um problema? Erro de medica\u00e7\u00e3o, queda, pulseira trocada, equipamento com defeito\u2026</div></div>
-    <div class="passo"><div class="n">2</div><div class="t">Aponte a c\u00e2mera no <b>QR code</b> (ou acesse <b>notificaai.ia.br</b>) e toque em <b>Notificar</b>.</div></div>
-    <div class="passo"><div class="n">3</div><div class="t">Responda o assistente: <b>menos de 3 minutos</b>, pode ser <b>an\u00f4nimo</b>.</div></div>
-    <div class="qrbox" style="margin-top:7px"><div class="t">\ud83d\udcf1 Notifique pelo NotificaAI</div><div id="qr2"></div><div class="u">notificaai.ia.br</div></div>
+  <div class="p">
+    <div class="hdr"><span class="e">\ud83d\udce2</span> Viu algo? Notifique!</div>
+    <div class="card"><div class="ic">1</div><div class="tx">Percebeu algo que <b>quase causou ou causou</b> um problema? Erro de medica\u00e7\u00e3o, queda, pulseira trocada, atraso, equipamento com defeito\u2026</div></div>
+    <div class="card"><div class="ic">2</div><div class="tx">Aponte a c\u00e2mera no <b>QR code</b> (ou digite <b>notificaai.ia.br</b>) e toque em <b>Notificar</b>.</div></div>
+    <div class="card"><div class="ic">3</div><div class="tx">Responda o assistente: <b>menos de 3 minutos</b>, e pode ser <b>an\u00f4nimo</b>.</div></div>
+    <h4>O que acontece depois?</h4>
+    <div class="sabia">Cada notifica\u00e7\u00e3o \u00e9 analisada: o hospital estuda a <b>causa</b>, cria um <b>plano de a\u00e7\u00e3o</b> e acompanha o resultado. Ningu\u00e9m \u00e9 punido por notificar \u2014 o foco \u00e9 o processo, n\u00e3o a pessoa.</div>
+    <div class="qrbox" style="margin-top:auto"><div class="t">\ud83d\udcf1 Notifique pelo NotificaAI</div><div id="qr2"></div><div class="u">notificaai.ia.br</div></div>
   </div>
 </div>
 <script>
-new QRCode(document.getElementById('qr1'),{text:'https://notificaai.ia.br',width:118,height:118,correctLevel:QRCode.CorrectLevel.M});
-new QRCode(document.getElementById('qr2'),{text:'https://notificaai.ia.br',width:86,height:86,correctLevel:QRCode.CorrectLevel.M});
+new QRCode(document.getElementById('qr1'),{text:'https://notificaai.ia.br',width:112,height:112,correctLevel:QRCode.CorrectLevel.M});
+new QRCode(document.getElementById('qr2'),{text:'https://notificaai.ia.br',width:84,height:84,correctLevel:QRCode.CorrectLevel.M});
 <\/script>
 </body></html>`);
     w.document.close();

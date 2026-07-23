@@ -6714,6 +6714,58 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
   </div>);
 }
 function CartilhaPaciente() {
+  const imprimirCartilha=()=>{
+    const w=window.open('','_blank');
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartilha de Seguran\u00e7a do Paciente - HNSA</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+@page{size:A4;margin:12mm}body{font-family:Calibri,Arial,sans-serif;color:#1E293B;margin:0}
+.hd{background:#000066;color:#fff;padding:16px 20px;border-radius:10px;display:flex;justify-content:space-between;align-items:center}
+.hd h1{margin:0;font-size:22px}.hd .sub{color:#FFCC00;font-size:13px;margin-top:4px}
+h2{color:#000066;font-size:15px;border-bottom:2px solid #FFCC00;padding-bottom:3px;margin:14px 0 8px}
+.cols{display:flex;gap:16px}.col{flex:1}
+ul{margin:6px 0;padding-left:18px;font-size:11.5px;line-height:1.55}
+.meta{background:#F1F5F9;border-left:4px solid #000066;border-radius:6px;padding:6px 10px;margin-bottom:5px;font-size:11px}
+.meta b{color:#000066}
+.qrbox{text-align:center;border:2px dashed #BF8D07;border-radius:10px;padding:10px;margin-top:10px}
+.qrbox .t{font-size:12px;font-weight:bold;color:#000066;margin-bottom:6px}
+#qr{display:flex;justify-content:center}
+.ft{margin-top:12px;background:#000066;color:#FFCC00;text-align:center;border-radius:8px;padding:8px;font-size:11px;font-weight:bold}
+@media print{.noprint{display:none}}
+.noprint{text-align:center;margin:10px}.noprint button{background:#000066;color:#FFCC00;border:none;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:bold;cursor:pointer}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">Imprimir / Salvar PDF</button></div>
+<div class="hd"><div><h1>Seguran\u00e7a do Paciente</h1><div class="sub">Voc\u00ea faz parte do seu cuidado \u2014 Hospital Naval de Salvador</div></div><div style="font-size:26px;font-weight:900">NotificaAI</div></div>
+<div class="cols"><div class="col">
+<h2>Seus direitos durante a interna\u00e7\u00e3o</h2>
+<ul><li>Ser identificado corretamente pela <b>pulseira</b> \u2014 confira nome completo e data de nascimento; avise se estiver errada ou soltar.</li>
+<li>Saber <b>quais medicamentos</b> recebe e para qu\u00ea. Pergunte sempre.</li>
+<li>Ver a equipe <b>higienizar as m\u00e3os</b> antes de tocar em voc\u00ea \u2014 pode cobrar, sem constrangimento.</li>
+<li>Pedir ajuda antes de levantar se sentir tontura ou fraqueza (preven\u00e7\u00e3o de <b>quedas</b>).</li>
+<li>Ter dor avaliada e tratada; mudar de posi\u00e7\u00e3o no leito (preven\u00e7\u00e3o de <b>les\u00e3o por press\u00e3o</b>).</li>
+<li>Antes de cirurgia: confirmar <b>procedimento e local certo</b> com a equipe.</li></ul>
+<h2>As 6 metas internacionais</h2>
+<div class="meta"><b>1.</b> Identifica\u00e7\u00e3o correta do paciente</div>
+<div class="meta"><b>2.</b> Comunica\u00e7\u00e3o efetiva entre a equipe</div>
+<div class="meta"><b>3.</b> Seguran\u00e7a dos medicamentos</div>
+<div class="meta"><b>4.</b> Cirurgia segura</div>
+<div class="meta"><b>5.</b> Higiene das m\u00e3os</div>
+<div class="meta"><b>6.</b> Preven\u00e7\u00e3o de quedas e les\u00f5es por press\u00e3o</div>
+</div><div class="col">
+<h2>Viu algo? Notifique!</h2>
+<ul><li>Qualquer situa\u00e7\u00e3o que quase causou ou causou dano pode ser comunicada: erro de medica\u00e7\u00e3o, queda, identifica\u00e7\u00e3o trocada, atraso, equipamento com defeito.</li>
+<li>A notifica\u00e7\u00e3o <b>n\u00e3o \u00e9 den\u00fancia</b>: serve para o hospital aprender e prevenir. Pode ser <b>an\u00f4nima</b>.</li>
+<li>Pacientes e acompanhantes tamb\u00e9m podem notificar \u2014 fale com a enfermagem ou use o QR code abaixo.</li></ul>
+<div class="qrbox"><div class="t">Aponte a c\u00e2mera do celular<br/>e notifique pelo NotificaAI</div><div id="qr"></div><div style="font-size:10px;color:#64748B;margin-top:6px">notificaai.ia.br</div></div>
+<h2>Fale com o NSP</h2>
+<ul><li>N\u00facleo de Seguran\u00e7a do Paciente \u2014 HNSA.</li><li>Procure a enfermagem do setor e pe\u00e7a para falar com o NSP.</li></ul>
+</div></div>
+<div class="ft">Guarde esta cartilha \u2014 sua participa\u00e7\u00e3o torna o cuidado mais seguro.</div>
+<script>new QRCode(document.getElementById('qr'),{text:'https://notificaai.ia.br',width:110,height:110,correctLevel:QRCode.CorrectLevel.M});<\/script>
+</body></html>`);
+    w.document.close();
+  };
+
   const [pag,setPag]=React.useState(0);
   const PAGINAS=[
     {id:'capa',titulo:null,cor:'#0D9488',icone:null,items:null},
@@ -6778,6 +6830,7 @@ function CartilhaPaciente() {
       </div>
       <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
       <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Segurança do Paciente</div>
+      <button onClick={imprimirCartilha} style={{background:C.teal+"18",border:"1px solid "+C.teal+"55",borderRadius:10,padding:"8px 14px",color:C.teal,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>{String.fromCodePoint(128424)+" Baixar para impress\u00e3o (com QR code)"}</button>
       <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para você e seus familiares</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
         {[
@@ -7079,9 +7132,9 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>

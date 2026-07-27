@@ -6764,6 +6764,30 @@ body{background:#666}
 </body></html>`);
     w.document.close();
   };
+  const imprimirDisplay=()=>{
+    // Display de mesa triangular: imagem em assets/ (carregada sob demanda,
+    // fora do HTML, para manter o arquivo leve). URL absoluta porque o popup
+    // abre em about:blank e nao resolve caminho relativo.
+    const base=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,'');
+    const w=window.open('','_blank');
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Display de Mesa - NotificaAI</title>
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:#666}
+.pg{width:210mm;height:297mm;overflow:hidden}
+.pg img{width:100%;height:100%;object-fit:contain;display:block}
+.err{display:none;padding:20mm;font-family:Arial,sans-serif;color:#900;background:#fff;font-size:14px;line-height:1.6}
+@media print{.noprint{display:none}body{background:#fff}}
+.noprint{position:fixed;top:8px;right:10px;z-index:9;background:#000066;color:#FFD34D;border-radius:9px;padding:8px 12px;font-family:Arial,sans-serif;font-size:11px;font-weight:800}
+.noprint button{background:#FFD34D;color:#000066;border:none;border-radius:7px;padding:7px 14px;font-weight:900;cursor:pointer;margin-left:8px;font-size:12px}
+</style></head><body>
+<div class="noprint">Retrato \u00b7 Escala 100% \u00b7 S\u00f3 frente \u00b7 Dobre nas 2 linhas<button onclick="window.print()">Imprimir</button></div>
+<div class="pg"><img src="${base}assets/display-mesa.jpg" onerror="document.getElementById('e').style.display='block'"/></div>
+<div class="err" id="e">N\u00e3o foi poss\u00edvel carregar a imagem do display.<br/>Confira se o arquivo <b>assets/display-mesa.jpg</b> foi enviado junto do index.html no servidor.</div>
+</body></html>`);
+    w.document.close();
+  };
   const imprimirCartaz=()=>{
     const w=window.open('','_blank');
     w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - Hei, NotificaAI!</title>
@@ -6871,6 +6895,7 @@ body{background:#666}
       <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Segurança do Paciente</div>
       <button onClick={imprimirCartilha} style={{background:C.teal+"18",border:"1px solid "+C.teal+"55",borderRadius:10,padding:"8px 14px",color:C.teal,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>{String.fromCodePoint(128424)+" Baixar para impress\u00e3o (com QR code)"}</button>
       <button onClick={imprimirCartaz} style={{background:"#FFCC0018",border:"1px solid #BF8D0766",borderRadius:10,padding:"8px 14px",color:"#BF8D07",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128226)+" Cartaz A4 \u201cHei, NotificaAI!\u201d (setores)"}</button>
+      <button onClick={imprimirDisplay} style={{background:"#1D6FE818",border:"1px solid #1D6FE855",borderRadius:10,padding:"8px 14px",color:"#1D6FE8",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128203)+" Display de mesa (tri\u00e2ngulo, com QR code)"}</button>
       <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para você e seus familiares</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
         {[

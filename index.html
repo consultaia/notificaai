@@ -314,7 +314,16 @@ async function callWorker(messages,system) {
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
     return data.choices?.[0]?.message?.content||'Erro ao processar.';
-  } catch(e) { console.error('Worker:',e); if(e.message?.includes('fetch')||e.name==='TypeError') return 'Erro: Worker IA indisponivel. Verifique se o Cloudflare Worker esta ativo em https://dash.cloudflare.com'; return 'Erro ao processar: '+e.message; }
+  } catch(e) {
+    // NUNCA devolver a mensagem de erro como se fosse resposta da IA: o texto acabava
+    // exibido ao profissional como "resumo" e podia ser salvo no banco. Lancamos o erro
+    // para que cada tela decida seu proprio fallback (todas ja tratam).
+    console.error('Worker IA indisponivel:',e);
+    const tecnico=(e&&e.message)?e.message:'falha de rede';
+    const err=new Error('IA_INDISPONIVEL: '+tecnico);
+    err.iaIndisponivel=true;
+    throw err;
+  }
 }
 async function extractData(chatMsgs,hospital) {
   const hoje=new Date().toLocaleDateString('pt-BR',{weekday:'long',year:'numeric',month:'2-digit',day:'2-digit'});
@@ -323,7 +332,9 @@ async function extractData(chatMsgs,hospital) {
   const sys=`Extraia os dados da conversa como JSON puro (sem markdown, sem explicação).
 Formato:{"notifier_type":"profissional"|"paciente"|"familiar","notification_type":"seguranca_paciente"|"ccih"|"administrativa","sector":"string","event_date":"YYYY-MM-DD"|null,"event_time":"HH:MM"|null,"shift":"Manhã"|"Tarde"|"Noite"|null,"description":"string","measures_taken":"string"|null,"event_subtype":"string"|null,"patient_outcome":"string"|null,"was_preventable":true|false|null,"occurrence_subtype":"string"|null,"patient_age":null,"admission_reason":null,"infection_topography":null,"invasive_procedure":null,"microorganism":null,"is_test":false,"ai_summary":"string"}
 DATA: ${hoje} (${hojeISO}). "hoje"=${hojeISO}, "ontem"=${ontemISO}.`;
-  const text=await callWorker([...chatMsgs,{role:'user',content:'Extraia os dados no formato JSON.'}],sys);
+  let text='';
+  try { text=await callWorker([...chatMsgs,{role:'user',content:'Extraia os dados no formato JSON.'}],sys); }
+  catch(e){ return null; }
   try {
     const p=JSON.parse(text.replace(/```json|```/g,'').trim());
     if(hospital) p.hospital_id=hospital.id;
@@ -2787,6 +2798,12 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   </div>);
 }
 
+// "Outros" existe apenas para registrar treinamentos institucionais que nao pertencem
+// a nenhum subnucleo (RCP, brigada de incendio, integracao, biosseguranca...).
+// NAO entra em SUBNUCLEOS_HNSA de proposito: essa lista alimenta o relatorio DSM,
+// o checklist ANVISA e os indicadores, onde so cabem os 7 subnucleos oficiais.
+const SUB_OUTROS={id:'outros',label:'Outros treinamentos institucionais',icon:String.fromCodePoint(127891),color:'#64748B'};
+
 const SUBNUCLEOS_HNSA=[
   {id:'comunicacao',label:'Comunicacao Efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
   {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
@@ -2796,6 +2813,9 @@ const SUBNUCLEOS_HNSA=[
   {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
   {id:'ccih',label:'SCIH - Higienizacao das Maos e IRAS',icon:String.fromCodePoint(129440),color:'#06B6D4'},
 ];
+
+// Usada exclusivamente pela aba Treinamentos (subnucleos + Outros)
+const SUBS_TREINAMENTO=[...SUBNUCLEOS_HNSA,SUB_OUTROS];
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
@@ -2857,7 +2877,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
 
   const reunioesNSP=filteredPeriodoAll.filter(r=>r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria');
   const totaisPorSub={};
-  SUBNUCLEOS_HNSA.forEach(s=>{
+  SUBS_TREINAMENTO.forEach(s=>{
     const recs=filteredPeriodoAll.filter(r=>r.subnucleo===s.id);
     totaisPorSub[s.id]={
       treinamentos:recs.filter(r=>r.tipo==='treinamento').length,
@@ -2923,7 +2943,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     {/* Cards por subnucleo */}
     <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnucleo (toque para filtrar)</div>
     <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
-      {SUBNUCLEOS_HNSA.map(s=>{
+      {SUBS_TREINAMENTO.map(s=>{
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
         const ativo=subnucleoAtivo===s.id;
         return(<button key={s.id} onClick={()=>setSubnucleoAtivo(ativo?'todos':s.id)}
@@ -2933,7 +2953,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{s.label}</div>
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>{t.treinamentos} treinamento(s) · {t.reunioes} reuniao(oes) · {t.participantes} participantes</div>
           </div>
-          {(t.treinamentos===0&&t.reunioes===0)&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
+          {(t.treinamentos===0&&t.reunioes===0&&s.id!=='outros')&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
         </button>);
       })}
     </div>
@@ -2948,9 +2968,12 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       </div>
       {(form.tipo==='treinamento'||form.tipo==='reuniao')&&<div>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnucleo *</label>
-      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:10}}>
-        {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-      </select></div>}
+      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:4}}>
+        {SUBS_TREINAMENTO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+      </select>
+      {form.subnucleo==='outros'&&<div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>
+        Para treinamentos institucionais fora dos subnucleos (RCP, brigada de incendio, integracao, biosseguranca). Ficam no acervo e no pacote de auditoria, mas nao entram nos criterios do relatorio DSM.
+      </div>}</div>}
       <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
         <div>
@@ -2980,7 +3003,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
     {!loading&&filteredPeriodo.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
     {filteredPeriodo.map(r=>{
-      const sub=SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
+      const sub=SUBS_TREINAMENTO.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
       return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
           <span style={{fontSize:18}}>{sub.icon}</span>
@@ -3657,7 +3680,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               {dados.reunioes.length>0?dados.reunioes.map((r,i)=>(
                 <tr key={i}>
                   <td>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</td>
-                  <td>{SUBNUCLEOS_HNSA.find(s=>s.id===r.subnucleo)?.label||r.subnucleo||'-'}</td>
+                  <td>{SUBS_TREINAMENTO.find(s=>s.id===r.subnucleo)?.label||r.subnucleo||'-'}</td>
                   <td>{r.descricao||r.protocolo||'-'}</td>
                   <td style={{textAlign:'center'}}>{r.participantes||'-'}</td>
                   <td>{r.link_gdrive?<a href={r.link_gdrive} style={{color:'#003087'}}>Ver ata</a>:'Pendente'}</td>
@@ -4912,8 +4935,20 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       );
       addMsg('assistant',`**Resumo da notificação:**\n\n${resumo}\n\nAs informações estão corretas?`);
       setDados({...d,ai_summary:resumo});
-    }catch{
-      addMsg('assistant',`**Resumo:** ${ctx}\n\nAs informações estão corretas?`);
+    }catch(e){
+      // IA fora do ar: montamos o resumo com os proprios dados informados, em linguagem
+      // clara. A notificacao segue normalmente — o que importa e o registro chegar ao NSP.
+      const linhas=[
+        d.event_subtype?`Tipo: ${d.event_subtype}`:'',
+        d.sector?`Setor: ${d.sector}`:'',
+        d.event_date?`Data: ${new Date(d.event_date+'T12:00:00').toLocaleDateString('pt-BR')}${d.shift?' ('+d.shift+')':''}`:'',
+        d.patient_outcome?`Desfecho: ${d.patient_outcome}`:'',
+        d.description?`Relato: ${d.description}`:'',
+        d.measures_taken?`Medidas tomadas: ${d.measures_taken}`:'',
+      ].filter(Boolean);
+      const resumoLocal=linhas.join('\n');
+      addMsg('assistant',`**Resumo da notificação:**\n\n${resumoLocal}\n\n_O resumo automático está indisponível no momento, mas sua notificação será registrada normalmente._\n\nAs informações estão corretas?`);
+      setDados({...d,ai_summary:resumoLocal});
     }
     setLoading(false);
   };
@@ -5561,10 +5596,14 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
 
 function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
   const C2={navy:'000066',teal:'FFCC00',tealDk:'BF8D07',tableHead:'B4C7DC',blue:'1D6FE8',purple:'7C3AED',red:'E53E3E',yellow:'D97706',green:'059669',gray:'64748B',white:'FFFFFF'};
-  // Moldura institucional (corda + brasoes) carregada sob demanda de assets/,
-  // apenas quando o usuario gera um PPT — mantem o HTML leve.
+  // Moldura institucional carregada sob demanda de assets/ (mantem o HTML leve).
+  // A moldura de corda com brasoes e EXCLUSIVA da Marinha do Brasil: so e aplicada
+  // quando o hospital usa a identidade naval (logo 'ancora', caso do HNSA).
+  // Qualquer outra instituicao recebe um cabecalho neutro, sem simbolo militar.
+  const usaMolduraNaval=()=>((hospital||DEFAULT_HOSPITAL).logo==='ancora');
   let _molduraCache=null;
   const carregarMoldura=async()=>{
+    if(!usaMolduraNaval())return null;
     if(_molduraCache)return _molduraCache;
     try{
       const r=await fetch('assets/moldura-marinha.png');
@@ -5583,11 +5622,20 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
     }
   };
   const fundoAutentico=(sl)=>{
-    // Moldura real (corda nos 4 lados + brasoes + no central), proporcao nativa 4:3.
-    // Usa o cache carregado por carregarMoldura(); se falhar, o slide sai sem moldura
-    // em vez de quebrar a geracao inteira do PPT.
-    if(!_molduraCache)return;
-    sl.addImage({data:'data:image/png;base64,'+_molduraCache,x:0,y:0,w:10,h:7.5});
+    const h2=hospital||DEFAULT_HOSPITAL;
+    if(usaMolduraNaval()){
+      // Moldura naval (corda nos 4 lados + brasoes + no central), proporcao nativa 4:3.
+      // Se o carregamento falhar, o slide sai sem moldura em vez de quebrar o PPT.
+      if(!_molduraCache)return;
+      sl.addImage({data:'data:image/png;base64,'+_molduraCache,x:0,y:0,w:10,h:7.5});
+      return;
+    }
+    // Identidade neutra para instituicoes civis: filetes discretos no topo e no rodape,
+    // sem nenhum simbolo militar. Mantidos finos para nao colidir com os titulos (y:0.3).
+    sl.addShape('rect',{x:0,y:0,w:10,h:0.14,fill:{color:C2.navy}});
+    sl.addShape('rect',{x:0,y:0.14,w:10,h:0.05,fill:{color:C2.teal}});
+    sl.addShape('rect',{x:0,y:7.36,w:10,h:0.14,fill:{color:C2.navy}});
+    sl.addText((h2.name||'')+'  \u00b7  '+(h2.nsp_label||'NSP'),{x:0.4,y:7.0,w:9.2,h:0.3,fontSize:8.5,color:C2.gray,align:'right',valign:'middle',margin:0});
   };
   const [tab,setTab]=useState('graficos');
   const [narrative,setNarrative]=useState('');

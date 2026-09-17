@@ -2916,6 +2916,45 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       </div>
 
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
+    {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
+      <div style={{display:'flex',gap:8,marginBottom:10}}>
+        {[['treinamento','Treinamento'],['reuniao','Reuniao subnucleo'],['reuniao_mensal','Reuniao NSP Mensal'],['reuniao_extraordinaria','Reuniao Extraordinaria']].map(([v,l])=>(
+          <button key={v} onClick={()=>setForm(f=>({...f,tipo:v,subnucleo:(v==='reuniao_mensal'||v==='reuniao_extraordinaria')?'nsp_pleno':f.subnucleo}))} style={{flex:1,padding:'7px 4px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.card,color:form.tipo===v?C.teal:C.muted,fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center'}}>{l}</button>
+        ))}
+      </div>
+      {(form.tipo==='treinamento'||form.tipo==='reuniao')&&<div>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnucleo *</label>
+      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:4}}>
+        {SUBS_TREINAMENTO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+      </select>
+      {form.subnucleo==='outros'&&<div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>
+        Para treinamentos institucionais fora dos subnucleos (RCP, brigada de incendio, integracao, biosseguranca). Ficam no acervo e no pacote de auditoria, mas nao entram nos criterios do relatorio DSM.
+      </div>}</div>}
+      <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+        <div>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Data *</label>
+          <input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} style={inp}/>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>N. de participantes *</label>
+          <input type="number" value={form.participantes} onChange={e=>setForm({...form,participantes:e.target.value})} placeholder="Ex: 45" style={inp}/>
+        </div>
+      </div>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Responsavel</label>
+      <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Nome ou cargo" style={inp}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descricao / Pauta</label>
+      <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
+      <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
+
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Salvar registro'}</button>
+      </div>
+    </div>}
+
 
       {/* Reunioes NSP */}
       <div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:12,padding:'12px 14px',marginBottom:4}}>
@@ -2959,45 +2998,6 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     </div>
 
     {/* Formulario */}
-    {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
-      <div style={{display:'flex',gap:8,marginBottom:10}}>
-        {[['treinamento','Treinamento'],['reuniao','Reuniao subnucleo'],['reuniao_mensal','Reuniao NSP Mensal'],['reuniao_extraordinaria','Reuniao Extraordinaria']].map(([v,l])=>(
-          <button key={v} onClick={()=>setForm(f=>({...f,tipo:v,subnucleo:(v==='reuniao_mensal'||v==='reuniao_extraordinaria')?'nsp_pleno':f.subnucleo}))} style={{flex:1,padding:'7px 4px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.card,color:form.tipo===v?C.teal:C.muted,fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center'}}>{l}</button>
-        ))}
-      </div>
-      {(form.tipo==='treinamento'||form.tipo==='reuniao')&&<div>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnucleo *</label>
-      <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:4}}>
-        {SUBS_TREINAMENTO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-      </select>
-      {form.subnucleo==='outros'&&<div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>
-        Para treinamentos institucionais fora dos subnucleos (RCP, brigada de incendio, integracao, biosseguranca). Ficam no acervo e no pacote de auditoria, mas nao entram nos criterios do relatorio DSM.
-      </div>}</div>}
-      <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
-      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-        <div>
-          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Data *</label>
-          <input type="date" value={form.data} onChange={e=>setForm({...form,data:e.target.value})} style={inp}/>
-        </div>
-        <div>
-          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>N. de participantes *</label>
-          <input type="number" value={form.participantes} onChange={e=>setForm({...form,participantes:e.target.value})} placeholder="Ex: 45" style={inp}/>
-        </div>
-      </div>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Responsavel</label>
-      <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Nome ou cargo" style={inp}/>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descricao / Pauta</label>
-      <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
-      <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
-
-      <div style={{display:'flex',gap:8}}>
-        <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={salvar} disabled={saving} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'9px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{saving?'Salvando...':'Salvar registro'}</button>
-      </div>
-    </div>}
-
     {/* Lista de registros */}
     <div style={{fontSize:11,fontWeight:700,color:C.muted,marginTop:14,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Registros individuais ({filteredPeriodo.length})</div>
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}

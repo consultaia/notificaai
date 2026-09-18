@@ -2946,8 +2946,22 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Nome ou cargo" style={inp}/>
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descricao / Pauta</label>
       <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Link Google Drive (lista de presenca, ata)</label>
-      <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Lista de presenca / Ata (PDF ou foto)</label>
+      {form.link_gdrive
+        ? <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
+            <span style={{fontSize:11,color:C.green,fontWeight:700}}>{String.fromCodePoint(9989)} Anexada</span>
+            <a href={form.link_gdrive} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.teal}}>Ver</a>
+            <button onClick={()=>setForm({...form,link_gdrive:''})} style={{fontSize:10,color:C.muted,background:'none',border:'none',cursor:'pointer'}}>Trocar</button>
+          </div>
+        : <div style={{marginBottom:10}}>
+            <StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista de presenca (PDF)'
+              meta={{subnucleo:form.subnucleo||'nsp_pleno',data:form.data||new Date().toISOString().slice(0,10),participantes:form.participantes||'',
+                ano:String(new Date((form.data||new Date().toISOString().slice(0,10))+'T12:00:00').getFullYear()),
+                semestre:new Date((form.data||new Date().toISOString().slice(0,10))+'T12:00:00').getMonth()<6?'1':'2'}}
+              onUploaded={link=>setForm(f=>({...f,link_gdrive:link}))}/>
+            <div style={{fontSize:9,color:C.muted,marginTop:6,marginBottom:4}}>ou cole um link do Google Drive:</div>
+            <input value={form.link_gdrive} onChange={e=>setForm({...form,link_gdrive:e.target.value})} placeholder="https://drive.google.com/..." style={inp}/>
+          </div>}
 
       <div style={{display:'flex',gap:8}}>
         <button onClick={()=>setShowForm(false)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>

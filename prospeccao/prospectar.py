@@ -38,8 +38,9 @@ C_NUM, C_CLINICA, C_ESPEC, C_BAIRRO, C_WHATS, C_INSTA = 1, 2, 3, 4, 5, 6
 C_ORIGEM, C_ABORDAGEM, C_STATUS, C_OBS = 10, 14, 18, 21
 # Colunas novas, depois de "Observações"
 NOVAS = ["Cidade", "Nota Google", "Nº de avaliações", "Reclamação de demora (trecho)",
-         "Site", "Email", "Google Place ID"]
-C_CIDADE, C_NOTA, C_NAVAL, C_RECLAMA, C_SITE, C_EMAIL, C_PLACE = range(22, 22 + len(NOVAS))
+         "Site", "Email", "Google Place ID", "Fonte do email"]
+(C_CIDADE, C_NOTA, C_NAVAL, C_RECLAMA, C_SITE, C_EMAIL, C_PLACE,
+ C_FONTE_EMAIL) = range(22, 22 + len(NOVAS))
 
 PADRAO_DEMORA = re.compile(
     r"demor|esper(a|ei|ando|ar)\b|aguard|fila|atras|"
@@ -151,24 +152,84 @@ def trecho_demora(lugar):
     return None
 
 
-def buscar_email(site):
-    if not site:
-        return None
-    base = site if site.startswith("http") else "https://" + site
-    for caminho in ("", "contato", "fale-conosco", "contact"):
-        url = urllib.parse.urljoin(base if base.endswith("/") else base + "/", caminho)
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                html = resp.read(800_000).decode("utf-8", "ignore")
-        except Exception:
+PADRAO_CNPJ = re.compile(r"\b(\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2})\b")
+PADRAO_INSTA = re.compile(r"instagram\.com/([A-Za-z0-9_.]{2,30})", re.IGNORECASE)
+PADRAO_CFEMAIL = re.compile(r'data-cfemail="([0-9a-f]+)"')
+PADRAO_LINK_CONTATO = re.compile(r'href="([^"#]*(?:contat|fale|atendimento|sobre|quem-somos)[^"#]*)"',
+                                 re.IGNORECASE)
+PAGINAS_CONTATO = ("", "contato", "fale-conosco", "contact", "sobre", "quem-somos")
+
+
+def baixar(url, limite=800_000):
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return resp.read(limite).decode("utf-8", "ignore")
+    except Exception:
+        return ""
+
+
+def emails_no_html(html):
+    # Cloudflare esconde o email em data-cfemail; o primeiro byte é a chave do XOR
+    for cod in PADRAO_CFEMAIL.findall(html):
+        chave = int(cod[:2], 16)
+        html += " " + "".join(chr(int(cod[i:i + 2], 16) ^ chave) for i in range(2, len(cod), 2))
+    html = re.sub(r"\s*(\[at\]|\(at\)|\[arroba\])\s*", "@", html, flags=re.IGNORECASE)
+    return [e.lower() for e in PADRAO_EMAIL.findall(html) if not EMAIL_IGNORAR.search(e)]
+
+
+def email_pelo_cnpj(cnpj):
+    """Email cadastrado na Receita Federal (dado público). Às vezes é o do contador."""
+    cnpj = re.sub(r"\D", "", cnpj)
+    for url, caminho in ((f"https://brasilapi.com.br/api/cnpj/v1/{cnpj}", ("email",)),
+                         (f"https://publica.cnpj.ws/cnpj/{cnpj}", ("estabelecimento", "email"))):
+        texto = baixar(url, 200_000)
+        if not texto:
             continue
-        achados = [e for e in PADRAO_EMAIL.findall(html) if not EMAIL_IGNORAR.search(e)]
-        if achados:
-            dominio = urllib.parse.urlparse(base).netloc.replace("www.", "")
-            achados.sort(key=lambda e: (dominio not in e, e))  # prefere o domínio da clínica
-            return achados[0].lower()
+        try:
+            dado = json.loads(texto)
+            for chave in caminho:
+                dado = dado.get(chave) if isinstance(dado, dict) else None
+        except ValueError:
+            continue
+        if dado and PADRAO_EMAIL.fullmatch(dado.strip()):
+            return dado.strip().lower()
     return None
+
+
+def buscar_contato(site):
+    """Procura email e Instagram no site da clínica. Ordem:
+    1. páginas de contato do site (inclui email escondido pelo Cloudflare e "[arroba]");
+    2. CNPJ do rodapé consultado na Receita (BrasilAPI / CNPJ.ws).
+    Devolve (email, fonte do email, instagram)."""
+    if not site:
+        return None, None, None
+    base = site if site.startswith("http") else "https://" + site
+    base = base if base.endswith("/") else base + "/"
+    dominio = urllib.parse.urlparse(base).netloc.replace("www.", "")
+    paginas = [urllib.parse.urljoin(base, c) for c in PAGINAS_CONTATO]
+    emails, cnpjs, insta, i = [], [], None, 0
+    while i < len(paginas) and i < 10:
+        html = baixar(paginas[i])
+        if i == 0:  # links de contato que a home aponta
+            paginas += [urllib.parse.urljoin(base, h) for h in PADRAO_LINK_CONTATO.findall(html)
+                        if dominio in urllib.parse.urljoin(base, h)]
+        emails += emails_no_html(html)
+        cnpjs += PADRAO_CNPJ.findall(html)
+        m = PADRAO_INSTA.search(html)
+        if m and not insta and m.group(1).lower() not in ("p", "reel", "explore", "accounts"):
+            insta = "@" + m.group(1).rstrip(".")
+        i += 1
+        if emails and insta:
+            break
+    if emails:
+        emails.sort(key=lambda e: (dominio not in e, e))  # prefere o domínio da clínica
+        return emails[0], "Site da clínica", insta
+    for cnpj in dict.fromkeys(cnpjs):
+        email = email_pelo_cnpj(cnpj)
+        if email:
+            return email, f"CNPJ {cnpj} (Receita)", insta
+    return None, None, insta
 
 
 def rastrear(cfg):
@@ -216,7 +277,7 @@ def rastrear(cfg):
 
     print(f"{len(novos)} clínicas novas com reclamação de demora. Procurando emails…")
     for c in novos:
-        c["email"] = buscar_email(c["site"])
+        c["email"], c["fonte_email"], c["insta"] = buscar_contato(c["site"])
 
     # Quem tem email e mais avaliações primeiro
     novos.sort(key=lambda c: (c["email"] is None, -(c["n"] or 0)))
@@ -227,7 +288,8 @@ def rastrear(cfg):
                    C_WHATS: c["telefone"], C_ORIGEM: "Outro", C_STATUS: "Na lista",
                    C_OBS: "Rastreio automático (Google)", C_NOTA: c["nota"], C_NAVAL: c["n"],
                    C_RECLAMA: c["trecho"], C_SITE: c["site"], C_EMAIL: c["email"],
-                   C_PLACE: c["place"], C_CIDADE: c["cidade"]}
+                   C_PLACE: c["place"], C_CIDADE: c["cidade"],
+                   C_FONTE_EMAIL: c["fonte_email"], C_INSTA: c["insta"]}
         for col, v in valores.items():
             ws.cell(r, col).value = v
         gravados += 1
@@ -244,9 +306,11 @@ def montar_email(cfg, clinica):
 
 Sou o {cfg['remetente_nome']}, enfermeiro hospitalar há 15 anos e criador da Dri. Olhando as avaliações públicas da {clinica}, vi que alguns pacientes comentam sobre demora para conseguir resposta ou atendimento. Não é crítica: acontece em quase toda clínica com muita procura, e o paciente que não recebe retorno rápido costuma marcar com quem responde primeiro.
 
-A Dri é uma atendente de IA no WhatsApp que responde em segundos, 24 horas por dia, e marca a consulta direto no horário real de cada médico. A clínica testa 30 dias grátis, sem cartão.
+A Dri é uma atendente de IA no WhatsApp que responde em segundos, 24 horas por dia, e marca a consulta direto no horário real de cada médico.
 
-Posso mostrar em 10 minutos? Se preferir ver sozinho, é só conversar com ela como se fosse paciente: {cfg['link_demonstracao']}
+Para ver como funciona, é só clicar no link e conversar com ela como se fosse paciente: {cfg['link_demonstracao']}
+
+Se fizer sentido para a {clinica}, me responda aqui ou no WhatsApp que eu já envio o contrato e deixo a Dri funcionando com a agenda de vocês.
 
 Abraço,
 {cfg['remetente_nome']}

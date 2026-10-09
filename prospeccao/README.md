@@ -42,3 +42,14 @@ da linha 205, as fórmulas do Funil e as listas suspensas são ampliadas automat
 - Quem responder "remover" deve ir para o Status "Perdido" e não ser contatado de novo (LGPD).
 - A API do Google devolve até 5 avaliações por clínica. As que não mostram reclamação
   nessas 5 ficam fora da lista.
+
+## Como o email de cada clínica é encontrado
+
+1. Páginas de contato do site que está no Google (home, /contato, /fale-conosco,
+   /sobre, /quem-somos e os links de contato da home). Também pega email escondido
+   pelo Cloudflare e escrito como "[arroba]".
+2. Se o site não mostra email, procura o CNPJ no rodapé e consulta o cadastro público
+   da Receita Federal (BrasilAPI / CNPJ.ws). Às vezes esse é o email do contador, por
+   isso a coluna "Fonte do email" diz de onde veio.
+3. O Instagram que aparece no site vai para a coluna Instagram, para contato manual
+   quando não houver email.

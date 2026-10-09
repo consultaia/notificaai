@@ -4460,19 +4460,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
 
   // Notificacoes do subnucleo selecionado; as de seguranca do paciente sem RCA vem primeiro
-  const notifDoSub=(n,f)=>{
-    if(n.is_test) return false;
-    if(f==='todos') return true;
-    const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
-    if(f==='queda') return subtype.startsWith('queda');
-    if(f==='lpp') return subtype.includes('press')||subtype.includes('lpp');
-    if(f==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
-    if(f==='identificacao') return subtype.startsWith('falha na identif')||subtype.startsWith('falha de identif');
-    if(f==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
-    if(f==='cirurgia') return subtype.includes('cirurg');
-    if(f==='ccih') return n.notification_type==='ccih'||!!n.infection_topography||/infec|iras|higien/.test(subtype);
-    return true;
-  };
+  const notifDoSub=notifDoSubnucleo;
   const semRCA=n=>!n.rca_gerado&&n.notification_type==='seguranca_paciente';
   const notifsDoFiltro=notifications.filter(n=>notifDoSub(n,verTodasNotif?'todos':filtroSub)).sort((a,b)=>(semRCA(b)?1:0)-(semRCA(a)?1:0)).slice(0,30);
   const pendNotif=notifications.filter(n=>notifDoSub(n,filtroSub)&&semRCA(n)).length;
@@ -4516,7 +4504,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
     <div style={mostra('resumo')}>
       <div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderLeft:'3px solid '+(sub?.color||C.teal),borderRadius:14,padding:16}}>
-        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>Olá{sub?', '+sub.label:''}!</div>
+        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>{profileMode==='gestor'?'Preenchendo como gestor: '+(sub?sub.label:''):'Olá'+(sub?', '+sub.label:'')+'!'}</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
         {[
           {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
@@ -4768,6 +4756,89 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   </div>
   </div>);
 }
+function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [dados,setDados]=useState(null);
+  const [aberto,setAberto]=useState(null);
+  const d0=new Date();const mes=`${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}`;
+  const nomeMes=d0.toLocaleDateString('pt-BR',{month:'long'});
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    Promise.all([
+      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&select=id,notification_type,event_subtype,occurrence_subtype,infection_topography,rca_gerado,is_test&limit=3000`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=nome,aprovado_em,proxima_revisao`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=eq.${mes}-01&select=*`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=eq.${mes}&select=pd_setores`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=subnucleo,tipo,data`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'nsp_usuarios',`perfil=eq.membro_nsp&ativo=eq.true&select=subnucleo,ultimo_acesso`).catch(()=>[]),
+    ]).then(([notifs,prots,dsm,mens,treins,usuarios])=>{
+      const protsPorNome={};(prots||[]).forEach(p=>{protsPorNome[p.nome]=p;});
+      const o=mens&&mens[0]&&mens[0].pd_setores;
+      const pdSetoresSoma=o?Object.values(o).reduce((a,v)=>a+(Number(v)||0),0):0;
+      const ctx={notifs,protsPorNome,dsm:dsm&&dsm[0],pdSetoresSoma,treins};
+      const linhas=SUBNUCLEOS_HNSA.map(sn=>{
+        const us=(usuarios||[]).filter(u=>u.subnucleo===sn.id);
+        const ultimo=us.map(u=>u.ultimo_acesso).filter(Boolean).sort().pop()||null;
+        return {sn,temPin:us.length>0,ultimo,...calcPendenciasSub(sn.id,ctx)};
+      }).sort((a,b)=>b.total-a.total);
+      setDados(linhas);
+    });
+  },[sbUrl,sbKey,h.id]);
+  if(!dados) return null;
+  const emDia=dados.filter(l=>l.total===0).length;
+  const chip=(n,label,cor)=>n>0&&<span style={{background:cor+'22',color:cor,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{n} {label}</span>;
+  const msgCobranca=l=>{
+    const it=[];
+    if(l.indicadores.length) it.push('• '+l.indicadores.length+' indicador(es) de '+nomeMes+' sem preencher');
+    if(l.protocolos.length) it.push('• Protocolo: '+l.protocolos.join('; '));
+    if(l.semRCA) it.push('• '+l.semRCA+' notificação(ões) sem RCA');
+    if(l.treinSemestre===0) it.push('• Nenhum treinamento registrado neste semestre');
+    return 'Olá! Pendências do subnúcleo '+l.sn.label+' no NotificaAI:\n'+it.join('\n')+'\n\nAcesse: https://notificaai.ia.br/'+h.id;
+  };
+  const dias=iso=>iso?Math.floor((Date.now()-new Date(iso).getTime())/86400000):null;
+  return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
+      <div style={{fontSize:14,fontWeight:800,color:C.text}}>Pendências por subnúcleo</div>
+      <div style={{fontSize:12,fontWeight:700,color:emDia===dados.length?C.green:C.yellow}}>{emDia} de {dados.length} em dia</div>
+    </div>
+    <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Indicadores de {nomeMes}, protocolos, notificações sem RCA e treinamento no semestre. Toque para ver o detalhe.</div>
+    {dados.some(l=>!l.temPin)&&<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'8px 12px',marginBottom:10,fontSize:11,color:C.text,lineHeight:1.5}}>
+      <b style={{color:C.yellow}}>{dados.filter(l=>!l.temPin).length} subnúcleo(s) sem PIN:</b> enquanto não tiverem acesso próprio, o preenchimento fica com o gestor. Cadastre os PINs em Admin › Usuários e PINs.
+    </div>}
+    {dados.map(l=>{
+      const d=dias(l.ultimo);const op=aberto===l.sn.id;
+      return(<div key={l.sn.id} style={{background:C.surface,borderRadius:10,marginBottom:6,borderLeft:'3px solid '+l.sn.color}}>
+        <div onClick={()=>setAberto(op?null:l.sn.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',cursor:'pointer',flexWrap:'wrap'}}>
+          <span style={{fontSize:16}}>{l.sn.icon}</span>
+          <div style={{flex:1,minWidth:150}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{l.sn.label}</div>
+            <div style={{fontSize:10,color:!l.temPin?C.yellow:d===null||d>30?C.yellow:C.muted}}>
+              {!l.temPin?'Sem PIN cadastrado':l.ultimo?('Último acesso: '+(d===0?'hoje':d===1?'ontem':'há '+d+' dias')):'Ainda não entrou'}
+            </div>
+          </div>
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',justifyContent:'flex-end'}}>
+            {l.total===0&&<span style={{background:C.green+'22',color:C.green,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700}}>{String.fromCodePoint(10003)} Em dia</span>}
+            {chip(l.indicadores.length,'indicador'+(l.indicadores.length>1?'es':''),C.yellow)}
+            {chip(l.protocolos.length,'protocolo'+(l.protocolos.length>1?'s':''),C.red)}
+            {chip(l.semRCA,'sem RCA',C.orange)}
+            {l.treinSemestre===0&&chip(1,'sem treinamento',C.purple)}
+          </div>
+        </div>
+        {op&&<div style={{padding:'0 12px 12px 38px',fontSize:11,color:C.muted,lineHeight:1.6}}>
+          {l.indicadores.length>0&&<div><b style={{color:C.text}}>Indicadores:</b> {l.indicadores.join(' · ')}</div>}
+          {l.protocolos.length>0&&<div><b style={{color:C.text}}>Protocolos:</b> {l.protocolos.join(' · ')}</div>}
+          {l.semRCA>0&&<div><b style={{color:C.text}}>Notificações sem RCA:</b> {l.semRCA}</div>}
+          <div><b style={{color:C.text}}>Treinamentos no semestre:</b> {l.treinSemestre}</div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
+            {onAbrirSub&&<button onClick={()=>onAbrirSub(l.sn.id)} style={{background:l.sn.color,border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>{l.temPin?'Abrir painel do subnúcleo':'Preencher pelo subnúcleo'}</button>}
+            {l.total>0&&l.temPin&&<a href={'https://wa.me/?text='+encodeURIComponent(msgCobranca(l))} target="_blank" rel="noreferrer" style={{display:'inline-block',background:'#25D366',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,textDecoration:'none'}}>Cobrar no WhatsApp</a>}
+          </div>
+        </div>}
+      </div>);
+    })}
+  </div>);
+}
+
 function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,hospital,refreshKey,setFiltroNotif}) {
   const [stats,setStats]=useState(null);
   const [loading,setLoading]=useState(false);
@@ -4777,6 +4848,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   const [planoTarget,setPlanoTarget]=useState(null);
   const [alertas,setAlertas]=useState({protsVencidos:[],planosAtrasados:[],rcaPendentes:[],efetPendentes:[],triagemPendentes:[],notsById:{}});
   const [homeTick,setHomeTick]=useState(0);
+  const [painelSub,setPainelSub]=useState(null); // gestor preenchendo pelo subnucleo
   const configured=!!(sbUrl&&sbKey);
 
   useEffect(()=>{
@@ -4809,6 +4881,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   const diffColor=diff>0?C.red:diff<0?C.green:C.muted;
   const mesAtual=new Date().toLocaleDateString('pt-BR',{month:'long'});
 
+  if(painelSub) return(<MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
+    profileMode='gestor' userSubnucleo={painelSub} travado onBack={()=>{setPainelSub(null);setHomeTick(t=>t+1);}}/>);
+
   return(<div style={{padding:'24px 16px 16px',display:'flex',flexDirection:'column',gap:16}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);setHomeTick(t=>t+1);}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaTarget(null)}/>}
@@ -4840,6 +4915,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
+
+    {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
@@ -7583,6 +7660,45 @@ const PROTOCOLOS_DSM=[
   {crit:'C13',nome:'Prevencao de Infeccao do Sitio Cirurgico (ISC)',sub:'isc',          base:'RDC 36/2013',naKey:'tem_centro_cirurgico'},
   {crit:'C14',nome:'Precaucoes e Isolamento',                       sub:'precaucoes',   base:'RDC 36/2013'},
 ];
+
+// ---- Pendencias por subnucleo: mesma regra no painel do subnucleo e na visao do gestor ----
+function notifDoSubnucleo(n,f){
+  if(n.is_test) return false;
+  if(f==='todos') return true;
+  const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
+  if(f==='queda') return subtype.startsWith('queda');
+  if(f==='lpp') return subtype.includes('press')||subtype.includes('lpp');
+  if(f==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
+  if(f==='identificacao') return subtype.startsWith('falha na identif')||subtype.startsWith('falha de identif');
+  if(f==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
+  if(f==='cirurgia') return subtype.includes('cirurg');
+  if(f==='ccih') return n.notification_type==='ccih'||!!n.infection_topography||/infec|iras|higien/.test(subtype);
+  return true;
+}
+function statusProtocolo(r,hoje){
+  if(!r||!r.aprovado_em) return 'missing';
+  const prox=r.proxima_revisao||new Date(new Date(r.aprovado_em).setFullYear(new Date(r.aprovado_em).getFullYear()+3)).toISOString().slice(0,10);
+  if(prox<hoje) return 'vencido';
+  if(prox<=new Date(Date.now()+60*86400000).toISOString().slice(0,10)) return 'proximo';
+  return 'ok';
+}
+function inicioSemestre(){const d=new Date();return new Date(d.getFullYear(),d.getMonth()<6?0:6,1).toISOString().slice(0,10);}
+function calcPendenciasSub(subId,{notifs,protsPorNome,dsm,pdSetoresSoma,treins}){
+  const hoje=new Date().toISOString().slice(0,10);
+  const vazio=v=>v===''||v===null||v===undefined;
+  const campos=DSM_CAMPOS_SUB[subId]||[];
+  const indicadores=campos.length===0?[]:[
+    ...((vazio(dsm&&dsm.paciente_dia_total)&&!pdSetoresSoma)?['Pacientes-dia total no mes']:[]),
+    ...campos.filter(f=>vazio(dsm&&dsm[f.key])).map(f=>f.label)];
+  const crits=SUB_PROTOCOLOS[subId]||[];
+  const protocolos=PROTOCOLOS_DSM.filter(p=>crits.includes(p.crit)).map(p=>({p,st:statusProtocolo(protsPorNome[p.nome],hoje)}))
+    .filter(x=>x.st==='vencido'||x.st==='missing').map(x=>x.p.crit+' '+x.p.nome+(x.st==='vencido'?' (vencido)':' (não cadastrado)'));
+  const semRCA=(notifs||[]).filter(n=>notifDoSubnucleo(n,subId)&&!n.rca_gerado&&n.notification_type==='seguranca_paciente').length;
+  const ini=inicioSemestre();
+  const treinSemestre=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento'&&(t.data||'')>=ini).length;
+  const total=indicadores.length+protocolos.length+semRCA+(treinSemestre===0?1:0);
+  return {indicadores,protocolos,semRCA,treinSemestre,total};
+}
 
 const SUB_PROTOCOLOS={comunicacao:['C5'],lpp:['C7'],queda:['C8'],medicamentos:['C9'],identificacao:['C4'],cirurgia:['C6','C13'],ccih:['C3','C10','C11','C12']};
 

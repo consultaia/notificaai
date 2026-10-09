@@ -126,6 +126,13 @@ window.storage = {
   delete: async (key) => { try { localStorage.removeItem('nai_'+key); return {deleted:true}; } catch { return null; } },
 };
 
+// Textos institucionais para telas e relatorios
+const orgLinhas=h=>(h&&Array.isArray(h.org_header))?h.org_header:[];
+const siglaH=h=>((h&&(h.short_name||h.id))||'NSP');
+const nomeH=h=>((h&&(h.name||h.short_name))||'');
+const arqH=h=>siglaH(h).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^A-Za-z0-9]+/g,'-');
+const linkH=h=>'https://notificaai.ia.br/'+((h&&h.id)||'hnsa');
+
 function getHospitalIdFromUrl() {
   // 1o segmento do caminho (notificaai.ia.br/hnsa); depois ?h= / ?hospital= (links antigos)
   const seg=(window.location.pathname.split('/')[1]||'').toLowerCase();
@@ -140,6 +147,8 @@ function getHospitalIdFromUrl() {
 const IS_DEMO=false;
 const DEFAULT_HOSPITAL = {
   id:'hnsa', name:'Hospital Naval de Salvador', short_name:'HNSA',
+  // Cabecalho institucional dos relatorios e titulo de quem assina pela direcao (exclusivos do HNSA/Marinha)
+  org_header:['MARINHA DO BRASIL','DIRETORIA DE SAÚDE DA MARINHA'], diretor_titulo:'Diretor-Geral HNSA',
   logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP','Oncologia','Odontologia'],
   sectorsInternacao:['UPG','Ala A','Centro Cirúrgico','SEP'], // setores com leito/internacao - usados em Indicadores (paciente-dia). Oncologia e so ambulatorial.
   nsp_label:'NSP',
@@ -160,7 +169,8 @@ async function loadHospital(url, key, id) {
     const h=data[0];
     return { id:h.id||id, name:h.name||h.short_name||id, short_name:h.short_name||h.name||id,
       logo:h.logo||'hospital', logo_url:h.logo_url||null, sectors:h.sectors||DEFAULT_HOSPITAL.sectors, sectorsInternacao:h.sectorsInternacao||h.sectors||DEFAULT_HOSPITAL.sectorsInternacao, nsp_label:h.nsp_label||'NSP',
-      subnucleos:Array.isArray(h.subnucleos)&&h.subnucleos.length?h.subnucleos:null };
+      subnucleos:Array.isArray(h.subnucleos)&&h.subnucleos.length?h.subnucleos:null,
+      org_header:Array.isArray(h.org_header)?h.org_header:[], diretor_titulo:h.diretor_titulo||'Diretor(a) Técnico(a)' };
   } catch { return null; }
 }
 
@@ -998,7 +1008,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
       <div id="pin-form" style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
-        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan - Gestor NSP" style={inp}/>
+        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Maria Souza - Gestora do NSP" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>PIN (4 dígitos){editing?' - deixe em branco para manter':''}</label>
         <input type="password" value={form.pin} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="****" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Confirmar PIN</label>
@@ -2555,11 +2565,11 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor / Coordenador NSP</label>
-          <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Nome do(a) coordenador(a) do NSP" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Diretoria / Chefia (destinatário)</label>
-          <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor-Geral HNSA" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <input value={diretoria} onChange={e=>setDiretoria(e.target.value)} placeholder="Ex: Diretor(a) Técnico(a)" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
         </div>
         <button onClick={gerar} disabled={loading} style={{background:loading?C.border:C.teal,border:'none',borderRadius:12,padding:'13px',color:loading?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:loading?'default':'pointer'}}>
           {loading?'Aguarde Gerando...':'documento Gerar Relatório'}
@@ -2577,7 +2587,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
         <div id="relatorio-pdf" style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',fontSize:12,lineHeight:1.6}}>
           {/* Cabeçalho */}
           <div style={{background:'#c8102e',color:'white',padding:'20px 20px 16px'}}>
-            <div style={{fontSize:10,opacity:.8,marginBottom:4}}>MARINHA DO BRASIL · HOSPITAL NAVAL DE SALVADOR</div>
+            <div style={{fontSize:10,opacity:.8,marginBottom:4}}>{[orgLinhas(h)[0],nomeH(h).toUpperCase()].filter(Boolean).join(' · ')}</div>
             <div style={{fontSize:18,fontWeight:700}}>Relatório Mensal - Núcleo de Segurança do Paciente</div>
             <div style={{fontSize:12,opacity:.9,marginTop:4}}>{MESES_PT[(dados.mesCorr.m-1)]} de {dados.mesCorr.a}</div>
           </div>
@@ -2745,7 +2755,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
       +'p{background:#f5f5f5;border-radius:4px;padding:8px;font-size:12px;margin:0 0 6px;line-height:1.5;}'
       +'.ft{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;font-size:11px;color:#856404;margin-top:20px;}'
       +'</style></head><body>'
-      +'<h1>Formulario Notivisa - HNSA<br><small style="font-size:11px;opacity:.8;">'+new Date().toLocaleString('pt-BR')+'</small></h1>'
+      +'<h1>Formulario Notivisa - '+siglaH(h)+'<br><small style="font-size:11px;opacity:.8;">'+new Date().toLocaleString('pt-BR')+'</small></h1>'
       +'<h2>Tipo</h2><p>'+(tag.label||'-')+(n.event_subtype?' - '+n.event_subtype:'')+'</p>'
       +'<h2>Data / Turno</h2><p>'+(n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(n.shift?' - '+n.shift:'')+'</p>'
       +'<h2>Setor</h2><p>'+(n.sector||'-')+'</p>'
@@ -2764,7 +2774,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     const u=URL.createObjectURL(b);
     const a=document.createElement('a');
     a.href=u;
-    a.download='Notivisa_'+(n.sector||'HNSA')+'_'+(n.event_date||new Date().toISOString().slice(0,10))+'_'+((n.id||'').slice(0,8).toUpperCase())+'.html';
+    a.download='Notivisa_'+(n.sector||arqH(h))+'_'+(n.event_date||new Date().toISOString().slice(0,10))+'_'+((n.id||'').slice(0,8).toUpperCase())+'.html';
     a.click();
     URL.revokeObjectURL(u);
     showToast('Notivisa baixado!','success');
@@ -3356,9 +3366,8 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       };
 
       titleRow('Anexo da Circ n° 24/2023, da DSM.');
-      titleRow('MARINHA DO BRASIL');
-      titleRow('DIRETORIA DE SAÚDE DA MARINHA');
-      titleRow((h.name||h.short_name||'HOSPITAL NAVAL DE SALVADOR').toUpperCase());
+      orgLinhas(h).forEach(l=>titleRow(l));
+      titleRow(nomeH(h).toUpperCase());
       titleRow('INDICADORES DE MONITORAMENTO - NÚCLEO DE SEGURANÇA DO PACIENTE');
       titleRow(periodo.charAt(0).toUpperCase()+periodo.slice(1));
 
@@ -3631,7 +3640,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         const tipo=r.tipo==='reuniao_mensal'?'Mensal':r.tipo==='reuniao_extraordinaria'?'Extraordinaria':'Reuniao';
         return tipo+' em '+(r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(r.descricao?' ('+r.descricao.slice(0,60)+')':'');
       }).join('; ')||'Nenhuma reuniao registrada';
-      const text=await callWorker([{role:'user',content:'Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere um texto narrativo formal para o Relatorio Semestral DSM.\n\nPERIODO: '+label+'\nTOTAL NOTIFICACOES: '+dados.total+' (SP: '+dados.sp+', ADM: '+dados.adm+')\nEVENTOS SENTINELA: '+dados.sentinela+'\nREUNIOES NSP ('+dados.reunioes.length+'): '+reunioesList+'\nTREINAMENTOS: '+resumoSubs+'\nBOAS PRATICAS: '+boasPraticasNSP+'\n\nGere 5 paragrafos formais: 1) Apresentacao do periodo 2) Notificacoes 3) Reunioes e educacao 4) Conformidade ANVISA 5) Conclusao e recomendacoes. Assine como: '+(gestor||'Coordenador NSP - HNSA')}],'Analista hospitalar NSP. Responda em portugues formal.');
+      const text=await callWorker([{role:'user',content:'Voce e o analista do NSP do '+nomeH(h)+' ('+siglaH(h)+'). Gere um texto narrativo formal para o Relatorio Semestral DSM.\n\nPERIODO: '+label+'\nTOTAL NOTIFICACOES: '+dados.total+' (SP: '+dados.sp+', ADM: '+dados.adm+')\nEVENTOS SENTINELA: '+dados.sentinela+'\nREUNIOES NSP ('+dados.reunioes.length+'): '+reunioesList+'\nTREINAMENTOS: '+resumoSubs+'\nBOAS PRATICAS: '+boasPraticasNSP+'\n\nGere 5 paragrafos formais: 1) Apresentacao do periodo 2) Notificacoes 3) Reunioes e educacao 4) Conformidade ANVISA 5) Conclusao e recomendacoes. Assine como: '+(gestor||'Coordenador NSP - HNSA')}],'Analista hospitalar NSP. Responda em portugues formal.');
       setNarrativaIA(text);
     }catch(e){showToast('Erro IA: '+e.message,'error');}
     setLoadingIA(false);
@@ -3704,7 +3713,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     const el=document.getElementById('relatorio-dsm-pdf');
     if(!el) return;
     const w=window.open('','_blank');
-    w.document.write("<html><head><title>Relatorio DSM - HNSA</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+el.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small><\/script></body></html>")
+    w.document.write("<html><head><title>Relatorio DSM - "+siglaH(h)+"</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#222;font-size:11px}h1{font-size:16px;color:#c8102e;border-bottom:2px solid #c8102e;padding-bottom:6px}h2{font-size:13px;margin:16px 0 6px;color:#333}table{width:100%;border-collapse:collapse;margin-bottom:12px}th,td{border:1px solid #ccc;padding:5px 8px}th{background:#f0f0f0}.ok{color:green}.nok{color:red}@media print{button{display:none}}</style></head><body>"+el.innerHTML+"<br/><small style=\"color:#999\">Gerado por NotificaAI - "+new Date().toLocaleDateString('pt-BR')+"</small><\/script></body></html>")
     w.document.close();w.print();
   };
 
@@ -3734,7 +3743,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Assinatura do relatorio</div>
         <div style={{fontSize:11,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preenchido uma vez, fica salvo e entra automaticamente em todos os relatorios.</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
-        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Cap Ten Janan Almeida" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10}}/>
+        <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Nome do(a) coordenador(a) do NSP" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10}}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Boas praticas gerais do NSP (sera incluido no relatorio)</label>
         <textarea value={boasPraticasNSP} onChange={e=>setBoasPraticasNSP(e.target.value)} rows={3}
           placeholder='Boas praticas gerais do NSP...'
@@ -3790,7 +3799,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         })}
 
         <div style={{fontSize:11,fontWeight:700,color:C.text,margin:'14px 0 6px'}}>Caracteristicas do servico (para C.7 e C.11-C.14 da avaliacao ANVISA)</div>
-        <div style={{fontSize:10,color:C.muted,marginBottom:8,lineHeight:1.5}}>Marque o que se aplica ao HNSA. Itens desmarcados aparecem como "Nao se aplica" no checklist.</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:8,lineHeight:1.5}}>Marque o que se aplica a {siglaH(h)}. Itens desmarcados aparecem como "Nao se aplica" no checklist.</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
           {[
             ['tem_parto','Realiza parto'],
@@ -3847,8 +3856,8 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       <div id="relatorio-dsm-pdf" style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',fontSize:11}}>
         {/* Cabecalho */}
         <div style={{background:'#003087',color:'white',padding:'16px 20px'}}>
-          <div style={{fontSize:10,opacity:.8}}>MARINHA DO BRASIL - DIRETORIA DE SAUDE DA MARINHA</div>
-          <div style={{fontSize:16,fontWeight:700,marginTop:4}}>HOSPITAL NAVAL DE SALVADOR</div>
+          {orgLinhas(h).length>0&&<div style={{fontSize:10,opacity:.8}}>{orgLinhas(h).join(' - ')}</div>}
+          <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{nomeH(h).toUpperCase()}</div>
           <div style={{fontSize:13,marginTop:2}}>Indicadores de Monitoramento - Nucleo de Seguranca do Paciente</div>
           <div style={{fontSize:11,opacity:.8,marginTop:4}}>{label} | Gerado em {new Date().toLocaleDateString('pt-BR')}</div>
         </div>
@@ -4013,11 +4022,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           <div style={{marginTop:32,display:'flex',gap:60}}>
             <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
               <div style={{fontSize:11,color:'#666'}}>{gestor||'Coordenador NSP'}</div>
-              <div style={{fontSize:10,color:'#999'}}>Nucleo de Seguranca do Paciente - HNSA</div>
+              <div style={{fontSize:10,color:'#999'}}>Nucleo de Seguranca do Paciente - {siglaH(h)}</div>
             </div>
             <div style={{flex:1,borderTop:'1px solid #999',paddingTop:6,textAlign:'center'}}>
-              <div style={{fontSize:11,color:'#666'}}>Diretor-Geral HNSA</div>
-              <div style={{fontSize:10,color:'#999'}}>Hospital Naval de Salvador</div>
+              <div style={{fontSize:11,color:'#666'}}>{h.diretor_titulo||'Diretor(a) Técnico(a)'}</div>
+              <div style={{fontSize:10,color:'#999'}}>{nomeH(h)}</div>
             </div>
           </div>
         </div>
@@ -4402,7 +4411,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
         <button onClick={gerarPDFConsolidado} disabled={gerandoPDF} style={{background:gerandoPDF?C.border:C.blue,border:'none',borderRadius:10,padding:'13px',color:gerandoPDF?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoPDF?'default':'pointer'}}>{gerandoPDF?'Gerando...':'PDF - Dossie Consolidado (imprimir/salvar)'}</button>
         <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'13px',color:gerandoZip?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'Excel - Pacote de Evidencias (varias abas)'}</button>
       </div>
-      <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Para a resposta oficial da Circular 24/2023 (DSM/Marinha), use o Excel especifico na aba DSM/ANVISA — este dossie cobre auditorias e acreditacoes em geral (ONA e correlatos), com evidencias de todos os subnucleos.</div>
+      <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Para a resposta oficial ao órgão regulador (no HNSA, Circular 24/2023 DSM/Marinha), use o Excel especifico na aba DSM/ANVISA — este dossie cobre auditorias e acreditacoes em geral (ONA e correlatos), com evidencias de todos os subnucleos.</div>
     </div>
   </div>);
 }
@@ -5075,7 +5084,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         <img src={window.BRAND_LOGO} alt="NotificaAI" style={{width:44,height:44,flexShrink:0}}/>
         <div>
           <div style={{fontSize:20,fontWeight:900,color:C.text,letterSpacing:'-0.02em'}}>NotificaAI</div>
-          <div style={{fontSize:11,color:C.muted}}>{hospital?.short_name||'HNSA'} · Núcleo de Segurança do Paciente</div>
+          <div style={{fontSize:11,color:C.muted}}>{hospital?.short_name||''} · Núcleo de Segurança do Paciente</div>
         </div>
       </div>
       <button onClick={onConfig} style={{background:C.card,border:'1px solid '+(configured?C.teal+'66':C.border),borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
@@ -6669,7 +6678,7 @@ const fSemRCA=filtered.filter(n=>n.notification_type==='seguranca_paciente'&&!n.
 const fSentinela=filtered.filter(n=>n.gravidade==='Evento sentinela').length;
 const fSetorCount=Object.entries(filtered.reduce((acc,n)=>{if(n.sector){acc[n.sector]=(acc[n.sector]||0)+1;}return acc;},{})).sort((a,b)=>b[1]-a[1]);
 const fSubtipoCount=Object.entries(filtered.reduce((acc,n)=>{if(n.event_subtype){acc[n.event_subtype]=(acc[n.event_subtype]||0)+1;}return acc;},{})).sort((a,b)=>b[1]-a[1]);
-const text=await callWorker([{role:'user',content:`Voce e o analista do NSP do Hospital Naval de Salvador (HNSA). Gere um relatorio narrativo tecnico do periodo indicado.
+const text=await callWorker([{role:'user',content:`Voce e o analista do NSP do ${nomeH(hospital||DEFAULT_HOSPITAL)} (${siglaH(hospital||DEFAULT_HOSPITAL)}). Gere um relatorio narrativo tecnico do periodo indicado.
 
 PERIODO DE ANALISE: ${mesFiltro} (somente este periodo - nao use dados de outros meses)
 TOTAL DE NOTIFICACOES DO PERIODO: ${filtered.length}
@@ -7096,14 +7105,16 @@ function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
     </div>)}
   </div>);
 }
-function CartilhaPaciente() {
+function CartilhaPaciente({hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const artesHNSA=h.id==='hnsa'; // folder e display de mesa sao imagens com o brasao do HNSA
   const imprimirCartilha=()=>{
     // As duas paginas do folder ficam como arquivos em assets/ (nao embutidas no HTML,
     // que ficaria pesado demais). O popup usa about:blank, entao a URL precisa ser
     // absoluta — derivada da pasta onde o app esta hospedado.
     const base=location.href.replace(/[?#].*$/,'').replace(/[^/]*$/,'');
     const w=window.open('','_blank');
-    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Folder Seguranca do Paciente - HNSA</title>
+    w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Folder Seguranca do Paciente - ${siglaH(h)}</title>
 <style>
 @page{size:A4 landscape;margin:0}
 *{box-sizing:border-box}html,body{margin:0}
@@ -7174,15 +7185,15 @@ body{background:#666}
   <div class="chamada">Viu algo errado? Quase aconteceu?<br/>N\u00e3o guarde s\u00f3 pra voc\u00ea.</div>
   <div class="sub">Erro de medica\u00e7\u00e3o \u00b7 queda \u00b7 identifica\u00e7\u00e3o trocada \u00b7 equipamento com defeito<br/>quase-erro tamb\u00e9m conta \u2014 <b>notificar \u00e9 cuidar</b>.</div>
   <div class="qrwrap"><div id="qr"></div></div>
-  <div class="url">notificaai.ia.br/hnsa</div>
+  <div class="url">${linkH(h).replace('https://','')}</div>
   <div style="margin-top:7mm">
     <span class="pill">\u23f1 menos de 3 minutos</span>
     <span class="pill">\ud83d\udd12 pode ser an\u00f4nimo</span>
     <span class="pill">\u2705 n\u00e3o \u00e9 den\u00fancia</span>
   </div>
-  <div class="ft">Hospital Naval de Salvador \u2014 N\u00facleo de Seguran\u00e7a do Paciente<br/>Pacientes, acompanhantes e profissionais: todos podem notificar.</div>
+  <div class="ft">${nomeH(h)} \u2014 N\u00facleo de Seguran\u00e7a do Paciente<br/>Pacientes, acompanhantes e profissionais: todos podem notificar.</div>
 </div>
-<script>new QRCode(document.getElementById('qr'),{text:'https://notificaai.ia.br/hnsa',width:210,height:210,correctLevel:QRCode.CorrectLevel.M});<\/script>
+<script>new QRCode(document.getElementById('qr'),{text:'${linkH(h)}',width:210,height:210,correctLevel:QRCode.CorrectLevel.M});<\/script>
 </body></html>`);
     w.document.close();
   };
@@ -7249,11 +7260,11 @@ body{background:#666}
       <div style={{width:72,height:72,borderRadius:'50%',background:'linear-gradient(135deg,#0A2342,#0D9488)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px',fontSize:32}}>
         {String.fromCodePoint(127973)}
       </div>
-      <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>HOSPITAL NAVAL DE SALVADOR</div>
+      <div style={{fontSize:11,color:'#0D9488',fontWeight:700,letterSpacing:'0.1em',marginBottom:4}}>{nomeH(h).toUpperCase()}</div>
       <div style={{fontSize:20,fontWeight:900,color:C.text,lineHeight:1.2,marginBottom:6}}>Cartilha de Segurança do Paciente</div>
-      <button onClick={imprimirCartilha} style={{background:C.teal+"18",border:"1px solid "+C.teal+"55",borderRadius:10,padding:"8px 14px",color:C.teal,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>{String.fromCodePoint(128424)+" Baixar para impress\u00e3o (com QR code)"}</button>
+      {artesHNSA&&<button onClick={imprimirCartilha} style={{background:C.teal+"18",border:"1px solid "+C.teal+"55",borderRadius:10,padding:"8px 14px",color:C.teal,fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10}}>{String.fromCodePoint(128424)+" Baixar para impress\u00e3o (com QR code)"}</button>}
       <button onClick={imprimirCartaz} style={{background:"#FFCC0018",border:"1px solid #BF8D0766",borderRadius:10,padding:"8px 14px",color:"#BF8D07",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128226)+" Cartaz A4 \u201cHei, NotificaAI!\u201d (setores)"}</button>
-      <button onClick={imprimirDisplay} style={{background:"#1D6FE818",border:"1px solid #1D6FE855",borderRadius:10,padding:"8px 14px",color:"#1D6FE8",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128203)+" Display de mesa (tri\u00e2ngulo, com QR code)"}</button>
+      {artesHNSA&&<button onClick={imprimirDisplay} style={{background:"#1D6FE818",border:"1px solid #1D6FE855",borderRadius:10,padding:"8px 14px",color:"#1D6FE8",fontSize:12,fontWeight:700,cursor:"pointer",marginBottom:10,marginLeft:8}}>{String.fromCodePoint(128203)+" Display de mesa (tri\u00e2ngulo, com QR code)"}</button>}
       <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Para você e seus familiares</div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:20}}>
         {[
@@ -7321,7 +7332,7 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
       {item.type==='pdf'&&item.url&&<a href={item.url} target="_blank" rel="noreferrer" style={{display:'block',background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:12,padding:16,textAlign:'center',color:C.teal,fontWeight:700,fontSize:14,textDecoration:'none'}}>Doc Abrir documento oficial (ANVISA)</a>}
       {item.type==='cards'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+item.color,borderRadius:12,padding:14}}><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div>)}
       {item.type==='steps'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{fontSize:26,fontWeight:900,color:item.color,minWidth:32}}>{c.step}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
-        {item.type==='cartilha'&&<CartilhaPaciente/>}
+        {item.type==='cartilha'&&<CartilhaPaciente hospital={hospital}/>}
       {item.type==='metas'&&item.items?.map((c,i)=><div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,display:'flex',gap:14}}><div style={{minWidth:36,height:36,borderRadius:18,background:item.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:900,color:'#06101F'}}>{c.num}</div><div><div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{c.title}</div><div style={{fontSize:12,color:C.muted,lineHeight:1.65}}>{c.text}</div></div></div>)}
     </div>
   </div>);
@@ -7414,7 +7425,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}> E-mail de destino</div>
-      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="hnsa.nsp@marinha.mil.br" style={{...inp,marginBottom:10}}/>
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="nsp@suainstituicao.com.br" style={{...inp,marginBottom:10}}/>
       <button onClick={()=>{onSaveEmail(email.trim());showToast('OK E-mail atualizado','success');}} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Salvar e-mail</button>
     </div>
 
@@ -7611,7 +7622,7 @@ function NotificaAI() {
           <img src={window.BRAND_LOGO} alt="NotificaAI" style={{width:34,height:'auto'}}/>
           <div>
             <div style={{fontSize:14,fontWeight:900,color:C.teal}}>NotificaAI</div>
-            <div style={{fontSize:9,color:C.muted}}>{hospital?.short_name||'HNSA'}</div>
+            <div style={{fontSize:9,color:C.muted}}>{hospital?.short_name||''}</div>
           </div>
         </div>
         {tabs.map(({id,label,icon:Icon})=>{
@@ -7840,7 +7851,7 @@ function buildStoragePath(tipo, meta, originalName) {
   const mes  = new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/\. |\./, '');
   if(tipo==='protocolo') return `protocolos/${ano}/${sem}S/${meta.crit||'XX'}-${safe((meta.nomeProt||'').slice(0,20))}-Rev${mes}.${ext}`;
   if(tipo==='treinamento') return `treinamentos/${ano}/${sem}S/${safe((meta.subnucleo||'nsp').slice(0,15))}/${meta.data||new Date().toISOString().slice(0,10)}${meta.participantes?'_'+meta.participantes+'p':''}.${ext}`;
-  if(tipo==='relatorio') return `relatorios/${ano}/${sem}S/DSM-HNSA-${ano}-${sem}S.xlsx`;
+  if(tipo==='relatorio') return `relatorios/${ano}/${sem}S/DSM-${meta.sigla||'HNSA'}-${ano}-${sem}S.xlsx`;
   return `outros/${Date.now()}_${safe(originalName)}`;
 }
 
@@ -8728,14 +8739,14 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
       if(!window.XLSX){showToast('SheetJS nao carregado','error');setFinalizando(null);return;}
       const XLSX=window.XLSX;
       const wb=XLSX.utils.book_new();
-      const rows=[['MARINHA DO BRASIL'],['DIRETORIA DE SAUDE DA MARINHA'],[h.nome||h.name||'Hospital Naval'],['INDICADORES DE MONITORAMENTO - NSP'],[`${semestre}o Semestre / ${ano}`],['Gerado em: '+new Date().toLocaleDateString('pt-BR')],[],['Dado','Valor'],['Total de EA notificados',(notifs||[]).length],['Total de treinamentos',(trein||[]).length],['Meses com dados preenchidos',(ind||[]).length]];
+      const rows=[...orgLinhas(h).map(l=>[l]),[nomeH(h)],['INDICADORES DE MONITORAMENTO - NSP'],[`${semestre}o Semestre / ${ano}`],['Gerado em: '+new Date().toLocaleDateString('pt-BR')],[],['Dado','Valor'],['Total de EA notificados',(notifs||[]).length],['Total de treinamentos',(trein||[]).length],['Meses com dados preenchidos',(ind||[]).length]];
       const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=[{wch:40},{wch:20}];
       XLSX.utils.book_append_sheet(wb,ws,'Resumo');
       const wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
       const blob=new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-      const file=new File([blob],`DSM-HNSA-${ano}-${semestre}S.xlsx`,{type:blob.type});
+      const file=new File([blob],`DSM-${arqH(h)}-${ano}-${semestre}S.xlsx`,{type:blob.type});
       let driveLink=null;
-      try{driveLink=await uploadToStorage(file,'relatorio',{ano:String(ano),semestre:String(semestre)},sbUrl,sbKey);showToast('Salvo no Storage!','success');}
+      try{driveLink=await uploadToStorage(file,'relatorio',{ano:String(ano),semestre:String(semestre),sigla:arqH(h)},sbUrl,sbKey);showToast('Salvo no Storage!','success');}
       catch(storErr){showToast('Upload falhou. Baixando localmente...','error');XLSX.writeFile(wb,file.name);}
       const reg=await criarOuBuscar(ano,semestre);
       if(reg){await sbPatch(sbUrl,sbKey,'semestres_dsm',`id=eq.${reg.id}`,{status:'finalizado',finalizado_em:new Date().toISOString(),drive_relatorio_link:driveLink,meses_preenchidos:(ind||[]).length,total_notificacoes:(notifs||[]).length,total_treinamentos:(trein||[]).length});}
@@ -8843,7 +8854,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
       let ok=0;
       for(const doc of todos){try{const resp=await fetch(`${BUCKET}/${doc.path}`);if(resp.ok){zip.file(`${doc.pasta}/${doc.nome}`,await resp.blob());ok++;}}catch(e){console.warn(e);}}
       const content=await zip.generateAsync({type:'blob'});
-      const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download=`NSP-HNSA-${ano}-${semestre}S-Documentos.zip`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+      const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download=`NSP-${arqH(h)}-${ano}-${semestre}S-Documentos.zip`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
       showToast(`ZIP gerado com ${ok} documento(s)!`,'success');
     }catch(e){showToast('Erro ao gerar ZIP: '+e.message,'error');}
     setBaixando(false);

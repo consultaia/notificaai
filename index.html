@@ -3,7 +3,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>NotificaAI - HNSA</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>"/>
 <script>
@@ -161,13 +161,11 @@ async function sbReq(url,key,path,opts={}) {
 const sbInsert=(u,k,tb,d)=>sbReq(u,k,`/${tb}`,{method:'POST',body:JSON.stringify(d)});
 const sbSelect=(u,k,tb,q='')=>sbReq(u,k,`/${tb}?${q}`);
 async function sbPatch(u,k,tb,f,d){
-  console.log('[sbPatch] PATCH',tb,f,JSON.stringify(d));
   const res=await fetch(u.replace(/\/+$/,'')+'/rest/v1/'+tb+'?'+f,{
     method:'PATCH',
     headers:{'Content-Type':'application/json','apikey':k,'Authorization':'Bearer '+k,'Prefer':'return=minimal'},
     body:JSON.stringify(d)
   });
-  console.log('[sbPatch] status',res.status);
   if(!res.ok){const t=await res.text();console.error('[sbPatch] erro',t);throw new Error('Supabase PATCH '+res.status+': '+t);}
   return [];
 }
@@ -228,8 +226,11 @@ function getTitle(n){
   if(n.description) return '(sem tipo classificado) '+n.description.slice(0,30);
   return 'Notificação';
 }
+function escHtml(t){
+  return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 function md(t){
-  return t.replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g,'<br/>');
+  return escHtml(t).replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/\n/g,'<br/>');
 }
 
 const MOCK_MONTHLY=[{mes:'Jan',sp:4,adm:7},{mes:'Fev',sp:6,adm:5},{mes:'Mar',sp:3,adm:8},{mes:'Abr',sp:8,adm:4},{mes:'Mai',sp:5,adm:6}];
@@ -636,15 +637,22 @@ CREATE TABLE IF NOT EXISTS notivisa_analise (
   </div>);
 }
 
+// Limite de tentativas de PIN (fica em memoria, sobrevive a fechar/abrir o modal)
+const PIN_MAX_FALHAS=5, PIN_BLOQUEIO_MS=30000;
+const PIN_TENTATIVAS={falhas:0,bloqueadoAte:0};
 function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
   const [pin,setPin]=useState('');
   const [error,setError]=useState(false);
+  const [bloqueio,setBloqueio]=useState(0);
   const [loading,setLoading]=useState(false);
   const ref=useRef(null);
   useEffect(()=>{setTimeout(()=>ref.current?.focus(),100);},[]);
 
   const check=async()=>{
     if(loading||!pin) return;
+    const espera=PIN_TENTATIVAS.bloqueadoAte-Date.now();
+    if(espera>0) { setBloqueio(Math.ceil(espera/1000)); setPin(''); return; }
+    setBloqueio(0);
     setLoading(true);
     let matched=null;
     if(sbUrl&&sbKey) {
@@ -659,12 +667,28 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
       } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
     }
     if(!matched) {
+      // PIN padrao (PROFILES) so vale para perfil que ainda NAO tem usuario ativo cadastrado
+      // em nsp_usuarios. Assim que o hospital cadastra um usuario do perfil, o PIN padrao
+      // daquele perfil para de funcionar (antes funcionava sempre, mesmo com usuarios cadastrados).
       const lm=Object.entries(PROFILES).find(([,p])=>p.pin===pin);
-      if(lm) matched={key:lm[0],label:lm[1].label,color:lm[1].color,icon:lm[1].icon};
+      if(lm) {
+        let liberado=!(sbUrl&&sbKey); // sem Supabase configurado: mantem o comportamento antigo
+        if(sbUrl&&sbKey) {
+          try {
+            const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`perfil=eq.${lm[0]}&ativo=eq.true&select=id&limit=1`);
+            liberado=!(ex&&ex.length>0);
+          } catch(e) { console.warn('Nao foi possivel verificar usuarios do perfil',e); liberado=false; }
+        }
+        if(liberado) matched={key:lm[0],label:lm[1].label,color:lm[1].color,icon:lm[1].icon};
+      }
     }
     setLoading(false);
-    if(matched) onSuccess(matched.key,matched);
-    else { setError(true); setPin(''); setTimeout(()=>setError(false),1200); }
+    if(matched) { PIN_TENTATIVAS.falhas=0; onSuccess(matched.key,matched); }
+    else {
+      PIN_TENTATIVAS.falhas++;
+      if(PIN_TENTATIVAS.falhas>=PIN_MAX_FALHAS) { PIN_TENTATIVAS.bloqueadoAte=Date.now()+PIN_BLOQUEIO_MS; PIN_TENTATIVAS.falhas=0; }
+      setError(true); setPin(''); setTimeout(()=>setError(false),1200);
+    }
   };
 
   return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
@@ -680,6 +704,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
       <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
         style={{width:'100%',background:C.card,border:'1px solid '+(error?C.red:C.border),borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
+      {bloqueio>0&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>Muitas tentativas. Aguarde {bloqueio}s e tente novamente.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>
         <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
         <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde Verificando...':'Entrar'}</button>
@@ -817,6 +842,13 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
       <div style={{fontSize:13,fontWeight:700,color:C.text}}>{String.fromCodePoint(128272)+' Usuários e PINs'}</div>
       <button onClick={()=>openForm()} style={{background:C.teal,border:'none',borderRadius:8,padding:'6px 12px',color:'#06101F',fontWeight:700,fontSize:12,cursor:'pointer'}}>+ Novo</button>
     </div>
+    {!loading&&(()=>{
+      const semUsuario=Object.entries(PROFILES).filter(([k])=>!users.some(u=>u.perfil===k&&u.ativo!==false));
+      if(!semUsuario.length) return null;
+      return(<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:10,marginBottom:12,fontSize:11,color:C.text,lineHeight:1.6}}>
+        <b style={{color:C.yellow}}>Atenção:</b> estes perfis ainda não têm usuário ativo e aceitam o PIN padrão: {semUsuario.map(([,p])=>p.label).join(', ')}. Cadastre um usuário para cada perfil para desativar o PIN padrão.
+      </div>);
+    })()}
     {showForm&&(
       <div style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>

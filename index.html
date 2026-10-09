@@ -203,9 +203,6 @@ async function hashPin(pin, hospitalId) {
 const PROFILES = {
   gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
   membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(129405),color:'#00C9B8',perfil:'membro_nsp'},
-  dsg:      {pin:'1111', label:'DSG',        icon:'ferramenta',color:'#F59E0B',perfil:'dsg'},
-  motorista:{pin:'2222', label:'Motorista',  icon:'ambulancia',color:'#EF4444',perfil:'motorista'},
-  enfermeiro:{pin:'3333',label:'Enfermeiro', icon:'medico',color:'#1D6FE8',perfil:'enfermeiro'},
 };
 
 function formatTime(iso){
@@ -644,6 +641,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
   const [pin,setPin]=useState('');
   const [error,setError]=useState(false);
   const [bloqueio,setBloqueio]=useState(0);
+  const [perfilDesativado,setPerfilDesativado]=useState(false);
   const [loading,setLoading]=useState(false);
   const ref=useRef(null);
   useEffect(()=>{setTimeout(()=>ref.current?.focus(),100);},[]);
@@ -652,13 +650,17 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     if(loading||!pin) return;
     const espera=PIN_TENTATIVAS.bloqueadoAte-Date.now();
     if(espera>0) { setBloqueio(Math.ceil(espera/1000)); setPin(''); return; }
-    setBloqueio(0);
+    setBloqueio(0); setPerfilDesativado(false);
     setLoading(true);
     let matched=null;
     if(sbUrl&&sbKey) {
       try {
         const h=await hashPin(pin, hospital?.id);
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
+        if(rows&&rows[0]&&!PROFILES[rows[0].perfil||'gestor']) {
+          // Perfis de chamados (DSG, Motorista, Enfermeiro) foram descontinuados
+          setLoading(false); setPerfilDesativado(true); setPin(''); return;
+        }
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
           matched={key:perfil,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
@@ -695,7 +697,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     <div style={{background:C.surface,borderRadius:20,padding:'32px 24px',width:'100%',maxWidth:320,border:'1px solid '+(error?C.red:C.border),transition:'border-color 0.3s',textAlign:'center'}}>
       <div style={{fontSize:36,marginBottom:12}}>{String.fromCodePoint(128272)}</div>
       <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:6}}>Área Restrita</div>
-      <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · DSG · Motorista · Enfermeiro</div>
+      <div style={{fontSize:12,color:C.muted,marginBottom:18}}>Gestor · Membro NSP</div>
       <div style={{display:'flex',gap:6,justifyContent:'center',flexWrap:'wrap',marginBottom:18}}>
         {Object.entries(PROFILES).map(([k,p])=>(
           <div key={k} style={{background:p.color+'15',border:'1px solid '+p.color+'33',borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
@@ -704,6 +706,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
       <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
         style={{width:'100%',background:C.card,border:'1px solid '+(error?C.red:C.border),borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
+      {perfilDesativado&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>Este perfil foi desativado. Procure o gestor do NSP.</div>}
       {bloqueio>0&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>Muitas tentativas. Aguarde {bloqueio}s e tente novamente.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>
         <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
@@ -862,9 +865,6 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
           <option value="membro_nsp">Membro NSP - subnucleos e indicadores</option>
-          <option value="dsg">DSG - apenas manutenção</option>
-          <option value="motorista">Motorista - apenas ambulância</option>
-          <option value="enfermeiro">Enfermeiro - abertura de chamados</option>
         </select>
         {form.perfil==='membro_nsp'&&<React.Fragment>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo do membro</label>
@@ -6449,236 +6449,6 @@ ESTRUTURA:
   </div>);
 }
 
-const TICKET_TYPES=[
-  {id:'manutencao',label:'Manutencao / DSG',icon:'wrench',color:'#F59E0B',dest:'DSG',desc:'Equipamento, infraestrutura, instalacoes, reparos'},
-  {id:'transporte',label:'Transporte / Ambulancia',icon:'ambulancia',color:'#EF4444',dest:'Transporte HNSA',desc:'Saida por ambulancia, transporte de paciente para unidade externa'},
-];
-const TICKET_STATUS={
-  aberto:{label:'Aberto',color:'#F59E0B',bg:'#F59E0B22'},
-  visualizado:{label:'Visualizado',color:'#8B5CF6',bg:'#8B5CF622'},
-  recebido:{label:'Recebido',color:'#1D6FE8',bg:'#1D6FE822'},
-  em_andamento:{label:'Em andamento',color:'#00C9B8',bg:'#00C9B822'},
-  concluido:{label:'Concluído',color:'#10B981',bg:'#10B98122'},
-  pendente:{label:'Pendente',color:'#EF4444',bg:'#EF444422'},
-};
-
-function TicketForm({sbUrl,sbKey,hospital,showToast,onBack}) {
-  const [step,setStep]=useState('type');
-  const [type,setType]=useState(null);
-  const [form,setForm]=useState({sector:'',responsavel:'',description:'',priority:'normal',patient_name:'',destination:'',scheduled_at:'',requester_name:''});
-  const [saving,setSaving]=useState(false);
-  const h=hospital||DEFAULT_HOSPITAL;
-  const tt=TICKET_TYPES.find(t=>t.id===type)||TICKET_TYPES[0];
-
-  const submit=async()=>{
-    if(!form.description.trim()){showToast('Descreva o chamado','error');return;}
-    setSaving(true);
-    try {
-      const payload={hospital_id:h.id,ticket_type:type,responsavel:form.responsavel||null,origin_sector:form.sector,description:form.description,priority:form.priority,patient_name:form.patient_name||null,requester_name:form.requester_name||null,destination_sector:tt?.dest||null,scheduled_at:form.scheduled_at||null,status:'aberto',opened_at:new Date().toISOString()};
-      if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'tickets',payload);
-      showToast('OK Chamado aberto! '+tt?.dest+' foi notificado.','success');
-      setStep('done');
-    } catch(e) { showToast('Erro: '+e.message,'error'); }
-    setSaving(false);
-  };
-
-  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12};
-  const lbl={fontSize:11,color:C.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:'0.08em',display:'block',marginBottom:6};
-
-  if(step==='done') return(<div style={{padding:32,textAlign:'center'}}>
-    <div style={{fontSize:52,marginBottom:14}}>OK</div>
-    <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:8}}>Chamado aberto!</div>
-    <div style={{fontSize:14,color:C.muted,marginBottom:24}}>{tt?.dest} foi notificado.</div>
-    <button onClick={onBack} style={{background:C.teal,border:'none',borderRadius:12,padding:'12px 28px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>Ver chamados</button>
-  </div>);
-
-  if(step==='type') return(<div style={{padding:'20px 16px'}}>
-    {onBack&&<button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:16}}>←</button>}
-    <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Novo Chamado</div>
-    <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Qual o tipo de chamado?</div>
-    <div style={{display:'flex',flexDirection:'column',gap:10}}>
-      {TICKET_TYPES.map(t=>(
-        <button key={t.id} onClick={()=>{setType(t.id);setStep('form');}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
-          <div style={{width:44,height:44,borderRadius:12,background:t.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{ticketEmoji(t.icon)}</div>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:700,color:C.text}}>{t.label}</div><div style={{fontSize:11,color:C.muted}}> {t.dest} · {t.desc}</div></div>
-        </button>
-      ))}
-    </div>
-  </div>);
-
-  return(<div style={{padding:'20px 16px'}}>
-    <button onClick={()=>setStep('type')} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22,marginBottom:8}}>←</button>
-    <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20}}>
-      <div style={{width:44,height:44,borderRadius:12,background:tt?.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{ticketEmoji(tt?.icon)}</div>
-      <div><div style={{fontSize:16,fontWeight:800,color:C.text}}>{tt?.label}</div><div style={{fontSize:11,color:C.muted}}>-> {tt?.dest}</div></div>
-    </div>
-    <label style={lbl}>Setor de origem</label>
-    <select value={form.sector} onChange={e=>setForm({...form,sector:e.target.value})} style={{...inp,appearance:'none'}}>
-      <option value="">Selecione o setor</option>
-      {h.sectors.map(s=><option key={s} value={s}>{s}</option>)}
-    </select>
-    <label style={lbl}>Solicitante (opcional)</label>
-    <input value={form.requester_name} onChange={e=>setForm({...form,requester_name:e.target.value})} placeholder="Nome" style={inp}/>
-    {type==='transporte'&&<>
-      <label style={lbl}>Nome do paciente</label>
-      <input value={form.patient_name} onChange={e=>setForm({...form,patient_name:e.target.value})} placeholder="Nome completo (opcional)" style={inp}/>
-      <label style={lbl}>Destino / Unidade de referência</label>
-      <input value={form.destination} onChange={e=>setForm({...form,destination:e.target.value})} placeholder="Ex: Hospital Roberto Santos" style={inp}/>
-      <label style={lbl}>Horário previsto</label>
-      <input type="datetime-local" value={form.scheduled_at} onChange={e=>setForm({...form,scheduled_at:e.target.value})} style={inp}/>
-    </>}
-    <label style={lbl}>Responsável (opcional)</label>
-      <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Ex: 1T Almeida, Enf. Costa..." style={{...inp,marginBottom:16}}/>
-      <label style={lbl}>Descrição *</label>
-    <textarea value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Descreva o chamado..." style={{...inp,height:90,resize:'none',fontFamily:'inherit'}}/>
-    <label style={lbl}>Prioridade</label>
-    <div style={{display:'flex',gap:8,marginBottom:16}}>
-      {[['normal','Normal','#5A7AA0'],['urgente','Urgente','#F59E0B'],['critico','Crítico','#EF4444']].map(([id,label,color])=>(
-        <button key={id} onClick={()=>setForm({...form,priority:id})} style={{flex:1,padding:'9px',borderRadius:8,border:'1px solid '+(form.priority===id?color:C.border),background:form.priority===id?color+'22':C.card,color:form.priority===id?color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>{label}</button>
-      ))}
-    </div>
-    <button onClick={submit} disabled={saving||!form.description.trim()} style={{width:'100%',background:tt?.color||C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',opacity:saving?0.7:1}}>
-      {saving?'Aguarde Enviando...':`${ticketEmoji(tt?.icon)} Abrir para ${tt?.dest}`}
-    </button>
-  </div>);
-}
-
-function TicketsList({sbUrl,sbKey,hospital,showToast,profileMode}) {
-  const [tickets,setTickets]=useState([]);
-  const [loading,setLoading]=useState(false);
-  const [filter,setFilter]=useState('todos');
-  const [commenting,setCommenting]=useState(null);
-  const [commentText,setCommentText]=useState('');
-  const h=hospital||DEFAULT_HOSPITAL;
-  const isDsg=profileMode==='dsg';
-  const isMotorista=profileMode==='motorista';
-  const isGestor=profileMode==='gestor';
-  const canAct=isDsg||isMotorista||isGestor;
-
-  const load=async()=>{
-    if(!sbUrl||!sbKey) return;
-    setLoading(true);
-    try {
-      let data=await sbSelect(sbUrl,sbKey,'tickets',`select=*&hospital_id=eq.${h.id}&order=opened_at.desc`);
-      let r=data||[];
-      if(isDsg) r=r.filter(t=>t.ticket_type==='manutencao');
-      if(isMotorista) r=r.filter(t=>t.ticket_type==='ambulancia');
-      setTickets(r);
-    } catch { showToast('Erro ao carregar chamados','error'); }
-    setLoading(false);
-  };
-  useEffect(()=>{load();},[sbUrl,sbKey,profileMode]);
-  useEffect(()=>{
-    if(!sbUrl||!sbKey||(!isDsg&&!isMotorista)||tickets.length===0) return;
-    const toMark=tickets.filter(t=>t.status==='aberto');
-    toMark.forEach(async t=>{try{await sbPatch(sbUrl,sbKey,'tickets',`id=eq.${t.id}`,{status:'visualizado',viewed_at:new Date().toISOString(),viewed_by:profileMode});}catch{}});
-    if(toMark.length>0) setTickets(prev=>prev.map(t=>t.status==='aberto'?{...t,status:'visualizado'}:t));
-  },[tickets.length,isDsg,isMotorista]);
-
-  const updateStatus=async(ticket,newStatus,notes)=>{
-    try {
-      const patch={status:newStatus,responded_at:new Date().toISOString(),...(notes!==undefined?{response_notes:notes}:{}),...(newStatus==='concluido'?{closed_at:new Date().toISOString()}:{})};
-      await sbPatch(sbUrl,sbKey,'tickets',`id=eq.${ticket.id}`,patch);
-      setTickets(prev=>prev.map(t=>t.id===ticket.id?{...t,...patch}:t));
-      setCommenting(null);setCommentText('');
-      showToast({recebido:'? Recebido!',em_andamento:'Aguarde Em andamento!',concluido:'OK Concluído!',pendente:'ATENCAO Pendente'}[newStatus]||'Atualizado!','success');
-    } catch { showToast('Erro ao atualizar','error'); }
-  };
-
-  const filtered=filter==='todos'?tickets:tickets.filter(t=>t.status===filter);
-  const counts={aberto:tickets.filter(t=>t.status==='aberto').length,em_andamento:tickets.filter(t=>t.status==='em_andamento').length,pendente:tickets.filter(t=>['pendente','visualizado','recebido'].includes(t.status)).length};
-
-  const renderActions=(ticket)=>{
-    if(!canAct||ticket.status==='concluido') return null;
-    const st=ticket.status;
-    const isComm=commenting===ticket.id;
-    if(isComm) return(<div style={{marginTop:8}}>
-      <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comentário ou observação..." style={{width:'100%',background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'10px',color:C.text,fontSize:12,outline:'none',resize:'none',height:70,fontFamily:'inherit',marginBottom:8}}/>
-      <div style={{display:'flex',gap:6}}>
-        <button onClick={()=>{setCommenting(null);setCommentText('');}} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
-        <button onClick={()=>updateStatus(ticket,st,commentText)} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'8px',color:'#06101F',fontSize:11,fontWeight:800,cursor:'pointer'}}>Chat Salvar</button>
-      </div>
-    </div>);
-    return(<div style={{marginTop:8,display:'flex',gap:6,flexWrap:'wrap'}}>
-      <button onClick={()=>setCommenting(ticket.id)} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Chat Comentar</button>
-      {st==='visualizado'&&<button onClick={()=>updateStatus(ticket,'recebido')} style={{flex:1,minWidth:80,background:C.blue+'22',border:'1px solid '+C.blue+'44',borderRadius:8,padding:'8px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}> Recebido</button>}
-      {st==='recebido'&&<button onClick={()=>updateStatus(ticket,'em_andamento')} style={{flex:1,minWidth:80,background:C.teal+'22',border:'1px solid '+C.teal+'44',borderRadius:8,padding:'8px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}> Andamento</button>}
-      {(st==='em_andamento'||st==='recebido')&&<button onClick={()=>updateStatus(ticket,'concluido')} style={{flex:1,minWidth:80,background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:8,padding:'8px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>Ok Concluído</button>}
-    </div>);
-  };
-
-  if(!profileMode) return(<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'calc(100vh - 64px)',padding:32,textAlign:'center'}}>
-    <div style={{fontSize:48,marginBottom:16}}></div>
-    <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:8}}>Acesso restrito</div>
-    <div style={{fontSize:13,color:C.muted,maxWidth:260}}>Faça login para abrir ou visualizar chamados operacionais.</div>
-  </div>);
-
-  return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    {/* Modal de edicao */}
-    <BackHeader title='Chamados' subtitle={filtered.length+' chamado(s)'} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
-    <div style={{padding:'16px'}}>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
-      {[['aberto','Abertos',C.yellow],['em_andamento','Andamento',C.blue],['pendente','Pendentes',C.red]].map(([id,label,color])=>(
-        <div key={id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-          <div style={{fontSize:22,fontWeight:900,color}}>{counts[id]||0}</div>
-          <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>{label}</div>
-        </div>
-      ))}
-    </div>
-    <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:14,paddingBottom:4}}>
-      {[['todos','Todos'],['aberto','Aberto'],['visualizado','Visualizado'],['recebido','Recebido'],['em_andamento','Andamento'],['concluido','Concluído']].map(([id,label])=>(
-        <button key={id} onClick={()=>setFilter(id)} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:'none',background:filter===id?C.teal:C.card,color:filter===id?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{label}</button>
-      ))}
-      <button onClick={load} style={{flexShrink:0,padding:'6px 12px',borderRadius:16,border:'1px solid '+C.border,background:'transparent',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}></button>
-    </div>
-    {loading&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Carregando...</div>}
-    {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,padding:32}}>Nenhum chamado{filter!=='todos'?' com este filtro':''}.</div>}
-    {filtered.map(ticket=>{
-      const tt=TICKET_TYPES.find(t=>t.id===ticket.ticket_type)||{id:'outro',label:ticket.ticket_type||'Chamado',icon:String.fromCodePoint(128203),color:'#5A7AA0',dest:'Gestao',desc:''};
-      const st=TICKET_STATUS[ticket.status]||TICKET_STATUS.aberto;
-      return(<div key={ticket.id} style={{background:C.card,border:'1px solid '+(ticket.status==='aberto'?'#F59E0B55':C.border),borderRadius:14,padding:14,marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'flex-start',gap:12,marginBottom:8}}>
-          <div style={{width:40,height:40,borderRadius:10,background:tt.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:20,flexShrink:0}}>{ticketEmoji(tt.icon)}</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
-              <div style={{fontSize:13,fontWeight:700,color:C.text}}>{tt.label}</div>
-              <div style={{background:st.bg,color:st.color,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700,flexShrink:0}}>{st.label}</div>
-            </div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>{ticket.origin_sector} -> {tt.dest} · {formatTime(ticket.opened_at)}</div>
-            {ticket.requester_name&&<div style={{fontSize:11,color:C.teal,marginTop:2}}> {ticket.requester_name}</div>}
-            {ticket.priority==='critico'&&<div style={{display:'inline-block',background:C.red+'22',color:C.red,borderRadius:4,padding:'1px 6px',fontSize:9,fontWeight:700,marginTop:3}}> CRÍTICO</div>}
-            {ticket.priority==='urgente'&&<div style={{display:'inline-block',background:C.yellow+'22',color:C.yellow,borderRadius:4,padding:'1px 6px',fontSize:9,fontWeight:700,marginTop:3}}> URGENTE</div>}
-          </div>
-        </div>
-        <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginBottom:8}}>{ticket.description}</div>
-        {ticket.response_notes&&<div style={{background:C.surface,borderRadius:8,padding:'8px 10px',marginBottom:8,borderLeft:'3px solid '+(tt.color)}}>
-          <div style={{fontSize:10,color:C.muted,fontWeight:700,marginBottom:2}}>{tt.dest}:</div>
-          <div style={{fontSize:12,color:C.text}}>{ticket.response_notes}</div>
-        </div>}
-        {renderActions(ticket)}
-      </div>);
-    })}
-  </div>
-  </div>);
-}
-
-function TicketsView({sbUrl,sbKey,hospital,showToast,profileMode}) {
-  const [subview,setSubview]=useState(profileMode?'list':'new');
-  const canCreate=profileMode?['gestor','enfermeiro'].includes(profileMode):false;
-  return(<div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 64px)'}}>
-    <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <div><div style={{fontSize:15,fontWeight:700,color:C.text}}>Chamados Operacionais</div><div style={{fontSize:11,color:C.muted}}>DSG · SAME · Almoxarifado · Nutrição</div></div>
-      {subview==='list'&&canCreate&&<button onClick={()=>setSubview('new')} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button>}
-    </div>
-    <div style={{flex:1,overflowY:'auto'}}>
-      {subview==='list'
-        ?<TicketsList sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>
-        :<TicketForm sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onBack={()=>setSubview('list')}/>
-      }
-    </div>
-  </div>);
-}
-
 const KNOWLEDGE=[
   {id:'cartilha_pac',icon:String.fromCodePoint(128216),title:'Cartilha do Paciente',desc:'Seus direitos e como participar da sua segurança',color:'#0D9488',type:'cartilha'},
   {id:'cards',icon:String.fromCodePoint(128218),title:'Conceitos Essenciais',desc:'Definições-chave de segurança do paciente',color:'#00C9B8',type:'cards',items:[
@@ -6715,30 +6485,6 @@ const KNOWLEDGE=[
   {id:'vid_quedas',icon:String.fromCodePoint(127909),title:'Vídeo: Prevenção de Quedas',desc:'Hospital INC · Meta 6 de Segurança do Paciente',color:'#F59E0B',type:'video',url:'https://www.youtube.com/watch?v=QPADgajXCxg'},
       ];
 
-function ticketEmoji(icon){
-  var m={
-    'wrench':String.fromCodePoint(128295),
-    'ambulance':String.fromCodePoint(128657),
-    'bed':String.fromCodePoint(128719),
-    'box':String.fromCodePoint(128230),
-    'food':String.fromCodePoint(127869),
-    'clipboard':String.fromCodePoint(128203),
-    'ferramenta':String.fromCodePoint(128295),
-    'ambulancia':String.fromCodePoint(128657),
-    'lista':String.fromCodePoint(128203),
-    'chat':String.fromCodePoint(128172),
-    'remedios':String.fromCodePoint(128138),
-    'identificacao':String.fromCodePoint(128100),
-    'escudo':String.fromCodePoint(129405),
-    'curativo':String.fromCodePoint(129657),
-    'hospital':String.fromCodePoint(127973),
-    'medico':String.fromCodePoint(129658),
-    'ancora':String.fromCodePoint(9875),
-    'painel':String.fromCodePoint(128202),
-    'ambulancia':String.fromCodePoint(128657)
-  };
-  return m[icon]||icon;
-}
 function ListaMensal({sbUrl,sbKey,onSelect,refreshKey,hospital}) {
   const hoje=new Date();
   const [mes,setMes]=React.useState(hoje.getMonth()+1);
@@ -7292,7 +7038,7 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'chamados',label:'Chamados',icon:IconTool},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -7315,7 +7061,7 @@ function NotificaAI() {
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
-        onSuccess={(role,info)=>{setProfileMode(role);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':['dsg','motorista','enfermeiro'].includes(role)?'chamados':'home');}}
+        onSuccess={(role,info)=>{setProfileMode(role);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':'home');}}
         onClose={()=>setShowPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -7354,7 +7100,6 @@ function NotificaAI() {
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
-        {view==='chamados' &&<TicketsView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} profileMode={profileMode}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}

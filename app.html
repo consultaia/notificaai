@@ -690,7 +690,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
         }
         if(rows&&rows[0]) {
           const perfil=rows[0].perfil||'gestor';
-          matched={key:perfil,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
+          matched={key:perfil,id:rows[0].id,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
       } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
@@ -738,6 +738,49 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
       <div style={{display:'flex',gap:10,marginTop:8}}>
         <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
         <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde Verificando...':'Entrar'}</button>
+      </div>
+    </div>
+  </div>);
+}
+
+// O proprio usuario troca o PIN (o gestor tambem pode, em Admin > Usuarios e PINs)
+function AlterarPinModal({sbUrl,sbKey,hospital,userId,showToast,onClose}) {
+  const [f,setF]=useState({atual:'',novo:'',confirma:''});
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState('');
+  const so4=v=>v.replace(/\D/g,'').slice(0,4);
+  const salvar=async()=>{
+    setErro('');
+    if(!/^\d{4}$/.test(f.novo)) return setErro('O novo PIN deve ter 4 números.');
+    if(f.novo!==f.confirma) return setErro('A confirmação não confere.');
+    if(f.novo===f.atual) return setErro('O novo PIN é igual ao atual.');
+    setSalvando(true);
+    try{
+      const hAtual=await hashPin(f.atual,hospital?.id);
+      const ok=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`id=eq.${userId}&pin_hash=eq.${hAtual}&select=id`);
+      if(!ok||!ok.length){setErro('PIN atual incorreto.');setSalvando(false);return;}
+      const hNovo=await hashPin(f.novo,hospital?.id);
+      const uso=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${hNovo}&id=neq.${userId}&select=id&limit=1`);
+      if(uso&&uso.length){setErro('Este PIN não está disponível. Escolha outro.');setSalvando(false);return;}
+      await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${userId}`,{pin_hash:hNovo});
+      showToast('PIN alterado!','success');onClose();
+    }catch(e){setErro('Não foi possível alterar agora. Tente de novo.');}
+    setSalvando(false);
+  };
+  const inp={width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.text,fontSize:20,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:10};
+  return(<div style={{position:'fixed',inset:0,background:'#000c',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{background:C.surface,borderRadius:20,padding:'28px 22px',width:'100%',maxWidth:320,border:'1px solid '+C.border}}>
+      <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:14,textAlign:'center'}}>Alterar meu PIN</div>
+      <label style={{fontSize:11,color:C.muted}}>PIN atual</label>
+      <input type="password" inputMode="numeric" value={f.atual} onChange={e=>setF({...f,atual:so4(e.target.value)})} style={inp}/>
+      <label style={{fontSize:11,color:C.muted}}>Novo PIN (4 números)</label>
+      <input type="password" inputMode="numeric" value={f.novo} onChange={e=>setF({...f,novo:so4(e.target.value)})} style={inp}/>
+      <label style={{fontSize:11,color:C.muted}}>Confirmar novo PIN</label>
+      <input type="password" inputMode="numeric" value={f.confirma} onChange={e=>setF({...f,confirma:so4(e.target.value)})} onKeyDown={e=>e.key==='Enter'&&salvar()} style={inp}/>
+      {erro&&<div style={{fontSize:12,color:C.red,marginBottom:8,textAlign:'center'}}>{erro}</div>}
+      <div style={{display:'flex',gap:10}}>
+        <button onClick={onClose} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.muted,fontWeight:600,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
       </div>
     </div>
   </div>);
@@ -879,8 +922,28 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         <b style={{color:C.yellow}}>Atenção:</b> estes perfis ainda não têm usuário ativo e aceitam o PIN padrão: {semUsuario.map(([,p])=>p.label).join(', ')}. Cadastre um usuário para cada perfil para desativar o PIN padrão.
       </div>);
     })()}
+    {!loading&&<div style={{marginBottom:14}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>PIN por subnúcleo</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Cada subnúcleo entra com o próprio PIN e vê só o que é dele. Depois de entrar, ele mesmo pode trocar o PIN.</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:8}}>
+        {SUBNUCLEOS_HNSA.map(sn=>{
+          const u=users.find(x=>x.perfil==='membro_nsp'&&x.subnucleo===sn.id&&x.ativo!==false);
+          return(<div key={sn.id} style={{background:C.surface,border:'1px solid '+(u?C.border:C.yellow+'66'),borderLeft:'3px solid '+sn.color,borderRadius:10,padding:'10px 12px'}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{sn.icon} {sn.label}</div>
+            <div style={{fontSize:10,color:u?C.green:C.yellow,marginBottom:8}}>
+              {u?('PIN cadastrado'+(u.ultimo_acesso?' · último acesso '+new Date(u.ultimo_acesso).toLocaleDateString('pt-BR'):' · ainda não entrou')):'Sem PIN'}
+            </div>
+            <button onClick={()=>{
+              if(u) openForm(u);
+              else{setEditing(null);setForm({nome:sn.label,pin:'',confirma:'',perfil:'membro_nsp',subnucleo:sn.id,ativo:true});setShowForm(true);}
+              setTimeout(()=>{const el=document.getElementById('pin-form');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},50);
+            }} style={{background:u?C.card:sn.color,border:u?'1px solid '+C.border:'none',borderRadius:7,padding:'5px 10px',color:u?C.muted:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>{u?'Trocar PIN':'Cadastrar PIN'}</button>
+          </div>);
+        })}
+      </div>
+    </div>}
     {showForm&&(
-      <div style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
+      <div id="pin-form" style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
         <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Cap Janan - Gestor NSP" style={inp}/>
@@ -4292,11 +4355,13 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo
     </div>
   </div>);
 
+  // Membro com subnucleo definido no cadastro fica travado nele (sem voltar para a escolha)
+  const travado=!!userSubnucleoApp;
   return <MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
-    profileMode={profileMode} userSubnucleo={userSubnucleo} onBack={()=>setUserSubnucleo(null)}/>;
+    profileMode={profileMode} userSubnucleo={userSubnucleo} travado={travado} onBack={travado?undefined:()=>setUserSubnucleo(null)}/>;
 }
 
-function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo,onBack}) {
+function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo,travado,onBack}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [stats,setStats]=useState(null);
   const [notifications,setNotifications]=useState([]);
@@ -4311,6 +4376,10 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [savingTrein,setSavingTrein]=useState(false);
   const [rcaMembro,setRcaMembro]=useState(null);
   const [notiVisaMembro,setNotiVisaMembro]=useState(null);
+  const [aba,setAba]=useState('notificacoes');
+  const [verTodasNotif,setVerTodasNotif]=useState(false);
+  const [pendInd,setPendInd]=useState(0);
+  const [pendProt,setPendProt]=useState(0);
 
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
@@ -4388,99 +4457,110 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
   const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
 
+  // Notificacoes do subnucleo selecionado; as de seguranca do paciente sem RCA vem primeiro
+  const notifDoSub=(n,f)=>{
+    if(n.is_test) return false;
+    if(f==='todos') return true;
+    const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
+    if(f==='queda') return subtype.startsWith('queda');
+    if(f==='lpp') return subtype.includes('press')||subtype.includes('lpp');
+    if(f==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
+    if(f==='identificacao') return subtype.startsWith('falha na identif')||subtype.startsWith('falha de identif');
+    if(f==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
+    if(f==='cirurgia') return subtype.includes('cirurg');
+    if(f==='ccih') return n.notification_type==='ccih'||!!n.infection_topography||/infec|iras|higien/.test(subtype);
+    return true;
+  };
+  const semRCA=n=>!n.rca_gerado&&n.notification_type==='seguranca_paciente';
+  const notifsDoFiltro=notifications.filter(n=>notifDoSub(n,verTodasNotif?'todos':filtroSub)).sort((a,b)=>(semRCA(b)?1:0)-(semRCA(a)?1:0)).slice(0,30);
+  const pendNotif=notifications.filter(n=>notifDoSub(n,filtroSub)&&semRCA(n)).length;
+  const subAtivo=filtroSub==='todos'?userSubnucleo:filtroSub;
+  const regsSub=s.treins.filter(t=>t.subnucleo===subAtivo);
+  const ABAS=[
+    {id:'notificacoes',label:'Notificações',badge:pendNotif},
+    {id:'treinamentos',label:'Treinamentos',badge:0,info:regsSub.length||null},
+    {id:'protocolos',label:'Protocolos',badge:pendProt},
+    {id:'indicadores',label:'Indicadores',badge:pendInd},
+    {id:'panorama',label:'Panorama',badge:0},
+  ];
+  const mostra=id=>({display:aba===id?'block':'none'});
+
   return(<div style={{padding:'0 16px 80px'}}>
     <BackHeader
       title={sub?sub.icon+' '+sub.label:'Painel Membro NSP'}
-      subtitle='HNSA - Nucleo de Seguranca do Paciente'
+      subtitle={(h.short_name||'')+' - Nucleo de Seguranca do Paciente'}
       onBack={onBack}
     />
 
     <div style={{padding:'16px 0'}}>
+    {/* Abas do subnucleo: o conteudo de todas fica montado (escondido) para os contadores funcionarem */}
+    <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:14,paddingBottom:2}}>
+      {ABAS.map(t=>(<button key={t.id} onClick={()=>setAba(t.id)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,border:'1px solid '+(aba===t.id?(sub?.color||C.teal):C.border),background:aba===t.id?(sub?.color||C.teal)+'22':C.card,color:aba===t.id?C.text:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>
+        {t.label}
+        {t.badge>0&&<span style={{background:C.red,color:'#fff',borderRadius:9,padding:'1px 7px',fontSize:10,fontWeight:800}}>{t.badge}</span>}
+        {!t.badge&&t.info&&<span style={{color:C.muted,fontSize:10}}>{t.info}</span>}
+      </button>))}
+    </div>
     {rcaMembro&&<RCAPanel notification={rcaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaMembro(null)} onSaved={()=>{setRcaMembro(null);carregar();}}/>}
     {notiVisaMembro&&<NotiVisaPanel notification={notiVisaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaMembro(null)}/>}
 
-    {/* Metricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
-      <StatCard icon={String.fromCodePoint(128202)} label='Total notificacoes' value={s.total} color={C.teal}/>
-      <StatCard icon={String.fromCodePoint(127973)} label='Seg. Paciente' value={s.sp} color={C.red}/>
-      <StatCard icon={String.fromCodePoint(128203)} label='Administrativas' value={s.adm} color={C.purple}/>
-    </div>
-
-    {/* Dias sem sentinela */}
-    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
-      <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
-    </div>}
-
-    {/* Panorama do mes */}
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
-        <div style={{display:'flex',alignItems:'center',gap:6}}>
-          <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8249)}</button>
-          <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>{MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}</span>
-          <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8250)}</button>
+    <div style={mostra('notificacoes')}>
+    {/* Notificacoes para analise */}
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{verTodasNotif?'Todas as notificações do hospital':pendNotif>0?pendNotif+' sem RCA (aparecem primeiro)':'Somente leitura'}</div>
         </div>
+        <div style={{display:'flex',background:C.surface,borderRadius:8,padding:3,gap:2,flexShrink:0}}>
+          {[[false,filtroSub==='todos'?'Filtro':'Do meu subnúcleo'],[true,'Todas']].map(([v,l])=>(
+            <button key={l} onClick={()=>setVerTodasNotif(v)} style={{padding:'5px 10px',borderRadius:6,border:'none',background:verTodasNotif===v?(sub?.color||C.teal):'transparent',color:verTodasNotif===v?'#fff':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{l}</button>
+          ))}
+        </div>
+        {!travado&&<select value={filtroSub} onChange={e=>setFiltroSub(e.target.value)}
+          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:11}}>
+          <option value='todos'>Todos</option>
+          {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>}
       </div>
-      {loadingMes&&<div style={{textAlign:'center',padding:16}}><Dots/></div>}
-      {!loadingMes&&(<div>
-        <div style={{display:'flex',gap:8,marginBottom:12}}>
-          <div style={{flex:1,background:C.red+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
-            <div style={{fontSize:24,fontWeight:900,color:C.red}}>{spMes}</div>
-            <div style={{fontSize:10,color:C.muted}}>Seg. Paciente</div>
-          </div>
-          <div style={{flex:1,background:C.muted+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
-            <div style={{fontSize:24,fontWeight:900,color:C.muted}}>{admMes}</div>
-            <div style={{fontSize:10,color:C.muted}}>Administrativas</div>
-          </div>
-          <div style={{flex:1,background:C.teal+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
-            <div style={{fontSize:24,fontWeight:900,color:C.teal}}>{notsMes.length}</div>
-            <div style={{fontSize:10,color:C.muted}}>Total</div>
-          </div>
-        </div>
-        {tiposMes.length>0&&<div style={{marginBottom:12}}>
-          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Tipos mais frequentes</div>
-          {tiposMes.map((t,i)=>(
-            <div key={i} style={{marginBottom:5}}>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
-                <span style={{color:C.text}}>{t.label}</span>
-                <span style={{color:t.cor,fontWeight:700}}>{t.count}</span>
+      {(()=>{
+        const visiveis=notifsDoFiltro;
+        if(visiveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
+        return visiveis.map((n,i)=>{
+          const tag=getTag(n);
+          const titulo=getTitle(n);
+          const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR');
+          return(<div key={n.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+              <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
+                <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} - {data}</div>
+                {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
               </div>
-              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
-                <div style={{width:(t.count/maxTipo)*100+'%',height:'100%',background:t.cor,borderRadius:2}}/>
+              <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
+                {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {n.notification_type==='seguranca_paciente'&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:9,background:C.blue,color:'#fff',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Ficha Notivisa</button>}
+                {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
               </div>
             </div>
-          ))}
-        </div>}
-        {setoresMes.length>0&&<div>
-          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Por setor</div>
-          {setoresMes.map((d,i)=>(
-            <div key={i} style={{marginBottom:5}}>
-              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
-                <span style={{color:C.text}}>{d.setor}</span>
-                <span style={{color:C.teal,fontWeight:700}}>{d.count}</span>
-              </div>
-              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
-                <div style={{width:(d.count/maxSetor)*100+'%',height:'100%',background:C.teal,borderRadius:2}}/>
-              </div>
-            </div>
-          ))}
-        </div>}
-        {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificacao neste mes</div>}
-      </div>)}
+          </div>);
+        });
+      })()}
     </div>
 
+    </div>
+    <div style={mostra('treinamentos')}>
     {/* Treinamentos do subnucleo */}
-    <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos - Treinamentos</div>
-    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+    {!travado&&<div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos - Treinamentos</div>}
+    {!travado&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
       <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:'transparent',color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
       {SUBNUCLEOS_HNSA.map(sub=>(
         <button key={sub.id} onClick={()=>setFiltroSub(sub.id)} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub===sub.id?sub.color:'transparent',color:filtroSub===sub.id?'#fff':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>
           <span style={{fontSize:13}}>{sub.icon}</span> {sub.label.split(' ')[0]}
         </button>
       ))}
-    </div>
+    </div>}
 
     {SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
       const regs=s.treins.filter(t=>t.subnucleo===sub.id);
@@ -4567,58 +4647,87 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       </div>);
     })}
 
-    {/* Notificacoes para analise */}
-    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div>
-          <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Somente leitura</div>
-        </div>
-        <select value={filtroSub} onChange={e=>setFiltroSub(e.target.value)}
-          style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:11}}>
-          <option value='todos'>Todos</option>
-          {SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-        </select>
-      </div>
-      {(()=>{
-        const visiveis=notifications.filter(n=>{
-          if(n.is_test) return false;
-          if(filtroSub==='todos') return true;
-          const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
-          if(filtroSub==='queda') return subtype.startsWith('queda');
-          if(filtroSub==='lpp') return subtype.includes('press')||subtype.includes('lpp');
-          if(filtroSub==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
-          if(filtroSub==='identificacao') return subtype.startsWith('falha na identif')||subtype.startsWith('falha de identif');
-          if(filtroSub==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
-          if(filtroSub==='cirurgia') return subtype.includes('cirurg');
-          return true;
-        }).slice(0,30);
-        if(visiveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
-        return visiveis.map((n,i)=>{
-          const tag=getTag(n);
-          const titulo=getTitle(n);
-          const data=n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):new Date(n.created_at).toLocaleDateString('pt-BR');
-          return(<div key={n.id} style={{background:C.surface,borderRadius:10,padding:'10px 12px',marginBottom:6}}>
-            <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
-              <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
-                <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} - {data}</div>
-                {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
-              </div>
-              <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
-                {n.notification_type==='seguranca_paciente'&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:9,background:C.blue,color:'#fff',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Ficha Notivisa</button>}
-                {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
-              </div>
-            </div>
-          </div>);
-        });
-      })()}
+    </div>
+    <div style={mostra('protocolos')}>
+      <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={setPendProt}/>
+    </div>
+    <div style={mostra('indicadores')}>
+      <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={setPendInd}/>
+    </div>
+    <div style={mostra('panorama')}>
+    {/* Metricas totais */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+      <StatCard icon={String.fromCodePoint(128202)} label='Total notificacoes' value={s.total} color={C.teal}/>
+      <StatCard icon={String.fromCodePoint(127973)} label='Seg. Paciente' value={s.sp} color={C.red}/>
+      <StatCard icon={String.fromCodePoint(128203)} label='Administrativas' value={s.adm} color={C.purple}/>
     </div>
 
-    <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
-    <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={filtroSub==='todos'?userSubnucleo:filtroSub}/>
+    {/* Dias sem sentinela */}
+    {s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',marginBottom:14,display:'flex',alignItems:'center',gap:12}}>
+      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
+      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div>
+      <div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
+    </div>}
+
+    {/* Panorama do mes */}
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
+        <div style={{display:'flex',alignItems:'center',gap:6}}>
+          <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8249)}</button>
+          <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>{MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}</span>
+          <button onClick={()=>navMes(1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8250)}</button>
+        </div>
+      </div>
+      {loadingMes&&<div style={{textAlign:'center',padding:16}}><Dots/></div>}
+      {!loadingMes&&(<div>
+        <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <div style={{flex:1,background:C.red+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.red}}>{spMes}</div>
+            <div style={{fontSize:10,color:C.muted}}>Seg. Paciente</div>
+          </div>
+          <div style={{flex:1,background:C.muted+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.muted}}>{admMes}</div>
+            <div style={{fontSize:10,color:C.muted}}>Administrativas</div>
+          </div>
+          <div style={{flex:1,background:C.teal+'10',borderRadius:10,padding:'8px 10px',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:900,color:C.teal}}>{notsMes.length}</div>
+            <div style={{fontSize:10,color:C.muted}}>Total</div>
+          </div>
+        </div>
+        {tiposMes.length>0&&<div style={{marginBottom:12}}>
+          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Tipos mais frequentes</div>
+          {tiposMes.map((t,i)=>(
+            <div key={i} style={{marginBottom:5}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
+                <span style={{color:C.text}}>{t.label}</span>
+                <span style={{color:t.cor,fontWeight:700}}>{t.count}</span>
+              </div>
+              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:(t.count/maxTipo)*100+'%',height:'100%',background:t.cor,borderRadius:2}}/>
+              </div>
+            </div>
+          ))}
+        </div>}
+        {setoresMes.length>0&&<div>
+          <div style={{fontSize:11,color:C.muted,fontWeight:600,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.06em'}}>Por setor</div>
+          {setoresMes.map((d,i)=>(
+            <div key={i} style={{marginBottom:5}}>
+              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:2}}>
+                <span style={{color:C.text}}>{d.setor}</span>
+                <span style={{color:C.teal,fontWeight:700}}>{d.count}</span>
+              </div>
+              <div style={{height:4,background:C.border,borderRadius:2,overflow:'hidden'}}>
+                <div style={{width:(d.count/maxSetor)*100+'%',height:'100%',background:C.teal,borderRadius:2}}/>
+              </div>
+            </div>
+          ))}
+        </div>}
+        {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificacao neste mes</div>}
+      </div>)}
+    </div>
+
+    </div>
   </div>
   </div>);
 }
@@ -7025,6 +7134,8 @@ function NotificaAI() {
   const [profileMode,setProfileMode]=useState(null);
   const [userName,setUserName]=useState(null);
   const [userSubnucleo,setUserSubnucleo]=useState(null);
+  const [userId,setUserId]=useState(null); // id em nsp_usuarios (null quando entrou com PIN padrao)
+  const [showAlterarPin,setShowAlterarPin]=useState(false);
   const [showMenu,setShowMenu]=useState(false);
   const [gestorMode,setGestorMode]=useState(false);
   const [showPin,setShowPin]=useState(false);
@@ -7116,8 +7227,9 @@ function NotificaAI() {
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
-        onSuccess={(role,info)=>{setProfileMode(role);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':'home');}}
+        onSuccess={(role,info)=>{setProfileMode(role);setUserId((info&&info.id)||null);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':'home');}}
         onClose={()=>setShowPin(false)}/>}
+      {showAlterarPin&&<AlterarPinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} userId={userId} showToast={showToast} onClose={()=>setShowAlterarPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
       {/* SIDEBAR DESKTOP - visivel apenas em telas >= 900px */}
@@ -7139,11 +7251,12 @@ function NotificaAI() {
         })}
         <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:10}}>
           <a href="/?escolher=1" style={{display:'block',fontSize:10,color:C.muted,textDecoration:'none',padding:'0 8px 8px'}}>Trocar instituição</a>
+          {userId&&<button onClick={()=>setShowAlterarPin(true)} style={{width:'100%',background:'none',border:'none',textAlign:'left',fontSize:10,color:C.muted,padding:'0 8px 8px',cursor:'pointer'}}>Alterar meu PIN</button>}
           {!profileMode
             ?<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:15}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:11,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:11,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||''} — Sair</span>
             </button>}
           <button onClick={toggleTheme} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
@@ -7170,7 +7283,7 @@ function NotificaAI() {
         {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         
-        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode}/>}
+        {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
         {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
       </div></div>
@@ -7201,11 +7314,14 @@ function NotificaAI() {
             ?<button onClick={()=>{setShowMenu(false);setShowPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
-            :<button onClick={()=>{setProfileMode(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            :<button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
           }
+          {userId&&<button onClick={()=>{setShowMenu(false);setShowAlterarPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+            <span style={{fontSize:20}}>{String.fromCodePoint(128273)}</span><span style={{fontSize:13,color:C.muted}}>Alterar meu PIN</span>
+          </button>}
           <button onClick={()=>{toggleTheme();setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer'}}>
             <span style={{fontSize:20}}>{theme==='dark'?String.fromCodePoint(9728):String.fromCodePoint(127769)}</span>
             <span style={{fontSize:13,color:C.muted}}>Tema {theme==='dark'?String.fromCodePoint(9728)+' Claro':String.fromCodePoint(127769)+' Escuro'}</span>
@@ -7699,7 +7815,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}) {
+function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,onPendentes}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState({});
   const [editando,setEditando]=useState({});
@@ -7742,7 +7858,9 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
     return{s:'ok',label:'Valido',color:C.green};
   };
 
-  if(!meusProt.length)return null;
+  const nPend=meusProt.filter(d=>{const st=getStatus(d).s;return st==='vencido'||st==='missing';}).length;
+  useEffect(()=>{if(onPendentes)onPendentes(nPend);},[nPend]);
+  if(!meusProt.length)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,fontSize:12,color:C.muted}}>Nenhum protocolo vinculado a este subnucleo.</div>);
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'};
 
   return(<div style={{background:C.card,border:'1px solid '+(sub.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub.color||C.teal)}}>
@@ -7795,12 +7913,13 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}
   </div>);
 }
 
-function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo}) {
+function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,onPendentes}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const hoje=new Date();
   const [mes,setMes]=useState(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`);
   const [form,setForm]=useState({paciente_dia_total:''});
   const [salvando,setSalvando]=useState(false);
+  const [pdSetores,setPdSetores]=useState(null); // soma do paciente-dia lancado na aba Por Setor
   const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
   const campos=DSM_CAMPOS_SUB[userSubnucleo]||[];
   const mesRef=mes+'-01';
@@ -7813,13 +7932,28 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
         if(d&&d[0]){const vals={paciente_dia_total:d[0].paciente_dia_total||''};campos.forEach(f=>{vals[f.key]=d[0][f.key]!==null&&d[0][f.key]!==undefined?d[0][f.key]:'';});setForm(vals);}
         else{const blank={paciente_dia_total:''};campos.forEach(f=>{blank[f.key]='';});setForm(blank);}
       }).catch(()=>{});
-  },[mes,h.id,sbUrl,sbKey]);
+    fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=eq.${mes}&select=pd_setores`,{headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}})
+      .then(r=>r.ok?r.json():[]).then(d=>{
+        const o=d&&d[0]&&d[0].pd_setores;
+        const soma=o?Object.values(o).reduce((a,v)=>a+(Number(v)||0),0):0;
+        setPdSetores(soma>0?soma:null);
+      }).catch(()=>setPdSetores(null));
+  },[mes,h.id,sbUrl,sbKey,userSubnucleo]);
+
+  const vazio=v=>v===''||v===null||v===undefined;
+  const pdEfetivo=!vazio(form.paciente_dia_total)?form.paciente_dia_total:pdSetores;
+  const faltando=campos.length===0?[]:[...(vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mes'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
+  useEffect(()=>{if(onPendentes)onPendentes(faltando.length);},[faltando.length]);
+  const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const salvar=async()=>{
     if(!sbUrl||!sbKey){showToast('Sem conexao','error');return;}
     setSalvando(true);
-    const payload={hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString(),paciente_dia_total:Number(form.paciente_dia_total)||null};
+    // Paciente-dia e compartilhado entre os subnucleos: so envia se preenchido aqui,
+    // para um subnucleo nao apagar o valor lancado por outro.
+    const payload={hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()};
+    if(!vazio(form.paciente_dia_total)) payload.paciente_dia_total=Number(form.paciente_dia_total);
     campos.forEach(f=>{payload[f.key]=form[f.key]!==''?Number(form[f.key]):null;});
     try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');showToast('Indicadores salvos!','success');}
     catch(e){showToast('Erro: '+e.message,'error');}
@@ -7836,6 +7970,11 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
       <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mes. O gestor ve no Relatorio DSM.</div>
     </div>
+    {faltando.length>0
+      ?<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.text,lineHeight:1.6}}>
+        <b style={{color:C.yellow}}>Falta preencher ({faltando.length}):</b> {faltando.map(f=>f.label).join(' · ')}
+      </div>
+      :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido neste mes.</div>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',padding:'8px 12px',cursor:'pointer'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
@@ -7843,21 +7982,22 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       </button>
     </div>
     <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes</label>
-      <input type='number' min={0} value={form.paciente_dia_total} onChange={e=>set('paciente_dia_total',e.target.value)} style={inp}/>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes <span style={{color:C.teal}}>(compartilhado entre os subnucleos)</span></label>
+      <input type='number' min={0} value={form.paciente_dia_total} placeholder={pdSetores?String(pdSetores):''} onChange={e=>set('paciente_dia_total',e.target.value)} style={estiloCampo('paciente_dia_total')}/>
+      {vazio(form.paciente_dia_total)&&pdSetores&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Usando {pdSetores} (soma lançada em Indicadores › Por Setor).</div>}
     </div>
     {userSubnucleo==='ccih'?(
       Object.entries(campos.reduce((acc,f)=>{const g=f.grupo||'Geral';if(!acc[g])acc[g]=[];acc[g].push(f);return acc;},{})).map(([grupo,itens])=>(
         <div key={grupo} style={{marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em',marginBottom:8,paddingBottom:4,borderBottom:'1px solid '+C.border}}>{grupo}</div>
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:8}}>
-            {itens.map(f=>(<div key={f.key}><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{f.label}</label><input type='number' min={0} value={form[f.key]||''} onChange={e=>set(f.key,e.target.value)} style={inp}/></div>))}
+            {itens.map(f=>(<div key={f.key}><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{f.label}</label><input type='number' min={0} value={form[f.key]??''} onChange={e=>set(f.key,e.target.value)} style={estiloCampo(f.key)}/></div>))}
           </div>
         </div>
       ))
     ):(
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:10}}>
-        {campos.map(f=>(<div key={f.key}><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{f.label}</label><input type='number' min={0} value={form[f.key]||''} onChange={e=>set(f.key,e.target.value)} style={inp}/></div>))}
+        {campos.map(f=>(<div key={f.key}><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{f.label}</label><input type='number' min={0} value={form[f.key]??''} onChange={e=>set(f.key,e.target.value)} style={estiloCampo(f.key)}/></div>))}
       </div>
     )}
   </div>);

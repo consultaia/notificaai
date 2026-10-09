@@ -6,6 +6,7 @@
 
 begin;
 drop table if exists public.hospital_admins;
+drop table if exists public.platform_admins;
 drop index if exists public.nsp_usuarios_hospital_idx;
 alter table public.nsp_usuarios drop column if exists hospital_id;
 -- drop table if exists public.hospitals;   -- descomente apenas se a tabela foi criada pela fase 1

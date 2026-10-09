@@ -2933,7 +2933,7 @@ const SUBNUCLEOS_HNSA=[
   {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
   {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
   {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
-  {id:'ccih',label:'SCIH - Higienizacao das Maos e IRAS',icon:String.fromCodePoint(129440),color:'#06B6D4'},
+  {id:'ccih',label:'Higiene das Mãos / SCIH',icon:String.fromCodePoint(129440),color:'#06B6D4'},
 ];
 
 // Usada exclusivamente pela aba Treinamentos (subnucleos + Outros)
@@ -3225,7 +3225,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
       const sum=k=>(dados.indDSM||[]).reduce((a,r)=>a+(Number(r[k])||0),0);
       const fmtD=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'';
       const pc=(num,den)=>den>0?((num/den*100).toFixed(1)+'% ('+num+'/'+den+')'):'';
-      const mais3anos=d=>{if(!d)return null;const x=new Date(d);x.setFullYear(x.getFullYear()+3);return x.toISOString().slice(0,10);};
+      const mais3anos=d=>vencimentoPadrao(d);
       const vig=d=>d&&mais3anos(d)>=hojeStr;
       const getProt=kws=>(dados.protocolos||[]).find(p=>p.nome&&kws.some(k=>p.nome.toLowerCase().includes(k)))||null;
       const protVig=p=>!!(p&&(p.proxima_revisao?p.proxima_revisao>=hojeStr:vig(p.aprovado_em)));
@@ -3672,14 +3672,14 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           {label:'Data da Portaria CCIH',key:'data_portaria_ccih',type:'date'},
           {label:'Data de implantacao da CCIH',key:'data_implantacao_ccih',type:'date'},
           {label:'Link da Portaria CCIH (GDrive ou Storage)',key:'link_portaria_ccih',placeholder:'https://...'},
-          {label:'Data da ultima atualizacao do PSP (validade 3 anos)',key:'data_atualizacao_psp',type:'date'},
+          {label:'Data da ultima atualizacao do PSP (validade 2 anos)',key:'data_atualizacao_psp',type:'date'},
           {label:'Link do PSP (GDrive ou Storage)',key:'link_psp',placeholder:'https://...'},
           {label:'Link do Regimento Interno do NSP',key:'link_regimento',placeholder:'https://...'},
         ].map(field=>{
-          // Calcular vencimento do PSP (3 anos)
+          // Calcular vencimento do PSP (VALIDADE_DOC_ANOS)
           const isPsp=field.key==='data_atualizacao_psp';
           const pspDate=cfgLocal['data_atualizacao_psp'];
-          const pspVence=pspDate?new Date(new Date(pspDate).setFullYear(new Date(pspDate).getFullYear()+3)).toISOString().slice(0,10):null;
+          const pspVence=pspDate?vencimentoPadrao(pspDate):null;
           const pspVencido=pspVence&&pspVence<new Date().toISOString().slice(0,10);
           return(<div key={field.key} style={{marginBottom:10}}>
             <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>
@@ -3915,7 +3915,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             {dados.cfg.numero_portaria_nsp&&<div style={{fontSize:11,marginBottom:4}}><strong>Portaria NSP:</strong> {dados.cfg.numero_portaria_nsp}{dados.cfg.data_portaria_nsp?' — '+new Date(dados.cfg.data_portaria_nsp+'T12:00:00').toLocaleDateString('pt-BR'):''}</div>}
             {dados.cfg.numero_portaria_ccih&&<div style={{fontSize:11,marginBottom:4}}><strong>Portaria CCIH:</strong> {dados.cfg.numero_portaria_ccih}{dados.cfg.data_portaria_ccih?' — '+new Date(dados.cfg.data_portaria_ccih+'T12:00:00').toLocaleDateString('pt-BR'):''}</div>}
             {dados.cfg.data_atualizacao_psp&&(()=>{
-              const vence=new Date(new Date(dados.cfg.data_atualizacao_psp).setFullYear(new Date(dados.cfg.data_atualizacao_psp).getFullYear()+3)).toISOString().slice(0,10);
+              const vence=vencimentoPadrao(dados.cfg.data_atualizacao_psp);
               const vencido=vence<new Date().toISOString().slice(0,10);
               return(<div style={{fontSize:11,marginBottom:4}}><strong>PSP:</strong> Atualizado em {new Date(dados.cfg.data_atualizacao_psp+'T12:00:00').toLocaleDateString('pt-BR')} | Validade: <span style={{color:vencido?'#dc2626':'#059669',fontWeight:700}}>{vencido?'VENCIDO':new Date(vence+'T12:00:00').toLocaleDateString('pt-BR')}</span></div>);
             })()}
@@ -3964,7 +3964,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             {(()=>{
               const psp=cfgLocal.data_atualizacao_psp;
               if(!psp) return <div style={{fontSize:11,color:C.red}}><span style={{fontWeight:700}}>PSP:</span> NAO CADASTRADO</div>;
-              const vence=new Date(new Date(psp).setFullYear(new Date(psp).getFullYear()+3)).toISOString().slice(0,10);
+              const vence=vencimentoPadrao(psp);
               const vencido=vence<new Date().toISOString().slice(0,10);
               return <div style={{fontSize:11,color:vencido?C.red:C.text}}>
                 <span style={{fontWeight:700}}>PSP:</span> {new Date(psp+'T12:00:00').toLocaleDateString('pt-BR')} · <span style={{fontWeight:700,color:vencido?C.red:C.green}}>{vencido?'VENCIDO':'Vence '+new Date(vence+'T12:00:00').toLocaleDateString('pt-BR')}</span>
@@ -4087,7 +4087,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
   const planosConcluidos=planos.filter(p=>p.status==='concluido').length;
   const planosEfetiv=planos.filter(p=>p.status==='concluido'&&p.efetividade_verificada).length;
   const temPortNSP=!!(cfg.numero_portaria_nsp||cfg.data_portaria_nsp);
-  const pspVig=cfg.data_atualizacao_psp&&(()=>{const d=new Date(cfg.data_atualizacao_psp);d.setFullYear(d.getFullYear()+3);return d.toISOString().slice(0,10)>=hojeStr;})();
+  const pspVig=cfg.data_atualizacao_psp&&vencimentoPadrao(cfg.data_atualizacao_psp)>=hojeStr;
 
   const KPI=({label,val,color,sub})=>(<div style={{background:C.card,border:'1px solid '+color+'33',borderLeft:'3px solid '+color,borderRadius:10,padding:'10px 12px'}}>
     <div style={{fontSize:22,fontWeight:900,color}}>{val}</div>
@@ -4760,8 +4760,8 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [dados,setDados]=useState(null);
   const [aberto,setAberto]=useState(null);
-  const d0=new Date();const mes=`${d0.getFullYear()}-${String(d0.getMonth()+1).padStart(2,'0')}`;
-  const nomeMes=d0.toLocaleDateString('pt-BR',{month:'long'});
+  const mes=mesReferencia();
+  const nomeMes=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long'});
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
     Promise.all([
@@ -6028,7 +6028,7 @@ function AnalyticsView({sbUrl,sbKey,showToast,profileMode,hospital}) {
       const mods=[
         ['Notificacoes','Chat guiado por IA, classificacao automatica, geracao de RCA e ficha Notivisa'],
         ['Indicadores','Taxas por setor, dados mensais DSM e checklist de conformidade ANVISA'],
-        ['Protocolos','Controle de vigencia (3 anos), documentos anexados, alerta de vencimento'],
+        ['Protocolos','Controle de vigencia (2 anos, editavel), documentos anexados, alerta de vencimento'],
         ['Treinamentos','Registro por subnucleo com lista de presenca anexada'],
         ['DSM / ANVISA','Relatorio semestral, Excel oficial da Circular 24/2023 pre-preenchido'],
         ['Auditar','Pacotes de evidencia em PPT, PDF e ZIP para auditoria e acreditacao'],
@@ -7677,18 +7677,27 @@ function notifDoSubnucleo(n,f){
 }
 function statusProtocolo(r,hoje){
   if(!r||!r.aprovado_em) return 'missing';
-  const prox=r.proxima_revisao||new Date(new Date(r.aprovado_em).setFullYear(new Date(r.aprovado_em).getFullYear()+3)).toISOString().slice(0,10);
+  const prox=r.proxima_revisao||vencimentoPadrao(r.aprovado_em);
   if(prox<hoje) return 'vencido';
   if(prox<=new Date(Date.now()+60*86400000).toISOString().slice(0,10)) return 'proximo';
   return 'ok';
 }
+// Validade de protocolos e do PSP (antes 3 anos). A data de vencimento pode ser editada.
+const VALIDADE_DOC_ANOS=2;
+function somaAnos(d,n){if(!d)return null;const x=new Date(d+(String(d).length===10?'T12:00:00':''));x.setFullYear(x.getFullYear()+n);return x.toISOString().slice(0,10);}
+const vencimentoPadrao=d=>somaAnos(d,VALIDADE_DOC_ANOS);
+// Indicador mensal e lancado depois que o mes fecha: a referencia e o mes anterior
+function mesReferencia(){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
+// Paciente-dia geral e compartilhado; so e cobrado de quem usa nos proprios indicadores
+const SUBS_USAM_PD=['queda','ccih'];
+const camposProprios=sub=>(DSM_CAMPOS_SUB[sub]||[]).filter(f=>f.key!=='paciente_dia_total');
 function inicioSemestre(){const d=new Date();return new Date(d.getFullYear(),d.getMonth()<6?0:6,1).toISOString().slice(0,10);}
 function calcPendenciasSub(subId,{notifs,protsPorNome,dsm,pdSetoresSoma,treins}){
   const hoje=new Date().toISOString().slice(0,10);
   const vazio=v=>v===''||v===null||v===undefined;
-  const campos=DSM_CAMPOS_SUB[subId]||[];
+  const campos=camposProprios(subId);
   const indicadores=campos.length===0?[]:[
-    ...((vazio(dsm&&dsm.paciente_dia_total)&&!pdSetoresSoma)?['Pacientes-dia total no mes']:[]),
+    ...((SUBS_USAM_PD.includes(subId)&&vazio(dsm&&dsm.paciente_dia_total)&&!pdSetoresSoma)?['Pacientes-dia total no mes']:[]),
     ...campos.filter(f=>vazio(dsm&&dsm[f.key])).map(f=>f.label)];
   const crits=SUB_PROTOCOLOS[subId]||[];
   const protocolos=PROTOCOLOS_DSM.filter(p=>crits.includes(p.crit)).map(p=>({p,st:statusProtocolo(protsPorNome[p.nome],hoje)}))
@@ -7785,7 +7794,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
 
   const abrirEdit=(def)=>{
     const r=registros[def.nome];
-    setEditando(e=>({...e,[def.crit]:{aprovado_em:r?.aprovado_em||'',link:r?.link||'',responsavel:r?.responsavel||'',numero:r?.numero||'',saving:false}}));
+    setEditando(e=>({...e,[def.crit]:{aprovado_em:r?.aprovado_em||'',proxima_revisao:r?.proxima_revisao||'',venc_manual:!!r?.proxima_revisao&&![somaAnos(r?.aprovado_em,2),somaAnos(r?.aprovado_em,3)].includes(r?.proxima_revisao),link:r?.link||'',responsavel:r?.responsavel||'',numero:r?.numero||'',saving:false}}));
   };
   const setEdit=(crit,k,v)=>setEditando(e=>({...e,[crit]:{...e[crit],[k]:v}}));
 
@@ -7794,8 +7803,8 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     if(!ed?.aprovado_em){showToast('Informe a data de aprovacao','error');return;}
     setEditando(e=>({...e,[def.crit]:{...e[def.crit],saving:true}}));
     try{
-      const prox=new Date(ed.aprovado_em);prox.setFullYear(prox.getFullYear()+3);
-      const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:prox.toISOString().slice(0,10),link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
+      const proxStr=ed.proxima_revisao||vencimentoPadrao(ed.aprovado_em);
+      const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:proxStr,link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
       const existente=registros[def.nome];
       if(existente){await sbPatch(sbUrl,sbKey,'protocolos',`id=eq.${existente.id}`,payload);}
       else{await sbInsert(sbUrl,sbKey,'protocolos',payload);}
@@ -7811,7 +7820,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     if(naMap[def.crit])return'na';
     const r=registros[def.nome];
     if(!r||!r.aprovado_em)return'missing';
-    const prox=r.proxima_revisao||new Date(new Date(r.aprovado_em).setFullYear(new Date(r.aprovado_em).getFullYear()+3)).toISOString().slice(0,10);
+    const prox=r.proxima_revisao||vencimentoPadrao(r.aprovado_em);
     if(prox<hoje)return'vencido';
     if(prox<=new Date(Date.now()+60*86400000).toISOString().slice(0,10))return'proximo';
     return'ok';
@@ -7826,7 +7835,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   const DOCS_INST=[
     {id:'portaria_nsp',nome:'Portaria de criacao do NSP',base:'RDC 36/2013 Art.4 - Criterio C.1',kNum:'numero_portaria_nsp',kData:'data_portaria_nsp',kLink:'link_portaria_nsp'},
     {id:'portaria_ccih',nome:'Portaria de criacao da CCIH',base:'Portaria 2.616/1998 - Criterio C.2',kNum:'numero_portaria_ccih',kData:'data_portaria_ccih',kLink:'link_portaria_ccih'},
-    {id:'psp',nome:'Plano de Seguranca do Paciente (PSP)',base:'RDC 36/2013 Art.8 - Criterio C.3 - validade 3 anos',kData:'data_atualizacao_psp',kLink:'link_psp',validade3:true},
+    {id:'psp',nome:'Plano de Seguranca do Paciente (PSP)',base:'RDC 36/2013 Art.8 - Criterio C.3 - validade 2 anos',kData:'data_atualizacao_psp',kLink:'link_psp',validade3:true},
     {id:'regimento',nome:'Regimento Interno do NSP',base:'Documento institucional do NSP',kLink:'link_regimento'},
   ];
   const [docEdit,setDocEdit]=useState({});
@@ -7835,7 +7844,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     if(d.validade3){
       const dt=cfg[d.kData];
       if(!dt)return'missing';
-      const v=new Date(new Date(dt).setFullYear(new Date(dt).getFullYear()+3)).toISOString().slice(0,10);
+      const v=vencimentoPadrao(dt);
       if(v<hoje)return'vencido';
       if(v<=new Date(Date.now()+60*86400000).toISOString().slice(0,10))return'proximo';
       return'ok';
@@ -7878,7 +7887,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     {DOCS_INST.map(d=>{
       const st=docStatus(d);const stc=ST[st];
       const ed=docEdit[d.id];
-      const venc=d.validade3&&cfg[d.kData]?new Date(new Date(cfg[d.kData]).setFullYear(new Date(cfg[d.kData]).getFullYear()+3)).toISOString().slice(0,10):null;
+      const venc=d.validade3&&cfg[d.kData]?vencimentoPadrao(cfg[d.kData]):null;
       return(<div key={d.id} style={{background:C.card,border:'1px solid '+stc.color+'44',borderRadius:14,padding:'12px 14px',borderLeft:'4px solid '+stc.color}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
           <div style={{flex:1}}>
@@ -7908,7 +7917,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
               <StorageUploadBtn tipo='documento_institucional' sbUrl={sbUrl} sbKey={sbKey} meta={{crit:d.id,nomeProt:d.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}} onUploaded={link=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],link}}))} label='Anexar'/>
             </div>
           </div>
-          {d.validade3&&<div style={{fontSize:10,color:C.muted}}>Validade: data de atualizacao + 3 anos (calculado automaticamente)</div>}
+          {d.validade3&&<div style={{fontSize:10,color:C.muted}}>Validade: data de atualizacao + 2 anos (calculado automaticamente)</div>}
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setDocEdit(e=>{const n={...e};delete n[d.id];return n;})} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
             <button onClick={()=>salvarDoc(d)} disabled={docSaving} style={{flex:2,background:docSaving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:docSaving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:docSaving?'default':'pointer'}}>{docSaving?'Salvando...':'Salvar'}</button>
@@ -7945,9 +7954,10 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         {!ed&&!r&&!isNA&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para informar a data e link do documento.</div>}
         {ed&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
             <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Vencimento (próxima revisão)</label><input type='date' value={ed.proxima_revisao||''} onChange={e=>{setEdit(def.crit,'proxima_revisao',e.target.value);setEdit(def.crit,'venc_manual',true);}} style={inp}/><div style={{fontSize:10,color:C.muted,marginTop:3}}>Sugerido: aprovação + {VALIDADE_DOC_ANOS} anos. Pode alterar.{ed.venc_manual&&ed.aprovado_em&&<button type='button' onClick={()=>{setEdit(def.crit,'proxima_revisao',vencimentoPadrao(ed.aprovado_em));setEdit(def.crit,'venc_manual',false);}} style={{marginLeft:6,background:'none',border:'none',color:C.teal,fontSize:10,cursor:'pointer',textDecoration:'underline'}}>usar {VALIDADE_DOC_ANOS} anos</button>}</div></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
@@ -7955,7 +7965,6 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
               <StorageUploadBtn tipo='protocolo' sbUrl={sbUrl} sbKey={sbKey} meta={{crit:def.crit,nomeProt:def.nome,ano:String(new Date().getFullYear()),semestre:new Date().getMonth()<6?'1':'2'}} onUploaded={link=>setEdit(def.crit,'link',link)} label='Anexar'/>
             </div>
           </div>
-          <div style={{fontSize:10,color:C.muted}}>Proxima revisao: aprovacao + 3 anos (calculado automaticamente)</div>
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>setEditando(e=>{const n={...e};delete n[def.crit];return n;})} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
             <button onClick={()=>salvar(def)} disabled={ed.saving} style={{flex:2,background:ed.saving?C.border:C.teal,border:'none',borderRadius:8,padding:'8px',color:ed.saving?C.muted:'#06101F',fontSize:12,fontWeight:800,cursor:ed.saving?'default':'pointer'}}>{ed.saving?'Salvando...':'Salvar'}</button>
@@ -7984,7 +7993,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
   };
   useEffect(()=>{carregar();},[sbUrl,sbKey,userSubnucleo]);
 
-  const abrirEdit=(def)=>{const r=registros[def.nome];setEditando(e=>({...e,[def.crit]:{aprovado_em:r?.aprovado_em||'',link:r?.link||'',responsavel:r?.responsavel||'',numero:r?.numero||'',saving:false}}));};
+  const abrirEdit=(def)=>{const r=registros[def.nome];setEditando(e=>({...e,[def.crit]:{aprovado_em:r?.aprovado_em||'',proxima_revisao:r?.proxima_revisao||'',venc_manual:!!r?.proxima_revisao&&![somaAnos(r?.aprovado_em,2),somaAnos(r?.aprovado_em,3)].includes(r?.proxima_revisao),link:r?.link||'',responsavel:r?.responsavel||'',numero:r?.numero||'',saving:false}}));};
   const setEdit=(crit,k,v)=>setEditando(e=>({...e,[crit]:{...e[crit],[k]:v}}));
 
   const salvar=async(def)=>{
@@ -7992,8 +8001,8 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
     if(!ed?.aprovado_em){showToast('Informe a data de aprovacao','error');return;}
     setEditando(e=>({...e,[def.crit]:{...e[def.crit],saving:true}}));
     try{
-      const prox=new Date(ed.aprovado_em);prox.setFullYear(prox.getFullYear()+3);
-      const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:prox.toISOString().slice(0,10),link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
+      const proxStr=ed.proxima_revisao||vencimentoPadrao(ed.aprovado_em);
+      const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:proxStr,link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
       const existente=registros[def.nome];
       if(existente){await sbPatch(sbUrl,sbKey,'protocolos',`id=eq.${existente.id}`,payload);}
       else{await sbInsert(sbUrl,sbKey,'protocolos',payload);}
@@ -8006,7 +8015,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
 
   const getStatus=(def)=>{
     const r=registros[def.nome];if(!r||!r.aprovado_em)return{s:'missing',label:'Nao cadastrado',color:C.muted};
-    const prox=r.proxima_revisao||new Date(new Date(r.aprovado_em).setFullYear(new Date(r.aprovado_em).getFullYear()+3)).toISOString().slice(0,10);
+    const prox=r.proxima_revisao||vencimentoPadrao(r.aprovado_em);
     if(prox<hoje)return{s:'vencido',label:'VENCIDO',color:C.red};
     if(prox<=new Date(Date.now()+60*86400000).toISOString().slice(0,10))return{s:'proximo',label:'Vence em 60d',color:C.yellow};
     return{s:'ok',label:'Valido',color:C.green};
@@ -8048,9 +8057,10 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
         {!ed&&!r&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar".</div>}
         {ed&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>setEdit(def.crit,'aprovado_em',e.target.value)} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
             <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Vencimento (próxima revisão)</label><input type='date' value={ed.proxima_revisao||''} onChange={e=>{setEdit(def.crit,'proxima_revisao',e.target.value);setEdit(def.crit,'venc_manual',true);}} style={inp}/><div style={{fontSize:10,color:C.muted,marginTop:3}}>Sugerido: aprovação + {VALIDADE_DOC_ANOS} anos. Pode alterar.{ed.venc_manual&&ed.aprovado_em&&<button type='button' onClick={()=>{setEdit(def.crit,'proxima_revisao',vencimentoPadrao(ed.aprovado_em));setEdit(def.crit,'venc_manual',false);}} style={{marginLeft:6,background:'none',border:'none',color:C.teal,fontSize:10,cursor:'pointer',textDecoration:'underline'}}>usar {VALIDADE_DOC_ANOS} anos</button>}</div></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
@@ -8071,12 +8081,13 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
 function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,onPendentes}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const hoje=new Date();
-  const [mes,setMes]=useState(`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`);
+  const [mes,setMes]=useState(mesReferencia);
   const [form,setForm]=useState({paciente_dia_total:''});
   const [salvando,setSalvando]=useState(false);
   const [pdSetores,setPdSetores]=useState(null); // soma do paciente-dia lancado na aba Por Setor
   const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
-  const campos=DSM_CAMPOS_SUB[userSubnucleo]||[];
+  const campos=camposProprios(userSubnucleo); // paciente-dia tem campo proprio, compartilhado
+  const usaPD=SUBS_USAM_PD.includes(userSubnucleo);
   const mesRef=mes+'-01';
   const inp={width:'100%',padding:'8px 10px',borderRadius:8,boxSizing:'border-box',border:'1px solid '+C.border,background:C.surface,color:C.text,fontSize:13,outline:'none'};
 
@@ -8097,7 +8108,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   const vazio=v=>v===''||v===null||v===undefined;
   const pdEfetivo=!vazio(form.paciente_dia_total)?form.paciente_dia_total:pdSetores;
-  const faltando=campos.length===0?[]:[...(vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mes'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
+  const faltando=campos.length===0?[]:[...(usaPD&&vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mes'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
   useEffect(()=>{if(onPendentes)onPendentes(faltando.length,faltando.map(f=>f.label),mes);},[faltando.map(f=>f.key).join('|'),mes]);
   const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
@@ -8137,7 +8148,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       </button>
     </div>
     <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes <span style={{color:C.teal}}>(compartilhado entre os subnucleos)</span></label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes <span style={{color:C.teal}}>(compartilhado entre os subnucleos{usaPD?'':' · opcional para você'})</span></label>
       <input type='number' min={0} value={form.paciente_dia_total} placeholder={pdSetores?String(pdSetores):''} onChange={e=>set('paciente_dia_total',e.target.value)} style={estiloCampo('paciente_dia_total')}/>
       {vazio(form.paciente_dia_total)&&pdSetores&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Usando {pdSetores} (soma lançada em Indicadores › Por Setor).</div>}
     </div>
@@ -8484,7 +8495,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   const carregar=async()=>{
     if(!sbUrl||!sbKey)return;setLoading(true);
     const sem=`${ano}/${semestre}S`;
-    // Protocolos tem validade propria de 3 anos: buscar em todas as pastas da janela de vigencia
+    // Protocolos tem validade propria (VALIDADE_DOC_ANOS): buscar em todas as pastas da janela de vigencia
     // (semestre atual + 6 anteriores), independente do filtro de semestre selecionado.
     const pastasVigencia=[];
     {let a=anoAtual,s=semAtual;
@@ -8569,9 +8580,9 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
       </div>
     </div>
 
-    {/* PROTOCOLOS VIGENTES — validade propria de 3 anos, independente de semestre */}
+    {/* PROTOCOLOS VIGENTES — validade propria, independente de semestre */}
     {protsVigentes.length>0&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
-      <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Protocolos Vigentes ({protsVigentes.length}) — validade de 3 anos</div>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Protocolos Vigentes ({protsVigentes.length}) — validade de 2 anos</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:6}}>
         {protsVigentes.map((p,i)=>{
           const hoje=new Date().toISOString().slice(0,10);

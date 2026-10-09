@@ -207,6 +207,27 @@ async function sbAuditLog(sbUrl,sbKey,hospitalId,notificationId,acao,campo,valor
   }catch(e){console.warn('[audit_log]',e.message);}
 }
 
+// O Worker (hash com pepper) as vezes fica fora (erro 500) e o app cai no hash local. Um PIN cadastrado
+// com um dos dois nao batia quando o app calculava o outro. Login e checagens usam os dois candidatos.
+async function hashPinCandidatos(pin, hospitalId) {
+  const hid = hospitalId || 'hnsa';
+  const lista=[];
+  try {
+    const res = await fetch(WORKER_URL.replace(/\/+$/,'') + '/hashpin', {
+      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin, hospital_id: hid }),
+    });
+    if (res.ok) { const data = await res.json(); if (data && data.hash) lista.push(data.hash); }
+  } catch (e) {}
+  const local=await hashPinLocal(pin,hid);
+  if(!lista.includes(local)) lista.push(local);
+  return lista;
+}
+async function hashPinLocal(pin,hid){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+':'+hid+':notificaai_fallback_salt'));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+const filtroHashes=hs=>'pin_hash=in.('+hs.join(',')+')';
+
 async function hashPin(pin, hospitalId) {
   const hid = hospitalId || 'hnsa';
   // Preferencial: hash via Worker com pepper secreto (nao exposto no cliente)
@@ -682,8 +703,8 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     let matched=null;
     if(sbUrl&&sbKey) {
       try {
-        const h=await hashPin(pin, hospital?.id);
-        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${h}&ativo=eq.true&limit=1`);
+        const hs=await hashPinCandidatos(pin, hospital?.id);
+        const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(hs)}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]&&!PROFILES[rows[0].perfil||'gestor']) {
           // Perfis de chamados (DSG, Motorista, Enfermeiro) foram descontinuados
           setLoading(false); setPerfilDesativado(true); setPin(''); return;
@@ -756,11 +777,11 @@ function AlterarPinModal({sbUrl,sbKey,hospital,userId,showToast,onClose}) {
     if(f.novo===f.atual) return setErro('O novo PIN é igual ao atual.');
     setSalvando(true);
     try{
-      const hAtual=await hashPin(f.atual,hospital?.id);
-      const ok=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`id=eq.${userId}&pin_hash=eq.${hAtual}&select=id`);
+      const hsAtual=await hashPinCandidatos(f.atual,hospital?.id);
+      const ok=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`id=eq.${userId}&${filtroHashes(hsAtual)}&select=id`);
       if(!ok||!ok.length){setErro('PIN atual incorreto.');setSalvando(false);return;}
       const hNovo=await hashPin(f.novo,hospital?.id);
-      const uso=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${hNovo}&id=neq.${userId}&select=id&limit=1`);
+      const uso=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(await hashPinCandidatos(f.novo,hospital?.id))}&id=neq.${userId}&select=id&limit=1`);
       if(uso&&uso.length){setErro('Este PIN não está disponível. Escolha outro.');setSalvando(false);return;}
       await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${userId}`,{pin_hash:hNovo});
       showToast('PIN alterado!','success');onClose();
@@ -882,7 +903,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
       const payload={nome:form.nome,perfil:form.perfil,subnucleo:form.perfil==='membro_nsp'?(form.subnucleo||null):null,ativo:form.ativo};
       if(form.pin) payload.pin_hash=await hashPin(form.pin, hospital?.id);
       if(form.pin&&!editing){
-        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`pin_hash=eq.${await hashPin(form.pin, hospital?.id)}&limit=1`);
+        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(await hashPinCandidatos(form.pin, hospital?.id))}&limit=1`);
         if(ex&&ex.length>0){showToast('Este PIN já está em uso','error');setSaving(false);return;}
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
@@ -4760,8 +4781,8 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [dados,setDados]=useState(null);
   const [aberto,setAberto]=useState(null);
-  const mes=mesReferencia();
-  const nomeMes=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long'});
+  const [mes,setMes]=useState(mesReferencia);
+  const nomeMes=new Date(mes+'-15').toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   useEffect(()=>{
     if(!sbUrl||!sbKey) return;
     Promise.all([
@@ -4775,7 +4796,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
       const protsPorNome={};(prots||[]).forEach(p=>{protsPorNome[p.nome]=p;});
       const o=mens&&mens[0]&&mens[0].pd_setores;
       const pdSetoresSoma=o?Object.values(o).reduce((a,v)=>a+(Number(v)||0),0):0;
-      const ctx={notifs,protsPorNome,dsm:dsm&&dsm[0],pdSetoresSoma,treins};
+      const ctx={notifs,protsPorNome,dsm:dsm&&dsm[0],pdSetoresSoma,treins,mesRef:mes};
       const linhas=SUBNUCLEOS_HNSA.map(sn=>{
         const us=(usuarios||[]).filter(u=>u.subnucleo===sn.id);
         const ultimo=us.map(u=>u.ultimo_acesso).filter(Boolean).sort().pop()||null;
@@ -4783,25 +4804,21 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
       }).sort((a,b)=>b.total-a.total);
       setDados(linhas);
     });
-  },[sbUrl,sbKey,h.id]);
+  },[sbUrl,sbKey,h.id,mes]);
   if(!dados) return null;
   const emDia=dados.filter(l=>l.total===0).length;
   const chip=(n,label,cor)=>n>0&&<span style={{background:cor+'22',color:cor,borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:700,whiteSpace:'nowrap'}}>{n} {label}</span>;
-  const msgCobranca=l=>{
-    const it=[];
-    if(l.indicadores.length) it.push('• '+l.indicadores.length+' indicador(es) de '+nomeMes+' sem preencher');
-    if(l.protocolos.length) it.push('• Protocolo: '+l.protocolos.join('; '));
-    if(l.semRCA) it.push('• '+l.semRCA+' notificação(ões) sem RCA');
-    if(l.treinSemestre===0) it.push('• Nenhum treinamento registrado neste semestre');
-    return 'Olá! Pendências do subnúcleo '+l.sn.label+' no NotificaAI:\n'+it.join('\n')+'\n\nAcesse: https://notificaai.ia.br/'+h.id;
-  };
   const dias=iso=>iso?Math.floor((Date.now()-new Date(iso).getTime())/86400000):null;
   return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:8,marginBottom:4,flexWrap:'wrap'}}>
       <div style={{fontSize:14,fontWeight:800,color:C.text}}>Pendências por subnúcleo</div>
-      <div style={{fontSize:12,fontWeight:700,color:emDia===dados.length?C.green:C.yellow}}>{emDia} de {dados.length} em dia</div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <label style={{fontSize:11,color:C.muted}}>Período</label>
+        <input type='month' value={mes} max={new Date().toISOString().slice(0,7)} onChange={e=>e.target.value&&setMes(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 8px',color:C.text,fontSize:12,outline:'none',cursor:'pointer'}}/>
+        <span style={{fontSize:12,fontWeight:700,color:emDia===dados.length?C.green:C.yellow}}>{emDia} de {dados.length} em dia</span>
+      </div>
     </div>
-    <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Indicadores de {nomeMes}, protocolos, notificações sem RCA e treinamento no semestre. Toque para ver o detalhe.</div>
+    <div style={{fontSize:11,color:C.muted,marginBottom:12}}>Indicadores de {nomeMes}, protocolos vigentes, notificações sem RCA e treinamento no {semestreLabel(mes)}. Toque para ver o detalhe.</div>
     {dados.some(l=>!l.temPin)&&<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'8px 12px',marginBottom:10,fontSize:11,color:C.text,lineHeight:1.5}}>
       <b style={{color:C.yellow}}>{dados.filter(l=>!l.temPin).length} subnúcleo(s) sem PIN:</b> enquanto não tiverem acesso próprio, o preenchimento fica com o gestor. Cadastre os PINs em Admin › Usuários e PINs.
     </div>}
@@ -4828,10 +4845,9 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
           {l.indicadores.length>0&&<div><b style={{color:C.text}}>Indicadores:</b> {l.indicadores.join(' · ')}</div>}
           {l.protocolos.length>0&&<div><b style={{color:C.text}}>Protocolos:</b> {l.protocolos.join(' · ')}</div>}
           {l.semRCA>0&&<div><b style={{color:C.text}}>Notificações sem RCA:</b> {l.semRCA}</div>}
-          <div><b style={{color:C.text}}>Treinamentos no semestre:</b> {l.treinSemestre}</div>
+          <div><b style={{color:C.text}}>Treinamentos no {semestreLabel(mes)}:</b> {l.treinSemestre}</div>
           <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:8}}>
             {onAbrirSub&&<button onClick={()=>onAbrirSub(l.sn.id)} style={{background:l.sn.color,border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>{l.temPin?'Abrir painel do subnúcleo':'Preencher pelo subnúcleo'}</button>}
-            {l.total>0&&l.temPin&&<a href={'https://wa.me/?text='+encodeURIComponent(msgCobranca(l))} target="_blank" rel="noreferrer" style={{display:'inline-block',background:'#25D366',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,textDecoration:'none'}}>Cobrar no WhatsApp</a>}
           </div>
         </div>}
       </div>);
@@ -7692,7 +7708,10 @@ function mesReferencia(){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()
 const SUBS_USAM_PD=['queda','ccih'];
 const camposProprios=sub=>(DSM_CAMPOS_SUB[sub]||[]).filter(f=>f.key!=='paciente_dia_total');
 function inicioSemestre(){const d=new Date();return new Date(d.getFullYear(),d.getMonth()<6?0:6,1).toISOString().slice(0,10);}
-function calcPendenciasSub(subId,{notifs,protsPorNome,dsm,pdSetoresSoma,treins}){
+// Semestre (1o: jan-jun, 2o: jul-dez) que contem o mes 'AAAA-MM'
+function faixaSemestre(mesRef){const [a,m]=mesRef.split('-').map(Number);const s1=m<=6;return {ini:`${a}-${s1?'01':'07'}-01`,fim:`${a}-${s1?'06-30':'12-31'}`};}
+const semestreLabel=mesRef=>{const [a,m]=mesRef.split('-').map(Number);return (m<=6?'1º':'2º')+' semestre de '+a;};
+function calcPendenciasSub(subId,{notifs,protsPorNome,dsm,pdSetoresSoma,treins,mesRef}){
   const hoje=new Date().toISOString().slice(0,10);
   const vazio=v=>v===''||v===null||v===undefined;
   const campos=camposProprios(subId);
@@ -7703,8 +7722,8 @@ function calcPendenciasSub(subId,{notifs,protsPorNome,dsm,pdSetoresSoma,treins})
   const protocolos=PROTOCOLOS_DSM.filter(p=>crits.includes(p.crit)).map(p=>({p,st:statusProtocolo(protsPorNome[p.nome],hoje)}))
     .filter(x=>x.st==='vencido'||x.st==='missing').map(x=>x.p.crit+' '+x.p.nome+(x.st==='vencido'?' (vencido)':' (não cadastrado)'));
   const semRCA=(notifs||[]).filter(n=>notifDoSubnucleo(n,subId)&&!n.rca_gerado&&n.notification_type==='seguranca_paciente').length;
-  const ini=inicioSemestre();
-  const treinSemestre=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento'&&(t.data||'')>=ini).length;
+  const fx=mesRef?faixaSemestre(mesRef):{ini:inicioSemestre(),fim:'9999-12-31'};
+  const treinSemestre=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento'&&(t.data||'')>=fx.ini&&(t.data||'')<=fx.fim).length;
   const total=indicadores.length+protocolos.length+semRCA+(treinSemestre===0?1:0);
   return {indicadores,protocolos,semRCA,treinSemestre,total};
 }

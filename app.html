@@ -5019,7 +5019,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   const [notiVisaTarget,setNotiVisaTarget]=useState(null);
   const [riscoTarget,setRiscoTarget]=useState(null);
   const [planoTarget,setPlanoTarget]=useState(null);
-  const [alertas,setAlertas]=useState({protsVencidos:[],planosAtrasados:[],rcaPendentes:[],efetPendentes:[],triagemPendentes:[],notsById:{}});
+  const [alertas,setAlertas]=useState({protsVencidos:[],planosAtrasados:[],rcaPendentes:[],efetPendentes:[],triagemPendentes:[],docsInst:[],notsById:{}});
   const [homeTick,setHomeTick]=useState(0);
   const [painelSub,setPainelSub]=useState(null); // gestor preenchendo pelo subnucleo
   const configured=!!(sbUrl&&sbKey);
@@ -5033,7 +5033,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${hid}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
       sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${hid}&select=nome,proxima_revisao`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${hid}&select=*`).catch(()=>[]),
-    ]).then(([data,prots,planos])=>{
+      sbSelect(sbUrl,sbKey,'config_dsm',`hospital_id=eq.${hid}&select=*`).catch(()=>[]),
+    ]).then(([data,prots,planos,cfgArr])=>{
       setStats(computeStats(data));
       const notsById={};(data||[]).forEach(n=>{notsById[n.id]=n;});
       const naoFechada=p=>{const n=notsById[p.notification_id];return !n||!n.plano_fechado_em;};
@@ -5042,7 +5043,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       const efetPendentes=(planos||[]).filter(p=>p.status==='concluido'&&!p.efetividade_verificada&&naoFechada(p));
       const rcaPendentes=(data||[]).filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave'));
       const triagemPendentes=(data||[]).filter(n=>(n.event_subtype||'').startsWith('Outro'));
-      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,notsById});
+      const cfg=(cfgArr&&cfgArr[0])||{};const docsInst=[];
+      if(!cfg.data_atualizacao_psp&&!cfg.link_psp) docsInst.push('Plano de Segurança do Paciente (PSP) não cadastrado');
+      else if(cfg.data_atualizacao_psp&&vencimentoPadrao(cfg.data_atualizacao_psp)<hoje) docsInst.push('PSP vencido em '+new Date(vencimentoPadrao(cfg.data_atualizacao_psp)+'T12:00:00').toLocaleDateString('pt-BR'));
+      if(!cfg.link_portaria_nsp&&!cfg.numero_portaria_nsp) docsInst.push('Portaria do NSP não cadastrada');
+      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -5089,35 +5094,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
 
-    {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
-
-    {/* Cards de métricas principais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-      <StatCard icon={String.fromCodePoint(128197)} label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
-    </div>
-
-    {/* Indicadores NSP */}
-    {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div onClick={()=>{setFiltroNotif('sentinela');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
-      </div>
-      <div onClick={()=>{setFiltroNotif('semRCA');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
-      </div>
-      <div onClick={()=>setView('saq_dashboard')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-      <div style={{fontSize:13,fontWeight:900,color:C.teal}}>{String.fromCodePoint(128203)}</div>
-      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Cultura</div>
-      </div>
-    </div>}
-
-    {/* Dias sem sentinela */}
     {/* ── Painel Ação Necessária: fila priorizada com CTA direto ── */}
     {gestorMode&&!loading&&(()=>{ 
-      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0);
+      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length;
       const abrirPlano=p=>{const n=alertas.notsById[p.notification_id]||{id:p.notification_id,hospital_id:(hospital||DEFAULT_HOSPITAL).id,description:p.acao};setPlanoTarget(n);};
       const prazo72=n=>{
         const dl=new Date(n.created_at).getTime()+72*3600000;
@@ -5135,7 +5114,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       </div>);
       return(<div style={{background:C.surface,border:'1px solid '+C.red+'33',borderRadius:14,padding:'14px'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
-          <div style={{fontSize:13,fontWeight:900,color:C.text}}>{String.fromCodePoint(9889)+' Ação Necessária'}</div>
+          <div style={{fontSize:13,fontWeight:900,color:C.text}}>{String.fromCodePoint(9889)+' Suas pendências como gestor'}</div>
           <div style={{background:C.red+'22',color:C.red,borderRadius:10,padding:'2px 10px',fontSize:11,fontWeight:900}}>{totalPend}</div>
         </div>
         {alertas.rcaPendentes.slice(0,3).map(n=>{const p=prazo72(n);return(<div key={n.id} style={{...row,border:'1px solid '+C.red+'44'}}>
@@ -5162,6 +5141,10 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <button onClick={()=>abrirPlano(p)} style={btn(C.blue)}>Verificar</button>
         </div>))}
         {alertas.efetPendentes.length>3&&<div style={{fontSize:10,color:C.muted,marginBottom:6,textAlign:'right'}}>+{alertas.efetPendentes.length-3} verificação(ões) pendente(s)</div>}
+        {(alertas.docsInst||[]).map(d=>(<div key={d} style={row}>
+          <div style={{fontSize:12,fontWeight:700,color:C.text}}>{d}</div>
+          <button onClick={()=>setView('protocolos')} style={btn(C.purple)}>Atualizar</button>
+        </div>))}
         {alertas.protsVencidos.length>0&&<div style={row}>
           <div style={{fontSize:12,fontWeight:700,color:C.text}}>{alertas.protsVencidos.length} protocolo(s) com revisão vencida</div>
           <button onClick={()=>setView('protocolos')} style={btn(C.purple)}>Revisar</button>
@@ -5175,6 +5158,33 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         </div>}
       </div>);
     })()}
+
+    {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
+
+    {/* Cards de métricas principais */}
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+      <StatCard icon={String.fromCodePoint(128197)} label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
+      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
+      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
+    </div>
+
+    {/* Indicadores NSP */}
+    {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+      <div onClick={()=>{setFiltroNotif('sentinela');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+        <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
+      </div>
+      <div onClick={()=>{setFiltroNotif('semRCA');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+        <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
+      </div>
+      <div onClick={()=>setView('saq_dashboard')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
+      <div style={{fontSize:13,fontWeight:900,color:C.teal}}>{String.fromCodePoint(128203)}</div>
+      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Cultura</div>
+      </div>
+    </div>}
+
+    {/* Dias sem sentinela */}
     {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
       <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
       <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>

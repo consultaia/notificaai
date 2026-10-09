@@ -12,6 +12,13 @@
 //   DOMINIOS_PERMITIDOS (opcional) dominios aceitos como destinatario, separados por virgula
 //   RATE_LIMIT_KV       (opcional) binding KV para limitar tentativas de PIN
 //
+// Lembrete mensal de pendencias (opcional):
+//   Gatilho Cron em Settings > Triggers > Cron Triggers, ex.: 0 11 5 * *  (dia 5, 8h de Brasilia)
+//   SUPABASE_URL, SUPABASE_KEY  URL do projeto e chave publica (a mesma do app)
+//   LEMBRETE_DESTINOS           e-mails que recebem o resumo, separados por virgula
+//   LEMBRETE_HOSPITAIS          ids das instituicoes (padrao: hnsa)
+//   Previa sem enviar nada: GET /lembrete-previa?h=hnsa
+//
 // Nenhuma chave fica neste arquivo. Para publicar: cole este codigo em
 // Workers & Pages > notificaai-proxy > Edit code > Deploy.
 // ============================================================
@@ -62,6 +69,11 @@ const umaLinha = v => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').slice(
 const slugValido = v => /^[a-z0-9-]{2,40}$/.test(String(v || '')) ? String(v) : 'hnsa';
 
 export default {
+  // Gatilho Cron: envia o resumo mensal de pendencias dos subnucleos
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(enviarLembretes(env).catch(e => console.error('Lembrete falhou:', e.message)));
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
 
@@ -90,6 +102,16 @@ export default {
     if (url.pathname === '/email' && request.method === 'POST') return handleEmail(request, env);
     if (request.method === 'POST') return handleGroq(request, env);
 
+    // ── GET /lembrete-previa — mostra o e-mail do lembrete sem enviar ──
+    if (url.pathname === '/lembrete-previa' && request.method === 'GET') {
+      try {
+        const r = await montarLembrete(env, slugValido(url.searchParams.get('h')));
+        return new Response(r.html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      } catch (e) {
+        return new Response('Erro: ' + esc(e.message), { status: 500, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      }
+    }
+
     // ── GET — diagnostico rapido pelo navegador ─────────────
     return new Response(JSON.stringify({
       status: 'ok',
@@ -99,6 +121,7 @@ export default {
       resend_configurada: Boolean(env.RESEND_API_KEY),
       pepper_configurado: Boolean(env.PIN_PEPPER),
       rate_limit_kv: Boolean(env.RATE_LIMIT_KV),
+      lembrete_configurado: Boolean(env.SUPABASE_URL && env.SUPABASE_KEY && env.LEMBRETE_DESTINOS),
     }, null, 2), { status: 200, headers: { 'Content-Type': 'application/json' } });
   },
 };
@@ -321,4 +344,124 @@ async function handleGroq(request, env) {
   return new Response(JSON.stringify({
     error: { message: 'Nenhum modelo de IA disponivel respondeu.', detalhes: tentativas },
   }), { status: 502, headers: corsHeaders });
+}
+
+// ── Lembrete mensal de pendencias dos subnucleos ────────────
+// Mesmas regras do quadro "Pendencias por subnucleo" do app: indicadores do mes anterior (ja fechado),
+// protocolos vencidos ou sem cadastro, notificacoes de seguranca do paciente sem RCA e ao menos 1
+// treinamento no semestre. As tabelas abaixo foram copiadas do app (PROTOCOLOS_DSM, SUB_PROTOCOLOS,
+// DSM_CAMPOS_SUB, SUBNUCLEOS_HNSA) — se mudarem la, atualize aqui.
+const REGRAS = {"protocolos":[{"crit":"C3","nome":"Higienizacao das Maos"},{"crit":"C4","nome":"Identificacao do Paciente"},{"crit":"C5","nome":"Comunicacao Efetiva"},{"crit":"C6","nome":"Cirurgia Segura"},{"crit":"C7","nome":"Prevencao de Lesao por Pressao (LPP)"},{"crit":"C8","nome":"Prevencao de Quedas"},{"crit":"C9","nome":"Seguranca na Prescricao e Uso de Medicamentos"},{"crit":"C10","nome":"Prevencao de IPCS Associada ao CVC"},{"crit":"C11","nome":"Prevencao de ITU Associada ao CVD"},{"crit":"C12","nome":"Prevencao de PAV"},{"crit":"C13","nome":"Prevencao de Infeccao do Sitio Cirurgico (ISC)"},{"crit":"C14","nome":"Precaucoes e Isolamento"}],"subProtocolos":{"comunicacao":["C5"],"lpp":["C7"],"queda":["C8"],"medicamentos":["C9"],"identificacao":["C4"],"cirurgia":["C6","C13"],"ccih":["C3","C10","C11","C12"]},"campos":{"comunicacao":[],"identificacao":[{"key":"pacientes_identificados","label":"Pacientes com pulseira de identificacao"},{"key":"pacientes_atendidos","label":"Total de pacientes atendidos/internados"}],"queda":[{"key":"queda_prontuarios_ok","label":"Prontuarios com avaliacao de risco de queda"},{"key":"queda_prontuarios_total","label":"Total de prontuarios analisados"},{"key":"quedas_com_dano","label":"Quedas com dano ao paciente"},{"key":"quedas_total","label":"Total de quedas no mes"}],"lpp":[{"key":"lpp_avaliacao_admissao","label":"Avaliacoes de risco LPP na admissao"},{"key":"total_admitidos","label":"Total de pacientes admitidos"},{"key":"lpp_medidas_preventivas","label":"Pacientes com risco e medidas preventivas LPP"},{"key":"lpp_pacientes_risco","label":"Pacientes classificados com risco LPP"},{"key":"lpp_avaliacao_diaria","label":"Avaliacao diaria de risco LPP"},{"key":"lpp_internados_risco","label":"Pacientes internados com risco LPP"},{"key":"lpp_casos_novos","label":"Casos novos de LPP"},{"key":"lpp_paciente_dia_risco","label":"Pacientes-dia expostos ao risco LPP"}],"medicamentos":[{"key":"erros_prescricao","label":"Medicamentos prescritos com erro"},{"key":"total_prescricoes","label":"Total de medicamentos prescritos"},{"key":"erros_dispensacao","label":"Medicamentos dispensados com erro"},{"key":"total_dispensacoes","label":"Total de medicamentos dispensados"},{"key":"erros_administracao","label":"Erros na administracao de medicamentos"},{"key":"total_doses","label":"Total de doses administradas"}],"cirurgia":[{"key":"lvcs_preenchidas","label":"LVCS preenchidas adequadamente"},{"key":"cirurgias_realizadas","label":"Total de cirurgias realizadas"},{"key":"antibiotico_adequado","label":"Antibioticoprofilaxia no momento adequado"},{"key":"cirurgias_periodo","label":"Total de cirurgias (antibiotico)"},{"key":"obitos_cirurgicos_7d","label":"Obitos cirurgicos em ate 7 dias"},{"key":"total_cirurgias","label":"Total de cirurgias (mortalidade)"},{"key":"isc_casos","label":"ISC - infeccoes do sitio cirurgico"},{"key":"procedimentos_cirurgicos","label":"Total de procedimentos cirurgicos"}],"ccih":[{"key":"alcool_gel_ml","label":"Alcool gel 70% consumido (mL)"},{"key":"clorexidina_ml","label":"Clorexidina consumida (mL)"},{"key":"sabonete_ml","label":"Sabonete liquido consumido (mL)"},{"key":"pav_casos_novos","label":"Casos novos de PAV"},{"key":"pacientes_vm","label":"Pacientes em ventilacao mecanica"},{"key":"ipcs_cvc","label":"IRAS associadas a CVC (IPCS)"},{"key":"cateter_dia_cvc","label":"Cateter-dia CVC"},{"key":"itu_cvd","label":"ITU associadas ao CVD"},{"key":"paciente_dia_cvd","label":"Pacientes-dia com CVD"}]},"subnucleos":[{"id":"comunicacao","label":"Comunicacao Efetiva"},{"id":"medicamentos","label":"Seguranca na Administracao de Medicamentos"},{"id":"identificacao","label":"Identificacao Correta"},{"id":"queda","label":"Queda"},{"id":"lpp","label":"LPP - Lesao por Pressao"},{"id":"cirurgia","label":"Cirurgia Segura"},{"id":"ccih","label":"Higiene das Mãos / SCIH"}]};
+const SUBS_USAM_PD = ['queda', 'ccih'];
+const VALIDADE_DOC_ANOS = 2;
+const MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+async function sbGet(env, path) {
+  const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${path}`, {
+    headers: { apikey: env.SUPABASE_KEY, Authorization: 'Bearer ' + env.SUPABASE_KEY },
+  });
+  if (!r.ok) throw new Error('Supabase ' + r.status + ' em ' + path.split('?')[0]);
+  return r.json();
+}
+
+function notifDoSub(n, f) {
+  const st = (n.event_subtype || n.occurrence_subtype || '').toLowerCase();
+  if (f === 'queda') return st.startsWith('queda');
+  if (f === 'lpp') return st.includes('press') || st.includes('lpp');
+  if (f === 'medicamentos') return st.includes('medic') || st.includes('farmac');
+  if (f === 'identificacao') return st.startsWith('falha na identif') || st.startsWith('falha de identif');
+  if (f === 'comunicacao') return st.includes('comuni') || st.includes('sbar');
+  if (f === 'cirurgia') return st.includes('cirurg');
+  if (f === 'ccih') return n.notification_type === 'ccih' || !!n.infection_topography || /infec|iras|higien/.test(st);
+  return false;
+}
+
+async function montarLembrete(env, hospitalId) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_KEY) throw new Error('Configure SUPABASE_URL e SUPABASE_KEY no Worker.');
+  const agora = new Date();
+  const ref = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - 1, 15));
+  const mes = `${ref.getUTCFullYear()}-${String(ref.getUTCMonth() + 1).padStart(2, '0')}`;
+  const nomeMes = MESES[ref.getUTCMonth()] + ' de ' + ref.getUTCFullYear();
+  const s1 = ref.getUTCMonth() < 6;
+  const semIni = `${ref.getUTCFullYear()}-${s1 ? '01-01' : '07-01'}`, semFim = `${ref.getUTCFullYear()}-${s1 ? '06-30' : '12-31'}`;
+  const hoje = agora.toISOString().slice(0, 10);
+  const h = encodeURIComponent(hospitalId);
+
+  const [hosp, dsm, mens, prots, notifs, treins] = await Promise.all([
+    sbGet(env, `hospitals?id=eq.${h}&select=name,short_name&limit=1`).catch(() => []),
+    sbGet(env, `indicadores_dsm?hospital_id=eq.${h}&mes=eq.${mes}-01&select=*`).catch(() => []),
+    sbGet(env, `indicadores_mensais?hospital_id=eq.${h}&mes_ref=eq.${mes}&select=pd_setores`).catch(() => []),
+    sbGet(env, `protocolos?hospital_id=eq.${h}&select=nome,aprovado_em,proxima_revisao`),
+    sbGet(env, `notifications?hospital_id=eq.${h}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&rca_gerado=not.is.true&select=notification_type,event_subtype,occurrence_subtype,infection_topography&limit=5000`),
+    sbGet(env, `treinamentos_nsp?hospital_id=eq.${h}&tipo=eq.treinamento&data=gte.${semIni}&data=lte.${semFim}&select=subnucleo`),
+  ]);
+  const nomeHosp = (hosp[0] && (hosp[0].name || hosp[0].short_name)) || (hospitalId === 'hnsa' ? 'Hospital Naval de Salvador' : hospitalId);
+  const row = dsm[0] || {};
+  const pdSetores = mens[0] && mens[0].pd_setores ? Object.values(mens[0].pd_setores).reduce((a, v) => a + (Number(v) || 0), 0) : 0;
+  const vazio = v => v === '' || v === null || v === undefined;
+  const protPorNome = {}; prots.forEach(p => { protPorNome[p.nome] = p; });
+  const venc = p => p.proxima_revisao || (() => { const d = new Date(p.aprovado_em + 'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear() + VALIDADE_DOC_ANOS); return d.toISOString().slice(0, 10); })();
+
+  const linhas = REGRAS.subnucleos.map(sn => {
+    const campos = REGRAS.campos[sn.id] || [];
+    const ind = campos.length === 0 ? 0 :
+      ((SUBS_USAM_PD.includes(sn.id) && vazio(row.paciente_dia_total) && !pdSetores) ? 1 : 0) + campos.filter(f => vazio(row[f.key])).length;
+    const crits = REGRAS.subProtocolos[sn.id] || [];
+    const protPend = REGRAS.protocolos.filter(p => crits.includes(p.crit)).filter(p => {
+      const r = protPorNome[p.nome]; return !r || !r.aprovado_em || venc(r) < hoje;
+    }).map(p => p.crit);
+    const semRCA = notifs.filter(n => notifDoSub(n, sn.id)).length;
+    const semTrein = !treins.some(t => t.subnucleo === sn.id);
+    const total = ind + protPend.length + semRCA + (semTrein ? 1 : 0);
+    return { sn, ind, protPend, semRCA, semTrein, total };
+  }).sort((a, b) => b.total - a.total);
+
+  const emDia = linhas.filter(l => l.total === 0).length;
+  const link = 'https://notificaai.ia.br/' + slugValido(hospitalId);
+  const cel = (v, ok) => `<td style="padding:8px 10px;border-bottom:1px solid #e8ecf0;text-align:center;color:${ok ? '#059669' : '#b45309'};font-weight:bold">${v}</td>`;
+  const tabela = linhas.map(l => `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #e8ecf0;font-weight:bold;color:#0F172A">${esc(l.sn.label)}</td>
+      ${cel(l.ind ? l.ind + ' campo(s)' : '✓', !l.ind)}
+      ${cel(l.protPend.length ? esc(l.protPend.join(', ')) : '✓', !l.protPend.length)}
+      ${cel(l.semRCA ? l.semRCA : '✓', !l.semRCA)}
+      ${cel(l.semTrein ? 'nenhum' : '✓', !l.semTrein)}
+    </tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:Arial,sans-serif;background:#f4f6f9;margin:0;padding:20px">
+<div style="max-width:680px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden">
+  <div style="background:#06101F;color:#fff;padding:20px 24px">
+    <div style="font-size:18px;font-weight:bold">NotificaAI — Pendências dos subnúcleos</div>
+    <div style="font-size:12px;opacity:.8;margin-top:4px">${esc(nomeHosp)} · indicadores de ${esc(nomeMes)}</div>
+  </div>
+  <div style="padding:20px 24px">
+    <p style="font-size:14px;color:#334155;margin:0 0 14px"><b>${emDia} de ${linhas.length}</b> subnúcleos em dia. Cada subnúcleo vê o próprio checklist em <b>“O que falta”</b> ao entrar.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="background:#f1f5f9;color:#475569;text-transform:uppercase;font-size:10px">
+        <th style="padding:8px 10px;text-align:left">Subnúcleo</th><th style="padding:8px">Indicadores ${esc(MESES[ref.getUTCMonth()].slice(0, 3))}</th>
+        <th style="padding:8px">Protocolos</th><th style="padding:8px">Sem RCA</th><th style="padding:8px">Treinamento ${s1 ? '1º' : '2º'} sem</th>
+      </tr>${tabela}
+    </table>
+    <div style="text-align:center;margin-top:22px">
+      <a href="${link}" style="background:#003087;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:bold">Abrir o NotificaAI</a>
+    </div>
+  </div>
+  <div style="background:#f4f6f9;padding:12px 24px;font-size:11px;color:#94a3b8;text-align:center">Lembrete automático mensal do NotificaAI · ${esc(link.replace('https://', ''))}</div>
+</div></body></html>`;
+  return { html, nomeHosp, nomeMes, emDia, total: linhas.length };
+}
+
+async function enviarLembretes(env) {
+  if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY nao configurada');
+  const destinos = String(env.LEMBRETE_DESTINOS || '').split(',').map(s => s.trim()).filter(e => e && destinatarioPermitido(e, env));
+  if (!destinos.length) throw new Error('LEMBRETE_DESTINOS vazio ou sem e-mails permitidos');
+  const hospitais = String(env.LEMBRETE_HOSPITAIS || 'hnsa').split(',').map(s => slugValido(s.trim()));
+  for (const hid of hospitais) {
+    const r = await montarLembrete(env, hid);
+    const resp = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: FROM_EMAIL, to: destinos, subject: umaLinha(`[NotificaAI] Pendências dos subnúcleos — ${r.nomeMes} (${r.emDia}/${r.total} em dia)`), html: r.html }),
+    });
+    if (!resp.ok) console.error('Lembrete', hid, 'falhou:', resp.status, await resp.text());
+  }
 }

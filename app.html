@@ -3041,6 +3041,27 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   });
 
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const renderRegistro=r=>{
+      const sub=SUBS_TREINAMENTO.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
+      return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
+          <span style={{fontSize:18}}>{sub.icon}</span>
+          <div style={{flex:1}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text}}>{r.protocolo||sub.label}</div>
+              <div style={{background:r.tipo==='treinamento'?C.blue+'22':r.tipo==='reuniao_mensal'?C.teal+'22':r.tipo==='reuniao_extraordinaria'?C.orange+'22':C.green+'22',color:r.tipo==='treinamento'?C.blue:r.tipo==='reuniao_mensal'?C.teal:r.tipo==='reuniao_extraordinaria'?C.orange:C.green,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>{r.tipo==='treinamento'?'Treinamento':r.tipo==='reuniao_mensal'?'NSP Mensal':r.tipo==='reuniao_extraordinaria'?'NSP Extra':'Reuniao'}</div>
+            </div>
+            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
+              {r.data&&new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR')}
+              {r.participantes&&<span> · {r.participantes} participante(s)</span>}
+              {r.responsavel&&<span> · {r.responsavel}</span>}
+            </div>
+          </div>
+        </div>
+        {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
+        {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
+      </div>);
+  };
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
@@ -3148,12 +3169,13 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         {reunioesNSP.length>3&&<div style={{fontSize:10,color:C.muted,textAlign:'center',marginTop:4}}>+{reunioesNSP.length-3} mais. Filtre por tipo para ver todas.</div>}
       </div>
     {/* Cards por subnucleo */}
-    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnucleo (toque para filtrar)</div>
+    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnucleo (toque para ver os registros)</div>
     <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
       {SUBS_TREINAMENTO.map(s=>{
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
         const ativo=subnucleoAtivo===s.id;
-        return(<button key={s.id} onClick={()=>setSubnucleoAtivo(ativo?'todos':s.id)}
+        const regsSub=ativo?filteredPeriodo:[];
+        return(<React.Fragment key={s.id}><button onClick={()=>setSubnucleoAtivo(ativo?'todos':s.id)}
           style={{background:ativo?s.color+'22':C.card,border:'1px solid '+(ativo?s.color:C.border),borderRadius:12,padding:'12px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',textAlign:'left',width:'100%'}}>
           <span style={{fontSize:22}}>{s.icon}</span>
           <div style={{flex:1}}>
@@ -3161,36 +3183,23 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>{t.treinamentos} treinamento(s) · {t.reunioes} reuniao(oes) · {t.participantes} participantes</div>
           </div>
           {(t.treinamentos===0&&t.reunioes===0&&s.id!=='outros')&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
-        </button>);
+          <span style={{fontSize:16,color:ativo?s.color:C.muted,transform:ativo?'rotate(90deg)':'none',transition:'transform .15s',flexShrink:0}}>{String.fromCodePoint(8250)}</span>
+        </button>
+        {ativo&&<div style={{borderLeft:'2px solid '+s.color,marginLeft:14,paddingLeft:10,marginTop:-2}}>
+          {regsSub.length===0
+            ?<div style={{fontSize:12,color:C.muted,padding:'10px 4px'}}>Nenhum registro de {s.label} em <b>{periodoRange.label}</b>. Toque em <b>+ Novo</b> para registrar.</div>
+            :regsSub.map(renderRegistro)}
+        </div>}
+        </React.Fragment>);
       })}
     </div>
 
     {/* Formulario */}
     {/* Lista de registros */}
-    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginTop:14,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Registros individuais ({filteredPeriodo.length})</div>
+    {subnucleoAtivo==='todos'&&<div style={{fontSize:11,fontWeight:700,color:C.muted,marginTop:14,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Registros individuais ({filteredPeriodo.length})</div>}
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
-    {!loading&&filteredPeriodo.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro{subnucleoAtivo!=='todos'?' para este subnucleo':''}.</div>}
-    {filteredPeriodo.map(r=>{
-      const sub=SUBS_TREINAMENTO.find(s=>s.id===r.subnucleo)||{icon:'clipboard',color:C.muted,label:r.subnucleo};
-      return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
-        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:4}}>
-          <span style={{fontSize:18}}>{sub.icon}</span>
-          <div style={{flex:1}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text}}>{r.protocolo||sub.label}</div>
-              <div style={{background:r.tipo==='treinamento'?C.blue+'22':r.tipo==='reuniao_mensal'?C.teal+'22':r.tipo==='reuniao_extraordinaria'?C.orange+'22':C.green+'22',color:r.tipo==='treinamento'?C.blue:r.tipo==='reuniao_mensal'?C.teal:r.tipo==='reuniao_extraordinaria'?C.orange:C.green,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>{r.tipo==='treinamento'?'Treinamento':r.tipo==='reuniao_mensal'?'NSP Mensal':r.tipo==='reuniao_extraordinaria'?'NSP Extra':'Reuniao'}</div>
-            </div>
-            <div style={{fontSize:11,color:C.muted,marginTop:2}}>
-              {r.data&&new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR')}
-              {r.participantes&&<span> · {r.participantes} participante(s)</span>}
-              {r.responsavel&&<span> · {r.responsavel}</span>}
-            </div>
-          </div>
-        </div>
-        {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
-        {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
-      </div>);
-    })}
+    {!loading&&subnucleoAtivo==='todos'&&filteredPeriodo.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum registro.</div>}
+    {subnucleoAtivo==='todos'&&filteredPeriodo.map(renderRegistro)}
   </div>
   </div>);
 }

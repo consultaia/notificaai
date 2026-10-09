@@ -5092,9 +5092,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <div style={{fontSize:11,color:C.muted}}>{hospital?.short_name||''} · Núcleo de Segurança do Paciente</div>
         </div>
       </div>
-      <button onClick={onConfig} style={{background:C.card,border:'1px solid '+(configured?C.teal+'66':C.border),borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
+      {!configured&&<button onClick={onConfig} style={{background:C.card,border:'1px solid '+(configured?C.teal+'66':C.border),borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
         <IconGear size={18} color={configured?C.teal:C.muted}/>
-      </button>
+      </button>}
     </div>
 
     {/* Alertas de status */}
@@ -5102,11 +5102,25 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <div style={{fontSize:13,fontWeight:700,color:C.yellow}}>Atencao Banco de dados não configurado</div>
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
-    {configured&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
+    {false&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
       <span>{String.fromCodePoint(9989)}</span><div style={{fontSize:12,color:C.green,fontWeight:600}}>Supabase conectado · {loading?'Carregando...':'Dados reais'}</div>
     </div>}
     {gestorMode&&testMode&&<div style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'10px 16px',display:'flex',gap:10}}>
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
+    </div>}
+
+    {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8}}>
+      {[
+        [String.fromCodePoint(128221),'Treinamento ou reunião','Registrar e anexar a lista','treinamentos'],
+        [String.fromCodePoint(128220),'Protocolos e portarias','Atualizar documento e validade','protocolos'],
+        [String.fromCodePoint(128202),'Indicadores do mês','Lançar e conferir','indicadores'],
+        [String.fromCodePoint(128203),'Relatório DSM / ANVISA','Gerar o relatório','relatorio_dsm'],
+        [String.fromCodePoint(128193),'Biblioteca de documentos','Todos os anexos','documentos_nsp'],
+        [String.fromCodePoint(128190),'Usuários e backup','PINs dos subnúcleos e backup','admin'],
+      ].map(([ic,t,sub,v])=>(<button key={v} onClick={()=>setView(v)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 12px',textAlign:'left',cursor:'pointer',display:'flex',gap:10,alignItems:'center'}}>
+        <span style={{fontSize:20}}>{ic}</span>
+        <span><span style={{display:'block',fontSize:12,fontWeight:800,color:C.text}}>{t}</span><span style={{display:'block',fontSize:10,color:C.muted,marginTop:1}}>{sub}</span></span>
+      </button>))}
     </div>}
 
     {/* ── Painel Ação Necessária: fila priorizada com CTA direto ── */}
@@ -7471,7 +7485,7 @@ function CartaoBackup({sbUrl,sbKey,hospital,showToast}){
   </div>);
 }
 
-function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
+function AdminPanel({onConfig,sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
   const [notifications,setNotifications]=useState([]);
@@ -7596,6 +7610,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
 
     <SetorEmailsManager sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>
     <PinManager sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>
+    {onConfig&&<button onClick={onConfig} style={{alignSelf:'flex-start',background:'none',border:'none',color:C.muted,fontSize:11,textDecoration:'underline',cursor:'pointer',padding:0}}>Configuração técnica do banco de dados (só com orientação do suporte)</button>}
   </div>);
 }
 
@@ -7701,7 +7716,21 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
-  const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
+  const gestorTabs=[
+    {id:'home',label:'Painel',icon:IconHome,grupo:'Dia a dia'},
+    {id:'notificacoes',label:'Notificações',icon:IconMsg,grupo:'Dia a dia'},
+    {id:'acoes',label:'Ações',curto:'Ações',icon:IconAudit,grupo:'Dia a dia'},
+    {id:'treinamentos',label:'Treinamentos e reuniões',curto:'Treinamentos',icon:IconBook,grupo:'Dia a dia'},
+    {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Documentos'},
+    {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Documentos'},
+    {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Indicadores e relatórios'},
+    {id:'relatorio_dsm',label:'Relatório DSM / ANVISA',icon:IconShield,grupo:'Indicadores e relatórios'},
+    {id:'analytics',label:'Análises e gráficos',icon:IconBar,grupo:'Indicadores e relatórios'},
+    {id:'auditar',label:'Auditoria (dossiê)',icon:IconAudit,grupo:'Indicadores e relatórios'},
+    {id:'saq_dashboard',label:'Pesquisa de cultura',icon:IconBar,grupo:'Equipe e cultura'},
+    {id:'central',label:'Central de Conhecimento',icon:IconBook,grupo:'Equipe e cultura'},
+    {id:'admin',label:'Admin · usuários e backup',icon:IconGear,grupo:'Administração'},
+  ];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
@@ -7749,13 +7778,14 @@ function NotificaAI() {
             <div style={{fontSize:9,color:C.muted}}>{hospital?.short_name||''}</div>
           </div>
         </div>
-        {tabs.map(({id,label,icon:Icon})=>{
+        {tabs.map(({id,label,icon:Icon,grupo},idx)=>{
           const active=view===id;
-          return(<button key={id} onClick={()=>setView(id)} style={{width:'100%',background:active?C.teal+'15':'transparent',border:'none',borderLeft:'3px solid '+(active?C.teal:'transparent'),borderRadius:'0 8px 8px 0',padding:'10px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:2,textAlign:'left'}}>
+          const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
+          return(<React.Fragment key={id}>{cab&&<div style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em',padding:idx===0?'0 12px 4px':'12px 12px 4px'}}>{grupo}</div>}<button onClick={()=>setView(id)} style={{width:'100%',background:active?C.teal+'15':'transparent',border:'none',borderLeft:'3px solid '+(active?C.teal:'transparent'),borderRadius:'0 8px 8px 0',padding:'10px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:2,textAlign:'left'}}>
             <Icon size={17} sw={active?2.4:1.8} color={active?C.teal:C.muted}/>
             <span style={{fontSize:12,fontWeight:active?700:500,color:active?C.teal:C.text}}>{label}</span>
             {active&&<div style={{marginLeft:'auto',width:5,height:5,borderRadius:'50%',background:C.teal}}/>}
-          </button>);
+          </button></React.Fragment>);
         })}
         <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:10}}>
           <a href="/?escolher=1" style={{display:'block',fontSize:10,color:C.muted,textDecoration:'none',padding:'0 8px 8px'}}>Trocar instituição</a>
@@ -7780,7 +7810,7 @@ function NotificaAI() {
         {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
-        {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
+        {view==='admin'    &&<AdminPanel onConfig={()=>setShowConfig(true)} sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
         {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
         {view==='indicadores'&&<IndicadoresHubView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
@@ -7811,13 +7841,14 @@ function NotificaAI() {
           </div>
           <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>{String.fromCodePoint(10005)}</button>
         </div>
-        {tabs.map(({id,label,icon:Icon})=>{
+        {tabs.map(({id,label,icon:Icon,grupo},idx)=>{
           const active=view===id;
-          return(<button key={id} onClick={()=>{setView(id);setShowMenu(false);}} style={{width:'100%',background:active?C.teal+'18':'transparent',border:'1px solid '+(active?C.teal+'44':'transparent'),borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
+          const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
+          return(<React.Fragment key={id}>{cab&&<div style={{fontSize:10,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em',padding:idx===0?'0 14px 4px':'12px 14px 4px'}}>{grupo}</div>}<button onClick={()=>{setView(id);setShowMenu(false);}} style={{width:'100%',background:active?C.teal+'18':'transparent',border:'1px solid '+(active?C.teal+'44':'transparent'),borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
             <Icon size={20} sw={active?2.5:1.8} color={active?C.teal:C.muted}/>
             <span style={{fontSize:13,fontWeight:active?700:400,color:active?C.teal:C.text}}>{label}</span>
             {active&&<div style={{marginLeft:'auto',width:6,height:6,borderRadius:'50%',background:C.teal}}/>}
-          </button>);
+          </button></React.Fragment>);
         })}
         <div style={{borderTop:'1px solid '+C.border,paddingTop:10,marginTop:6}}>
           {!profileMode
@@ -7842,7 +7873,7 @@ function NotificaAI() {
 
       <div id='bottom-nav' style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
         {/* Abas fixas: as 4 primeiras do perfil ativo */}
-        {tabs.slice(0,4).map(({id,label,icon:Icon})=>{
+        {tabs.slice(0,4).map(({id,label:labelLongo,curto,icon:Icon})=>{const label=curto||labelLongo;
           const active=view===id;
           return(<button key={id} onClick={()=>setView(id)} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,color:active?C.teal:C.muted,padding:'4px 0'}}>
             <Icon size={22} sw={active?2.5:1.8}/>

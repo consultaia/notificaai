@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>NotificaAI</title>
+<script>
+  // Link por contratante: notificaai.ia.br/hnsa -> /?h=hnsa (o index.html volta a mostrar /hnsa).
+  // O GitHub Pages so serve arquivos que existem; qualquer outro caminho cai aqui.
+  (function(){
+    var seg=location.pathname.split('/')[1]||'';
+    var reservados=['assets','index','index-1','landing','404'];
+    if(/^[a-zA-Z0-9-]{2,40}$/.test(seg)&&reservados.indexOf(seg.toLowerCase())<0){
+      var q=location.search?'&'+location.search.slice(1):'';
+      location.replace('/?h='+seg.toLowerCase()+q+location.hash);
+    }
+  })();
+</script>
+<style>body{margin:0;background:#06101F;color:#DFF0FF;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:24px}a{color:#00C9B8}</style>
+</head>
+<body>
+<div><p>Página não encontrada.</p><p><a href="/">Ir para o NotificaAI</a></p></div>
+</body>
+</html>

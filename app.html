@@ -4801,7 +4801,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 // Links do Google Drive nao podem ser baixados pelo navegador: vao listados no LEIA-ME.
 async function baixarAnexosPeriodo({sbUrl,sbKey,h,faixa,onProgresso}){
   if(!window.JSZip) throw new Error('Biblioteca de ZIP ainda carregando. Tente de novo em alguns segundos.');
-  const safe=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 ._-]/g,'').replace(/\s+/g,' ').trim().slice(0,60)||'arquivo';
+  const safe=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 ()._-]/g,'').replace(/\s+/g,' ').trim().slice(0,80).replace(/[. ]+$/,'')||'arquivo';
   const ehDrive=u=>/drive\.google|docs\.google/i.test(u||'');
   const extDe=(u,blob)=>{const m=String(u).split('?')[0].match(/\.([a-zA-Z0-9]{2,5})$/);if(m)return m[1].toLowerCase();const t=(blob&&blob.type)||'';return t.includes('pdf')?'pdf':t.includes('png')?'png':t.includes('jpeg')||t.includes('jpg')?'jpg':t.includes('sheet')?'xlsx':'pdf';};
   const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'sem data';

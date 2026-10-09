@@ -5111,7 +5111,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* ── Painel Ação Necessária: fila priorizada com CTA direto ── */}
     {gestorMode&&!loading&&(()=>{ 
-      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length;
+      const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
+      const backupAtrasado=!ultBackup||(Date.now()-new Date(ultBackup).getTime())>30*86400000;
+      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0);
       const abrirPlano=p=>{const n=alertas.notsById[p.notification_id]||{id:p.notification_id,hospital_id:(hospital||DEFAULT_HOSPITAL).id,description:p.acao};setPlanoTarget(n);};
       const prazo72=n=>{
         const dl=new Date(n.created_at).getTime()+72*3600000;
@@ -5156,6 +5158,10 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <button onClick={()=>abrirPlano(p)} style={btn(C.blue)}>Verificar</button>
         </div>))}
         {alertas.efetPendentes.length>3&&<div style={{fontSize:10,color:C.muted,marginBottom:6,textAlign:'right'}}>+{alertas.efetPendentes.length-3} verificação(ões) pendente(s)</div>}
+        {backupAtrasado&&<div style={row}>
+          <div style={{fontSize:12,fontWeight:700,color:C.text}}>{ultBackup?'Último backup há mais de 30 dias':'Nenhum backup feito neste aparelho'}</div>
+          <button onClick={()=>setView('admin')} style={btn(C.teal)}>Fazer backup</button>
+        </div>}
         {(alertas.docsInst||[]).map(d=>(<div key={d} style={row}>
           <div style={{fontSize:12,fontWeight:700,color:C.text}}>{d}</div>
           <button onClick={()=>setView('protocolos')} style={btn(C.purple)}>Atualizar</button>
@@ -7357,6 +7363,114 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
   </div>);
 }
 
+// ---- Backup completo: planilha Excel com todas as tabelas, copia JSON e todos os anexos em pastas ----
+// Nunca inclui os codigos de acesso (pin_hash). Tudo e gerado no navegador de quem clica.
+const TABELAS_BACKUP=[
+  ['notifications','Notificacoes'],['plano_acoes','Planos de acao'],['protocolos','Protocolos'],
+  ['treinamentos_nsp','Treinamentos e reunioes'],['indicadores_dsm','Indicadores DSM'],['indicadores_mensais','Indicadores por setor'],
+  ['saq_respostas','Pesquisa de cultura'],['notivisa_analise','Analises Notivisa'],['acao_comentarios','Comentarios de acoes'],
+  ['config_dsm','Configuracao DSM'],['semestres_dsm','Semestres DSM'],['setor_emails','Emails por setor'],
+  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],
+];
+async function sbTodos(sbUrl,sbKey,tabela,filtro){
+  // pagina de 1000 em 1000 (limite padrao do Supabase por consulta)
+  const out=[];for(let off=0;off<200000;off+=1000){
+    const hdr={headers:{apikey:sbKey,Authorization:'Bearer '+sbKey}};
+    let r=await fetch(`${sbUrl}/rest/v1/${tabela}?${filtro}&select=*&order=id.asc&offset=${off}&limit=1000`,hdr);
+    if(!r.ok&&off===0) r=await fetch(`${sbUrl}/rest/v1/${tabela}?${filtro}&select=*&limit=10000`,hdr); // tabela sem coluna id
+    if(!r.ok){if(off===0)throw new Error('HTTP '+r.status);break;}
+    const d=await r.json();out.push(...d);if(d.length<1000)break;
+  }
+  return out;
+}
+async function gerarBackupCompleto({sbUrl,sbKey,h,onProgresso}){
+  if(!window.JSZip||!window.XLSX) throw new Error('Bibliotecas de exportação ainda carregando. Tente de novo em alguns segundos.');
+  const passo=t=>onProgresso&&onProgresso(t);
+  const dados={};const faltou=[];
+  for(const [tab,nome] of TABELAS_BACKUP){
+    passo('Lendo '+nome.toLowerCase()+'…');
+    const filtro=tab==='notivisa_analise'||tab==='acao_comentarios'?'':`hospital_id=eq.${h.id}`;
+    try{
+      let rows=await sbTodos(sbUrl,sbKey,tab,filtro);
+      if(tab==='nsp_usuarios') rows=rows.filter(u=>!u.hospital_id||u.hospital_id===h.id).map(({pin_hash,...u})=>u); // sem os codigos
+      if(tab==='notivisa_analise'||tab==='acao_comentarios'){const ids=new Set((dados.notifications||[]).map(n=>n.id));const idsAc=new Set((dados.plano_acoes||[]).map(a=>a.id));rows=rows.filter(r=>ids.has(r.notification_id)||idsAc.has(r.acao_id)||r.hospital_id===h.id);}
+      dados[tab]=rows;
+    }catch(e){dados[tab]=[];faltou.push(nome);}
+  }
+  const zip=new window.JSZip();
+  const carimbo=new Date().toISOString().slice(0,10);
+  // Excel (uma aba por tabela)
+  passo('Montando a planilha…');
+  const wb=window.XLSX.utils.book_new();
+  const celula=v=>{if(v==null)return '';if(typeof v==='object')v=JSON.stringify(v);v=String(v);return v.length>32000?v.slice(0,32000)+'…':v;};
+  TABELAS_BACKUP.forEach(([tab,nome])=>{
+    const rows=(dados[tab]||[]).map(r=>{const o={};Object.keys(r).forEach(k=>{if(k!=='chat_history')o[k]=celula(r[k]);});return o;});
+    const ws=rows.length?window.XLSX.utils.json_to_sheet(rows):window.XLSX.utils.aoa_to_sheet([['(sem registros)']]);
+    window.XLSX.utils.book_append_sheet(wb,ws,nome.slice(0,31));
+  });
+  zip.file(`01-Dados/NotificaAI-${arqH(h)}-dados-${carimbo}.xlsx`,window.XLSX.write(wb,{bookType:'xlsx',type:'array'}));
+  zip.file(`01-Dados/NotificaAI-${arqH(h)}-copia-completa-${carimbo}.json`,JSON.stringify({gerado_em:new Date().toISOString(),instituicao:{id:h.id,nome:nomeH(h)},tabelas:dados},null,1));
+  // Anexos
+  const safe=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 ()._-]/g,'').replace(/\s+/g,' ').trim().slice(0,80).replace(/[. ]+$/,'')||'arquivo';
+  const ehDrive=u=>/drive\.google|docs\.google/i.test(u||'');
+  const ext=(u,b)=>{const m=String(u).split('?')[0].match(/\.([a-zA-Z0-9]{2,5})$/);if(m)return m[1].toLowerCase();const t=(b&&b.type)||'';return t.includes('pdf')?'pdf':t.includes('png')?'png':t.includes('jpeg')?'jpg':t.includes('sheet')?'xlsx':'pdf';};
+  const nomeSub=id=>{const x=SUBS_TREINAMENTO.find(s=>s.id===id);return x?x.label:(id||'Geral');};
+  const subDoProt={};Object.entries(SUB_PROTOCOLOS).forEach(([sub,crits])=>PROTOCOLOS_DSM.filter(p=>crits.includes(p.crit)).forEach(p=>{subDoProt[p.nome]=sub;}));
+  const itens=[];const cfg=(dados.config_dsm||[])[0]||{};
+  [['link_portaria_nsp','Portaria do NSP'],['link_portaria_ccih','Portaria da CCIH'],['link_psp','Plano de Seguranca do Paciente (PSP)'],['link_regimento','Regimento Interno do NSP']].forEach(([k,l])=>{if(cfg[k])itens.push({pasta:'02-Anexos/Documentos-Institucionais',nome:l,url:cfg[k]});});
+  (dados.protocolos||[]).filter(p=>p.link).forEach(p=>itens.push({pasta:'02-Anexos/Protocolos/'+safe(nomeSub(subDoProt[p.nome]||p.categoria)),nome:(p.numero?p.numero+' - ':'')+p.nome+(p.aprovado_em?' (aprov. '+p.aprovado_em+')':''),url:p.link}));
+  (dados.treinamentos_nsp||[]).filter(t=>t.link_gdrive).forEach(t=>{
+    const ano=(t.data||'sem-data').slice(0,4);const reun=t.tipo==='reuniao_mensal'||t.tipo==='reuniao_extraordinaria';
+    itens.push({pasta:reun?`02-Anexos/Reunioes-do-NSP/${ano}`:`02-Anexos/Treinamentos/${ano}/${safe(nomeSub(t.subnucleo))}`,nome:(t.data||'sem-data')+' - '+(t.protocolo||t.descricao||t.tipo||'registro')+(t.participantes?' ('+t.participantes+' part.)':''),url:t.link_gdrive});
+  });
+  (dados.semestres_dsm||[]).filter(x=>x.drive_relatorio_link).forEach(x=>itens.push({pasta:'02-Anexos/Relatorios-DSM',nome:`Relatorio DSM ${x.ano}-${x.semestre}S`,url:x.drive_relatorio_link}));
+  const usados=new Set(),externos=[],falhas=[];let ok=0;
+  for(let i=0;i<itens.length;i++){
+    const it=itens[i];passo(`Baixando anexos ${i+1}/${itens.length}…`);
+    if(ehDrive(it.url)){externos.push(it);continue;}
+    try{const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);const r=await fetch(it.url,{signal:ctl.signal});clearTimeout(to);if(!r.ok)throw 0;
+      const b=await r.blob();let nome=`${it.pasta}/${safe(it.nome)}.${ext(it.url,b)}`,n=2;while(usados.has(nome))nome=`${it.pasta}/${safe(it.nome)} (${n++}).${ext(it.url,b)}`;usados.add(nome);zip.file(nome,b);ok++;}
+    catch(e){falhas.push(it);}
+  }
+  const leia=['BACKUP DO NOTIFICAAI — '+nomeH(h),'Gerado em: '+new Date().toLocaleString('pt-BR'),'',
+    '01-Dados: planilha Excel (uma aba por tabela) e copia completa em JSON (formato tecnico, serve para restaurar).',
+    'Os codigos de acesso (PINs) NAO sao incluidos.','',
+    'REGISTROS:',...TABELAS_BACKUP.map(([t,n])=>'- '+n+': '+(dados[t]||[]).length),'',
+    'ANEXOS NO ZIP: '+ok+' de '+itens.length,''];
+  if(externos.length){leia.push('LINKS DO GOOGLE DRIVE (baixe manualmente):');externos.forEach(it=>leia.push('- '+it.nome+'\n  '+it.url));leia.push('');}
+  if(falhas.length){leia.push('NAO FOI POSSIVEL BAIXAR:');falhas.forEach(it=>leia.push('- '+it.nome+'\n  '+it.url));leia.push('');}
+  if(faltou.length) leia.push('TABELAS NAO LIDAS (podem nao existir neste banco): '+faltou.join(', '));
+  leia.push('','Guarde este arquivo em local seguro (pen drive, nuvem institucional). Ele contem dados de pacientes: trate conforme a LGPD.');
+  zip.file('00_LEIA-ME.txt',leia.join('\n'));
+  passo('Compactando…');
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`Backup-NotificaAI-${arqH(h)}-${carimbo}.zip`;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000);
+  try{localStorage.setItem('nai_ultimo_backup_'+h.id,new Date().toISOString());}catch{}
+  return {registros:TABELAS_BACKUP.reduce((acc,[t])=>acc+(dados[t]||[]).length,0),anexos:ok,totalAnexos:itens.length,externos:externos.length,falhas:falhas.length};
+}
+
+function CartaoBackup({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [prog,setProg]=useState(null);
+  const ultimo=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+h.id);}catch{return null;}})();
+  const dias=ultimo?Math.floor((Date.now()-new Date(ultimo).getTime())/86400000):null;
+  const fazer=async()=>{
+    setProg('Preparando…');
+    try{const r=await gerarBackupCompleto({sbUrl,sbKey,h,onProgresso:setProg});
+      showToast(`Backup baixado: ${r.registros} registros e ${r.anexos} anexo(s)`+(r.externos?` · ${r.externos} link(s) do Drive no LEIA-ME`:'')+(r.falhas?` · ${r.falhas} com falha`:''),'success');}
+    catch(e){showToast('Erro no backup: '+e.message,'error');}
+    setProg(null);
+  };
+  return(<div style={{background:C.card,border:'1px solid '+(dias===null||dias>30?C.yellow+'66':C.border),borderRadius:14,padding:16}}>
+    <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:4}}>{String.fromCodePoint(128190)} Backup completo</div>
+    <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:10}}>Baixa um ZIP com <b>todas as notificações e demais dados em Excel</b>, uma cópia completa para restauração e <b>todos os anexos</b> organizados em pastas (protocolos, treinamentos por ano e subnúcleo, reuniões, documentos institucionais). Recomendado <b>uma vez por mês</b>. Os códigos de acesso não entram no backup.</div>
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <button onClick={fazer} disabled={!!prog} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontWeight:800,fontSize:13,cursor:prog?'default':'pointer',opacity:prog?0.7:1}}>{prog||'⬇ Fazer backup agora'}</button>
+      <span style={{fontSize:11,color:dias===null||dias>30?C.yellow:C.muted}}>{ultimo?('Último backup neste aparelho: '+new Date(ultimo).toLocaleDateString('pt-BR')+(dias>30?' (há '+dias+' dias)':'')):'Nenhum backup feito neste aparelho'}</span>
+    </div>
+  </div>);
+}
+
 function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onToggleTestMode,onSaveWebhook,showToast,hospital}) {
   const [email,setEmail]=useState(nspEmail);
   const [webhook,setWebhook]=useState(webhookUrl);
@@ -7414,6 +7528,7 @@ function AdminPanel({sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEmail,onTogg
   </div>);
 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
+    <CartaoBackup sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>
     <div><div style={{fontSize:17,fontWeight:900,color:C.text}}>Administração</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Painel exclusivo do gestor</div></div>
 
     <div style={{background:testMode?C.yellow+'18':C.green+'18',border:'1px solid '+(testMode?C.yellow+'55':C.green+'55'),borderRadius:14,padding:16}}>

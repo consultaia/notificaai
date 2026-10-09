@@ -7263,7 +7263,7 @@ function NotificaAI() {
     if(h.id!=='hnsa'){LOGO_SRC=h.logo_url||window.DEMO_LOGO;LOGO_ALT=h.short_name||'NotificaAI';}
     aplicarSubnucleosDoHospital(h);
     // A landing (notificaai.ia.br) usa isto para abrir direto a instituicao deste aparelho
-    try{localStorage.setItem('nai_ultimo_hospital',h.id);}catch{}
+    try{localStorage.setItem('nai_ultimo_hospital',h.id);localStorage.setItem('nai_ultimo_hospital_nome',h.name||h.short_name||h.id);}catch{}
     document.title='NotificaAI - '+(h.short_name||h.name||'');
     setHospitalInvalido(false);setHospital(h);
   };

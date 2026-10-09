@@ -19,7 +19,16 @@
     }catch(e){}
   })();
 </script>
-<link rel="icon" type="image/svg+xml" href="assets/brand/notificaai-logo.svg"/>
+<link rel="icon" type="image/svg+xml" href="/assets/brand/notificaai-logo.svg"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="theme-color" content="#06101F"/>
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="NotificaAI"/>
+<script>
+  // "Instalar app": o Chrome/Android avisa quando da para instalar; guardamos o aviso para o botao do menu
+  window.addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__naiInstalar=e;window.dispatchEvent(new Event('nai-instalavel'));});
+</script>
 <script>
   // Handler global de erro: mostra o erro real na tela, distinguindo duas causas bem diferentes:
   // (1) um <script> de CDN falhou ao CARREGAR (rede/firewall bloqueando cdnjs/jsdelivr) — nesse caso
@@ -122,7 +131,10 @@ function getHospitalIdFromUrl() {
   if(/^[a-z0-9-]{2,40}$/.test(seg)) return seg;
   const p=new URLSearchParams(window.location.search);
   const q=p.get('h')||p.get('hospital');
-  return q?q.toLowerCase():null;
+  if(q) return q.toLowerCase();
+  // App instalado (start_url /app.html?pwa=1): abre a instituicao usada por ultimo neste aparelho
+  if(p.has('pwa')){try{const u=localStorage.getItem('nai_ultimo_hospital');if(u&&/^[a-z0-9-]{2,40}$/.test(u))return u;}catch{}}
+  return null;
 }
 const IS_DEMO=false;
 const DEFAULT_HOSPITAL = {
@@ -761,6 +773,28 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
         <button onClick={check} disabled={loading} style={{flex:2,background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{loading?'Aguarde Verificando...':'Entrar'}</button>
       </div>
     </div>
+  </div>);
+}
+
+// Botao "Instalar app" (Android/Chrome: dialogo nativo; iPhone: instrucoes)
+function BotaoInstalar({compacto}) {
+  const [pronto,setPronto]=useState(!!window.__naiInstalar);
+  const [dica,setDica]=useState(false);
+  useEffect(()=>{const f=()=>setPronto(true);window.addEventListener('nai-instalavel',f);return()=>window.removeEventListener('nai-instalavel',f);},[]);
+  const instalado=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  if(instalado||(!pronto&&!ios)) return null;
+  const clicar=async()=>{
+    if(window.__naiInstalar){const e=window.__naiInstalar;e.prompt();try{await e.userChoice;}catch{}window.__naiInstalar=null;setPronto(false);}
+    else setDica(d=>!d);
+  };
+  return(<div style={{marginBottom:4}}>
+    <button onClick={clicar} style={compacto
+      ?{width:'100%',background:'none',border:'none',textAlign:'left',fontSize:10,color:C.teal,padding:'0 8px 8px',cursor:'pointer',fontWeight:700}
+      :{width:'100%',background:C.card,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',color:C.teal,fontSize:13,fontWeight:700}}>
+      {compacto?'Instalar app no aparelho':<React.Fragment><span style={{fontSize:20}}>{String.fromCodePoint(128242)}</span>Instalar app no celular</React.Fragment>}
+    </button>
+    {dica&&<div style={{fontSize:11,color:C.muted,padding:'4px 8px 8px',lineHeight:1.5}}>No iPhone: toque em <b>Compartilhar</b> (quadrado com seta) e depois em <b>Adicionar à Tela de Início</b>.</div>}
   </div>);
 }
 
@@ -5157,6 +5191,57 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   </div>);
 }
 
+// Consulta publica do andamento pelo protocolo (8 primeiros caracteres do id). Mostra so etapas e datas,
+// nunca a descricao ou dados do paciente.
+function AcompanharView({sbUrl,sbKey,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [prot,setProt]=useState(()=>{try{return new URLSearchParams(location.search).get('protocolo')||'';}catch{return '';}});
+  const [res,setRes]=useState(null);
+  const [buscando,setBuscando]=useState(false);
+  const meus=(()=>{try{return JSON.parse(localStorage.getItem('nai_protocolos_'+h.id)||'[]');}catch{return [];}})();
+  const fmt=d=>d?new Date(d).toLocaleDateString('pt-BR'):'';
+  const consultar=async(p)=>{
+    const v=String(p||prot).trim().toLowerCase().replace(/[^0-9a-f]/g,'');
+    if(v.length!==8){setRes({erro:'O protocolo tem 8 caracteres (letras de A a F e números). Confira e tente de novo.'});return;}
+    setProt(v.toUpperCase());setBuscando(true);setRes(null);
+    try{
+      const n=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&id=gte.${v}-0000-0000-0000-000000000000&id=lte.${v}-ffff-ffff-ffff-ffffffffffff&select=id,created_at,rca_gerado,risco_probabilidade,plano_fechado_em&limit=1`);
+      if(!n||!n[0]){setRes({erro:'Não encontramos esse protocolo em '+(h.short_name||h.name)+'. Confira o número.'});setBuscando(false);return;}
+      const acoes=await sbSelect(sbUrl,sbKey,'plano_acoes',`notification_id=eq.${n[0].id}&select=status`).catch(()=>[]);
+      setRes({n:n[0],acoes:acoes||[]});
+    }catch(e){setRes({erro:'Não foi possível consultar agora. Tente novamente em instantes.'});}
+    setBuscando(false);
+  };
+  useEffect(()=>{if(prot&&prot.length>=8)consultar(prot);},[]);
+  const etapas=res&&res.n?(()=>{const n=res.n,a=res.acoes;const concl=a.filter(x=>x.status==='concluido'||x.status==='concluida').length;return [
+    {ok:true,titulo:'Recebida pelo NSP',det:fmt(n.created_at)},
+    {ok:!!(n.rca_gerado||n.risco_probabilidade||a.length),titulo:'Em análise',det:n.rca_gerado?'Análise de causa concluída':(n.risco_probabilidade?'Risco avaliado':'')},
+    {ok:a.length>0,titulo:'Plano de ação',det:a.length?concl+' de '+a.length+' ação(ões) concluída(s)':''},
+    {ok:!!n.plano_fechado_em,titulo:'Concluída',det:n.plano_fechado_em?fmt(n.plano_fechado_em):''},
+  ];})():null;
+  return(<div style={{padding:'16px',maxWidth:560,margin:'0 auto'}}>
+    <div style={{fontSize:17,fontWeight:800,color:C.text,marginBottom:4}}>Acompanhar notificação</div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.6}}>Digite o protocolo recebido ao notificar. Por segurança, só aparecem as etapas: nenhum detalhe do incidente ou do paciente.</div>
+    <div style={{display:'flex',gap:8,marginBottom:10}}>
+      <input value={prot} onChange={e=>setProt(e.target.value.toUpperCase().slice(0,8))} onKeyDown={e=>e.key==='Enter'&&consultar()} placeholder='Ex.: 3F9A1C2B' style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'12px',color:C.text,fontSize:18,letterSpacing:'0.15em',fontFamily:'monospace',outline:'none',textTransform:'uppercase'}}/>
+      <button onClick={()=>consultar()} disabled={buscando} style={{background:C.teal,border:'none',borderRadius:10,padding:'0 18px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{buscando?'...':'Consultar'}</button>
+    </div>
+    {meus.length>0&&<div style={{marginBottom:14}}>
+      <div style={{fontSize:11,color:C.muted,marginBottom:6}}>Feitas neste aparelho:</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>{meus.slice(0,8).map(m=>(<button key={m.p} onClick={()=>consultar(m.p)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'5px 9px',color:C.teal,fontSize:12,fontFamily:'monospace',fontWeight:700,cursor:'pointer'}}>{m.p} <span style={{color:C.muted,fontFamily:'system-ui',fontWeight:400}}>{fmt(m.d)}</span></button>))}</div>
+    </div>}
+    {res&&res.erro&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:10,padding:'10px 12px',fontSize:13,color:C.text}}>{res.erro}</div>}
+    {etapas&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
+      <div style={{fontSize:12,color:C.muted,marginBottom:12}}>Protocolo <b style={{color:C.text,fontFamily:'monospace'}}>{prot}</b></div>
+      {etapas.map((e,i)=>(<div key={i} style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:i<etapas.length-1?14:0}}>
+        <div style={{width:24,height:24,borderRadius:12,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:900,background:e.ok?C.green+'22':C.border,color:e.ok?C.green:C.muted}}>{e.ok?String.fromCodePoint(10003):i+1}</div>
+        <div><div style={{fontSize:14,fontWeight:700,color:e.ok?C.text:C.muted}}>{e.titulo}</div>{e.det&&<div style={{fontSize:12,color:C.muted,marginTop:2}}>{e.det}</div>}</div>
+      </div>))}
+      <div style={{fontSize:11,color:C.muted,marginTop:14,lineHeight:1.5,borderTop:'1px solid '+C.border,paddingTop:10}}>Obrigado por notificar. Cada notificação ajuda o hospital a aprender e a evitar que o problema se repita.</div>
+    </div>}
+  </div>);
+}
+
 function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEmail}) {
   const h=hospital||DEFAULT_HOSPITAL;
 
@@ -5169,6 +5254,18 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
   const [saving,setSaving]=useState(false);
   const endRef=useRef(null);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:'smooth'});},[messages,step,loading]);
+
+  // Rascunho: se o celular bloquear ou a pessoa sair no meio, a notificacao nao se perde (fica so neste aparelho, 24h)
+  const chaveRascunho='nai_rascunho_'+h.id;
+  const [rascunho,setRascunho]=useState(()=>{try{const r=JSON.parse(localStorage.getItem('nai_rascunho_'+h.id)||'null');return r&&Date.now()-r.t<86400000&&r.step!=='done'?r:null;}catch{return null;}});
+  useEffect(()=>{
+    try{
+      if(step==='done'){localStorage.removeItem(chaveRascunho);return;}
+      if(step!=='perfil'&&messages.length) localStorage.setItem(chaveRascunho,JSON.stringify({t:Date.now(),step,dados,messages,historico}));
+    }catch{}
+  },[step,dados,messages]);
+  const retomarRascunho=()=>{const r=rascunho;setStep(r.step);setDados(r.dados||{});setMessages(r.messages||[]);setHistorico(r.historico||[]);setRascunho(null);};
+  const descartarRascunho=()=>{try{localStorage.removeItem(chaveRascunho);}catch{}setRascunho(null);};
 
   const hojeISO=new Date().toISOString().slice(0,10);
   const ontemISO=new Date(Date.now()-86400000).toISOString().slice(0,10);
@@ -5637,6 +5734,12 @@ idade:'Idade do paciente',
   },[]);
 
   return(<div style={{display:'flex',flexDirection:'column',height:'calc(100vh - 64px)'}}>
+
+    {rascunho&&step==='perfil'&&<div style={{margin:'10px 16px 0',background:C.yellow+'18',border:'1px solid '+C.yellow+'55',borderRadius:12,padding:'10px 12px',display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <div style={{flex:1,minWidth:180,fontSize:12,color:C.text,lineHeight:1.5}}><b style={{color:C.yellow}}>Você tem uma notificação não terminada</b>, iniciada às {new Date(rascunho.t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}.</div>
+      <button onClick={retomarRascunho} style={{background:C.teal,border:'none',borderRadius:8,padding:'7px 12px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>Continuar</button>
+      <button onClick={descartarRascunho} style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'7px 12px',color:C.muted,fontWeight:700,fontSize:12,cursor:'pointer'}}>Descartar</button>
+    </div>}
 
     {/* Header com barra de progresso */}
     <div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface}}>
@@ -7374,7 +7477,7 @@ function NotificaAI() {
     try{
       const p=new URLSearchParams(window.location.search);
       const v=p.get('view');
-      const permitidas=['notificar','central','saq_publico'];
+      const permitidas=['notificar','central','saq_publico','acompanhar'];
       return (v&&permitidas.includes(v))?v:'notificar';
     }catch{return'notificar';}
   });
@@ -7455,7 +7558,7 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const gestorTabs=[{id:'home',label:'Painel',icon:IconHome},{id:'notificacoes',label:'Notificacoes',icon:IconMsg},{id:'acoes',label:'Acoes',icon:IconAudit},{id:'treinamentos',label:'Treinamentos',icon:IconBook},{id:'protocolos',label:'Protocolos',icon:IconShield},{id:'relatorio_dsm',label:'DSM / ANVISA',icon:IconShield},{id:'auditar',label:'Auditar',icon:IconAudit},{id:'documentos_nsp',label:'Documentos',icon:IconBook},{id:'analytics',label:'Analytics',icon:IconBar},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook},{id:'admin',label:'Admin',icon:IconShield}];
   const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
@@ -7511,6 +7614,7 @@ function NotificaAI() {
         <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:10}}>
           <a href="/?escolher=1" style={{display:'block',fontSize:10,color:C.muted,textDecoration:'none',padding:'0 8px 8px'}}>Trocar instituição</a>
           {userId&&<button onClick={()=>setShowAlterarPin(true)} style={{width:'100%',background:'none',border:'none',textAlign:'left',fontSize:10,color:C.muted,padding:'0 8px 8px',cursor:'pointer'}}>Alterar meu PIN</button>}
+          <BotaoInstalar compacto/>
           {!profileMode
             ?<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
               <span style={{fontSize:15}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:11,color:C.muted}}>Fazer login</span>
@@ -7527,6 +7631,7 @@ function NotificaAI() {
 
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
+        {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
@@ -7578,6 +7683,7 @@ function NotificaAI() {
               <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
             </button>
           }
+          <BotaoInstalar/>
           {userId&&<button onClick={()=>{setShowMenu(false);setShowAlterarPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
             <span style={{fontSize:20}}>{String.fromCodePoint(128273)}</span><span style={{fontSize:13,color:C.muted}}>Alterar meu PIN</span>
           </button>}

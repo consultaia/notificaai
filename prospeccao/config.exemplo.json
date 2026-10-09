@@ -1,0 +1,30 @@
+{
+  "cidades": [
+    {
+      "cidade": "Salvador, BA",
+      "bairros": ["Pituba", "Itaigara", "Caminho das Árvores", "Barra", "Graça", "Canela", "Comércio", "Liberdade", "Cajazeiras", "Brotas", "Rio Vermelho", "Paralela", "Lauro de Freitas"]
+    },
+    { "cidade": "Feira de Santana, BA" },
+    { "cidade": "Recife, PE" },
+    { "cidade": "Fortaleza, CE" }
+  ],
+  "buscas": [
+    "clínica popular",
+    "clínica médica",
+    "clínica odontológica",
+    "clínica de dermatologia",
+    "clínica de ginecologia",
+    "clínica de oftalmologia",
+    "clínica de exames"
+  ],
+
+  "planilha": "Prospeccao-Dri.xlsx",
+
+  "remetente_nome": "Janan",
+  "remetente_email": "SEU_EMAIL@gmail.com",
+  "assinatura_whatsapp": "(71) 9XXXX-XXXX",
+  "link_demonstracao": "https://LINK-DA-DEMONSTRACAO",
+
+  "limite_envios_por_execucao": 25,
+  "intervalo_entre_envios_segundos": 45
+}

@@ -4,8 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <script>
-  // Raiz do site. Links antigos do app (?h=..., ?view=...) seguem para o app; um aparelho que ja
-  // usou uma instituicao abre direto nela (exceto vindo de "Trocar instituicao": ?escolher=1).
+  // Raiz do site. Links antigos do app (?h=..., ?view=...) seguem para o app. A landing sempre
+  // aparece; quem ja usou uma instituicao ve o atalho "Continuar em ..." no topo.
   (function(){
     try{
       var p=new URLSearchParams(location.search);
@@ -13,9 +13,7 @@
         if(!p.has('h')&&!p.has('hospital')) p.set('h','hnsa'); // links antigos sem instituicao eram do HNSA
         location.replace('/app.html?'+p.toString()+location.hash);return;
       }
-      if(p.has('escolher')){localStorage.removeItem('nai_ultimo_hospital');return;}
-      var u=localStorage.getItem('nai_ultimo_hospital');
-      if(u&&/^[a-z0-9-]{2,40}$/.test(u)) location.replace('/'+u);
+      if(p.has('escolher')){localStorage.removeItem('nai_ultimo_hospital');}
     }catch(e){}
   })();
 </script>
@@ -189,6 +187,47 @@ footer strong{color:var(--teal)}
 .nav-link{color:var(--text);font-size:13px;font-weight:600;text-decoration:none;padding:8px 12px}
 .nav-link:hover{color:var(--teal)}
 
+/* CONTINUAR */
+.continuar{display:none;align-items:center;gap:12px;background:linear-gradient(135deg,rgba(0,201,184,.14),rgba(29,111,232,.14));border:1px solid rgba(0,201,184,.4);border-radius:14px;padding:14px 16px;margin-bottom:28px;max-width:560px;text-decoration:none;color:var(--text)}
+.continuar img{width:36px;height:36px;flex-shrink:0}
+.continuar small{display:block;font-size:11px;color:var(--muted)}
+.continuar b{font-size:15px}
+.continuar .seta{margin-left:auto;color:var(--teal);font-weight:900;font-size:20px}
+.continuar-outro{display:none;font-size:12px;color:var(--muted);margin:-20px 0 28px;background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit}
+
+/* CADASTRO / TESTE GRATIS */
+.cad{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px;max-width:620px}
+.cad-passos{display:flex;gap:6px;margin-bottom:20px}
+.cad-passos span{flex:1;height:4px;border-radius:2px;background:rgba(232,240,255,.12)}
+.cad-passos span.on{background:var(--teal)}
+.cad h3{font-size:20px;font-weight:900;margin-bottom:4px;letter-spacing:-.5px}
+.cad .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+.cad label{display:block;font-size:12px;color:var(--muted);margin:12px 0 5px;font-weight:600}
+.cad input,.cad select{width:100%;background:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit;outline:none}
+.cad input:focus,.cad select:focus{border-color:var(--teal)}
+.link-box{display:flex;align-items:center;background:var(--navy);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.link-box:focus-within{border-color:var(--teal)}
+.link-box span{padding:12px 0 12px 14px;color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:14px;white-space:nowrap}
+.link-box input{border:none;background:none;padding:12px 14px 12px 0;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--teal);font-weight:700}
+.link-status{font-size:12px;margin-top:6px;min-height:16px}
+.link-status.ok{color:var(--green)}.link-status.ruim{color:var(--red)}
+.sugestoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.sugestoes button{background:rgba(0,201,184,.1);border:1px solid rgba(0,201,184,.3);color:var(--teal);border-radius:20px;padding:4px 10px;font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer}
+.cad-acoes{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.cad-acoes .btn-primary,.cad-acoes .btn-ghost{flex:1;text-align:center;min-width:140px}
+.cad-erro{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+.pronto-link{background:var(--navy);border:1px dashed var(--teal);border-radius:14px;padding:18px;text-align:center;margin:16px 0}
+.pronto-link .nome{font-size:13px;color:var(--muted);margin-bottom:6px}
+.pronto-link .url{font-family:'JetBrains Mono',monospace;color:var(--teal);font-weight:700}
+.pronto-link .url .pre{display:block;font-size:13px;color:var(--muted);font-weight:400}
+.pronto-link .url .slug{display:block;font-size:clamp(20px,6vw,28px);overflow-wrap:anywhere}
+.pronto-grid{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;margin-top:8px}
+@media(max-width:560px){.pronto-grid{grid-template-columns:1fr;justify-items:center}}
+#qr-cad{background:#fff;padding:10px;border-radius:10px;width:150px;height:150px}
+.dicas{font-size:13px;color:var(--muted);line-height:1.7}
+.dicas b{color:var(--text)}
+.aviso-liberacao{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--text);margin-top:16px;line-height:1.6}
+
 /* DIVIDER */
 .section-divider{border:none;border-top:1px solid var(--border);margin:0}
 </style>
@@ -209,6 +248,8 @@ footer strong{color:var(--teal)}
     <div class="hero-eyebrow">Gestão de Segurança do Paciente</div>
     <h1>Notificação de incidentes<br/>com <em>IA que analisa</em><br/>por você</h1>
     <p class="hero-sub">O NotificaAI captura o incidente, classifica automaticamente conforme a RDC 36/2013 e gera o RCA com 5 porquês e plano de ação — em minutos, não dias.</p>
+    <a class="continuar" id="continuar" href="#"><img src="assets/brand/notificaai-logo.svg" alt=""/><div><small>Continuar em</small><b id="continuar-nome"></b></div><span class="seta">›</span></a>
+    <button class="continuar-outro" id="continuar-outro" type="button">Não é sua instituição? Escolher outra</button>
     <div class="acesso" id="acesso">
       <h2>Acesse sua instituição</h2>
       <p>Para notificar um incidente ou entrar no painel do NSP, escolha onde você trabalha ou é atendido.</p>
@@ -222,8 +263,8 @@ footer strong{color:var(--teal)}
       </form>
     </div>
     <div class="hero-actions">
-      <a href="#demo" class="btn-primary">Ver demonstração</a>
-      <a href="#planos" class="btn-ghost">Conhecer planos</a>
+      <a href="#teste" class="btn-primary">Testar grátis por 5 dias</a>
+      <a href="#demo" class="btn-ghost">Ver demonstração</a>
     </div>
     <div class="hero-proof">
       <div class="proof-item"><div class="proof-dot"></div>Alinhado à RDC 36/2013 ANVISA</div>
@@ -355,6 +396,72 @@ footer strong{color:var(--teal)}
 
 <hr class="section-divider"/>
 
+<!-- TESTE GRATIS -->
+<section class="section" id="teste">
+  <div class="section-label">Teste grátis · 5 dias</div>
+  <h2>Crie o link da sua instituição</h2>
+  <p style="color:var(--muted);margin-bottom:28px;max-width:560px">Em 3 passos você reserva o endereço do seu hospital no NotificaAI. É esse link que a equipe vai usar para notificar e o NSP para gerenciar.</p>
+
+  <div class="cad" id="cad">
+    <div class="cad-passos"><span class="on"></span><span></span><span></span></div>
+
+    <!-- Passo 1 -->
+    <div data-passo="1">
+      <h3>1. Sua instituição</h3>
+      <div class="sub">O link é criado a partir do nome. Você pode ajustar.</div>
+      <label for="cad-nome">Nome da instituição</label>
+      <input id="cad-nome" placeholder="Ex.: Hospital São Rafael" autocomplete="organization"/>
+      <label for="cad-slug">Link da instituição</label>
+      <div class="link-box"><span>notificaai.ia.br/</span><input id="cad-slug" placeholder="seu-hospital" autocapitalize="none" spellcheck="false" autocomplete="off"/></div>
+      <div class="link-status" id="cad-slug-status"></div>
+      <div class="sugestoes" id="cad-sugestoes"></div>
+      <div class="cad-erro" data-erro="1"></div>
+      <div class="cad-acoes"><button class="btn-primary" type="button" data-ir="2">Continuar</button></div>
+    </div>
+
+    <!-- Passo 2 -->
+    <div data-passo="2" hidden>
+      <h3>2. Responsável pelo NSP</h3>
+      <div class="sub">Quem vai administrar a plataforma na instituição.</div>
+      <label for="cad-resp">Seu nome</label>
+      <input id="cad-resp" autocomplete="name"/>
+      <label for="cad-cargo">Cargo</label>
+      <input id="cad-cargo" placeholder="Ex.: Enfermeira do NSP, Diretor técnico" autocomplete="organization-title"/>
+      <label for="cad-email">E-mail</label>
+      <input id="cad-email" type="email" autocomplete="email" inputmode="email"/>
+      <label for="cad-whats">WhatsApp</label>
+      <input id="cad-whats" type="tel" placeholder="(71) 99999-9999" autocomplete="tel" inputmode="tel"/>
+      <label for="cad-plano">Plano de interesse</label>
+      <select id="cad-plano"><option>Profissional (R$ 597/mês)</option><option>Institucional (R$ 997/mês)</option><option>Ainda não sei</option></select>
+      <div class="cad-erro" data-erro="2"></div>
+      <div class="cad-acoes"><button class="btn-ghost" type="button" data-ir="1">Voltar</button><button class="btn-primary" type="button" data-ir="3">Criar meu link</button></div>
+    </div>
+
+    <!-- Passo 3 -->
+    <div data-passo="3" hidden>
+      <h3>3. Pronto! Guarde seu link</h3>
+      <div class="pronto-link"><div class="nome" id="pronto-nome"></div><div class="url" id="pronto-url"></div></div>
+      <div class="pronto-grid">
+        <div id="qr-cad"></div>
+        <div class="dicas">
+          <b>Como salvar:</b><br/>
+          📋 <b>Copie</b> e mande para a equipe do NSP.<br/>
+          📱 <b>No celular</b>, abra o link e escolha <b>“Adicionar à tela inicial”</b> (Android: menu ⋮ · iPhone: botão Compartilhar).<br/>
+          🖨️ <b>Imprima o QR code</b> e cole nos setores para a equipe notificar.
+        </div>
+      </div>
+      <div class="cad-acoes">
+        <button class="btn-primary" type="button" id="cad-copiar">Copiar link</button>
+        <button class="btn-ghost" type="button" id="cad-baixar-qr">Baixar QR code</button>
+      </div>
+      <div class="aviso-liberacao">⏳ <b>Link reservado.</b> Toque em “Confirmar pelo WhatsApp” para enviar seus dados: liberamos o teste de 5 dias em até 1 dia útil e avisamos você.</div>
+      <div class="cad-acoes"><a class="btn-primary" id="cad-whats-btn" target="_blank" rel="noopener" style="background:#25D366;color:#fff">Confirmar pelo WhatsApp</a></div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider"/>
+
 <!-- PLANOS -->
 <section class="section" id="planos">
   <div class="section-label">Planos</div>
@@ -424,7 +531,126 @@ footer strong{color:var(--teal)}
   <span style="margin-top:6px;display:block">Alinhado à RDC 36/2013 ANVISA · Critérios ONA · © 2026</span>
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 <script>
+  // ---- Atalho "Continuar em ..." para quem ja usou uma instituicao neste aparelho ----
+  (function(){
+    try{
+      var u=localStorage.getItem('nai_ultimo_hospital');
+      if(!u||!/^[a-z0-9-]{2,40}$/.test(u)) return;
+      var nome=localStorage.getItem('nai_ultimo_hospital_nome')||(u==='hnsa'?'Hospital Naval de Salvador':'/'+u);
+      var a=document.getElementById('continuar');a.href='/'+u;a.style.display='flex';
+      document.getElementById('continuar-nome').textContent=nome;
+      var o=document.getElementById('continuar-outro');o.style.display='block';
+      o.onclick=function(){try{localStorage.removeItem('nai_ultimo_hospital');localStorage.removeItem('nai_ultimo_hospital_nome');}catch(e){}a.style.display='none';o.style.display='none';document.getElementById('slug').focus();};
+    }catch(e){}
+  })();
+
+  // ---- Cadastro do teste gratis ----
+  (function(){
+    var SB='https://lnzvkfbcpnfmfvbdafab.supabase.co', KEY='sb_publishable_SyVvXYS3AmHkq2KriFNJLA_yiGtToBB';
+    var WHATS='5571982074343';
+    var RESERVADOS=['app','assets','index','landing','404','demo','admin','api','www','login','cadastro','teste','suporte','planos','notificaai','hnsa'];
+    var $=function(id){return document.getElementById(id);};
+    var slugify=function(t){return (t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40).replace(/-+$/,'');};
+    var slugEditado=false, slugOk=false, timer=null;
+
+    function sugestoes(nome){
+      var base=slugify(nome); if(!base) return [];
+      var semGenerico=slugify(nome.replace(/\b(hospital|clinica|clínica|instituto|centro|medico|médico|maternidade|policlinica|policlínica|de|da|do|das|dos|e)\b/gi,' '));
+      var palavras=nome.normalize('NFD').replace(/[\u0300-\u036f]/g,'').split(/\s+/).filter(function(w){return w.length>2||/^[A-Z]/.test(w);});
+      var sigla=palavras.map(function(w){return w[0];}).join('').toLowerCase().replace(/[^a-z0-9]/g,'');
+      var lista=[base,semGenerico,sigla].filter(function(x,i,arr){return x&&x.length>=2&&arr.indexOf(x)===i;});
+      return lista.slice(0,3);
+    }
+    function mostrarSugestoes(){
+      var box=$('cad-sugestoes');box.textContent='';
+      sugestoes($('cad-nome').value).forEach(function(sg){
+        if(sg===$('cad-slug').value) return;
+        var b=document.createElement('button');b.type='button';b.textContent='/'+sg;
+        b.onclick=function(){$('cad-slug').value=sg;slugEditado=true;verificar();mostrarSugestoes();};
+        box.appendChild(b);
+      });
+    }
+    function status(txt,cls){var el=$('cad-slug-status');el.textContent=txt;el.className='link-status '+(cls||'');}
+    function verificar(){
+      var v=slugify($('cad-slug').value);
+      if($('cad-slug').value!==v) $('cad-slug').value=v;
+      slugOk=false;clearTimeout(timer);
+      if(v.length<2){status(v?'Use pelo menos 2 letras.':'','ruim');return;}
+      if(RESERVADOS.indexOf(v)>=0){status('✗ Este endereço não está disponível.','ruim');return;}
+      status('Verificando…');
+      timer=setTimeout(function(){
+        fetch(SB+'/rest/v1/hospitals?id=eq.'+encodeURIComponent(v)+'&select=id',{headers:{apikey:KEY,Authorization:'Bearer '+KEY}})
+          .then(function(r){return r.ok?r.json():[];})
+          .then(function(rows){
+            if($('cad-slug').value!==v) return;
+            if(rows&&rows.length){status('✗ notificaai.ia.br/'+v+' já está em uso.','ruim');}
+            else{slugOk=true;status('✓ notificaai.ia.br/'+v+' está disponível','ok');}
+          }).catch(function(){slugOk=true;status('✓ notificaai.ia.br/'+v,'ok');});
+      },350);
+    }
+    $('cad-nome').addEventListener('input',function(){
+      if(!slugEditado){$('cad-slug').value=sugestoes(this.value)[0]||'';verificar();}
+      mostrarSugestoes();
+    });
+    $('cad-slug').addEventListener('input',function(){slugEditado=true;verificar();mostrarSugestoes();});
+
+    function erro(n,txt){document.querySelector('[data-erro="'+n+'"]').textContent=txt||'';}
+    function irPara(n){
+      [1,2,3].forEach(function(i){document.querySelector('[data-passo="'+i+'"]').hidden=(i!==n);});
+      document.querySelectorAll('.cad-passos span').forEach(function(sp,i){sp.className=i<n?'on':'';});
+      $('cad').scrollIntoView({behavior:'smooth',block:'start'});
+      if(n===3) montarPronto();
+    }
+    function validar(n){
+      if(n===2){
+        if($('cad-nome').value.trim().length<3) return 'Informe o nome da instituição.';
+        if(!slugOk) return 'Escolha um link disponível.';
+      }
+      if(n===3){
+        if($('cad-resp').value.trim().length<3) return 'Informe seu nome.';
+        if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test($('cad-email').value.trim())) return 'Informe um e-mail válido.';
+        if($('cad-whats').value.replace(/\D/g,'').length<10) return 'Informe um WhatsApp com DDD.';
+      }
+      return '';
+    }
+    document.querySelectorAll('[data-ir]').forEach(function(b){
+      b.addEventListener('click',function(){
+        var n=Number(b.getAttribute('data-ir')), atual=Number(b.closest('[data-passo]').getAttribute('data-passo'));
+        if(n>atual){var e=validar(n);erro(atual,e);if(e) return;}
+        irPara(n);
+      });
+    });
+    function urlLink(){return 'https://notificaai.ia.br/'+$('cad-slug').value;}
+    function montarPronto(){
+      $('pronto-nome').textContent=$('cad-nome').value.trim();
+      var pu=$('pronto-url');pu.textContent='';
+      var pre=document.createElement('span');pre.className='pre';pre.textContent='notificaai.ia.br/';
+      var sl=document.createElement('span');sl.className='slug';sl.textContent=$('cad-slug').value;
+      pu.appendChild(pre);pu.appendChild(sl);
+      var q=$('qr-cad');q.textContent='';
+      if(window.QRCode) new QRCode(q,{text:urlLink(),width:130,height:130,correctLevel:QRCode.CorrectLevel.M});
+      var msg='Olá! Quero testar o NotificaAI por 5 dias.\n\n'+
+        'Instituição: '+$('cad-nome').value.trim()+'\n'+
+        'Link: '+urlLink()+'\n'+
+        'Responsável: '+$('cad-resp').value.trim()+($('cad-cargo').value.trim()?' ('+$('cad-cargo').value.trim()+')':'')+'\n'+
+        'E-mail: '+$('cad-email').value.trim()+'\n'+
+        'WhatsApp: '+$('cad-whats').value.trim()+'\n'+
+        'Plano de interesse: '+$('cad-plano').value;
+      $('cad-whats-btn').href='https://wa.me/'+WHATS+'?text='+encodeURIComponent(msg);
+    }
+    $('cad-copiar').addEventListener('click',function(){
+      var b=this,t=urlLink();
+      (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){b.textContent='✓ Link copiado';setTimeout(function(){b.textContent='Copiar link';},2000);})
+        .catch(function(){prompt('Copie o link:',t);});
+    });
+    $('cad-baixar-qr').addEventListener('click',function(){
+      var img=$('qr-cad').querySelector('canvas');if(!img) return;
+      var a=document.createElement('a');a.download='qrcode-'+$('cad-slug').value+'.png';a.href=img.toDataURL('image/png');a.click();
+    });
+  })();
+
   // Instituicoes ativas (tabela hospitals, leitura publica). Sem a tabela ou sem rede, fica a lista acima.
   (function(){
     var SB='https://lnzvkfbcpnfmfvbdafab.supabase.co', KEY='sb_publishable_SyVvXYS3AmHkq2KriFNJLA_yiGtToBB';

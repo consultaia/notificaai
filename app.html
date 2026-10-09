@@ -4795,12 +4795,80 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   </div>
   </div>);
 }
-function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
+// ---- Pacote ZIP com todos os anexos do periodo (avaliacao ANVISA) ----
+// Fonte: os registros do banco (treinamentos, protocolos, documentos institucionais), nao a listagem
+// de pastas do Storage — assim entram tambem os anexos de treinamentos lancados depois (data antiga).
+// Links do Google Drive nao podem ser baixados pelo navegador: vao listados no LEIA-ME.
+async function baixarAnexosPeriodo({sbUrl,sbKey,h,faixa,onProgresso}){
+  if(!window.JSZip) throw new Error('Biblioteca de ZIP ainda carregando. Tente de novo em alguns segundos.');
+  const safe=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9 ._-]/g,'').replace(/\s+/g,' ').trim().slice(0,60)||'arquivo';
+  const ehDrive=u=>/drive\.google|docs\.google/i.test(u||'');
+  const extDe=(u,blob)=>{const m=String(u).split('?')[0].match(/\.([a-zA-Z0-9]{2,5})$/);if(m)return m[1].toLowerCase();const t=(blob&&blob.type)||'';return t.includes('pdf')?'pdf':t.includes('png')?'png':t.includes('jpeg')||t.includes('jpg')?'jpg':t.includes('sheet')?'xlsx':'pdf';};
+  const fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('pt-BR'):'sem data';
+  const [treins,prots,cfgArr]=await Promise.all([
+    sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${faixa.ini}&data=lte.${faixa.fim}&order=data.asc&select=*`).catch(()=>[]),
+    sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+    sbSelect(sbUrl,sbKey,'config_dsm',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+  ]);
+  const cfg=(cfgArr&&cfgArr[0])||{};
+  const subDoProt={};Object.entries(SUB_PROTOCOLOS).forEach(([sub,crits])=>PROTOCOLOS_DSM.filter(p=>crits.includes(p.crit)).forEach(p=>{subDoProt[p.nome]=sub;}));
+  const nomeSub=id=>{const x=SUBS_TREINAMENTO.find(s=>s.id===id);return x?x.label:(id||'Geral');};
+  const itens=[]; // {pasta, nome, url}
+  [['link_portaria_nsp','Portaria do NSP'],['link_portaria_ccih','Portaria da CCIH'],['link_psp','Plano de Seguranca do Paciente (PSP)'],['link_regimento','Regimento Interno do NSP']]
+    .forEach(([k,label])=>{if(cfg[k])itens.push({pasta:'01-Documentos-Institucionais',nome:label,url:cfg[k]});});
+  // protocolos vigentes em algum momento do periodo
+  (prots||[]).filter(p=>p.link&&p.aprovado_em&&p.aprovado_em<=faixa.fim&&(p.proxima_revisao||vencimentoPadrao(p.aprovado_em))>=faixa.ini)
+    .forEach(p=>itens.push({pasta:'02-Protocolos/'+safe(nomeSub(subDoProt[p.nome]||p.categoria)),nome:(p.numero?p.numero+' - ':'')+p.nome+' (aprov. '+fmt(p.aprovado_em).replace(/\//g,'-')+')',url:p.link}));
+  (treins||[]).filter(t=>t.link_gdrive).forEach(t=>{
+    const reuniaoNSP=t.tipo==='reuniao_mensal'||t.tipo==='reuniao_extraordinaria';
+    const pasta=reuniaoNSP?'04-Reunioes-do-NSP':'03-Treinamentos/'+safe(nomeSub(t.subnucleo));
+    const tipo=t.tipo==='treinamento'?'Treinamento':reuniaoNSP?(t.tipo==='reuniao_mensal'?'Reuniao mensal':'Reuniao extraordinaria'):'Reuniao';
+    itens.push({pasta,nome:(t.data||'sem-data')+' - '+tipo+' - '+(t.protocolo||t.descricao||'sem tema')+(t.participantes?' ('+t.participantes+' part.)':''),url:t.link_gdrive});
+  });
+  const zip=new window.JSZip();const usados=new Set();const externos=[];const falhas=[];let ok=0;
+  for(let i=0;i<itens.length;i++){
+    const it=itens[i];if(onProgresso)onProgresso(i+1,itens.length);
+    if(ehDrive(it.url)){externos.push(it);continue;}
+    try{
+      const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),30000);
+      const resp=await fetch(it.url,{signal:ctl.signal});clearTimeout(to);
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      const blob=await resp.blob();
+      let nome=`${it.pasta}/${safe(it.nome)}.${extDe(it.url,blob)}`;let n=2;
+      while(usados.has(nome)){nome=`${it.pasta}/${safe(it.nome)} (${n++}).${extDe(it.url,blob)}`;}
+      usados.add(nome);zip.file(nome,blob);ok++;
+    }catch(e){falhas.push(it);}
+  }
+  // pendencias uteis para a avaliacao
+  const semAnexo=(treins||[]).filter(t=>!t.link_gdrive&&t.tipo==='treinamento');
+  const semTrein=SUBNUCLEOS_HNSA.filter(sn=>!(treins||[]).some(t=>t.subnucleo===sn.id&&t.tipo==='treinamento'));
+  const linhas=[
+    'ANEXOS PARA AVALIACAO ANVISA — '+(h.name||h.short_name||''),
+    'Periodo: '+faixa.label+' ('+fmt(faixa.ini)+' a '+fmt(faixa.fim)+')',
+    'Gerado em: '+new Date().toLocaleString('pt-BR'),
+    '',
+    'ARQUIVOS NO ZIP: '+ok,
+    '',
+  ];
+  if(externos.length){linhas.push('LINKS DO GOOGLE DRIVE (baixe manualmente):');externos.forEach(it=>linhas.push('- ['+it.pasta.replace(/^\d+-/,'')+'] '+it.nome+'\n  '+it.url));linhas.push('');}
+  if(falhas.length){linhas.push('NAO FOI POSSIVEL BAIXAR (link quebrado ou sem permissao):');falhas.forEach(it=>linhas.push('- '+it.nome+'\n  '+it.url));linhas.push('');}
+  if(semAnexo.length){linhas.push('TREINAMENTOS SEM LISTA DE PRESENCA ANEXADA:');semAnexo.forEach(t=>linhas.push('- '+fmt(t.data)+' · '+nomeSub(t.subnucleo)+' · '+(t.protocolo||t.descricao||'sem tema')));linhas.push('');}
+  if(semTrein.length){linhas.push('SUBNUCLEOS SEM NENHUM TREINAMENTO REGISTRADO NO PERIODO:');semTrein.forEach(sn=>linhas.push('- '+sn.label));linhas.push('');}
+  ['link_portaria_nsp','link_psp'].forEach((k,i)=>{if(!cfg[k])linhas.push('SEM DOCUMENTO ANEXADO: '+(i===0?'Portaria do NSP':'Plano de Seguranca do Paciente (PSP)'));});
+  zip.file('00_LEIA-ME.txt',linhas.join('\n'));
+  const content=await zip.generateAsync({type:'blob'});
+  const nomeZip=`Anexos-ANVISA-${safe(h.short_name||h.id).replace(/\s+/g,'-')}-${faixa.label.replace(/\s+/g,'-').replace(/[º]/g,'o')}.zip`;
+  const url=URL.createObjectURL(content);const a=document.createElement('a');a.href=url;a.download=nomeZip;document.body.appendChild(a);a.click();document.body.removeChild(a);setTimeout(()=>URL.revokeObjectURL(url),5000);
+  return {ok,externos:externos.length,falhas:falhas.length,total:itens.length};
+}
+
+function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [dados,setDados]=useState(null);
   const [carregando,setCarregando]=useState(false);
   const [aberto,setAberto]=useState(null);
   const [todosAbertos,setTodosAbertos]=useState(false);
+  const [zipProg,setZipProg]=useState(null);
   const anoAtual=new Date().getFullYear();
   const [per,setPer]=useState(()=>{const m=mesReferencia();const [a,mm]=m.split('-').map(Number);return {tipo:'mes',mes:m,sem:`${a}-${mm<=6?1:2}`,ano:String(anoAtual-1)};});
   const faixa=faixaPeriodo(per);
@@ -4849,6 +4917,15 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub}) {
       {per.tipo==='semestre'&&<select value={per.sem} onChange={e=>setPer(p=>({...p,sem:e.target.value}))} style={sel}>{opcoesSem.map(o=><option key={o} value={o}>{(o.endsWith('-1')?'1º':'2º')+' semestre de '+o.split('-')[0]}</option>)}</select>}
       {per.tipo==='ano'&&<select value={per.ano} onChange={e=>setPer(p=>({...p,ano:e.target.value}))} style={sel}>{opcoesAno.map(o=><option key={o} value={o}>{o}</option>)}</select>}
       <button onClick={()=>setPer(p=>({...p,tipo:'ano',ano:String(anoAtual-1)}))} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaAtivo?C.teal:C.border),background:anvisaAtivo?C.teal+'22':'transparent',color:anvisaAtivo?C.teal:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>Avaliação anual ANVISA ({anoAtual-1})</button>
+      <button disabled={!!zipProg} onClick={async()=>{
+        setZipProg({i:0,n:0});
+        try{const r=await baixarAnexosPeriodo({sbUrl,sbKey,h,faixa,onProgresso:(i,n)=>setZipProg({i,n})});
+          if(showToast) showToast(r.total===0?'Nenhum anexo encontrado no período':`ZIP com ${r.ok} arquivo(s)`+(r.externos?` · ${r.externos} link(s) do Drive no LEIA-ME`:'')+(r.falhas?` · ${r.falhas} com falha`:''),r.total===0?'error':'success');}
+        catch(e){if(showToast)showToast('Erro ao gerar ZIP: '+e.message,'error');}
+        setZipProg(null);
+      }} style={{padding:'6px 12px',borderRadius:8,border:'none',background:C.blue,color:'#fff',fontSize:12,fontWeight:800,cursor:zipProg?'default':'pointer',opacity:zipProg?0.7:1}}>
+        {zipProg?(zipProg.n?`Baixando ${zipProg.i}/${zipProg.n}…`:'Preparando…'):'⬇ Baixar anexos ('+faixa.label+')'}
+      </button>
       <button onClick={()=>setTodosAbertos(v=>!v)} style={{marginLeft:'auto',padding:'6px 10px',borderRadius:8,border:'1px solid '+C.border,background:'transparent',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>{todosAbertos?'Recolher todos':'Expandir todos'}</button>
     </div>
     <div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.5}}>
@@ -4969,7 +5046,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
 
-    {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
+    {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
 
     {/* Cards de métricas principais */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>

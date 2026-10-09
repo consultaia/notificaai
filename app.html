@@ -4376,7 +4376,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [savingTrein,setSavingTrein]=useState(false);
   const [rcaMembro,setRcaMembro]=useState(null);
   const [notiVisaMembro,setNotiVisaMembro]=useState(null);
-  const [aba,setAba]=useState('notificacoes');
+  const [aba,setAba]=useState('resumo');
+  const [pendIndItens,setPendIndItens]=useState({itens:[],mes:''});
+  const [pendProtItens,setPendProtItens]=useState([]);
   const [verTodasNotif,setVerTodasNotif]=useState(false);
   const [pendInd,setPendInd]=useState(0);
   const [pendProt,setPendProt]=useState(0);
@@ -4476,9 +4478,17 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const pendNotif=notifications.filter(n=>notifDoSub(n,filtroSub)&&semRCA(n)).length;
   const subAtivo=filtroSub==='todos'?userSubnucleo:filtroSub;
   const regsSub=s.treins.filter(t=>t.subnucleo===subAtivo);
+  // Treinamento: pendente se o subnucleo nao registrou nenhum no semestre atual
+  const hojeD=new Date();const iniSem=new Date(hojeD.getFullYear(),hojeD.getMonth()<6?0:6,1).toISOString().slice(0,10);
+  const treinSemestre=regsSub.filter(t=>t.tipo==='treinamento'&&(t.data||'')>=iniSem).length;
+  const pendTrein=treinSemestre===0?1:0;
+  const totalPend=pendInd+pendProt+pendNotif+pendTrein;
+  const NOMES_MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const mesInd=pendIndItens.mes?NOMES_MES[Number(pendIndItens.mes.split('-')[1])-1]:'';
   const ABAS=[
+    {id:'resumo',label:'O que falta',badge:totalPend},
     {id:'notificacoes',label:'Notificações',badge:pendNotif},
-    {id:'treinamentos',label:'Treinamentos',badge:0,info:regsSub.length||null},
+    {id:'treinamentos',label:'Treinamentos',badge:pendTrein,info:regsSub.length||null},
     {id:'protocolos',label:'Protocolos',badge:pendProt},
     {id:'indicadores',label:'Indicadores',badge:pendInd},
     {id:'panorama',label:'Panorama',badge:0},
@@ -4494,7 +4504,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
     <div style={{padding:'16px 0'}}>
     {/* Abas do subnucleo: o conteudo de todas fica montado (escondido) para os contadores funcionarem */}
-    <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:14,paddingBottom:2}}>
+    <div className='abas-sub' style={{display:'flex',gap:6,overflowX:'auto',marginBottom:14,paddingBottom:2,scrollbarWidth:'none'}}>
       {ABAS.map(t=>(<button key={t.id} onClick={()=>setAba(t.id)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,border:'1px solid '+(aba===t.id?(sub?.color||C.teal):C.border),background:aba===t.id?(sub?.color||C.teal)+'22':C.card,color:aba===t.id?C.text:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>
         {t.label}
         {t.badge>0&&<span style={{background:C.red,color:'#fff',borderRadius:9,padding:'1px 7px',fontSize:10,fontWeight:800}}>{t.badge}</span>}
@@ -4504,6 +4514,33 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     {rcaMembro&&<RCAPanel notification={rcaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaMembro(null)} onSaved={()=>{setRcaMembro(null);carregar();}}/>}
     {notiVisaMembro&&<NotiVisaPanel notification={notiVisaMembro} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaMembro(null)}/>}
 
+    <div style={mostra('resumo')}>
+      <div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderLeft:'3px solid '+(sub?.color||C.teal),borderRadius:14,padding:16}}>
+        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>Olá{sub?', '+sub.label:''}!</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
+        {[
+          {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
+            titulo:pendInd>0?(pendInd+' indicador'+(pendInd>1?'es':'')+' de '+mesInd+' sem preencher'):'Indicadores de '+(mesInd||'este mês')+' preenchidos',
+            det:pendInd>0?pendIndItens.itens.slice(0,4).join(' · ')+(pendIndItens.itens.length>4?' · …':''):''},
+          {ok:pendProt===0,aba:'protocolos',acao:'Atualizar',
+            titulo:pendProt>0?(pendProt+' protocolo'+(pendProt>1?'s':'')+' vencido'+(pendProt>1?'s':'')+' ou sem cadastro'):'Protocolos em dia',
+            det:pendProtItens.join(' · ')},
+          {ok:pendNotif===0,aba:'notificacoes',acao:'Analisar',
+            titulo:pendNotif>0?(pendNotif+' notificaç'+(pendNotif>1?'ões':'ão')+' do seu tema sem RCA'):'Nenhuma notificação aguardando RCA',det:''},
+          {ok:pendTrein===0,aba:'treinamentos',acao:'Registrar',
+            titulo:pendTrein>0?'Nenhum treinamento registrado neste semestre':treinSemestre+' treinamento'+(treinSemestre>1?'s':'')+' registrado'+(treinSemestre>1?'s':'')+' neste semestre',det:''},
+        ].sort((a,b)=>(a.ok?1:0)-(b.ok?1:0)).map((it,i)=>(
+          <div key={i} onClick={()=>!it.ok&&setAba(it.aba)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:10,marginBottom:8,background:it.ok?C.surface:C.yellow+'12',border:'1px solid '+(it.ok?C.border:C.yellow+'55'),cursor:it.ok?'default':'pointer'}}>
+            <div style={{width:26,height:26,borderRadius:13,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:900,background:it.ok?C.green+'22':C.yellow+'33',color:it.ok?C.green:C.yellow}}>{it.ok?String.fromCodePoint(10003):'!'}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:700,color:it.ok?C.muted:C.text}}>{it.titulo}</div>
+              {!it.ok&&it.det&&<div style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.4}}>{it.det}</div>}
+            </div>
+            {!it.ok&&<span style={{flexShrink:0,background:sub?.color||C.teal,color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:12,fontWeight:800}}>{it.acao} {String.fromCodePoint(8250)}</span>}
+          </div>
+        ))}
+      </div>
+    </div>
     <div style={mostra('notificacoes')}>
     {/* Notificacoes para analise */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
@@ -4649,10 +4686,10 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
     </div>
     <div style={mostra('protocolos')}>
-      <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={setPendProt}/>
+      <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={(n,it)=>{setPendProt(n);setPendProtItens(it||[]);}}/>
     </div>
     <div style={mostra('indicadores')}>
-      <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={setPendInd}/>
+      <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={(n,it,m)=>{setPendInd(n);setPendIndItens({itens:it||[],mes:m||''});}}/>
     </div>
     <div style={mostra('panorama')}>
     {/* Metricas totais */}
@@ -7216,6 +7253,7 @@ function NotificaAI() {
       input::placeholder{color:${C.muted}}::-webkit-scrollbar{width:3px}
       ::-webkit-scrollbar-thumb{background:${C.border};border-radius:2px}button:active{opacity:.85}
       select option{background:${C.card};color:${C.text}}
+      .abas-sub::-webkit-scrollbar{display:none}
       #desktop-sidebar{display:none}
       @media(min-width:900px){
         #bottom-nav{display:none !important}
@@ -7859,7 +7897,8 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
   };
 
   const nPend=meusProt.filter(d=>{const st=getStatus(d).s;return st==='vencido'||st==='missing';}).length;
-  useEffect(()=>{if(onPendentes)onPendentes(nPend);},[nPend]);
+  const itensPend=meusProt.filter(d=>{const st=getStatus(d).s;return st==='vencido'||st==='missing';}).map(d=>d.crit+' '+d.nome+(getStatus(d).s==='vencido'?' (vencido)':' (não cadastrado)'));
+  useEffect(()=>{if(onPendentes)onPendentes(nPend,itensPend);},[nPend,itensPend.join('|')]);
   if(!meusProt.length)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,fontSize:12,color:C.muted}}>Nenhum protocolo vinculado a este subnucleo.</div>);
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'};
 
@@ -7943,7 +7982,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   const vazio=v=>v===''||v===null||v===undefined;
   const pdEfetivo=!vazio(form.paciente_dia_total)?form.paciente_dia_total:pdSetores;
   const faltando=campos.length===0?[]:[...(vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mes'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
-  useEffect(()=>{if(onPendentes)onPendentes(faltando.length);},[faltando.length]);
+  useEffect(()=>{if(onPendentes)onPendentes(faltando.length,faltando.map(f=>f.label),mes);},[faltando.map(f=>f.key).join('|'),mes]);
   const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));

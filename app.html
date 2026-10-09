@@ -1635,7 +1635,9 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <div style={{fontSize:10,color:C.yellow,fontWeight:700,marginBottom:4}}>Verificar efetividade (PDCA - Check)</div>
             <div style={{display:'flex',gap:4}}>
               {['efetiva','parcial','ineficaz'].map(ef=>(<button key={ef} onClick={()=>{
-                sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a.id}`,{efetividade_verificada:ef,efetividade_em:new Date().toISOString()}).then(()=>{showToast('Efetividade: '+ef,'success');load();}).catch(()=>showToast('Erro','error'));
+                const reabrir=ef==='ineficaz';
+                sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a.id}`,reabrir?{status:'em_andamento',concluido_em:null,efetividade_verificada:null,efetividade_em:null}:{efetividade_verificada:ef,efetividade_em:new Date().toISOString()})
+                  .then(()=>{if(reabrir)sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'ACAO_REABERTA_INEFICAZ','status','concluido','em_andamento','gestor','gestor').catch(()=>{});showToast(reabrir?'Ação ineficaz: reaberta para nova tentativa':'Efetividade: '+ef,'success');load();}).catch(()=>showToast('Erro','error'));
               }} style={{flex:1,fontSize:9,padding:'4px',background:ef==='efetiva'?C.green+'22':ef==='parcial'?C.yellow+'22':C.red+'22',color:ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red,border:'1px solid '+(ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red)+'44',borderRadius:4,cursor:'pointer',fontWeight:700,textTransform:'capitalize'}}>{ef}</button>))}
             </div>
           </div>}
@@ -1828,7 +1830,14 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   };
   const verificar=async(a2,val)=>{
     setBusy(a2.id);
-    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{efetividade_verificada:val,efetividade_em:new Date().toISOString()});await carregar();showToast('Efic\u00e1cia registrada','success');}
+    try{
+      if(val==='inefetiva'){
+        // Nao efetiva: a acao volta a ficar aberta (impede fechar o plano); o historico fica na auditoria
+        await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'em_andamento',concluido_em:null,efetividade_verificada:null,efetividade_em:null});
+        sbAuditLog(sbUrl,sbKey,a2.hospital_id,a2.notification_id,'ACAO_REABERTA_INEFICAZ','status','concluido','em_andamento','gestor','gestor').catch(()=>{});
+        await carregar();showToast('A\u00e7\u00e3o reaberta para nova tentativa','success');
+      } else {await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{efetividade_verificada:val,efetividade_em:new Date().toISOString()});await carregar();showToast('Efic\u00e1cia registrada','success');}
+    }
     catch(e){showToast('Erro: '+e.message,'error');}
     setBusy(null);
   };
@@ -5423,6 +5432,7 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
         chat_history:messages.slice(-10),
       };
       let protocolo='';
+      let emailOk=null; // null = nao tentou (modo teste / sem webhook); true/false = resultado do envio
       if(sbUrl&&sbKey){
         const res=await sbInsert(sbUrl,sbKey,'notifications',payload);
         protocolo=res?.[0]?.id?res[0].id.slice(0,8).toUpperCase():Math.random().toString(36).slice(2,10).toUpperCase();
@@ -5440,25 +5450,28 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
             // Tentar rota /email do Worker (substitui n8n)
             const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
             const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})});
+            emailOk=whResp.ok;
             if(!whResp.ok){
               // Fallback: tentar o webhook original (n8n) se configurado
               if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
                 await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})}).catch(()=>{});
               }
-              showToast('Aviso: e-mail pode nao ter sido enviado ('+whResp.status+')','error');
             }
           }catch(whErr){
             console.error('[email]',whErr);
-            showToast('Aviso: falha ao enviar e-mail ('+whErr.message+')','error');
+            emailOk=false;
           }
         }
-        showToast('Notificação salva! Gestor será notificado.','success');
+        // Um unico aviso (antes o de falha do e-mail era trocado na hora pelo de sucesso)
+        if(emailOk===false) showToast('Notificação salva, mas o e-mail ao NSP não foi enviado. O NSP verá a notificação no painel.','error');
+        else showToast('Notificação salva! Gestor será notificado.','success');
       } else {
         protocolo=Math.random().toString(36).slice(2,10).toUpperCase();
         showToast('Notificação registrada!','success');
       }
       addMsg('user','Sim, confirmar e enviar.');
-      addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número. O Gestor do NSP foi notificado por e-mail e irá analisar o incidente.\n\n O NSP retornará com as ações tomadas. Em caso de evento sentinela ou adverso grave, a análise ocorrerá em até 72 horas.\n\nObrigado por contribuir com a segurança do HNSA. Sua notificação é confidencial e protegida pela Lei 13.709/2018 (LGPD).');
+      try{const k='nai_protocolos_'+h.id;const l=JSON.parse(localStorage.getItem(k)||'[]');l.unshift({p:protocolo,d:new Date().toISOString()});localStorage.setItem(k,JSON.stringify(l.slice(0,20)));}catch{}
+      addMsg('assistant','Notificação enviada com sucesso!\n\nProtocolo: '+protocolo+'\n\nGuarde este número: em **Acompanhar** você consulta o andamento. '+(emailOk===false?'O e-mail ao NSP falhou, mas a notificação está registrada e aparece no painel do NSP, que irá analisar o incidente.':'O Gestor do NSP foi notificado e irá analisar o incidente.')+'\n\n O NSP retornará com as ações tomadas. Em caso de evento sentinela ou adverso grave, a análise ocorrerá em até 72 horas.\n\nObrigado por contribuir com a segurança do HNSA. Sua notificação é confidencial e protegida pela Lei 13.709/2018 (LGPD).');
       setStep('done');
     }catch(err){
       console.error('Erro ao salvar notificacao:',err);
@@ -7978,7 +7991,8 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
     try{
       const proxStr=ed.proxima_revisao||vencimentoPadrao(ed.aprovado_em);
       const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:proxStr,link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
-      const existente=registros[def.nome];
+      let existente=registros[def.nome];
+      if(!existente){const ja=await sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&nome=eq.${encodeURIComponent(def.nome)}&select=id&limit=1`).catch(()=>[]);if(ja&&ja[0])existente=ja[0];}
       if(existente){await sbPatch(sbUrl,sbKey,'protocolos',`id=eq.${existente.id}`,payload);}
       else{await sbInsert(sbUrl,sbKey,'protocolos',payload);}
       showToast('Protocolo salvo!','success');
@@ -8171,7 +8185,8 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
     try{
       const proxStr=ed.proxima_revisao||vencimentoPadrao(ed.aprovado_em);
       const payload={hospital_id:h.id,nome:def.nome,aprovado_em:ed.aprovado_em,proxima_revisao:proxStr,link:ed.link||null,responsavel:ed.responsavel||null,numero:ed.numero||null,categoria:def.sub,status:'ativo'};
-      const existente=registros[def.nome];
+      let existente=registros[def.nome];
+      if(!existente){const ja=await sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&nome=eq.${encodeURIComponent(def.nome)}&select=id&limit=1`).catch(()=>[]);if(ja&&ja[0])existente=ja[0];}
       if(existente){await sbPatch(sbUrl,sbKey,'protocolos',`id=eq.${existente.id}`,payload);}
       else{await sbInsert(sbUrl,sbKey,'protocolos',payload);}
       showToast('Protocolo atualizado!','success');

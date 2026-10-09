@@ -73,7 +73,8 @@
     if(document.getElementById('boot-error')) return; // ja tem erro mostrado
     var faltando=[];
     if(typeof window.React==='undefined') faltando.push('React (cdnjs.cloudflare.com)');
-    if(typeof window.Babel==='undefined') faltando.push('Babel (cdnjs.cloudflare.com)');
+    // Babel so e necessario na versao nao compilada (a versao publicada pelo GitHub Actions ja vem pronta)
+    if(typeof window.Babel==='undefined'&&document.querySelector('script[type="text/babel"]')) faltando.push('Babel (cdnjs.cloudflare.com)');
     var opcionais=[];
     if(typeof window.JSZip==='undefined') opcionais.push('JSZip');
     if(typeof window.PptxGenJS==='undefined') opcionais.push('PptxGenJS');
@@ -86,10 +87,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js" crossorigin="anonymous" defer></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous" defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{background:#06101F;height:100%}

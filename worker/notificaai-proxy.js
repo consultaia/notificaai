@@ -13,14 +13,14 @@
 //   RATE_LIMIT_KV       (opcional) binding KV para limitar tentativas de PIN
 //
 // Lembrete mensal de pendencias (opcional):
-//   Gatilho Cron em Settings > Triggers > Cron Triggers, ex.: 0 11 5 * *  (dia 5, 8h de Brasilia)
+//   Gatilho Cron definido no wrangler.toml: 0 11 5 * *  (dia 5, 8h de Brasilia)
 //   SUPABASE_URL, SUPABASE_KEY  URL do projeto e chave publica (a mesma do app)
 //   LEMBRETE_DESTINOS           e-mails que recebem o resumo, separados por virgula
 //   LEMBRETE_HOSPITAIS          ids das instituicoes (padrao: hnsa)
 //   Previa sem enviar nada: GET /lembrete-previa?h=hnsa
 //
-// Nenhuma chave fica neste arquivo. Para publicar: cole este codigo em
-// Workers & Pages > notificaai-proxy > Edit code > Deploy.
+// Nenhuma chave fica neste arquivo. Publicacao automatica: o Cloudflare (Workers Builds)
+// esta ligado ao GitHub e publica este arquivo a cada merge na main (ver wrangler.toml).
 // ============================================================
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';

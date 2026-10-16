@@ -1,0 +1,22 @@
+# Configuração do Worker notificaai-proxy (IA, PIN, e-mail e lembrete mensal).
+# Com o Cloudflare conectado ao GitHub (Workers Builds), todo merge na main publica
+# o worker/notificaai-proxy.js automaticamente — não é mais preciso colar o código.
+#
+# Chaves e senhas NÃO ficam aqui: GROQ_API_KEY, RESEND_API_KEY, PIN_PEPPER, SUPABASE_KEY
+# continuam em Cloudflare > notificaai-proxy > Settings > Variables and Secrets e são
+# preservadas a cada publicação.
+
+name = "notificaai-proxy"
+main = "worker/notificaai-proxy.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+# Mantém as variáveis cadastradas no painel (SUPABASE_URL, LEMBRETE_DESTINOS, etc.).
+keep_vars = true
+
+# Lembrete mensal: dia 5 às 11h UTC (8h de Brasília).
+[triggers]
+crons = ["0 11 5 * *"]
+
+[observability]
+enabled = true

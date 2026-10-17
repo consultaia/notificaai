@@ -201,6 +201,7 @@ const IconChev=mkIco(`<polyline points="9 18 15 12 9 6"/>`);
 const IconTrash=mkIco(`<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>`);
 const IconShield=mkIco(`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`);
 const IconTool=mkIco(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`);
+const IconHeart=mkIco(`<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>`);
 const IconAudit=mkIco(`<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M9 11l1.5 1.5L14 9"/>`);
 const IconGear=mkIco(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`);
 
@@ -2318,7 +2319,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
   const setoresComDados=dados?setores.filter(s=>dados.porSetor[s]):[];
 
   return(<div style={{paddingBottom:80}}>
-    {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 - Metas OMS - por setor'/>}
+    {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 · PNQSP 2026 · Metas OMS · por setor'/>}
     {subInfo&&subCfg&&<div style={{background:(subInfo.color||C.teal)+'15',border:'1px solid '+(subInfo.color||C.teal)+'55',borderLeft:'4px solid '+(subInfo.color||C.teal),borderRadius:10,padding:'10px 14px',marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:subInfo.color||C.teal}}>Visao do subnucleo: {subInfo.label}</div>
       <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Preencha o paciente-dia dos seus setores, lance os casos do controle manual e clique em Calcular para ver a taxa de incidencia por setor. Apenas os indicadores da sua area sao exibidos.</div>
@@ -2694,6 +2695,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const [filtroGravidade,setFiltroGravidade]=useState(filtroInicial==='sentinela'?'Evento sentinela':'');
   const [filtroSemRCA,setFiltroSemRCA]=useState(filtroInicial==='semRCA');
   const [filtroTriagem,setFiltroTriagem]=useState(filtroInicial==='triagem');
+  const [filtroSemComunic,setFiltroSemComunic]=useState(filtroInicial==='semComunicacao');
   React.useEffect(()=>{if(filtroInicial&&onClearFiltro)onClearFiltro();},[]);
   const [pagina,setPagina]=useState(1);
   const POR_PAGINA=20;
@@ -2795,6 +2797,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(filtroGravidade&&n.gravidade!==filtroGravidade) return false;
     if(filtroSemRCA&&n.rca_gerado) return false;
     if(filtroTriagem&&!(n.event_subtype||'').startsWith('Outro')) return false;
+    if(filtroSemComunic&&!(eventoComDano(n)&&!n.comunicado_paciente)) return false;
     if(filtroNotivisa==='sim'&&!n.notivisa_enviado) return false;
     if(filtroNotivisa==='nao'&&n.notivisa_enviado) return false;
     if(filtroPeriodo){const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);const ds=d.toISOString().slice(0,7);if(ds!==filtroPeriodo)return false;}
@@ -2813,9 +2816,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,appearance:'none',cursor:'pointer'};
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    {(filtroGravidade||filtroSemRCA||filtroTriagem)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'Sem Analise - RCA pendente':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
-      <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);setFiltroTriagem(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
+    {(filtroGravidade||filtroSemRCA||filtroTriagem||filtroSemComunic)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'Sem Analise - RCA pendente':filtroSemComunic?'Eventos com dano sem comunicação ao paciente/família (PNQSP)':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
+      <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);setFiltroTriagem(false);setFiltroSemComunic(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
     </div>}
     {/* Modal de edicao */}
     {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
@@ -2909,8 +2912,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
       <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder='Buscar...' style={{...sel,flex:1}}/>
       <input type='month' value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}} style={{...sel,width:140}}/>
-      {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA)&&
-        <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+      {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA||filtroSemComunic)&&
+        <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setFiltroSemComunic(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
           Limpar filtros
         </button>}
     </div>
@@ -2968,6 +2971,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                   <div style={{display:'flex',gap:3,marginBottom:5,flexWrap:'wrap'}}>
                     {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}} title={n.rca_gerado&&n.rca_autor?'RCA por: '+n.rca_autor+(n.rca_concluido_em?' em '+new Date(n.rca_concluido_em).toLocaleDateString('pt-BR'):''):'Sem analise de causa raiz'}>{n.rca_gerado?'RCA feito':'Sem RCA'}</span>}
                     {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa OK':'Notivisa pendente'}</span>}
+                    {isSP&&eventoComDano(n)&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:(n.comunicado_paciente?C.green:C.yellow)+'20',color:n.comunicado_paciente?C.green:C.yellow,fontWeight:700}} title='Comunicação do evento ao paciente/família (PNQSP)'>{n.comunicado_paciente?'Comunicação registrada':'Comunicar paciente'}</span>}
                     {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
                   </div>
                   <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
@@ -2982,6 +2986,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                     {n.ai_summary&&<div style={{marginBottom:8,background:C.teal+'10',borderRadius:6,padding:'6px 8px'}}><div style={{fontSize:9,color:C.teal,fontWeight:700,marginBottom:2}}>Resumo IA</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.ai_summary}</div></div>}
                     {n.admission_reason&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Paciente / NIP</div><div style={{fontSize:11,color:C.text}}>{n.admission_reason}</div></div>}
                     {n.patient_admission&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Data de admissao</div><div style={{fontSize:11,color:C.text}}>{new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')}</div></div>}
+                    {isSP&&<ComunicacaoPacienteBox n={n} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onSaved={()=>setDetalhe(d=>d?{...d}:d)}/>}
                     {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
                       <button onClick={ev=>{ev.stopPropagation();setEditForm({notification_type:n.notification_type,event_subtype:n.event_subtype||n.occurrence_subtype||'',sector:n.sector||''});setEditTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:6,cursor:'pointer',fontWeight:700}}>Corrigir tipo</button>
@@ -4044,7 +4049,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           <button onClick={()=>{setAnvisaModoAno(false);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(!anvisaModoAno?C.teal:C.border),background:!anvisaModoAno?C.teal+'22':'transparent',color:!anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:!anvisaModoAno?700:500,cursor:'pointer'}}>Semestre</button>
           <button onClick={()=>{setAnvisaModoAno(true);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaModoAno?C.teal:C.border),background:anvisaModoAno?C.teal+'22':'transparent',color:anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:anvisaModoAno?700:500,cursor:'pointer'}}>Ano completo</button>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013 · PNQSP (Portaria GM/MS n. 11.527/2026)</div>
         {/* Card de documentos institucionais — status direto na aba ANVISA */}
         <div style={{background:C.card,border:'1px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 14px',borderLeft:'3px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -5058,11 +5063,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       const efetPendentes=(planos||[]).filter(p=>p.status==='concluido'&&!p.efetividade_verificada&&naoFechada(p));
       const rcaPendentes=(data||[]).filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave'));
       const triagemPendentes=(data||[]).filter(n=>(n.event_subtype||'').startsWith('Outro'));
+      const lim90=new Date(Date.now()-90*864e5).toISOString();
+      const semComunicacao=(data||[]).filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&eventoComDano(n)&&!n.comunicado_paciente&&(n.created_at||'')>=lim90);
       const cfg=(cfgArr&&cfgArr[0])||{};const docsInst=[];
       if(!cfg.data_atualizacao_psp&&!cfg.link_psp) docsInst.push('Plano de Segurança do Paciente (PSP) não cadastrado');
       else if(cfg.data_atualizacao_psp&&vencimentoPadrao(cfg.data_atualizacao_psp)<hoje) docsInst.push('PSP vencido em '+new Date(vencimentoPadrao(cfg.data_atualizacao_psp)+'T12:00:00').toLocaleDateString('pt-BR'));
       if(!cfg.link_portaria_nsp&&!cfg.numero_portaria_nsp) docsInst.push('Portaria do NSP não cadastrada');
-      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById});
+      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById,semComunicacao});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -5127,7 +5134,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     {gestorMode&&!loading&&(()=>{ 
       const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
       const backupAtrasado=!ultBackup||(Date.now()-new Date(ultBackup).getTime())>30*86400000;
-      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0);
+      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0)+((alertas.semComunicacao||[]).length>0?1:0);
       const abrirPlano=p=>{const n=alertas.notsById[p.notification_id]||{id:p.notification_id,hospital_id:(hospital||DEFAULT_HOSPITAL).id,description:p.acao};setPlanoTarget(n);};
       const prazo72=n=>{
         const dl=new Date(n.created_at).getTime()+72*3600000;
@@ -5172,6 +5179,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <button onClick={()=>abrirPlano(p)} style={btn(C.blue)}>Verificar</button>
         </div>))}
         {alertas.efetPendentes.length>3&&<div style={{fontSize:10,color:C.muted,marginBottom:6,textAlign:'right'}}>+{alertas.efetPendentes.length-3} verificação(ões) pendente(s)</div>}
+        {(alertas.semComunicacao||[]).length>0&&<div style={row}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{alertas.semComunicacao.length} evento(s) com dano sem registro de comunicação ao paciente</div>
+            <div style={{fontSize:10,color:C.muted}}>Comunicação transparente — PNQSP 2026 (últimos 90 dias)</div>
+          </div>
+          <button onClick={()=>{setFiltroNotif('semComunicacao');setView('notificacoes');}} style={btn(C.teal)}>Registrar</button>
+        </div>}
         {backupAtrasado&&<div style={row}>
           <div style={{fontSize:12,fontWeight:700,color:C.text}}>{ultBackup?'Último backup há mais de 30 dias':'Nenhum backup feito neste aparelho'}</div>
           <button onClick={()=>setView('admin')} style={btn(C.teal)}>Fazer backup</button>
@@ -5948,6 +5962,395 @@ const SAQ_DOMINIOS=[
 ];
 const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];
 function saqCicloAtual(){const d=new Date();return d.getMonth()<6?`${d.getFullYear()}-1`:`${d.getFullYear()}-2`;}
+
+// ── PNQSP (Portaria GM/MS nº 11.527/2026) ─────────────────────────────────────
+// Comunicacao do evento ao paciente/familia, pesquisa de experiencia do paciente e
+// painel de indicadores de estrutura, processo e resultado. As colunas/tabela novas
+// vem do supabase/migrations/004_pnqsp_comunicacao_experiencia.sql; sem ele as telas
+// avisam o que falta em vez de quebrar.
+const PNQSP_REF='PNQSP · Portaria GM/MS nº 11.527/2026';
+const SQL_004='supabase/migrations/004_pnqsp_comunicacao_experiencia.sql';
+const semAcento=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function eventoComDano(n){
+  return /dano leve|dano moderado|dano grave|obito|sentinela|evento adverso/.test(semAcento((n.gravidade||'')+' | '+(n.patient_outcome||'')));
+}
+const faltaSQL004=e=>/comunicado_|experiencia_paciente|PGRST204|PGRST205|42703|42P01|does not exist|schema cache/i.test(String(e&&e.message||e));
+const COMUNICACAO_OPCOES=[
+  {v:'comunicado',l:'Comunicado ao paciente/família'},
+  {v:'pendente',l:'Ainda não comunicado'},
+  {v:'sem_contato',l:'Não foi possível (alta, transferência, sem contato)'},
+  {v:'recusou',l:'Paciente/família não quis conversar'},
+  {v:'nao_aplicavel',l:'Não se aplica (não atingiu o paciente)'},
+];
+const corComunicacao=v=>v==='comunicado'?C.green:v==='nao_aplicavel'?C.muted:v==='sem_contato'||v==='recusou'?C.blue:C.yellow;
+
+function ComunicacaoPacienteBox({n,sbUrl,sbKey,showToast,onSaved}){
+  const comDano=eventoComDano(n);
+  const [editando,setEditando]=useState(false);
+  const [f,setF]=useState({comunicado_paciente:n.comunicado_paciente||(comDano?'comunicado':''),comunicado_em:n.comunicado_em||new Date().toISOString().slice(0,10),comunicado_por:n.comunicado_por||'',comunicado_obs:n.comunicado_obs||''});
+  const [salvando,setSalvando]=useState(false);
+  const op=COMUNICACAO_OPCOES.find(o=>o.v===n.comunicado_paciente);
+  const salvar=async()=>{
+    if(!f.comunicado_paciente){showToast('Escolha a situação da comunicação','error');return;}
+    setSalvando(true);
+    const d={comunicado_paciente:f.comunicado_paciente,comunicado_em:f.comunicado_paciente==='comunicado'?(f.comunicado_em||null):null,comunicado_por:f.comunicado_por.trim()||null,comunicado_obs:f.comunicado_obs.trim()||null};
+    try{
+      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${n.id}`,d);
+      sbAuditLog(sbUrl,sbKey,n.hospital_id,n.id,'COMUNICACAO_PACIENTE','comunicado_paciente',n.comunicado_paciente||null,d.comunicado_paciente,null,'gestor').catch(()=>{});
+      Object.assign(n,d);setEditando(false);showToast('Comunicação registrada','success');onSaved&&onSaved();
+    }catch(e){
+      showToast(faltaSQL004(e)?'Falta preparar o banco: rode o arquivo '+SQL_004+' no Supabase (SQL Editor). É só uma vez.':'Erro ao salvar: '+e.message,'error');
+    }
+    setSalvando(false);
+  };
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:8,fontFamily:'inherit'};
+  return(<div onClick={ev=>ev.stopPropagation()} style={{marginTop:6,marginBottom:4,border:'1px solid '+(op?corComunicacao(n.comunicado_paciente)+'55':comDano?C.yellow+'66':C.border),borderRadius:8,padding:'8px 10px',background:C.surface,cursor:'default'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+      <div>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Comunicação ao paciente/família</div>
+        {op?<div style={{fontSize:11,fontWeight:700,color:corComunicacao(n.comunicado_paciente),marginTop:2}}>{op.l}{n.comunicado_em?' · '+new Date(n.comunicado_em+'T12:00:00').toLocaleDateString('pt-BR'):''}{n.comunicado_por?' · '+n.comunicado_por:''}</div>
+          :<div style={{fontSize:11,color:comDano?C.yellow:C.muted,marginTop:2,lineHeight:1.4}}>{comDano?'Evento com dano: registre se o paciente ou a família foi informado.':'Não registrada.'}</div>}
+      </div>
+      {!editando&&<button onClick={()=>setEditando(true)} style={{fontSize:10,padding:'5px 10px',background:C.teal+'20',color:C.teal,border:'1px solid '+C.teal+'44',borderRadius:6,cursor:'pointer',fontWeight:700,flexShrink:0}}>{op?'Editar':'Registrar'}</button>}
+    </div>
+    {n.comunicado_obs&&!editando&&<div style={{fontSize:11,color:C.text,marginTop:4,lineHeight:1.4}}>{n.comunicado_obs}</div>}
+    {editando&&<div style={{marginTop:8}}>
+      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginBottom:8}}>Conversa honesta com o paciente ou a família: o que aconteceu, o que foi feito e o que muda para não se repetir (comunicação aberta e transparente — {PNQSP_REF}).</div>
+      <select value={f.comunicado_paciente} onChange={e=>setF({...f,comunicado_paciente:e.target.value})} style={{...inp,appearance:'none'}}>
+        <option value="">Situação...</option>
+        {COMUNICACAO_OPCOES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
+      {f.comunicado_paciente==='comunicado'&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <input type="date" value={f.comunicado_em} onChange={e=>setF({...f,comunicado_em:e.target.value})} style={inp}/>
+        <input value={f.comunicado_por} onChange={e=>setF({...f,comunicado_por:e.target.value})} placeholder="Quem comunicou (função)" style={inp}/>
+      </div>}
+      <textarea value={f.comunicado_obs} onChange={e=>setF({...f,comunicado_obs:e.target.value})} rows={2} placeholder="Observação (opcional, sem nome do paciente)" style={{...inp,resize:'none'}}/>
+      <div style={{display:'flex',gap:6}}>
+        <button onClick={()=>setEditando(false)} style={{flex:1,fontSize:11,padding:'7px',background:'transparent',color:C.muted,border:'1px solid '+C.border,borderRadius:6,cursor:'pointer',fontWeight:700}}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{flex:2,fontSize:11,padding:'7px',background:C.teal,color:'#06101F',border:'none',borderRadius:6,cursor:'pointer',fontWeight:800}}>{salvando?'Salvando...':'Salvar'}</button>
+      </div>
+    </div>}
+  </div>);
+}
+
+const EXP_PERGUNTAS=[
+  {k:'q_identificacao',t:'Antes de remédios, exames ou procedimentos, a equipe confirmou seu nome ou conferiu sua pulseira?'},
+  {k:'q_maos',t:'Você viu os profissionais higienizarem as mãos antes de tocar em você?'},
+  {k:'q_informacao',t:'Você recebeu explicações claras sobre seu tratamento e seus medicamentos?'},
+  {k:'q_escuta',t:'Você se sentiu à vontade para fazer perguntas e foi ouvido(a)?'},
+  {k:'q_seguranca',t:'Você se sentiu seguro(a) durante o atendimento?'},
+];
+const EXP_OPCOES=[{v:2,l:'Sim'},{v:1,l:'Em parte'},{v:0,l:'Não'},{v:'ns',l:'Não sei'}];
+const linkExperiencia=h=>linkH(h)+'?view=experiencia';
+
+function ExperienciaPublicoView({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [etapa,setEtapa]=useState('form');
+  const [perfil,setPerfil]=useState('');
+  const [setor,setSetor]=useState('');
+  const [resp,setResp]=useState({});
+  const [nota,setNota]=useState(null);
+  const [comentario,setComentario]=useState('');
+  const [enviando,setEnviando]=useState(false);
+  const respondidas=EXP_PERGUNTAS.filter(p=>resp[p.k]!==undefined).length;
+  const completo=perfil&&respondidas===EXP_PERGUNTAS.length&&nota!==null;
+  const reiniciar=()=>{setPerfil('');setSetor('');setResp({});setNota(null);setComentario('');setEtapa('form');window.scrollTo&&window.scrollTo(0,0);};
+  const enviar=async()=>{
+    if(!completo||enviando) return;
+    setEnviando(true);
+    const d={hospital_id:h.id,perfil,setor:setor||null,nota,comentario:comentario.trim().slice(0,600)||null};
+    EXP_PERGUNTAS.forEach(p=>{d[p.k]=resp[p.k]==='ns'?null:resp[p.k];});
+    try{
+      if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'experiencia_paciente',d);
+      setEtapa('obrigado');window.scrollTo&&window.scrollTo(0,0);
+    }catch(e){
+      showToast(faltaSQL004(e)?'A pesquisa ainda não foi ativada por esta instituição. Avise a equipe do NSP.':'Erro ao enviar. Verifique a conexão e tente novamente.','error');
+    }
+    setEnviando(false);
+  };
+  const chip=(ativo,cor)=>({flex:1,minWidth:0,padding:'10px 4px',borderRadius:10,border:'1.5px solid '+(ativo?cor:C.border),background:ativo?cor+'22':C.card,color:ativo?cor:C.text,fontSize:12,fontWeight:ativo?800:600,cursor:'pointer'});
+  const corOp=v=>v===2?C.green:v===1?C.yellow:v===0?C.red:C.muted;
+  if(etapa==='obrigado') return(<div style={{padding:'48px 24px',textAlign:'center',maxWidth:480,margin:'0 auto'}}>
+    <div style={{fontSize:52,marginBottom:14}}>{String.fromCodePoint(128153)}</div>
+    <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:8}}>Obrigado por avaliar!</div>
+    <div style={{fontSize:13,color:C.muted,marginBottom:24,lineHeight:1.6}}>Sua opinião ajuda o {siglaH(h)} a deixar o cuidado mais seguro. As respostas são anônimas e analisadas em conjunto pelo Núcleo de Segurança do Paciente.</div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:20,lineHeight:1.6}}>Viu algum erro ou situação de risco? Você também pode <a href="?view=notificar" style={{color:C.teal,fontWeight:700}}>notificar aqui</a>.</div>
+    <button onClick={reiniciar} style={{background:C.teal,border:'none',borderRadius:12,padding:'13px 24px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Outra pessoa quer avaliar</button>
+  </div>);
+  return(<div style={{padding:'24px 16px 32px',maxWidth:520,margin:'0 auto'}}>
+    <div style={{fontSize:20,fontWeight:900,color:C.text,marginBottom:4}}>Como foi seu atendimento?</div>
+    <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:20}}>Pesquisa rápida e anônima (1 minuto) para pacientes e acompanhantes do {nomeH(h)}. Não informe nomes.</div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Você é</div>
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {[['paciente','Paciente'],['acompanhante','Acompanhante ou familiar']].map(([v,l])=><button key={v} onClick={()=>setPerfil(v)} style={chip(perfil===v,C.teal)}>{l}</button>)}
+    </div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Setor <span style={{fontWeight:500,color:C.muted}}>(opcional)</span></div>
+    <select value={setor} onChange={e=>setSetor(e.target.value)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:20,appearance:'none'}}>
+      <option value="">Não sei / prefiro não dizer</option>
+      {(h.sectors||[]).map(s=><option key={s} value={s}>{s}</option>)}
+    </select>
+    {EXP_PERGUNTAS.map((p,i)=><div key={p.k} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px',marginBottom:10}}>
+      <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.45,marginBottom:10}}>{(i+1)+'. '+p.t}</div>
+      <div style={{display:'flex',gap:6}}>
+        {EXP_OPCOES.map(o=><button key={o.v} onClick={()=>setResp(r=>({...r,[p.k]:o.v}))} style={chip(resp[p.k]===o.v,corOp(o.v))}>{o.l}</button>)}
+      </div>
+    </div>)}
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px',marginBottom:10}}>
+      <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.45,marginBottom:10}}>{(EXP_PERGUNTAS.length+1)+'. De 0 a 10, quanto você recomendaria este hospital a um amigo ou familiar?'}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(11,1fr)',gap:3}}>
+        {Array.from({length:11},(_,v)=><button key={v} onClick={()=>setNota(v)} style={{padding:'9px 0',borderRadius:8,border:'1.5px solid '+(nota===v?(v>=9?C.green:v>=7?C.yellow:C.red):C.border),background:nota===v?(v>=9?C.green:v>=7?C.yellow:C.red)+'22':C.surface,color:C.text,fontSize:12,fontWeight:nota===v?800:600,cursor:'pointer'}}>{v}</button>)}
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:C.muted,marginTop:4}}><span>Não recomendaria</span><span>Recomendaria muito</span></div>
+    </div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'10px 0 8px'}}>Quer deixar um elogio ou sugestão? <span style={{fontWeight:500,color:C.muted}}>(opcional)</span></div>
+    <textarea value={comentario} onChange={e=>setComentario(e.target.value)} maxLength={600} rows={3} placeholder="Sem nomes de pessoas, por favor." style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:16,resize:'none',fontFamily:'inherit'}}/>
+    <button onClick={enviar} disabled={!completo||enviando} style={{width:'100%',background:completo?C.teal:C.border,border:'none',borderRadius:12,padding:'14px',color:completo?'#06101F':C.muted,fontWeight:800,fontSize:14,cursor:completo?'pointer':'default'}}>{enviando?'Enviando...':completo?'Enviar avaliação':'Responda as perguntas acima ('+(respondidas+(nota!==null?1:0))+'/'+(EXP_PERGUNTAS.length+1)+')'}</button>
+  </div>);
+}
+
+// Resumo da pesquisa de experiencia (usado no painel da experiencia e no painel PNQSP)
+function resumoExperiencia(lista){
+  const n=lista.length;
+  if(!n) return {n:0,nps:null,media:null,perguntas:EXP_PERGUNTAS.map(p=>({...p,sim:null,parte:null,nao:null,validas:0})),pctSim:null};
+  const notas=lista.map(r=>r.nota).filter(v=>v!==null&&v!==undefined);
+  const prom=notas.filter(v=>v>=9).length,detr=notas.filter(v=>v<=6).length;
+  const perguntas=EXP_PERGUNTAS.map(p=>{
+    const vs=lista.map(r=>r[p.k]).filter(v=>v===0||v===1||v===2);
+    const pc=x=>vs.length?Math.round(vs.filter(v=>v===x).length/vs.length*100):null;
+    return {...p,sim:pc(2),parte:pc(1),nao:pc(0),validas:vs.length};
+  });
+  const comSim=perguntas.filter(p=>p.sim!==null);
+  return {n,nps:notas.length?Math.round((prom-detr)/notas.length*100):null,media:notas.length?(notas.reduce((a,b)=>a+b,0)/notas.length):null,perguntas,
+    pctSim:comSim.length?Math.round(comSim.reduce((a,p)=>a+p.sim,0)/comSim.length):null};
+}
+const N_MIN_EXP=5; // grupos menores que isso nao aparecem separados (anonimato)
+
+function imprimirCartazExperiencia(h){
+  const w=window.open('','_blank');if(!w) return;
+  const link=linkExperiencia(h);
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - Como foi seu atendimento?</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{margin:0;background:#0D3B66}body{font-family:Calibri,Arial,sans-serif}
+.p{width:210mm;height:296mm;background:#0D3B66;color:#fff;padding:20mm 16mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+h1{font-size:58px;line-height:1.05;margin:8mm 0 0;font-weight:900}h1 span{color:#7FE3D6}
+.sub{font-size:22px;margin-top:8mm;line-height:1.4;color:#D6E6F5}
+.qr{background:#fff;border-radius:16px;padding:9mm;margin:12mm 0 6mm;box-shadow:0 0 0 3mm #7FE3D6}
+.url{font-size:17px;font-weight:800;color:#7FE3D6;word-break:break-all}
+.pill{display:inline-block;border:1.5px solid #7FE3D6;color:#7FE3D6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;margin:4px}
+.ft{margin-top:auto;font-size:12px;color:#D6E6F5}
+@media print{.noprint{display:none}}
+.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#7FE3D6;color:#0D3B66;border:none;border-radius:8px;padding:10px 20px;font-weight:900;cursor:pointer;font-size:13px}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">Imprimir</button></div>
+<div class="p">
+<h1>Como foi seu<br/><span>atendimento?</span></h1>
+<div class="sub">Pacientes e acompanhantes: avalie em 1 minuto.<br/>Sua opinião deixa o cuidado mais seguro.</div>
+<div class="qr"><div id="qr"></div></div>
+<div class="url">${link.replace('https://','')}</div>
+<div style="margin-top:7mm"><span class="pill">anônimo</span><span class="pill">1 minuto</span><span class="pill">pelo celular</span></div>
+<div class="ft">${nomeH(h)} — Núcleo de Segurança do Paciente</div>
+</div>
+<script>new QRCode(document.getElementById('qr'),{text:'${link}',width:230,height:230,correctLevel:QRCode.CorrectLevel.M});<\/script>
+</body></html>`);
+  w.document.close();
+}
+
+function ExperienciaDashboardView({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [lista,setLista]=useState([]);
+  const [erro,setErro]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [periodo,setPeriodo]=useState('90');
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);setErro(null);
+    sbSelect(sbUrl,sbKey,'experiencia_paciente',`hospital_id=eq.${h.id}&order=created_at.desc&limit=5000&select=*`)
+      .then(d=>setLista(d||[])).catch(e=>setErro(faltaSQL004(e)?'sql':e.message)).finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+  const anos=[...new Set(lista.map(r=>(r.created_at||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const doPeriodo=lista.filter(r=>{
+    if(/^\d{4}$/.test(periodo)) return (r.created_at||'').startsWith(periodo);
+    return new Date(r.created_at)>=new Date(Date.now()-Number(periodo)*864e5);
+  });
+  const R=resumoExperiencia(doPeriodo);
+  const porSetor=(h.sectors||[]).map(s=>({s,r:resumoExperiencia(doPeriodo.filter(x=>x.setor===s))})).filter(x=>x.r.n>=N_MIN_EXP);
+  const comentarios=doPeriodo.filter(r=>r.comentario).slice(0,30);
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px'};
+  const kpi=(t,v,s,cor)=>(<div style={{...card,flex:1,minWidth:130}}><div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>{t}</div><div style={{fontSize:26,fontWeight:900,color:cor||C.text,marginTop:4}}>{v}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>{s}</div></div>);
+  const link=linkExperiencia(h);
+  return(<div>
+    <BackHeader title='Experiência do paciente' subtitle={'Pacientes e acompanhantes avaliam o cuidado · '+PNQSP_REF}/>
+    <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{...card,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:220}}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text}}>Divulgue a pesquisa</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Cartaz com QR code para quartos e recepção, ou mande o link por WhatsApp: <span style={{color:C.teal,wordBreak:'break-all'}}>{link.replace('https://','')}</span></div>
+        </div>
+        <button onClick={()=>imprimirCartazExperiencia(h)} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Imprimir cartaz A4</button>
+        <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Copiar link</button>
+      </div>
+      {erro==='sql'&&<div style={{...card,borderColor:C.yellow+'66',color:C.yellow,fontSize:12,lineHeight:1.6}}>A pesquisa ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run). Nada do que já existe é alterado.</div>}
+      {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {[['30','30 dias'],['90','3 meses'],['365','12 meses'],...anos.map(a=>[a,a])].map(([v,l])=><button key={v} onClick={()=>setPeriodo(v)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(periodo===v?C.teal:C.border),background:periodo===v?C.teal+'20':'transparent',color:periodo===v?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l}</button>)}
+      </div>
+      {loading?<div style={{color:C.muted,fontSize:12}}>Carregando...</div>:<>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {kpi('Respostas',R.n,'no período')}
+          {kpi('Respostas "sim"',R.pctSim===null?'—':R.pctSim+'%','média das 5 perguntas',R.pctSim===null?null:R.pctSim>=85?C.green:R.pctSim>=70?C.yellow:C.red)}
+          {kpi('Recomendação (NPS)',R.nps===null?'—':R.nps,'de -100 a 100 · nota média '+(R.media===null?'—':R.media.toFixed(1)),R.nps===null?null:R.nps>=50?C.green:R.nps>=0?C.yellow:C.red)}
+        </div>
+        {R.n===0?<div style={{...card,fontSize:12,color:C.muted,lineHeight:1.6}}>Nenhuma resposta no período. Imprima o cartaz e deixe nos quartos e na recepção; acompanhantes costumam responder bem.</div>:<>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Por pergunta</div>
+            {R.perguntas.map(p=><div key={p.k} style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:C.text,lineHeight:1.4,marginBottom:4}}>{p.t}</div>
+              {p.validas?<><div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden',background:C.border}}>
+                <div style={{width:p.sim+'%',background:C.green}}/><div style={{width:p.parte+'%',background:C.yellow}}/><div style={{width:p.nao+'%',background:C.red}}/>
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginTop:3}}>Sim {p.sim}% · Em parte {p.parte}% · Não {p.nao}% · {p.validas} respostas</div></>
+              :<div style={{fontSize:10,color:C.muted}}>Sem respostas válidas</div>}
+            </div>)}
+          </div>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:4}}>Por setor</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:8}}>Só aparecem setores com {N_MIN_EXP} ou mais respostas, para preservar o anonimato.</div>
+            {porSetor.length?porSetor.map(({s,r})=><div key={s} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom:'1px solid '+C.border}}>
+              <span style={{color:C.text}}>{s}</span><span style={{color:C.muted}}>{r.n} resp. · "sim" {r.pctSim===null?'—':r.pctSim+'%'} · NPS {r.nps===null?'—':r.nps}</span>
+            </div>):<div style={{fontSize:11,color:C.muted}}>Ainda não há setor com respostas suficientes.</div>}
+          </div>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:8}}>Elogios e sugestões</div>
+            {comentarios.length?comentarios.map(r=><div key={r.id} style={{fontSize:12,color:C.text,lineHeight:1.5,padding:'8px 0',borderBottom:'1px solid '+C.border}}>
+              “{r.comentario}”<div style={{fontSize:10,color:C.muted,marginTop:2}}>{new Date(r.created_at).toLocaleDateString('pt-BR')} · {r.perfil==='acompanhante'?'acompanhante':'paciente'} · nota {r.nota}</div>
+            </div>):<div style={{fontSize:11,color:C.muted}}>Nenhum comentário no período.</div>}
+          </div>
+        </>}
+      </>}
+    </div>
+  </div>);
+}
+
+function PainelPNQSPView({sbUrl,sbKey,hospital,showToast,setView}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const anoAtual=new Date().getFullYear();
+  const [ano,setAno]=useState(String(anoAtual));
+  const [d,setD]=useState(null);
+  const [loading,setLoading]=useState(false);
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    const q=(tb,f)=>sbSelect(sbUrl,sbKey,tb,f).catch(()=>null);
+    Promise.all([
+      q('notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=5000&select=*`),
+      q('plano_acoes',`hospital_id=eq.${h.id}&select=*`),
+      q('protocolos',`hospital_id=eq.${h.id}&select=nome,proxima_revisao,subnucleo`),
+      q('config_dsm',`hospital_id=eq.${h.id}&select=*`),
+      q('treinamentos_nsp',`hospital_id=eq.${h.id}&select=tipo,data,subnucleo,participantes`),
+      q('nsp_usuarios',`hospital_id=eq.${h.id}&select=id,subnucleo`),
+      q('saq_respostas',`hospital_id=eq.${h.id}&select=ciclo,created_at`),
+      q('experiencia_paciente',`hospital_id=eq.${h.id}&select=*`),
+    ]).then(([nots,planos,prots,cfg,treins,usuarios,saq,exp])=>setD({nots:nots||[],planos:planos||[],prots:prots||[],cfg:(cfg&&cfg[0])||{},treins:treins||[],usuarios,saq:saq||[],exp}))
+      .finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+
+  const ini=ano+'-01-01',fim=ano+'-12-31',hoje=new Date().toISOString().slice(0,10);
+  const noAno=s=>s&&s.slice(0,10)>=ini&&s.slice(0,10)<=fim;
+  const pct=(a,b)=>b?Math.round(a/b*100):null;
+  const st=(v,ok,at)=>v===null||v===undefined?'sem':v>=ok?'ok':v>=at?'at':'crit';
+  let grupos=[];
+  if(d){
+    const nots=d.nots.filter(n=>noAno(n.event_date||n.created_at));
+    const sp=nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
+    const comDano=sp.filter(eventoComDano);
+    const comunicados=comDano.filter(n=>n.comunicado_paciente==='comunicado'||n.comunicado_paciente==='nao_aplicavel'||n.comunicado_paciente==='sem_contato'||n.comunicado_paciente==='recusou');
+    const comRCA=sp.filter(n=>n.rca_gerado);
+    const dias=comRCA.map(n=>n.rca_concluido_em?(new Date(n.rca_concluido_em)-new Date(n.created_at))/864e5:null).filter(x=>x!==null&&x>=0);
+    const mediaDias=dias.length?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+    const idsAno=new Set(sp.map(n=>n.id));
+    const planos=d.planos.filter(p=>idsAno.has(p.notification_id)&&p.status!=='cancelado');
+    const concl=planos.filter(p=>p.status==='concluido');
+    const noPrazo=concl.filter(p=>!p.prazo||!p.concluido_em||p.concluido_em.slice(0,10)<=p.prazo);
+    const notivisa=sp.filter(n=>n.notivisa_enviado);
+    const sentinelas=sp.filter(n=>n.gravidade==='Evento sentinela'||/obito/.test(semAcento(n.patient_outcome)));
+    const nearMiss=sp.filter(n=>/near miss|circunstancia/.test(semAcento((n.gravidade||'')+' '+(n.patient_outcome||'')+' '+(n.event_subtype||''))));
+    const cfg=d.cfg;
+    const pspVenc=cfg.data_atualizacao_psp?vencimentoPadrao(cfg.data_atualizacao_psp):null;
+    const protsVig=d.prots.filter(p=>p.proxima_revisao&&p.proxima_revisao>=hoje);
+    const treinos=d.treins.filter(t=>noAno(t.data)&&t.tipo==='treinamento');
+    const reunioes=d.treins.filter(t=>noAno(t.data)&&(t.tipo||'').startsWith('reuniao'));
+    const subsComAcesso=d.usuarios?SUBNUCLEOS_HNSA.filter(s=>d.usuarios.some(u=>u.subnucleo===s.id)).length:null;
+    const subsComTreino=SUBNUCLEOS_HNSA.filter(s=>treinos.some(t=>t.subnucleo===s.id)).length;
+    const saqAno=d.saq.filter(r=>noAno(r.created_at)||String(r.ciclo||'').startsWith(ano)).length;
+    const expAno=d.exp?d.exp.filter(r=>noAno(r.created_at)):null;
+    const RE=expAno?resumoExperiencia(expAno):null;
+    const pComunic=pct(comunicados.length,comDano.length);
+    grupos=[
+      {t:'Estrutura',s:'O NSP está instituído e organizado?',itens:[
+        {n:'Portaria/ato de criação do NSP',v:cfg.numero_portaria_nsp||cfg.link_portaria_nsp?'Cadastrada':'Não cadastrada',st:cfg.numero_portaria_nsp||cfg.link_portaria_nsp?'ok':'crit',ir:'protocolos'},
+        {n:'Plano de Segurança do Paciente (PSP)',v:!pspVenc?(cfg.link_psp?'Cadastrado (sem data)':'Não cadastrado'):pspVenc>=hoje?'Vigente até '+new Date(pspVenc+'T12:00:00').toLocaleDateString('pt-BR'):'Vencido',st:!pspVenc?(cfg.link_psp?'at':'crit'):pspVenc>=hoje?'ok':'crit',ir:'protocolos'},
+        {n:'Protocolos dentro da validade',v:d.prots.length?protsVig.length+' de '+d.prots.length+' ('+pct(protsVig.length,d.prots.length)+'%)':'Nenhum cadastrado',st:d.prots.length?st(pct(protsVig.length,d.prots.length),90,70):'crit',ir:'protocolos'},
+        {n:'Subnúcleos com acesso próprio',v:subsComAcesso===null?'—':subsComAcesso+' de '+SUBNUCLEOS_HNSA.length,st:subsComAcesso===null?'sem':st(pct(subsComAcesso,SUBNUCLEOS_HNSA.length),100,60),ir:'admin'},
+        {n:'Reuniões do NSP no ano',v:String(reunioes.length),st:reunioes.length>=Math.min(12,new Date().getFullYear()===Number(ano)?new Date().getMonth():12)*0.8?'ok':reunioes.length?'at':'crit',ir:'treinamentos'},
+      ]},
+      {t:'Processo',s:'O cuidado seguro está acontecendo?',itens:[
+        {n:'Notificações analisadas (RCA)',v:sp.length?comRCA.length+' de '+sp.length+' ('+pct(comRCA.length,sp.length)+'%)':'Sem notificações',st:sp.length?st(pct(comRCA.length,sp.length),80,50):'sem',ir:'notificacoes'},
+        {n:'Tempo médio até a análise',v:mediaDias===null?'—':mediaDias+' dias',st:mediaDias===null?'sem':mediaDias<=30?'ok':mediaDias<=60?'at':'crit',ir:'notificacoes'},
+        {n:'Ações concluídas no prazo',v:planos.length?noPrazo.length+' de '+planos.length+' ('+pct(noPrazo.length,planos.length)+'%)':'Sem planos',st:planos.length?st(pct(noPrazo.length,planos.length),80,50):'sem',ir:'acoes'},
+        {n:'Notificações enviadas ao Notivisa',v:sp.length?notivisa.length+' de '+sp.length+' ('+pct(notivisa.length,sp.length)+'%)':'—',st:sp.length?st(pct(notivisa.length,sp.length),90,60):'sem',ir:'notificacoes'},
+        {n:'Eventos com dano comunicados ao paciente/família',v:comDano.length?comunicados.length+' de '+comDano.length+' ('+pComunic+'%)':'Nenhum evento com dano',st:comDano.length?st(pComunic,90,60):'sem',ir:'notificacoes',novo:true},
+        {n:'Subnúcleos com treinamento no ano',v:subsComTreino+' de '+SUBNUCLEOS_HNSA.length+' · '+treinos.length+' treinamentos',st:st(pct(subsComTreino,SUBNUCLEOS_HNSA.length),100,60),ir:'treinamentos'},
+        {n:'Pesquisa de cultura de segurança',v:saqAno?saqAno+' respostas':'Não aplicada no ano',st:saqAno>=30?'ok':saqAno?'at':'crit',ir:'saq_dashboard'},
+      ]},
+      {t:'Resultado',s:'O que mudou para o paciente?',itens:[
+        {n:'Notificações de segurança do paciente',v:String(sp.length),st:sp.length?'ok':'at',info:'Mais notificações costuma indicar cultura de notificação, não mais erros.',ir:'analytics'},
+        {n:'Eventos com dano',v:String(comDano.length)+(sp.length?' ('+pct(comDano.length,sp.length)+'% das notificações)':''),st:'info',ir:'analytics'},
+        {n:'Eventos sentinela / óbitos',v:String(sentinelas.length),st:sentinelas.length?'crit':'ok',ir:'notificacoes'},
+        {n:'Quase-erros e circunstâncias de risco',v:String(nearMiss.length),st:'info',info:'Notificar o que quase aconteceu mostra equipe atenta.',ir:'analytics'},
+        {n:'Experiência do paciente ("sim" nas perguntas)',v:!RE?'Ative a pesquisa (SQL 004)':RE.n?RE.pctSim+'% · '+RE.n+' respostas':'Sem respostas',st:!RE?'sem':RE.n?st(RE.pctSim,85,70):'at',ir:'experiencia_dash',novo:true},
+        {n:'Recomendação do hospital (NPS)',v:!RE||!RE.n||RE.nps===null?'—':String(RE.nps),st:!RE||!RE.n||RE.nps===null?'sem':RE.nps>=50?'ok':RE.nps>=0?'at':'crit',ir:'experiencia_dash',novo:true},
+      ]},
+    ];
+  }
+  const COR={ok:C.green,at:C.yellow,crit:C.red,sem:C.muted,info:C.blue};
+  const ROT={ok:'Bom',at:'Atenção',crit:'Crítico',sem:'Sem dado',info:'Acompanhar'};
+  const imprimir=()=>{
+    const w=window.open('','_blank');if(!w) return;
+    const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    w.document.write(`<html><head><meta charset="UTF-8"/><title>Painel PNQSP ${ano} - ${esc(siglaH(h))}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}h1{font-size:18px;margin:0}h2{font-size:14px;margin:18px 0 6px;color:#0D3B66}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:6px 4px}td.s{font-weight:700;width:90px}.m{color:#666;font-size:11px}</style></head><body>
+<h1>Painel de Qualidade e Segurança do Paciente — ${ano}</h1><div class="m">${esc(nomeH(h))} · ${esc(PNQSP_REF)} e RDC Anvisa 36/2013 · gerado em ${new Date().toLocaleDateString('pt-BR')} pelo NotificaAI</div>
+${grupos.map(g=>`<h2>${g.t} — ${g.s}</h2><table>${g.itens.map(i=>`<tr><td>${esc(i.n)}</td><td>${esc(i.v)}</td><td class="s">${ROT[i.st]}</td></tr>`).join('')}</table>`).join('')}
+</body></html>`);
+    w.document.close();setTimeout(()=>w.print(),300);
+  };
+  const anos=[];for(let a=anoAtual;a>=anoAtual-3;a--) anos.push(String(a));
+  return(<div>
+    <BackHeader title='Painel PNQSP' subtitle={'Estrutura · processo · resultado — '+PNQSP_REF}
+      right={d&&<button onClick={imprimir} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Imprimir</button>}/>
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>A Política Nacional de Qualidade e Segurança do Paciente (2026) acompanha os serviços por indicadores de <b style={{color:C.text}}>estrutura, processo e resultado</b>, valoriza a <b style={{color:C.text}}>experiência do paciente</b> e a <b style={{color:C.text}}>comunicação transparente</b> dos eventos adversos. Ela não substitui a RDC 36/2013: o NSP, a notificação e o PSP continuam obrigatórios. Toque em um indicador para ir à tela correspondente.</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {anos.map(a=><button key={a} onClick={()=>setAno(a)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(ano===a?C.teal:C.border),background:ano===a?C.teal+'20':'transparent',color:ano===a?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{a}</button>)}
+      </div>
+      {loading||!d?<div style={{color:C.muted,fontSize:12}}>{loading?'Carregando...':'Configure o banco de dados para ver o painel.'}</div>:grupos.map(g=><div key={g.t} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px'}}>
+        <div style={{fontSize:14,fontWeight:900,color:C.text}}>{g.t}</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{g.s}</div>
+        {g.itens.map(i=><div key={i.n} onClick={()=>i.ir&&setView&&setView(i.ir)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderTop:'1px solid '+C.border,cursor:i.ir?'pointer':'default'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:COR[i.st],flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,color:C.text,fontWeight:600}}>{i.n}{i.novo&&<span style={{fontSize:8,background:C.teal+'22',color:C.teal,borderRadius:4,padding:'1px 5px',marginLeft:6,fontWeight:800,verticalAlign:'middle'}}>PNQSP</span>}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>{i.v}</div>
+            {i.info&&<div style={{fontSize:10,color:C.muted,marginTop:1,fontStyle:'italic'}}>{i.info}</div>}
+          </div>
+          <span style={{fontSize:10,fontWeight:800,color:COR[i.st],flexShrink:0}}>{ROT[i.st]}</span>
+        </div>)}
+      </div>)}
+    </div>
+  </div>);
+}
 
 function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
   const h=hospital||DEFAULT_HOSPITAL;
@@ -7385,7 +7788,7 @@ const TABELAS_BACKUP=[
   ['treinamentos_nsp','Treinamentos e reunioes'],['indicadores_dsm','Indicadores DSM'],['indicadores_mensais','Indicadores por setor'],
   ['saq_respostas','Pesquisa de cultura'],['notivisa_analise','Analises Notivisa'],['acao_comentarios','Comentarios de acoes'],
   ['config_dsm','Configuracao DSM'],['semestres_dsm','Semestres DSM'],['setor_emails','Emails por setor'],
-  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],
+  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],['experiencia_paciente','Experiencia do paciente'],
 ];
 async function sbTodos(sbUrl,sbKey,tabela,filtro){
   // pagina de 1000 em 1000 (limite padrao do Supabase por consulta)
@@ -7635,7 +8038,7 @@ function NotificaAI() {
     try{
       const p=new URLSearchParams(window.location.search);
       const v=p.get('view');
-      const permitidas=['notificar','central','saq_publico','acompanhar'];
+      const permitidas=['notificar','central','saq_publico','acompanhar','experiencia'];
       return (v&&permitidas.includes(v))?v:'notificar';
     }catch{return'notificar';}
   });
@@ -7716,7 +8119,7 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'experiencia',label:'Avaliar atendimento',curto:'Avaliar',icon:IconHeart},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const gestorTabs=[
     {id:'home',label:'Painel',icon:IconHome,grupo:'Dia a dia'},
     {id:'notificacoes',label:'Notificações',icon:IconMsg,grupo:'Dia a dia'},
@@ -7725,10 +8128,12 @@ function NotificaAI() {
     {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Documentos'},
     {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Documentos'},
     {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Indicadores e relatórios'},
+    {id:'pnqsp',label:'Painel PNQSP',icon:IconShield,grupo:'Indicadores e relatórios'},
     {id:'relatorio_dsm',label:'Relatório DSM / ANVISA',icon:IconShield,grupo:'Indicadores e relatórios'},
     {id:'analytics',label:'Análises e gráficos',icon:IconBar,grupo:'Indicadores e relatórios'},
     {id:'auditar',label:'Auditoria (dossiê)',icon:IconAudit,grupo:'Indicadores e relatórios'},
     {id:'saq_dashboard',label:'Pesquisa de cultura',icon:IconBar,grupo:'Equipe e cultura'},
+    {id:'experiencia_dash',label:'Experiência do paciente',icon:IconHeart,grupo:'Equipe e cultura'},
     {id:'central',label:'Central de Conhecimento',icon:IconBook,grupo:'Equipe e cultura'},
     {id:'admin',label:'Admin · usuários e backup',icon:IconGear,grupo:'Administração'},
   ];
@@ -7827,6 +8232,9 @@ function NotificaAI() {
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
         {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='experiencia'&&<ExperienciaPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='experiencia_dash'&&<ExperienciaDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='pnqsp'&&<PainelPNQSPView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} setView={setView}/>}
       </div></div>
 
       {/* NAV + MENU HAMBURGUER */}

@@ -45,7 +45,12 @@
         sector: pick(SETORES), event_date: iso(d), shift: rnd() < 0.55 ? 'Dia' : 'Noite', event_subtype: ev[0], description: ev[1], measures_taken: 'Equipe acionada e paciente avaliado.',
         gravidade: grav, status: 'aberto', rca_gerado: comRCA, rca_concluido_em: comRCA ? diasAtras(Math.max(0, dias - 5)).toISOString() : null, is_test: false,
         patient_age: adm ? null : 25 + Math.floor(rnd() * 60), plano_fechado_em: comRCA && antigo && rnd() < 0.6 ? diasAtras(Math.max(0, dias - 30)).toISOString() : null,
-        risco_probabilidade: comRCA ? 1 + Math.floor(rnd() * 4) : null, notivisa_enviado: comRCA && rnd() < 0.5 });
+        risco_probabilidade: comRCA ? 1 + Math.floor(rnd() * 4) : null, notivisa_enviado: comRCA && rnd() < 0.5,
+        patient_outcome: adm ? null : grav === 'Evento sentinela' ? 'Dano grave' : grav ? 'Near miss - sem dano' : pick(['Sem dano', 'Sem dano', 'Sem dano', 'Dano leve', 'Dano leve', 'Dano moderado']) });
+      var ult = DB.notifications[DB.notifications.length - 1];
+      if (!adm && /Dano|sentinela/.test((ult.patient_outcome || '') + (ult.gravidade || '')) && (antigo ? rnd() < 0.75 : rnd() < 0.3)) {
+        ult.comunicado_paciente = 'comunicado'; ult.comunicado_em = iso(diasAtras(Math.max(0, dias - 2))); ult.comunicado_por = pick(['Enfermeira do setor', 'Médico assistente', 'Coordenação NSP']);
+      }
     }
     // planos de ação das notificações com RCA
     DB.notifications.filter(function (n) { return n.rca_gerado; }).forEach(function (n) {
@@ -92,6 +97,18 @@
         DB.saq_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 60)).toISOString(), hospital_id: HID, setor: pick(SETORES), categoria: pick(['Enfermagem', 'Medicina', 'Técnico de enfermagem', 'Apoio']), ciclo: ciclo, respostas: resp });
       }
     } catch (e) { }
+    experiencia();
+  }
+
+  // pesquisa de experiência do paciente (PNQSP)
+  function experiencia() {
+    DB.experiencia_paciente = [];
+    var coments = ['Equipe muito atenciosa, sempre conferiam a pulseira.', 'Demoraram para explicar a troca do remédio.', 'Ótimo atendimento da enfermagem no plantão noturno.', 'Gostaria de mais informação sobre a alta.', 'Me senti seguro o tempo todo.'];
+    for (var i = 0; i < 46; i++) {
+      var bom = rnd() < 0.78, r = function () { var x = rnd(); return bom ? (x < 0.82 ? 2 : x < 0.95 ? 1 : 0) : (x < 0.45 ? 2 : x < 0.75 ? 1 : 0); };
+      DB.experiencia_paciente.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 300)).toISOString(), hospital_id: HID, perfil: rnd() < 0.55 ? 'acompanhante' : 'paciente', setor: rnd() < 0.85 ? pick(SETORES.slice(0, 3)) : null,
+        q_identificacao: r(), q_maos: rnd() < 0.1 ? null : r(), q_informacao: r(), q_escuta: r(), q_seguranca: r(), nota: bom ? 8 + Math.floor(rnd() * 3) : 4 + Math.floor(rnd() * 5), comentario: rnd() < 0.3 ? pick(coments) : null });
+    }
   }
 
   // usuários de demonstração (PIN com o mesmo cálculo local do app)

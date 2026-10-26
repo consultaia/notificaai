@@ -49,6 +49,7 @@ npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put RESEND_API_KEY           # opcional: aviso por email
 npx wrangler secret put EMAIL_REMETENTE          # ex.: "Dri <avisos@seudominio.com.br>"
+npx wrangler secret put ALERTA_EMAIL             # opcional: recebe o autoteste diário das IAs
 npm run deploy
 npm test                                         # testes da agenda e da conversa
 ```
@@ -64,6 +65,15 @@ As chaves que você põe no Worker (`GEMINI_API_KEY` etc.) viram **reserva compa
 usadas se as do corretor falharem ou se ele ainda não cadastrou nenhuma. Para desligar a reserva,
 ponha `IA_RESERVA_PLATAFORMA = "nao"` em `wrangler.toml`. Quando uma chave do corretor falha, o
 painel mostra o erro para ele gerar outra.
+
+**Se um provedor aposentar o modelo** (o Groq tirou o Llama do ar de um dia para o outro em 2026):
+1. cada IA tem uma lista de modelos em ordem de preferência (`worker/src/ia.js`); se um sumir, a Dri
+   usa o próximo da mesma IA na hora, sem o cliente perceber;
+2. se a lista inteira sumir, a Dri pergunta ao provedor quais modelos existem e escolhe um da mesma família;
+3. se ainda assim falhar, passa para a próxima IA;
+4. todo dia às 8h um autoteste roda em cada IA e manda email para `ALERTA_EMAIL` se algo caiu ou
+   mudou de modelo, para você atualizar a lista com calma. Para trocar o modelo sem mexer no código:
+   `GROQ_MODELO`, `GEMINI_MODELO`, `CEREBRAS_MODELO` (aceitam lista separada por vírgula).
 
 A Dri pergunta para a primeira da fila. Se ela der erro, bater o limite do plano gratuito ou
 demorar mais de 25 s, a mesma pergunta vai para a próxima, sem o cliente perceber. Uma IA que

@@ -19,11 +19,11 @@
 // Segredos (wrangler secret put …): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e pelo menos uma IA:
 //   GEMINI_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY (as três = troca automática)
 // Opcionais: RESEND_API_KEY + EMAIL_REMETENTE, TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM,
-//   IA_ORDEM, *_MODELO, GRAPH_VERSION
+//   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs)
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder } from "./agente.js";
-import { provedoresAtivos, validarChave, PROVEDORES } from "./ia.js";
+import { provedoresAtivos, validarChave, PROVEDORES, autotestar } from "./ia.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
   lerNumero, assinarWaba, registrarNumero,
@@ -80,6 +80,11 @@ async function prepararConexao(db, contaId) {
 const soNumeros = (v) => String(v || "").replace(/\D/g, "");
 
 export default {
+  // Autoteste diário das IAs (cron em wrangler.toml): avisa por email se alguma caiu ou trocou de modelo
+  async scheduled(_evento, env, ctx) {
+    ctx.waitUntil(avisarAutoteste(env));
+  },
+
   async fetch(req, env, ctx) {
     const url = new URL(req.url);
     const rota = `${req.method} ${url.pathname.replace(/\/+$/, "") || "/"}`;
@@ -250,6 +255,29 @@ export default {
     }
   },
 };
+
+export async function avisarAutoteste(env) {
+  const { resultados, eventos } = await autotestar(env);
+  const problemas = resultados.filter((r) => !r.ok || !r.usou_ferramenta);
+  console.log("autoteste IA", JSON.stringify({ resultados, eventos }));
+  if (!problemas.length && !eventos.length) return { resultados, eventos, avisado: false };
+  if (!(env.RESEND_API_KEY && env.EMAIL_REMETENTE && env.ALERTA_EMAIL)) return { resultados, eventos, avisado: false };
+  const linhas = [
+    ...resultados.map((r) => r.ok
+      ? `${r.ok && r.usou_ferramenta ? "OK" : "ATENÇÃO"} ${r.provedor}: modelo ${r.modelo}${r.usou_ferramenta ? "" : " respondeu sem usar a ferramenta"}`
+      : `FALHOU ${r.provedor}: ${r.erro}`),
+    ...eventos.map((e) => e.tipo === "aposentado"
+      ? `Modelo aposentado: ${e.provedor} ${e.modelo} (${e.erro})`
+      : `Modelo novo em uso: ${e.provedor} ${e.modelo} (achado automaticamente)`),
+    "", "A Dri continua atendendo com as outras opções. Para fixar o modelo novo, atualize GROQ_MODELO / GEMINI_MODELO / CEREBRAS_MODELO ou a lista em worker/src/ia.js.",
+  ];
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ from: env.EMAIL_REMETENTE, to: [env.ALERTA_EMAIL], subject: "Dri: atenção com as IAs", text: linhas.join("\n") }),
+  }).catch((e) => console.error("email autoteste", e));
+  return { resultados, eventos, avisado: true };
+}
 
 // Webhook: descarta repetidas e entrega cada mensagem ao objeto da conversa
 async function encaminhar(env, contaId, msgs) {

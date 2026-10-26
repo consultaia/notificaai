@@ -429,9 +429,29 @@ function Simulador({conta}){
 
 // ======================================================================== IA própria
 const IAS = [
-  { id:"groq", nome:"Groq", link:"https://console.groq.com/keys", passos:"Entre com Google ou email → API Keys → Create API Key → copie.", nota:"A mais rápida. Não usa suas conversas para treinar." },
-  { id:"gemini", nome:"Gemini (Google)", link:"https://aistudio.google.com/apikey", passos:"Entre com sua conta Google → Criar chave de API → copie.", nota:"No plano gratuito o Google pode usar o conteúdo para melhorar os produtos dele." },
-  { id:"cerebras", nome:"Cerebras", link:"https://cloud.cerebras.ai", passos:"Crie a conta → API Keys → Generate API Key → copie.", nota:"Reserva rápida. Não usa suas conversas para treinar." },
+  { id:"groq", nome:"Groq", link:"https://console.groq.com/keys", prefixo:"gsk_", tempo:"2 min", recomendada:true,
+    nota:"A mais rápida. Não usa suas conversas para treinar.",
+    passos:[ <>Clique em <b>Abrir o Groq</b> abaixo (abre em outra aba).</>,
+      <>Clique em <b>Sign in</b> e escolha <b>Continue with Google</b> (ou use seu email).</>,
+      <>Se aparecerem termos de uso, aceite.</>,
+      <>Na página <b>API Keys</b>, clique em <b>Create API Key</b>.</>,
+      <>Em nome, escreva <i>Dri</i> e clique em <b>Submit</b>.</>,
+      <>Clique no ícone de copiar ao lado da chave. Ela começa com <code>gsk_</code> e <b>só aparece uma vez</b>.</>,
+      <>Volte aqui, cole no campo e clique em <b>Salvar</b>.</> ] },
+  { id:"gemini", nome:"Gemini (Google)", link:"https://aistudio.google.com/apikey", prefixo:"AIza", tempo:"2 min", recomendada:true,
+    nota:"No plano gratuito o Google pode usar o conteúdo para melhorar os produtos dele.",
+    passos:[ <>Clique em <b>Abrir o Gemini</b> abaixo (abre em outra aba).</>,
+      <>Entre com sua conta Google e aceite os termos do <b>Google AI Studio</b>.</>,
+      <>Clique em <b>Criar chave de API</b> (em inglês: <i>Create API key</i>).</>,
+      <>Se perguntar qual projeto, escolha o que aparecer ou <b>Criar projeto</b>.</>,
+      <>Copie a chave. Ela começa com <code>AIza</code>.</>,
+      <>Volte aqui, cole no campo e clique em <b>Salvar</b>.</> ] },
+  { id:"cerebras", nome:"Cerebras (opcional)", link:"https://cloud.cerebras.ai", prefixo:"csk-", tempo:"3 min", recomendada:false,
+    nota:"Reserva extra. Hoje pode pedir cartão para liberar o uso gratuito; se pedir, pode pular.",
+    passos:[ <>Clique em <b>Abrir o Cerebras</b> abaixo e crie a conta.</>,
+      <>No menu, abra <b>API Keys</b> e clique em <b>Generate API Key</b>.</>,
+      <>Copie a chave. Ela começa com <code>csk-</code>.</>,
+      <>Volte aqui, cole no campo e clique em <b>Salvar</b>.</> ] },
 ];
 function IA({conta}){
   const [st,setSt]=useState(null); const [chaves,setChaves]=useState({}); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState("");
@@ -451,17 +471,24 @@ function IA({conta}){
       {st && (total===0
         ? <div className="msg warn" style={{cursor:"default"}}>{st.reserva_da_plataforma ? "Você ainda não tem chave própria: a assistente está usando a reserva compartilhada da plataforma, que tem limite dividido entre todos. Cadastre pelo menos uma abaixo." : "Cadastre pelo menos uma chave para a assistente funcionar."}</div>
         : <div className="msg ok" style={{cursor:"default"}}>{total} de 3 IAs cadastradas.{total<3 && " Com as três, uma cobre a outra."}</div>)}
-      <div className="list">{IAS.map(p=>{ const m=minha(p.id); return (
+      <p className="small" style={{marginBottom:4}}><b>Recomendado:</b> cadastre o <b>Groq</b> e o <b>Gemini</b> (uns 5 minutos no total). Com duas, quando uma atinge o limite do dia, a outra continua.</p>
+      <div className="list">{IAS.map((p,i)=>{ const m=minha(p.id); const v=(chaves[p.id]||"").trim();
+        const prefixoErrado = v.length>8 && !v.startsWith(p.prefixo);
+        return (
         <div key={p.id}>
-          <div className="between"><b>{p.nome}</b>{m ? <span className="pill ok">cadastrada {m.final}</span> : <span className="pill">não cadastrada</span>}</div>
-          <div className="small" style={{margin:"4px 0"}}><a href={p.link} target="_blank" rel="noreferrer">Abrir o site</a> · {p.passos}</div>
-          <div className="small muted">{p.nota}</div>
-          {m?.ultimo_erro && <div className="msg bad small" style={{cursor:"default",marginTop:6}}>Falhou em {fmtDT(m.ultimo_erro_em)}: {m.ultimo_erro}. Se continuar, gere uma chave nova.</div>}
-          <div className="row" style={{marginTop:6,flexWrap:"nowrap"}}>
-            <input type="password" autoComplete="off" placeholder={m?"Colar chave nova para trocar":"Cole a chave aqui"} value={chaves[p.id]||""} onChange={e=>setChaves({...chaves,[p.id]:e.target.value})}/>
-            <button className="btn btn-primary btn-sm" disabled={!chaves[p.id]||ocupado===p.id} onClick={()=>salvar(p.id)}>{ocupado===p.id?"Conferindo…":"Salvar"}</button>
+          <details open={!m && (p.recomendada || i===0)}>
+            <summary className="between" style={{cursor:"pointer"}}><b>{p.nome}</b>{m ? <span className="pill ok">✓ cadastrada {m.final}</span> : <span className="pill">{p.tempo}</span>}</summary>
+            <p className="small muted" style={{margin:"6px 0"}}>{p.nota}</p>
+            <ol className="passo small">{p.passos.map((x,k)=><li key={k}>{x}</li>)}</ol>
+            <a className="btn btn-ghost btn-sm" href={p.link} target="_blank" rel="noreferrer">Abrir o {p.nome.split(" ")[0]} ↗</a>
+          </details>
+          {m?.ultimo_erro && <div className="msg bad small" style={{cursor:"default",marginTop:6}}>Falhou em {fmtDT(m.ultimo_erro_em)}: {m.ultimo_erro}. Se continuar, gere uma chave nova e cole aqui.</div>}
+          <div className="row" style={{marginTop:8,flexWrap:"nowrap"}}>
+            <input type="password" autoComplete="off" placeholder={m?"Colar chave nova para trocar":`Cole a chave (começa com ${p.prefixo})`} value={chaves[p.id]||""} onChange={e=>setChaves({...chaves,[p.id]:e.target.value})}/>
+            <button className="btn btn-primary btn-sm" disabled={!v||ocupado===p.id} onClick={()=>salvar(p.id)}>{ocupado===p.id?"Conferindo…":"Salvar"}</button>
             {m && <button className="btn btn-bad btn-sm" onClick={()=>remover(p.id)}>Remover</button>}
           </div>
+          {prefixoErrado && <div className="small" style={{color:"var(--warn)",marginTop:4}}>Essa não parece uma chave do {p.nome.split(" ")[0]} (deveria começar com {p.prefixo}). Confira se copiou a chave certa.</div>}
         </div>); })}</div>
     </div>
   );

@@ -11,8 +11,13 @@ class_name = "Conversa"
 tag = "v1"
 new_sqlite_classes = ["Conversa"]
 
+# Autoteste das IAs todo dia às 8h (Brasília)
+[triggers]
+crons = ["0 11 * * *"]
+
 [vars]
 GRAPH_VERSION = "v23.0"
 IA_ORDEM = "gemini,groq,cerebras"
 # PAINEL_URL = "https://SEU-PAINEL/app.html"
 # PAINEL_ORIGEM = "https://SEU-PAINEL"
+# ALERTA_EMAIL = "voce@exemplo.com"   # recebe o aviso se uma IA cair ou trocar de modelo

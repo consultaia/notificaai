@@ -27,6 +27,7 @@ Como conduzir a conversa:
 - Use buscar_imoveis para achar opções. Apresente no máximo 3 por vez, com o essencial: bairro, quartos, área, vagas e valor. Ofereça fotos (enviar_fotos) e detalhes.
 - Só fale de imóveis que vieram das ferramentas. Nunca invente imóvel, valor, característica ou condição. Se não houver nada no perfil, diga com franqueza, sugira ajustar a busca e ofereça avisar o corretor (chamar_corretor) para procurar algo fora da carteira.
 - Endereço exato só depois que a visita estiver marcada. Antes disso, fale só o bairro.
+- Lançamentos e imóveis na planta vêm agrupados por empreendimento: apresente o empreendimento e as plantas disponíveis. Se houver book, ofereça mandar (enviar_book). Se não houver preço cadastrado, diga que o corretor passa a tabela atualizada e as condições, e use chamar_corretor se a pessoa quiser os valores.
 - Para marcar visita: consulte horarios_visita, ofereça 2 ou 3 horários, confirme o nome da pessoa e use marcar_visita com o horário exato devolvido pela ferramenta. Depois confirme dia, hora e endereço.
 - Para remarcar ou cancelar, use visitas_do_cliente e cancelar_visita, depois marque o novo horário.
 - Guarde o que a pessoa procura com salvar_perfil_cliente assim que souber (ajuda o corretor).
@@ -52,7 +53,7 @@ const FERRAMENTAS = [
         preco_max: { type: "number" },
         quartos_min: { type: "integer" },
         vagas_min: { type: "integer" },
-        palavra_chave: { type: "string", description: "Procura no título, descrição e características (ex.: varanda, piscina, pet)" },
+        palavra_chave: { type: "string", description: "Procura no título, empreendimento, descrição e características (ex.: varanda, piscina, pet, nome do empreendimento)" },
       },
     },
   },
@@ -68,6 +69,11 @@ const FERRAMENTAS = [
       type: "object", additionalProperties: false, required: ["imovel_id"],
       properties: { imovel_id: { type: "string" }, quantidade: { type: "integer", description: "1 a 5, padrão 3" } },
     },
+  },
+  {
+    name: "enviar_book",
+    description: "Envia o book (PDF de apresentação) do empreendimento para a pessoa no WhatsApp.",
+    input_schema: { type: "object", additionalProperties: false, required: ["imovel_id"], properties: { imovel_id: { type: "string" } } },
   },
   {
     name: "horarios_visita",
@@ -131,6 +137,7 @@ function resumoImovel(i) {
     bairro: i.bairro, cidade: i.cidade, valor: brl(i.preco), condominio: brl(i.condominio),
     quartos: i.quartos, suites: i.suites, vagas: i.vagas, area_m2: i.area_m2,
     fotos: (i.fotos || []).length,
+    ...(i.empreendimento ? { empreendimento: i.empreendimento, situacao: i.situacao, previsao_entrega: i.previsao_entrega, programa: i.programa, tem_book: !!i.book_url } : {}),
   };
 }
 
@@ -152,16 +159,16 @@ async function executar(nome, input, ctx) {
       let lista = data || [];
       if (input.palavra_chave) {
         const p = input.palavra_chave.toLowerCase();
-        lista = lista.filter((i) => [i.titulo, i.descricao, ...(i.caracteristicas || [])].join(" ").toLowerCase().includes(p));
+        lista = lista.filter((i) => [i.titulo, i.empreendimento, i.descricao, ...(i.caracteristicas || [])].join(" ").toLowerCase().includes(p));
       }
       return { total_encontrado: lista.length, imoveis: lista.slice(0, 5).map(resumoImovel) };
     }
     case "detalhes_imovel": {
       const i = await imovelDaConta(ctx, input.imovel_id);
-      const { endereco, fotos, conta_id, criado_em, atualizado_em, ativo, ...resto } = i;
+      const { endereco, fotos, conta_id, criado_em, atualizado_em, ativo, book_url, ...resto } = i;
       return {
-        ...resto, preco: brl(i.preco), condominio: brl(i.condominio), iptu: brl(i.iptu),
-        quantidade_fotos: (fotos || []).length,
+        ...resto, preco: brl(i.preco) || "sob consulta", condominio: brl(i.condominio), iptu: brl(i.iptu),
+        quantidade_fotos: (fotos || []).length, tem_book: !!book_url,
       };
     }
     case "enviar_fotos": {
@@ -170,6 +177,13 @@ async function executar(nome, input, ctx) {
       if (!fotos.length) return { enviadas: 0, aviso: "Este imóvel ainda não tem fotos cadastradas." };
       for (const [n, url] of fotos.entries()) await ctx.enviarFoto(url, n === 0 ? i.titulo : null);
       return { enviadas: fotos.length, total_disponivel: i.fotos.length };
+    }
+    case "enviar_book": {
+      const i = await imovelDaConta(ctx, input.imovel_id);
+      if (!i.book_url) return { enviado: false, aviso: "Este imóvel não tem book cadastrado." };
+      const nome = `${(i.empreendimento || i.titulo).replace(/[^\p{L}\p{N} -]/gu, "").trim().slice(0, 60) || "book"}.pdf`;
+      await ctx.enviarArquivo(i.book_url, nome, i.empreendimento || i.titulo);
+      return { enviado: true };
     }
     case "horarios_visita": {
       await imovelDaConta(ctx, input.imovel_id);

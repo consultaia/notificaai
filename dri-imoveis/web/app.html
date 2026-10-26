@@ -99,7 +99,11 @@ const DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const brl = (v)=> v==null||v==="" ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
 const fmtDT = (iso)=> new Date(iso).toLocaleString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Bahia"});
 const fmtTel = (t)=>{ const d=String(t||"").replace(/\D/g,""); if(d.length===13) return `(${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`; if(d.length===12) return `(${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`; return t||"—"; };
-const num = (v)=> v===""||v==null ? null : Number(String(v).replace(/\./g,"").replace(",","."));
+// Número em formato brasileiro ("1.200.000", "38,54") ou já numérico (38.54)
+const num = (v)=>{ if(v===""||v==null) return null; if(typeof v==="number") return isFinite(v)?v:null;
+  const t=String(v).trim().replace(/[R$\s]/g,""); if(!t) return null;
+  const n = t.includes(",") ? Number(t.replace(/\./g,"").replace(",",".")) : /^\d+\.\d{1,2}$/.test(t) ? Number(t) : Number(t.replace(/\./g,""));
+  return isFinite(n) ? n : null; };
 
 async function worker(caminho, corpo){
   const { data:{ session } } = await sb.auth.getSession();
@@ -218,7 +222,8 @@ function Perfil({conta, salvo, botao="Salvar"}){
 
 // ======================================================================== imóveis
 const VAZIO = { titulo:"", codigo:"", finalidade:"venda", tipo:"apartamento", bairro:"", cidade:"", endereco:"", preco:"", condominio:"", iptu:"",
-  quartos:"", suites:"", banheiros:"", vagas:"", area_m2:"", aceita_financiamento:"", aceita_pet:"", mobiliado:"", descricao:"", caracteristicas:"", fotos:[], ativo:true };
+  quartos:"", suites:"", banheiros:"", vagas:"", area_m2:"", aceita_financiamento:"", aceita_pet:"", mobiliado:"", descricao:"", caracteristicas:"", fotos:[], ativo:true,
+  empreendimento:"", construtora:"", situacao:"", previsao_entrega:"", programa:"", book_url:"" };
 
 function FormImovel({conta, imovel, fechar, salvo}){
   const [f,setF]=useState(()=> imovel ? {...VAZIO, ...Object.fromEntries(Object.entries(imovel).map(([k,v])=>[k, v==null?"":v])),
@@ -252,7 +257,9 @@ function FormImovel({conta, imovel, fechar, salvo}){
       bairro:f.bairro||null, cidade:f.cidade||null, endereco:f.endereco||null, preco:num(f.preco), condominio:num(f.condominio), iptu:num(f.iptu),
       quartos:num(f.quartos), suites:num(f.suites), banheiros:num(f.banheiros), vagas:num(f.vagas), area_m2:num(f.area_m2),
       aceita_financiamento:bool(f.aceita_financiamento), aceita_pet:bool(f.aceita_pet), mobiliado:bool(f.mobiliado),
-      descricao:f.descricao||null, caracteristicas:f.caracteristicas.split(",").map(s=>s.trim()).filter(Boolean), fotos:f.fotos, ativo:!!f.ativo };
+      descricao:f.descricao||null, caracteristicas:f.caracteristicas.split(",").map(s=>s.trim()).filter(Boolean), fotos:f.fotos, ativo:!!f.ativo,
+      empreendimento:f.empreendimento||null, construtora:f.construtora||null, situacao:SITUACOES.includes(f.situacao)?f.situacao:null,
+      previsao_entrega:f.previsao_entrega||null, programa:f.programa||null };
     const r = imovel ? await sb.from("imoveis").update(linha).eq("id",imovel.id).select().single() : await sb.from("imoveis").insert(linha).select().single();
     setOcupado(false);
     if(r.error) return setMsg({t:"bad",x:r.error.message});
@@ -279,6 +286,9 @@ function FormImovel({conta, imovel, fechar, salvo}){
         <div><label>Vagas</label><input type="number" min={0} value={f.vagas} onChange={set("vagas")}/></div>
         <div><label>Área (m²)</label><input inputMode="decimal" value={f.area_m2} onChange={set("area_m2")}/></div>
         {f.finalidade==="venda" ? simNao("aceita_financiamento","Aceita financiamento?") : simNao("aceita_pet","Aceita pet?")}
+        <div><label>Empreendimento</label><input value={f.empreendimento} onChange={set("empreendimento")} placeholder="se for lançamento"/></div>
+        <div><label>Situação</label><select value={f.situacao} onChange={set("situacao")}><option value="">—</option>{SITUACOES.map(x=><option key={x}>{x}</option>)}</select></div>
+        <div><label>Previsão de entrega</label><input value={f.previsao_entrega} onChange={set("previsao_entrega")}/></div>
         {simNao("mobiliado","Mobiliado?")}
       </div>
       <label>Endereço completo <span className="muted">(a assistente só informa depois que a visita é marcada)</span></label>
@@ -286,6 +296,7 @@ function FormImovel({conta, imovel, fechar, salvo}){
       <label>Características <span className="muted">(separe por vírgula)</span></label>
       <input value={f.caracteristicas} onChange={set("caracteristicas")} placeholder="varanda gourmet, piscina, academia, nascente, portaria 24h"/>
       <label>Descrição</label><textarea value={f.descricao} onChange={set("descricao")}/>
+      {f.book_url && <p className="small">Book: <a href={f.book_url} target="_blank" rel="noreferrer">abrir PDF</a> <span className="muted">(a assistente envia quando o cliente pede)</span></p>}
       <label>Fotos <span className="muted">(a primeira é a capa)</span></label>
       <div className="fotos">{f.fotos.map((u,i)=><div key={u}><img src={u} alt=""/>
         <button type="button" onClick={()=>setF({...f,fotos:f.fotos.filter(x=>x!==u)})} aria-label="Remover">✕</button>
@@ -299,23 +310,166 @@ function FormImovel({conta, imovel, fechar, salvo}){
   );
 }
 
+// ======================================================================== importar book (PDF)
+const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+function carregarPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise((ok,erro)=>{ const s=document.createElement("script"); s.src=PDFJS+"pdf.min.js";
+    s.onload=()=>{ pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js"; ok(pdfjsLib); }; s.onerror=()=>erro(new Error("Não consegui carregar o leitor de PDF. Confira a internet.")); document.head.appendChild(s); });
+}
+const LIMITE_BOOK = 50*1024*1024;
+const SITUACOES = ["lançamento","na planta","em obras","pronto"];
+
+function ImportarBook({conta, fechar, pronto}){
+  const [fase,setFase]=useState("escolher"); const [prog,setProg]=useState(""); const [msg,setMsg]=useState(null);
+  const [arquivo,setArquivo]=useState(null); const [pags,setPags]=useState([]); const [d,setD]=useState(null); const [sel,setSel]=useState([]);
+  const blobs = useRef({});
+
+  async function ler(e){
+    const f=e.target.files[0]; e.target.value=""; if(!f) return;
+    setArquivo(f); setMsg(null); setFase("lendo");
+    try{
+      const lib = await carregarPdfJs();
+      const pdf = await lib.getDocument({ data: await f.arrayBuffer() }).promise;
+      const lidas=[];
+      for(let n=1;n<=pdf.numPages;n++){
+        setProg(`Lendo página ${n} de ${pdf.numPages}…`);
+        const pg = await pdf.getPage(n);
+        const tc = await pg.getTextContent();
+        const texto = tc.items.map(i=>i.str).join(" ").replace(/\s+/g," ").trim();
+        const vp1 = pg.getViewport({scale:1}); const escala = Math.min(2.5, 1400/vp1.width);
+        const vp = pg.getViewport({scale:escala}); const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+        await pg.render({ canvasContext:c.getContext("2d"), viewport:vp }).promise;
+        blobs.current[n] = await new Promise(ok=>c.toBlob(ok,"image/jpeg",0.82));
+        const t=document.createElement("canvas"); t.width=260; t.height=Math.round(260*c.height/c.width); t.getContext("2d").drawImage(c,0,0,t.width,t.height);
+        lidas.push({ n, texto, mini:t.toDataURL("image/jpeg",0.7) });
+        pg.cleanup();
+      }
+      setPags(lidas);
+      setProg("A IA está lendo o book…"); setFase("analisando");
+      const semTexto = lidas.reduce((a,p)=>a+p.texto.length,0) < 300;
+      const imagens = semTexto ? lidas.slice(0,12).map(p=>({ n:p.n, base64: p.mini.split(",")[1] })) : [];
+      const r = await worker("/importar/analisar",{ total_paginas: lidas.length, paginas: lidas.map(p=>({n:p.n, texto:p.texto})), imagens });
+      const dd = r.dados;
+      if(!dd.plantas.length) dd.plantas=[{ nome: dd.empreendimento||"Unidade", quartos:null, suites:null, area_m2:null, varanda:false, pagina:null }];
+      setD({ ...dd, caracteristicas:(dd.caracteristicas||[]).join(", "), cidade: dd.cidade||conta.cidade||"" });
+      setSel(dd.paginas_fotos.length ? dd.paginas_fotos : lidas.slice(0,6).map(p=>p.n));
+      setFase("revisar");
+    }catch(err){ setMsg({t:"bad",x:err.message}); setFase("escolher"); }
+  }
+
+  const set=(k)=>(e)=>setD({...d,[k]:e.target.value});
+  const setPlanta=(i,k,v)=>setD({...d, plantas:d.plantas.map((p,j)=>j===i?{...p,[k]:v}:p)});
+  const alternar=(n)=>setSel(s=>s.includes(n)?s.filter(x=>x!==n):[...s,n]);
+
+  async function subir(n){
+    const caminho=`${conta.id}/${crypto.randomUUID()}.jpg`;
+    const { error } = await sb.storage.from("fotos-imoveis").upload(caminho, blobs.current[n], { contentType:"image/jpeg" });
+    if(error) throw error; return sb.storage.from("fotos-imoveis").getPublicUrl(caminho).data.publicUrl;
+  }
+  async function salvar(){
+    if(!d.empreendimento?.trim()) return setMsg({t:"bad",x:"Dê um nome ao empreendimento."});
+    setFase("salvando"); setMsg(null);
+    try{
+      const urls={}; const precisa=[...new Set([...sel, ...d.plantas.map(p=>Number(p.pagina)).filter(Boolean)])];
+      for(const [i,n] of precisa.entries()){ setProg(`Enviando imagens ${i+1} de ${precisa.length}…`); urls[n]=await subir(n); }
+      let book_url=null;
+      if(arquivo.size<=LIMITE_BOOK){
+        setProg("Guardando o book para a assistente enviar aos clientes…");
+        const caminho=`${conta.id}/${crypto.randomUUID()}.pdf`;
+        const { error } = await sb.storage.from("books-imoveis").upload(caminho, arquivo, { contentType:"application/pdf" });
+        if(!error) book_url = sb.storage.from("books-imoveis").getPublicUrl(caminho).data.publicUrl;
+      }
+      const comuns = sel.map(n=>urls[n]);
+      const desc = [d.descricao, num(d.preco_a_partir) ? `Valores a partir de ${brl(num(d.preco_a_partir))}.` : null].filter(Boolean).join(" ");
+      const linhas = d.plantas.map(p=>({ conta_id:conta.id, titulo:`${d.empreendimento.trim()} · ${p.nome}`, finalidade:d.finalidade||"venda", tipo:d.tipo||"apartamento",
+        bairro:d.bairro||null, cidade:d.cidade||null, endereco:d.endereco||null, preco: d.plantas.length===1 ? num(d.preco_a_partir) : null,
+        quartos:num(p.quartos), suites:num(p.suites), area_m2:num(p.area_m2), vagas:num(d.vagas),
+        descricao:desc||null, caracteristicas:[...(p.varanda?["varanda"]:[]), ...d.caracteristicas.split(",").map(x=>x.trim()).filter(Boolean)],
+        fotos:[...(p.pagina && urls[p.pagina] ? [urls[p.pagina]] : []), ...comuns.filter(u=>u!==urls[p.pagina])],
+        empreendimento:d.empreendimento.trim(), construtora:d.construtora||null, situacao: SITUACOES.includes(d.situacao)?d.situacao:null,
+        previsao_entrega:d.previsao_entrega||null, programa:d.programa||null, book_url, ativo:true }));
+      const { error } = await sb.from("imoveis").insert(linhas);
+      if(error) throw error;
+      pronto(`${linhas.length} ${linhas.length===1?"planta cadastrada":"plantas cadastradas"} do ${d.empreendimento}.${book_url?"":" O PDF passou de 50 MB e não foi guardado para envio; as fotos e os dados foram."}`);
+    }catch(err){ setMsg({t:"bad",x:err.message}); setFase("revisar"); }
+  }
+
+  return (
+    <div className="card">
+      <div className="between"><h3>Importar book (PDF)</h3><button className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {fase==="escolher" && <>
+        <p className="small muted" style={{marginTop:0}}>Mande o book do empreendimento (o PDF de divulgação). A IA lê as páginas, separa as plantas e escolhe as melhores imagens. Você confere tudo antes de salvar. O PDF é lido aqui no seu aparelho; até 50 MB ele também fica guardado para a {conta.nome_assistente} mandar aos clientes.</p>
+        <label className="btn btn-primary" style={{margin:0}}>Escolher PDF<input type="file" accept="application/pdf" hidden onChange={ler}/></label>
+      </>}
+      {(fase==="lendo"||fase==="analisando"||fase==="salvando") && <p className="muted">{prog}</p>}
+      {fase==="revisar" && d && <>
+        <p className="small muted" style={{marginTop:0}}>Confira o que a IA encontrou em <b>{arquivo.name}</b> ({pags.length} páginas). Corrija o que precisar.</p>
+        <div className="grid">
+          <div style={{gridColumn:"1/-1"}}><label>Empreendimento *</label><input value={d.empreendimento||""} onChange={set("empreendimento")}/></div>
+          <div><label>Construtora</label><input value={d.construtora||""} onChange={set("construtora")}/></div>
+          <div><label>Situação</label><select value={d.situacao||""} onChange={set("situacao")}><option value="">—</option>{SITUACOES.map(x=><option key={x}>{x}</option>)}</select></div>
+          <div><label>Previsão de entrega</label><input value={d.previsao_entrega||""} onChange={set("previsao_entrega")}/></div>
+          <div><label>Programa</label><input value={d.programa||""} onChange={set("programa")} placeholder="ex.: Minha Casa, Minha Vida"/></div>
+          <div><label>Bairro</label><input value={d.bairro||""} onChange={set("bairro")}/></div>
+          <div><label>Cidade</label><input value={d.cidade||""} onChange={set("cidade")}/></div>
+          <div><label>Valores a partir de (R$)</label><input inputMode="decimal" value={d.preco_a_partir||""} onChange={set("preco_a_partir")} placeholder="o book não traz"/></div>
+          <div><label>Vagas por unidade</label><input type="number" min={0} value={d.vagas||""} onChange={set("vagas")}/></div>
+        </div>
+        <label>Endereço <span className="muted">(só é passado ao cliente depois da visita marcada)</span></label><input value={d.endereco||""} onChange={set("endereco")}/>
+        <label>Resumo para os clientes</label><textarea value={d.descricao||""} onChange={set("descricao")}/>
+        <label>Lazer e diferenciais <span className="muted">(separe por vírgula)</span></label><textarea style={{minHeight:60}} value={d.caracteristicas} onChange={set("caracteristicas")}/>
+
+        <h3 style={{fontSize:15,marginTop:16}}>Plantas ({d.plantas.length})</h3>
+        <p className="small muted" style={{marginTop:0}}>Cada planta vira um imóvel para a assistente oferecer, com a imagem da planta como primeira foto.</p>
+        {d.plantas.map((p,i)=>(
+          <div key={i} className="card" style={{padding:12,marginBottom:8}}>
+            <div className="grid">
+              <div style={{gridColumn:"1/-1"}}><label>Nome</label><input value={p.nome} onChange={e=>setPlanta(i,"nome",e.target.value)}/></div>
+              <div><label>Quartos</label><input type="number" min={0} value={p.quartos??""} onChange={e=>setPlanta(i,"quartos",e.target.value)}/></div>
+              <div><label>Suítes</label><input type="number" min={0} value={p.suites??""} onChange={e=>setPlanta(i,"suites",e.target.value)}/></div>
+              <div><label>Área (m²)</label><input inputMode="decimal" value={p.area_m2??""} onChange={e=>setPlanta(i,"area_m2",e.target.value)}/></div>
+              <div><label>Página da planta</label><select value={p.pagina||""} onChange={e=>setPlanta(i,"pagina",Number(e.target.value)||null)}><option value="">—</option>{pags.map(x=><option key={x.n} value={x.n}>{x.n}</option>)}</select></div>
+            </div>
+            <div className="row" style={{marginTop:8}}>{p.pagina && <img src={pags[p.pagina-1]?.mini} alt="" style={{height:70,borderRadius:6}}/>}
+              <button className="btn btn-bad btn-sm" onClick={()=>setD({...d,plantas:d.plantas.filter((_,j)=>j!==i)})}>Remover planta</button></div>
+          </div>))}
+        <button className="btn btn-ghost btn-sm" onClick={()=>setD({...d,plantas:[...d.plantas,{nome:"Nova planta",quartos:null,suites:null,area_m2:null,varanda:false,pagina:null}]})}>+ planta</button>
+
+        <h3 style={{fontSize:15,marginTop:16}}>Fotos para mandar aos clientes ({sel.length})</h3>
+        <p className="small muted" style={{marginTop:0}}>Toque nas páginas para marcar ou desmarcar. A ordem é a ordem em que você marca.</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))",gap:8}}>
+          {pags.map(p=>{ const i=sel.indexOf(p.n); return (
+            <button key={p.n} type="button" onClick={()=>alternar(p.n)} style={{position:"relative",padding:0,border:i>=0?"3px solid var(--brand)":"1px solid var(--line)",borderRadius:8,background:"var(--surface)",cursor:"pointer",overflow:"hidden"}}>
+              <img src={p.mini} alt={"Página "+p.n} style={{width:"100%",display:"block"}}/>
+              <span className="pill" style={{position:"absolute",top:4,left:4,background:i>=0?"var(--brand)":"var(--card)",color:i>=0?"var(--brand-ink)":"var(--ink)"}}>{i>=0?`${i+1}ª · p.${p.n}`:`p.${p.n}`}</span>
+            </button>); })}
+        </div>
+        <div className="row" style={{marginTop:14}}><button className="btn btn-primary" onClick={salvar}>Salvar {d.plantas.length} {d.plantas.length===1?"imóvel":"imóveis"}</button><button className="btn btn-ghost" onClick={fechar}>Cancelar</button></div>
+      </>}
+    </div>
+  );
+}
+
 function Imoveis({conta, aoMudar}){
-  const [lista,setLista]=useState(null); const [editando,setEditando]=useState(null); const [msg,setMsg]=useState(null);
+  const [lista,setLista]=useState(null); const [editando,setEditando]=useState(null); const [msg,setMsg]=useState(null); const [importando,setImportando]=useState(false);
   async function carregar(){ const { data, error } = await sb.from("imoveis").select("*").order("criado_em",{ascending:false}); if(error) setMsg({t:"bad",x:error.message}); setLista(data||[]); aoMudar && aoMudar(data||[]); }
   useEffect(()=>{ carregar(); },[]);
   async function apagar(i){ if(!confirm(`Apagar "${i.titulo}"? As visitas dele também somem.`)) return; const { error } = await sb.from("imoveis").delete().eq("id",i.id); if(error) setMsg({t:"bad",x:error.message}); carregar(); }
+  if(importando) return <ImportarBook conta={conta} fechar={()=>setImportando(false)} pronto={(x)=>{setImportando(false);carregar();setMsg({t:"ok",x});}}/>;
   if(editando) return <FormImovel conta={conta} imovel={editando==="novo"?null:editando} fechar={()=>setEditando(null)} salvo={()=>{setEditando(null);carregar();setMsg({t:"ok",x:"Imóvel salvo."});}}/>;
   return (
     <div className="card">
       <div className="between"><h3>Imóveis {lista && <span className="muted small">({lista.filter(i=>i.ativo).length} disponíveis)</span>}</h3>
-        <button className="btn btn-primary btn-sm" onClick={()=>setEditando("novo")}>+ Novo imóvel</button></div>
+        <div className="row"><button className="btn btn-primary btn-sm" onClick={()=>setImportando(true)}>Importar book (PDF)</button><button className="btn btn-ghost btn-sm" onClick={()=>setEditando("novo")}>+ Novo imóvel</button></div></div>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       {lista===null ? <p className="muted">Carregando…</p> : !lista.length ? <p className="muted">Nenhum imóvel ainda. Cadastre o primeiro: a assistente só oferece o que está aqui.</p> :
       <div className="list">{lista.map(i=>(
         <div key={i.id} className="imv">
           {i.fotos?.[0] ? <img src={i.fotos[0]} alt=""/> : <div className="ph">sem foto</div>}
           <div><b>{i.titulo}</b><div className="small muted">{[i.bairro,i.quartos!=null&&`${i.quartos} quartos`,i.area_m2&&`${i.area_m2} m²`,brl(i.preco)+(i.finalidade==="aluguel"?"/mês":"")].filter(Boolean).join(" · ")}</div>
-            <div style={{marginTop:4}}><span className="pill">{i.finalidade}</span>{i.ativo?<span className="pill ok">disponível</span>:<span className="pill warn">pausado</span>}{!i.fotos?.length && <span className="pill warn">sem fotos</span>}{!i.endereco && <span className="pill warn">sem endereço</span>}</div></div>
+            <div style={{marginTop:4}}>{i.empreendimento && <span className="pill">{i.empreendimento}</span>}{i.situacao && <span className="pill">{i.situacao}</span>}{i.book_url && <span className="pill ok">book</span>}<span className="pill">{i.finalidade}</span>{i.ativo?<span className="pill ok">disponível</span>:<span className="pill warn">pausado</span>}{!i.fotos?.length && <span className="pill warn">sem fotos</span>}{!i.endereco && <span className="pill warn">sem endereço</span>}</div></div>
           <div className="row"><button className="btn btn-ghost btn-sm" onClick={()=>setEditando(i)}>Editar</button><button className="btn btn-bad btn-sm" onClick={()=>apagar(i)}>Apagar</button></div>
         </div>))}</div>}
     </div>
@@ -693,7 +847,7 @@ function Onboarding({conta, setConta}){
       <div className="steps">{ETAPAS.map((e,i)=><span key={e} className={i+1===etapa?"on":i+1<etapa?"done":""}>{i+1<etapa?"✓ ":`${i+1}. `}{e}</span>)}</div>
       {etapa===1 && <><div className="card"><h3>Bem-vindo! Vamos deixar sua assistente pronta</h3><p className="muted" style={{margin:0}}>São 6 passos, uns 15 minutos. Você pode parar e continuar depois: fica tudo salvo.</p></div>
         <Perfil conta={conta} salvo={async (c)=>{ setConta(c); if(c.onboarding_etapa<2) await avancar(2); }} botao="Salvar e continuar"/></>}
-      {etapa===2 && <><div className="card"><h3>Cadastre seus imóveis</h3><p className="muted" style={{margin:0}}>Comece com 1 ou 2 para testar. Você pode cadastrar o resto depois. Capriche nas fotos e no endereço: ela só passa o endereço quando a visita é marcada.</p></div>
+      {etapa===2 && <><div className="card"><h3>Cadastre seus imóveis</h3><p className="muted" style={{margin:0}}>Tem o book (PDF) de um empreendimento? Use <b>Importar book</b>: a IA cadastra as plantas e as fotos para você conferir. Para imóvel avulso, use <b>Novo imóvel</b>. Comece com 1 ou 2 para testar. Você pode cadastrar o resto depois. Capriche nas fotos e no endereço: ela só passa o endereço quando a visita é marcada.</p></div>
         <Imoveis conta={conta} aoMudar={setImoveis}/>
         <div className="row"><button className="btn btn-ghost" onClick={()=>avancar(1)}>Voltar</button><button className="btn btn-primary" disabled={!imoveis.length} onClick={()=>avancar(3)}>Continuar</button>{!imoveis.length && <span className="small muted">Cadastre pelo menos 1 imóvel.</span>}</div></>}
       {etapa===3 && <><Horarios conta={conta} salvo={()=>avancar(4)} botao="Salvar e continuar"/><Bloqueios conta={conta}/><button className="btn btn-ghost" onClick={()=>avancar(2)}>Voltar</button></>}

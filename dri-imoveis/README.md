@@ -31,7 +31,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 ### 1. Supabase
 1. Crie um projeto (região São Paulo).
-2. SQL Editor → rode, em ordem, os arquivos da pasta `supabase/migrations/` (001 a 004).
+2. SQL Editor → rode, em ordem, os arquivos da pasta `supabase/migrations/` (001 a 005).
 3. Authentication → URL Configuration: **Site URL** = endereço do `app.html`; adicione o mesmo
    em Redirect URLs. Deixe a confirmação de email ligada.
 4. Anote a URL do projeto, a chave pública (anon) e a service role.
@@ -69,6 +69,15 @@ Renova todo dia 1º (horário de Brasília). Em 80% e em 100% o corretor recebe 
 WhatsApp (desligável no perfil) e vê uma barra no painel. Passou da cota, a Dri continua com as
 chaves gratuitas dele; sem elas, com a reserva compartilhada da plataforma. O uso (mensagens e
 tokens) fica na tabela `ia_uso`, para você acompanhar o custo por corretor.
+
+**Importar book (PDF):** na aba Imóveis, o corretor manda o book de divulgação do empreendimento.
+O PDF é lido no próprio navegador (pdf.js), página por página: texto e imagem de cada página. O texto
+vai para a IA (Claude Haiku com saída estruturada; sem ela, uma gratuita em modo JSON), que devolve
+empreendimento, endereço, situação, lazer, as plantas (com a página de cada uma) e as melhores páginas
+para foto. Se o PDF for só imagem, a Claude lê as imagens das primeiras 12 páginas. O corretor revisa e
+salva: cada planta vira um imóvel, com a imagem da planta como primeira foto e as páginas escolhidas
+depois. Até 50 MB o próprio PDF fica guardado (bucket `books-imoveis`) e a Dri manda o book ao cliente
+(ferramenta `enviar_book`). Testado com books reais de 3 MB/48 páginas e 30 MB/32 páginas.
 
 **Áudio:** a Dri baixa o áudio do WhatsApp e transcreve com o Whisper do Groq (gratuito), usando a
 chave do Groq do corretor ou a da plataforma. Se não der para transcrever, ela pede para o cliente escrever.

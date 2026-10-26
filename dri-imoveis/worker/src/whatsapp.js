@@ -25,6 +25,12 @@ export const enviarImagem = (env, conexao, para, url, legenda) =>
     image: { link: url, ...(legenda ? { caption: legenda.slice(0, 1024) } : {}) },
   });
 
+export const enviarDocumento = (env, conexao, para, url, nomeArquivo, legenda) =>
+  chamar(env, conexao.token, `${conexao.phone_number_id}/messages`, {
+    messaging_product: "whatsapp", to: para, type: "document",
+    document: { link: url, filename: nomeArquivo, ...(legenda ? { caption: legenda.slice(0, 1024) } : {}) },
+  });
+
 export const marcarLida = (env, conexao, messageId) =>
   chamar(env, conexao.token, `${conexao.phone_number_id}/messages`, {
     messaging_product: "whatsapp", status: "read", message_id: messageId,

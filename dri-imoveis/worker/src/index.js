@@ -9,6 +9,7 @@
 //   POST /whatsapp/conectar     o corretor cola IDs, token e chave secreta do app dele
 //   POST /whatsapp/status       lista de verificação da conexão
 //   POST /responder             corretor responde um cliente pelo painel
+//   POST /importar/analisar     lê o texto das páginas de um book (PDF) e devolve os dados para revisão
 //   POST /ia/status             quais IAs a conta tem (sem mostrar a chave)
 //   POST /ia/salvar             confere e guarda a chave de IA do corretor
 //   POST /ia/remover            apaga a chave de IA do corretor
@@ -25,9 +26,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder, cotaDa, mesDe } from "./agente.js";
 import { transcrever } from "./audio.js";
+import { lerBook } from "./catalogo.js";
 import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
 import {
-  assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
+  assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, enviarDocumento, marcarLida,
   lerNumero, assinarWaba, registrarNumero, baixarMidia,
 } from "./whatsapp.js";
 
@@ -145,6 +147,7 @@ export default {
           env, db, conta, telefone: SIMULADOR, nome: corpo.nome || "Cliente de teste", canal: "simulador",
           agora: new Date(), conexao: null,
           enviarFoto: async (u, legenda) => respostas.push({ tipo: "foto", url: u, legenda }),
+          enviarArquivo: async (u, nomeArquivo) => respostas.push({ tipo: "arquivo", url: u, nome: nomeArquivo }),
         }, [texto]);
         if (resposta) respostas.push({ tipo: "texto", texto: resposta });
         return json(env, { respostas });
@@ -204,6 +207,16 @@ export default {
         const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: conta.id, access_token, app_secret, atualizado_em: new Date().toISOString() });
         if (r2.error) throw new Error(r2.error.message);
         return json(env, { ok: true, numero: numero.display_phone_number, nome: numero.verified_name });
+      }
+      if (rota === "POST /importar/analisar") {
+        const paginas = Array.isArray(corpo.paginas) ? corpo.paginas.slice(0, 300) : [];
+        const imagens = Array.isArray(corpo.imagens) ? corpo.imagens.slice(0, 12) : [];
+        if (!paginas.length && !imagens.length) return json(env, { error: "Não recebi as páginas do PDF." }, 400);
+        try {
+          return json(env, { dados: await lerBook(env, { paginas, imagens, totalPaginas: Number(corpo.total_paginas) || paginas.length }) });
+        } catch (e) {
+          return json(env, { error: e.message }, 422);
+        }
       }
       if (rota === "POST /ia/status") {
         const { data } = await db.from("ia_chaves").select("provedor,chave,validada_em,ultimo_erro,ultimo_erro_em").eq("conta_id", conta.id);
@@ -375,6 +388,7 @@ export class Conversa {
     const ctx = {
       env, db, conta, conexao, telefone, nome, canal: "whatsapp", agora: new Date(),
       enviarFoto: (u, legenda) => enviarImagem(env, conexao, telefone, u, legenda),
+      enviarArquivo: (u, nomeArquivo, legenda) => enviarDocumento(env, conexao, telefone, u, nomeArquivo, legenda),
     };
     const { data: conversa } = await db.from("conversas").select("precisa_corretor")
       .eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();

@@ -2,8 +2,8 @@
 
 Código: pasta `dri-imoveis/` do repositório `consultaia/notificaai`, branch `claude/tender-dirac-tfvz9r`.
 Dono: Janan (janan.almeida@gmail.com). Decisões já tomadas, não perguntar de novo:
-- Supabase: organização **nova e só da Dri**, plano Pro (o limite de 2 projetos grátis já foi atingido).
-  Região `sa-east-1`. Nome do projeto: `dri-imoveis`.
+- Supabase: **projeto já criado pelo Janan**: "Dri imóveis", ID `tfxdiozfvftgxuviisua`, região `sa-east-1`,
+  na organização **printou-festa** (plano Pro). Não criar outro projeto.
 - Hospedagem: Cloudflare (Worker `dri-imoveis` + painel no Cloudflare Pages).
 - IA principal: Claude Haiku 5.5 paga pela plataforma, com capacidade mensal por conta (padrão 1.500
   mensagens). Gratuitas (Groq, Gemini, Cerebras) como reserva; Groq também transcreve áudio.
@@ -17,8 +17,9 @@ Variáveis/segredos no ambiente da sessão: `CLOUDFLARE_API_TOKEN` (Workers + Pa
 Nunca pedir chave ou token no chat.
 
 ## Passos
-1. **Supabase** (MCP do Supabase): `list_organizations`, achar a org nova da Dri (Pro), `create_project`
-   (`dri-imoveis`, `sa-east-1`), esperar ficar ACTIVE_HEALTHY. Aplicar em ordem
+1. **Supabase** (MCP do Supabase): `get_project` em `tfxdiozfvftgxuviisua`. Se der "sem permissão", o
+   conector do Supabase não tem acesso à organização printou-festa: pedir ao Janan para reconectar em
+   https://claude.ai/customize/connectors marcando essa organização e abrir sessão nova. Aplicar em ordem
    `supabase/migrations/001` a `006` com `apply_migration`. Depois:
    - `update storage.buckets set file_size_limit = 209715200 where id = 'books-imoveis'` (200 MB, plano Pro);
    - `get_advisors` (security) e corrigir o que for apontado;

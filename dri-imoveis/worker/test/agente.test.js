@@ -12,8 +12,10 @@ globalThis.fetch = async (url, init) => {
   const prov = nomeDe(String(url));
   if (!prov) throw new Error("fetch inesperado: " + url);
   const corpo = JSON.parse(init.body);
-  if (falhar[prov]) return new Response(JSON.stringify({ error: { message: "limite" } }), { status: falhar[prov] });
-  pedidos.push({ ...corpo, prov });
+  const chave = init.headers.authorization.slice(7);
+  const erro = falhar[prov] ?? falhar[chave];
+  if (erro) return new Response(JSON.stringify({ error: { message: "limite" } }), { status: erro });
+  pedidos.push({ ...corpo, prov, chave });
   const passo = roteiro.shift();
   const message = typeof passo === "function" ? passo(corpo) : passo;
   return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", ...message } }] }), { status: 200 });
@@ -175,4 +177,41 @@ test("só uma IA configurada também funciona", async () => {
   const db = fakeDb({ conversas: [], leads: [] });
   await responder(ctxBase(db, { GROQ_API_KEY: "q" }), ["oi"]);
   assert.deepEqual(pedidos.map((p) => p.prov), ["groq"]);
+});
+
+test("usa primeiro as chaves do próprio corretor; plataforma é reserva", async () => {
+  _teste.pausados.clear(); pedidos.length = 0; falhar = {};
+  const db = fakeDb({ conversas: [], leads: [], ia_chaves: [{ conta_id: "c1", provedor: "groq", chave: "groq-do-corretor" }] });
+  roteiro = [falar("oi")];
+  await responder(ctxBase(db), ["oi"]);
+  assert.deepEqual(pedidos.map((p) => [p.prov, p.chave]), [["groq", "groq-do-corretor"]]);
+
+  // chave do corretor com problema: vai para a reserva (Gemini da plataforma) e o erro fica anotado
+  pedidos.length = 0; falhar = { "groq-do-corretor": 401 }; roteiro = [falar("oi de novo")];
+  assert.equal(await responder(ctxBase(db), ["oi"]), "oi de novo");
+  assert.deepEqual(pedidos.map((p) => [p.prov, p.chave]), [["gemini", "g"]]);
+  assert.match(db.tabelas.ia_chaves[0].ultimo_erro, /conta:c1:groq: 401/);
+
+  // sem reserva da plataforma: o erro é do corretor
+  falhar = { "groq-do-corretor": 401 };
+  await assert.rejects(responder(ctxBase(db, { ...ENV, IA_RESERVA_PLATAFORMA: "nao" }), ["oi"]), /Todas as IAs falharam/);
+  falhar = {};
+});
+
+test("limite de um corretor não atrapalha outro", async () => {
+  _teste.pausados.clear(); pedidos.length = 0;
+  const db = fakeDb({ conversas: [], leads: [], ia_chaves: [
+    { conta_id: "c1", provedor: "gemini", chave: "gemini-A" },
+    { conta_id: "c2", provedor: "gemini", chave: "gemini-B" },
+  ] });
+  falhar = { "gemini-A": 429 };
+  roteiro = [falar("A respondido pela reserva")];
+  await responder(ctxBase(db), ["oi"]);                      // corretor A bate o limite
+  falhar = {};
+  roteiro = [falar("B normal")];
+  const ctxB = { ...ctxBase(db), conta: { ...contaBase, id: "c2" } };
+  pedidos.length = 0;
+  await responder(ctxB, ["oi"]);                             // corretor B segue com a chave dele
+  assert.deepEqual(pedidos.map((p) => p.chave), ["gemini-B"]);
+  assert.ok(_teste.pausados.has("conta:c1:gemini") && !_teste.pausados.has("conta:c2:gemini"));
 });

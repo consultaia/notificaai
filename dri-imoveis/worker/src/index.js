@@ -9,6 +9,9 @@
 //   POST /whatsapp/conectar     o corretor cola IDs, token e chave secreta do app dele
 //   POST /whatsapp/status       lista de verificação da conexão
 //   POST /responder             corretor responde um cliente pelo painel
+//   POST /ia/status             quais IAs a conta tem (sem mostrar a chave)
+//   POST /ia/salvar             confere e guarda a chave de IA do corretor
+//   POST /ia/remover            apaga a chave de IA do corretor
 //
 // Cada corretor usa o próprio app da Meta (não precisa de Tech Provider): cada conta tem
 // um webhook próprio, e a assinatura das mensagens é conferida com a chave secreta do app dela.
@@ -20,7 +23,7 @@
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder } from "./agente.js";
-import { provedoresAtivos } from "./ia.js";
+import { provedoresAtivos, validarChave, PROVEDORES } from "./ia.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
   lerNumero, assinarWaba, registrarNumero,
@@ -194,6 +197,32 @@ export default {
         const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: conta.id, access_token, app_secret, atualizado_em: new Date().toISOString() });
         if (r2.error) throw new Error(r2.error.message);
         return json(env, { ok: true, numero: numero.display_phone_number, nome: numero.verified_name });
+      }
+      if (rota === "POST /ia/status") {
+        const { data } = await db.from("ia_chaves").select("provedor,chave,validada_em,ultimo_erro,ultimo_erro_em").eq("conta_id", conta.id);
+        return json(env, {
+          reserva_da_plataforma: env.IA_RESERVA_PLATAFORMA !== "nao" && provedoresAtivos(env).length > 0,
+          chaves: (data || []).map((c) => ({
+            provedor: c.provedor, final: `…${c.chave.slice(-4)}`, validada_em: c.validada_em,
+            ultimo_erro: c.ultimo_erro, ultimo_erro_em: c.ultimo_erro_em,
+          })),
+        });
+      }
+      if (rota === "POST /ia/salvar") {
+        const provedor = String(corpo.provedor || ""), chave = String(corpo.chave || "").trim();
+        if (!PROVEDORES[provedor]) return json(env, { error: "Escolha Gemini, Groq ou Cerebras." }, 400);
+        if (chave.length < 20) return json(env, { error: "Essa chave parece incompleta. Copie de novo." }, 400);
+        try { await validarChave(provedor, chave); }
+        catch (e) { return json(env, { error: `A ${provedor} não aceitou a chave: ${e.message}` }, 400); }
+        const r = await db.from("ia_chaves").upsert({
+          conta_id: conta.id, provedor, chave, validada_em: new Date().toISOString(), ultimo_erro: null, ultimo_erro_em: null,
+        }, { onConflict: "conta_id,provedor" });
+        if (r.error) throw new Error(r.error.message);
+        return json(env, { ok: true });
+      }
+      if (rota === "POST /ia/remover") {
+        await db.from("ia_chaves").delete().eq("conta_id", conta.id).eq("provedor", String(corpo.provedor || ""));
+        return json(env, { ok: true });
       }
       if (rota === "POST /responder") {
         const texto = String(corpo.texto || "").trim();

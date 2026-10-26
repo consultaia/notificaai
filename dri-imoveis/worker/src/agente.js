@@ -315,10 +315,23 @@ export async function responder(ctx, textosDoCliente) {
   const mensagens = encurtarHistorico(conversa.mensagens, lead?.perfil);
   mensagens.push({ role: "user", content: `${cabecalho}\n${textosDoCliente.join("\n")}` });
   const sistema = promptSistema(conta);
+  const { data: linhasChaves } = await db.from("ia_chaves").select("provedor,chave").eq("conta_id", conta.id);
+  const iaConta = { contaId: conta.id, chaves: Object.fromEntries((linhasChaves || []).map((l) => [l.provedor, l.chave])) };
+  const anotarFalhas = (falhas) => Promise.all(falhas.filter((f) => f.origem === "conta").map((f) =>
+    db.from("ia_chaves").update({ ultimo_erro: f.erro.slice(0, 300), ultimo_erro_em: new Date().toISOString() })
+      .eq("conta_id", conta.id).eq("provedor", f.nome)));
 
   let respostaFinal = "";
   for (let volta = 0; volta < MAX_VOLTAS; volta++) {
-    const { msg } = await perguntar(env, { sistema, mensagens, ferramentas: FERRAMENTAS_IA });
+    let msg;
+    try {
+      const r = await perguntar(env, { sistema, mensagens, ferramentas: FERRAMENTAS_IA }, iaConta);
+      msg = r.msg;
+      if (r.falhas.length) await anotarFalhas(r.falhas);
+    } catch (e) {
+      await anotarFalhas((e.falhas || []));
+      throw e;
+    }
     const resposta = guardarResposta(msg);
     mensagens.push(resposta);
     const texto = (resposta.content || "").trim();

@@ -21,7 +21,7 @@ create table public.contas (
   apresentacao           text,                                -- quem é, regiões, regras (ex.: "não aceito permuta")
   duracao_visita_min     int  not null default 60 check (duracao_visita_min between 15 and 240),
   antecedencia_min_horas int  not null default 2  check (antecedencia_min_horas between 0 and 72),
-  onboarding_etapa       int  not null default 1,             -- 1 perfil, 2 imóveis, 3 horários, 4 teste, 5 whatsapp, 6 pronto
+  onboarding_etapa       int  not null default 1,             -- 1 perfil, 2 imóveis, 3 horários, 4 IA, 5 teste, 6 whatsapp, 7 pronto
   criado_em              timestamptz not null default now()
 );
 

@@ -7,6 +7,10 @@ const meta = [];   // chamadas à Graph API
 let metaFalha = null;
 globalThis.fetch = async (url, init) => {
   const u = String(url);
+  if (u.includes("/models")) {
+    const ok = init?.headers?.authorization === "Bearer chave-boa-com-mais-de-vinte-letras";
+    return new Response(JSON.stringify(ok ? { data: [] } : { error: { message: "Invalid API Key" } }), { status: ok ? 200 : 401 });
+  }
   if (!u.startsWith("https://graph.facebook.com/")) throw new Error("fetch inesperado " + u);
   meta.push({ url: u, metodo: init?.method || "GET", corpo: init?.body ? JSON.parse(init.body) : null, auth: init?.headers?.authorization });
   if (metaFalha && u.includes(metaFalha.trecho)) return new Response(JSON.stringify({ error: { message: metaFalha.msg } }), { status: 400 });
@@ -112,4 +116,18 @@ test("webhook de chave desconhecida e painel sem login", async () => {
   assert.equal((await chamar("GET", "/webhook/" + "a".repeat(32) + "?hub.mode=subscribe")).status, 404);
   const r = await worker.fetch(new Request("https://dri.test/whatsapp/preparar", { method: "POST" }), { __dbTeste: montar().db }, { waitUntil() {} });
   assert.equal(r.status, 401);
+});
+
+test("corretor cadastra a própria chave de IA (conferida antes de salvar)", async () => {
+  const { db, chamar } = montar();
+  const ruim = await (await chamar("POST", "/ia/salvar", { provedor: "groq", chave: "chave-ruim-com-mais-de-vinte-letras" })).json();
+  assert.match(ruim.error, /não aceitou a chave.*Invalid API Key/);
+  assert.equal((db.tabelas.ia_chaves || []).length, 0);
+  const ok = await (await chamar("POST", "/ia/salvar", { provedor: "groq", chave: "chave-boa-com-mais-de-vinte-letras" })).json();
+  assert.equal(ok.ok, true);
+  const st = await (await chamar("POST", "/ia/status", {})).json();
+  assert.deepEqual(st.chaves.map((c) => [c.provedor, c.final]), [["groq", "…tras"]]);
+  assert.ok(!JSON.stringify(st).includes("chave-boa"), "a chave inteira nunca volta para o painel");
+  await chamar("POST", "/ia/remover", { provedor: "groq" });
+  assert.equal(db.tabelas.ia_chaves.length, 0);
 });

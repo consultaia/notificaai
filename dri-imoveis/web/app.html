@@ -427,6 +427,46 @@ function Simulador({conta}){
   );
 }
 
+// ======================================================================== IA própria
+const IAS = [
+  { id:"groq", nome:"Groq", link:"https://console.groq.com/keys", passos:"Entre com Google ou email → API Keys → Create API Key → copie.", nota:"A mais rápida. Não usa suas conversas para treinar." },
+  { id:"gemini", nome:"Gemini (Google)", link:"https://aistudio.google.com/apikey", passos:"Entre com sua conta Google → Criar chave de API → copie.", nota:"No plano gratuito o Google pode usar o conteúdo para melhorar os produtos dele." },
+  { id:"cerebras", nome:"Cerebras", link:"https://cloud.cerebras.ai", passos:"Crie a conta → API Keys → Generate API Key → copie.", nota:"Reserva rápida. Não usa suas conversas para treinar." },
+];
+function IA({conta}){
+  const [st,setSt]=useState(null); const [chaves,setChaves]=useState({}); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState("");
+  async function atualizar(){ try{ setSt(await worker("/ia/status")); }catch(e){ setMsg({t:"bad",x:e.message}); } }
+  useEffect(()=>{ atualizar(); },[]);
+  async function salvar(id){ setOcupado(id); setMsg(null);
+    try{ await worker("/ia/salvar",{provedor:id, chave:chaves[id]||""}); setChaves({...chaves,[id]:""}); setMsg({t:"ok",x:"Chave conferida e salva."}); atualizar(); }
+    catch(e){ setMsg({t:"bad",x:e.message}); } setOcupado(""); }
+  async function remover(id){ if(!confirm("Remover esta chave?")) return; await worker("/ia/remover",{provedor:id}); atualizar(); }
+  const minha = (id)=> st?.chaves?.find(c=>c.provedor===id);
+  const total = st?.chaves?.length||0;
+  return (
+    <div className="card">
+      <h3>A inteligência da {conta.nome_assistente}</h3>
+      <p className="small muted" style={{marginTop:0}}>A {conta.nome_assistente} usa IAs com plano gratuito. Criando as suas chaves (grátis, sem cartão), o limite de uso é só seu: o movimento de outros corretores não atrapalha o seu atendimento. Se uma IA atingir o limite, a próxima responde no lugar.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {st && (total===0
+        ? <div className="msg warn" style={{cursor:"default"}}>{st.reserva_da_plataforma ? "Você ainda não tem chave própria: a assistente está usando a reserva compartilhada da plataforma, que tem limite dividido entre todos. Cadastre pelo menos uma abaixo." : "Cadastre pelo menos uma chave para a assistente funcionar."}</div>
+        : <div className="msg ok" style={{cursor:"default"}}>{total} de 3 IAs cadastradas.{total<3 && " Com as três, uma cobre a outra."}</div>)}
+      <div className="list">{IAS.map(p=>{ const m=minha(p.id); return (
+        <div key={p.id}>
+          <div className="between"><b>{p.nome}</b>{m ? <span className="pill ok">cadastrada {m.final}</span> : <span className="pill">não cadastrada</span>}</div>
+          <div className="small" style={{margin:"4px 0"}}><a href={p.link} target="_blank" rel="noreferrer">Abrir o site</a> · {p.passos}</div>
+          <div className="small muted">{p.nota}</div>
+          {m?.ultimo_erro && <div className="msg bad small" style={{cursor:"default",marginTop:6}}>Falhou em {fmtDT(m.ultimo_erro_em)}: {m.ultimo_erro}. Se continuar, gere uma chave nova.</div>}
+          <div className="row" style={{marginTop:6,flexWrap:"nowrap"}}>
+            <input type="password" autoComplete="off" placeholder={m?"Colar chave nova para trocar":"Cole a chave aqui"} value={chaves[p.id]||""} onChange={e=>setChaves({...chaves,[p.id]:e.target.value})}/>
+            <button className="btn btn-primary btn-sm" disabled={!chaves[p.id]||ocupado===p.id} onClick={()=>salvar(p.id)}>{ocupado===p.id?"Conferindo…":"Salvar"}</button>
+            {m && <button className="btn btn-bad btn-sm" onClick={()=>remover(p.id)}>Remover</button>}
+          </div>
+        </div>); })}</div>
+    </div>
+  );
+}
+
 // ======================================================================== WhatsApp
 function Copiar({valor}){
   const [ok,setOk]=useState(false);
@@ -586,22 +626,23 @@ function Inicio({conta, irPara}){
 }
 
 // ======================================================================== onboarding
-const ETAPAS = ["Perfil","Imóveis","Horários","Testar","WhatsApp"];
+const ETAPAS = ["Perfil","Imóveis","Horários","IA","Testar","WhatsApp"];
 function Onboarding({conta, setConta}){
-  const etapa = conta ? Math.min(conta.onboarding_etapa,5) : 1;
+  const etapa = conta ? Math.min(conta.onboarding_etapa,6) : 1;
   const [imoveis,setImoveis]=useState([]);
   async function avancar(para){ const { data } = await sb.from("contas").update({onboarding_etapa:para}).eq("id",conta.id).select().single(); if(data) setConta(data); }
   return (
     <div>
       <div className="steps">{ETAPAS.map((e,i)=><span key={e} className={i+1===etapa?"on":i+1<etapa?"done":""}>{i+1<etapa?"✓ ":`${i+1}. `}{e}</span>)}</div>
-      {etapa===1 && <><div className="card"><h3>Bem-vindo! Vamos deixar sua assistente pronta</h3><p className="muted" style={{margin:0}}>São 5 passos, uns 15 minutos. Você pode parar e continuar depois: fica tudo salvo.</p></div>
+      {etapa===1 && <><div className="card"><h3>Bem-vindo! Vamos deixar sua assistente pronta</h3><p className="muted" style={{margin:0}}>São 6 passos, uns 15 minutos. Você pode parar e continuar depois: fica tudo salvo.</p></div>
         <Perfil conta={conta} salvo={async (c)=>{ setConta(c); if(c.onboarding_etapa<2) await avancar(2); }} botao="Salvar e continuar"/></>}
       {etapa===2 && <><div className="card"><h3>Cadastre seus imóveis</h3><p className="muted" style={{margin:0}}>Comece com 1 ou 2 para testar. Você pode cadastrar o resto depois. Capriche nas fotos e no endereço: ela só passa o endereço quando a visita é marcada.</p></div>
         <Imoveis conta={conta} aoMudar={setImoveis}/>
         <div className="row"><button className="btn btn-ghost" onClick={()=>avancar(1)}>Voltar</button><button className="btn btn-primary" disabled={!imoveis.length} onClick={()=>avancar(3)}>Continuar</button>{!imoveis.length && <span className="small muted">Cadastre pelo menos 1 imóvel.</span>}</div></>}
       {etapa===3 && <><Horarios conta={conta} salvo={()=>avancar(4)} botao="Salvar e continuar"/><Bloqueios conta={conta}/><button className="btn btn-ghost" onClick={()=>avancar(2)}>Voltar</button></>}
-      {etapa===4 && <><Simulador conta={conta}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(3)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(5)}>Gostei, conectar o WhatsApp</button><span className="small muted">Se algo não ficou bom, ajuste as orientações no perfil.</span></div></>}
-      {etapa===5 && <><WhatsApp conta={conta} conectado={()=>{}}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(4)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(6)}>Ir para o painel</button><span className="small muted">Pode terminar depois, pela aba WhatsApp: fica tudo salvo.</span></div></>}
+      {etapa===4 && <><IA conta={conta}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(3)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(5)}>Continuar</button><span className="small muted">Leva uns 5 minutos. Dá para fazer depois, pela aba IA.</span></div></>}
+      {etapa===5 && <><Simulador conta={conta}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(4)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(6)}>Gostei, conectar o WhatsApp</button><span className="small muted">Se algo não ficou bom, ajuste as orientações no perfil.</span></div></>}
+      {etapa===6 && <><WhatsApp conta={conta} conectado={()=>{}}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(5)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(7)}>Ir para o painel</button><span className="small muted">Pode terminar depois, pela aba WhatsApp: fica tudo salvo.</span></div></>}
     </div>
   );
 }
@@ -610,7 +651,7 @@ function Onboarding({conta, setConta}){
 function Painel({conta, setConta}){
   const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0);
   useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0)); },[aba]);
-  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["testar","Testar"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
+  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
   return <>
     <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}</button>)}</div>
     {aba==="inicio" && <Inicio conta={conta} irPara={setAba}/>}
@@ -618,6 +659,7 @@ function Painel({conta, setConta}){
     {aba==="agenda" && <><Visitas/><Horarios conta={conta}/><Bloqueios conta={conta}/></>}
     {aba==="imoveis" && <Imoveis conta={conta}/>}
     {aba==="testar" && <Simulador conta={conta}/>}
+    {aba==="ia" && <IA conta={conta}/>}
     {aba==="whatsapp" && <WhatsApp conta={conta}/>}
     {aba==="perfil" && <Perfil conta={conta} salvo={setConta}/>}
   </>;
@@ -637,7 +679,7 @@ function App(){
   if(recuperando) return <NovaSenha fim={()=>setRecuperando(false)}/>;
   if(!sessao) return <Login/>;
   if(conta===undefined) return <div className="wrap muted">Carregando…</div>;
-  const pronto = conta && conta.onboarding_etapa>=6;
+  const pronto = conta && conta.onboarding_etapa>=7;
   return (
     <div className="wrap">
       <div className="top"><div className="brand"><h1>{conta?.nome_assistente||"Dri"} · {conta?.nome||"Imóveis"}</h1><p>Sua assistente de WhatsApp para imóveis</p></div>

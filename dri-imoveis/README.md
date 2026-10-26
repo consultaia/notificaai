@@ -17,7 +17,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 1. O corretor abre o link e cria a conta (email e senha).
 2. Passo a passo: **perfil** → **imóveis** (com fotos e endereço) → **horários de visita** →
-   **testar a Dri** num WhatsApp simulado → **conectar o WhatsApp**.
+   **IA própria** (chaves gratuitas dele) → **testar a Dri** num WhatsApp simulado → **conectar o WhatsApp**.
 3. O cliente escreve no número. A Meta entrega a mensagem no endereço de webhook da conta
    (`/webhook/<chave>`); o Worker confere a assinatura com a chave secreta do app do corretor, que junta mensagens
    picadas (3,5 s), chama a IA com as ferramentas da conta e responde.
@@ -31,7 +31,8 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 ### 1. Supabase
 1. Crie um projeto (região São Paulo).
-2. SQL Editor → rode `supabase/migrations/001_base.sql` e depois `002_whatsapp_manual.sql`.
+2. SQL Editor → rode, em ordem, `001_base.sql`, `002_whatsapp_manual.sql` e `003_ia_por_conta.sql`
+   (pasta `supabase/migrations/`).
 3. Authentication → URL Configuration: **Site URL** = endereço do `app.html`; adicione o mesmo
    em Redirect URLs. Deixe a confirmação de email ligada.
 4. Anote a URL do projeto, a chave pública (anon) e a service role.
@@ -56,9 +57,17 @@ Em `wrangler.toml`, preencha `PAINEL_URL` e `PAINEL_ORIGEM` (endereço do painel
 `GEMINI_MODELO` (padrão `gemini-2.5-flash`), `GROQ_MODELO` e `CEREBRAS_MODELO` (padrão `gpt-oss-120b`).
 
 ### As 3 IAs gratuitas
+Cada corretor cadastra as **próprias chaves** (Groq, Gemini e Cerebras, grátis e sem cartão) na
+etapa IA do painel. O painel confere a chave antes de salvar e nunca mostra a chave inteira de
+volta. Assim o limite gratuito é de cada corretor, e o movimento de um não atrapalha os outros.
+As chaves que você põe no Worker (`GEMINI_API_KEY` etc.) viram **reserva compartilhada**: só são
+usadas se as do corretor falharem ou se ele ainda não cadastrou nenhuma. Para desligar a reserva,
+ponha `IA_RESERVA_PLATAFORMA = "nao"` em `wrangler.toml`. Quando uma chave do corretor falha, o
+painel mostra o erro para ele gerar outra.
+
 A Dri pergunta para a primeira da fila. Se ela der erro, bater o limite do plano gratuito ou
 demorar mais de 25 s, a mesma pergunta vai para a próxima, sem o cliente perceber. Uma IA que
-bateu o limite fica 1 minuto no fim da fila. Basta configurar uma chave para funcionar; com as
+bateu o limite fica 1 minuto no fim da fila (só a chave daquele corretor). Basta configurar uma chave para funcionar; com as
 três, uma cobre a outra. `GET /` no Worker mostra quais estão ativas.
 
 ### 3. WhatsApp: o corretor conecta sozinho
@@ -89,10 +98,9 @@ Preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WORKER_URL` no topo de `web/app.
 ## Custos (por corretor)
 - **Meta:** responder cliente que escreveu é grátis. Mensagem que a empresa inicia (modelo aprovado)
   custa centavos e cai no cartão da conta Meta do corretor. Cada corretor tem o próprio app e a própria conta.
-- **IA:** R$ 0 nos planos gratuitos do Gemini, Groq e Cerebras. Eles têm limite de pedidos por
-  minuto e por dia; cada mensagem do cliente usa de 1 a 4 pedidos. Para poucos corretores sobra.
-  Com muitos clientes, o primeiro passo é ativar o plano pago de uma delas (barato) e manter as
-  outras como reserva.
+- **IA:** R$ 0. Cada corretor usa o plano gratuito das próprias chaves (limite por pedidos por
+  minuto e por dia; cada mensagem do cliente usa de 1 a 4 pedidos). Se um corretor crescer muito,
+  ele mesmo pode ativar o plano pago de uma delas, sem afetar os outros.
 - **Privacidade:** no plano gratuito, o Google pode usar o conteúdo enviado ao Gemini para melhorar
   os produtos dele. Groq e Cerebras não treinam com os dados da API. Se isso importar, ponha
   `IA_ORDEM = "groq,cerebras,gemini"` ou ative o plano pago do Gemini. Cite isso na política de

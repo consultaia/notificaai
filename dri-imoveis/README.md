@@ -70,13 +70,22 @@ WhatsApp (desligável no perfil) e vê uma barra no painel. Passou da cota, a Dr
 chaves gratuitas dele; sem elas, com a reserva compartilhada da plataforma. O uso (mensagens e
 tokens) fica na tabela `ia_uso`, para você acompanhar o custo por corretor.
 
+**Cadastro de imóveis:** três caminhos na aba Imóveis:
+- **Empreendimento** (à mão): dados comuns (nome, construtora, situação, entrega, endereço, apresentação),
+  lazer e diferenciais em botões de tocar (piscina, playground, churrasqueira, salões…) mais campo livre,
+  fotos comuns, o book em PDF e uma **tabela de plantas**, cada uma com quartos, suítes, banheiros, vagas,
+  área, preço e imagem da planta. Cada planta vira uma opção que a Dri oferece. Dá para editar depois
+  (mudar preço, pausar, duplicar, remover ou acrescentar planta).
+- **Imóvel avulso**: um apartamento ou casa, com as mesmas características em botões.
+- **Importar book (PDF)**: a IA preenche o formulário de empreendimento; o corretor confere e completa.
+
 **Importar book (PDF):** na aba Imóveis, o corretor manda o book de divulgação do empreendimento.
 O PDF é lido no próprio navegador (pdf.js), página por página: texto e imagem de cada página. O texto
 vai para a IA (Claude Haiku com saída estruturada; sem ela, uma gratuita em modo JSON), que devolve
 empreendimento, endereço, situação, lazer, as plantas (com a página de cada uma) e as melhores páginas
-para foto. Se o PDF for só imagem, a Claude lê as imagens das primeiras 12 páginas. O corretor revisa e
-salva: cada planta vira um imóvel, com a imagem da planta como primeira foto e as páginas escolhidas
-depois. Até 50 MB o próprio PDF fica guardado (bucket `books-imoveis`) e a Dri manda o book ao cliente
+para foto. Se o PDF for só imagem, a Claude lê as imagens das primeiras 12 páginas. O corretor revisa no
+mesmo formulário de empreendimento e completa o que o book não traz (preços, vagas): cada planta vira um
+imóvel, com a imagem da planta como primeira foto e as páginas escolhidas depois. Até 50 MB o próprio PDF fica guardado (bucket `books-imoveis`) e a Dri manda o book ao cliente
 (ferramenta `enviar_book`). Testado com books reais de 3 MB/48 páginas e 30 MB/32 páginas.
 
 **Áudio:** a Dri baixa o áudio do WhatsApp e transcreve com o Whisper do Groq (gratuito), usando a

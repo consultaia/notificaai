@@ -1,0 +1,18 @@
+name = "dri-imoveis"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[durable_objects.bindings]]
+name = "CONVERSA"
+class_name = "Conversa"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Conversa"]
+
+[vars]
+GRAPH_VERSION = "v23.0"
+ESFORCO = "low"
+# PAINEL_URL = "https://SEU-PAINEL/app.html"
+# PAINEL_ORIGEM = "https://SEU-PAINEL"

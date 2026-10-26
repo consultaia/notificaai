@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dri Imóveis · Painel</title>
+<!-- ==========================================================================
+     DRI IMÓVEIS — painel do corretor (cadastro sozinho, sem depender de ninguém)
+       • Criar conta e passo a passo: perfil → imóveis → horários → testar → WhatsApp
+       • Imóveis com fotos, agenda de visitas, conversas, responder cliente
+     Preencha as 3 constantes abaixo depois de criar o Supabase e o Worker.
+     ========================================================================== -->
+<script>
+  const SUPABASE_URL = "";       // https://xxxx.supabase.co
+  const SUPABASE_ANON_KEY = "";  // chave pública (anon / publishable)
+  const WORKER_URL = "";         // https://dri-imoveis.SEU-USUARIO.workers.dev
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+<style>
+  :root{ --ink:#13232E; --muted:#5D6C76; --surface:#F4F6F7; --card:#FFFFFF; --line:#DFE5E8;
+    --brand:#0F6E5C; --brand-ink:#FFFFFF; --soft:#E6F2EF; --warn:#9A5B00; --warn-bg:#FFF4E0;
+    --bad:#B42318; --bad-bg:#FDECEA; --ok:#0F6E5C; --ok-bg:#E6F2EF; --wa:#1F8B4C; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --ink:#E7EDF0; --muted:#9AA8B1; --surface:#0F171C; --card:#162229; --line:#25343C;
+    --brand:#3CB39A; --brand-ink:#08130F; --soft:#17302B; --warn:#F2B35B; --warn-bg:#2C2112;
+    --bad:#F08A80; --bad-bg:#2D1715; --ok:#3CB39A; --ok-bg:#17302B; --wa:#3DBE73; } }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--surface);font-size:15px;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;margin:0}
+  .wrap{max-width:1040px;margin:0 auto;padding:20px 16px 60px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .brand h1{font-size:22px} .brand p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .card h3{font-size:17px;margin-bottom:10px}
+  .muted{color:var(--muted)} .small{font-size:13px}
+  label{display:block;font-size:13px;font-weight:500;margin:10px 0 4px}
+  input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 11px}
+  textarea{min-height:90px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--brand);outline-offset:0;border-color:transparent}
+  .grid{display:grid;gap:0 14px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+  .btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn-primary{background:var(--brand);color:var(--brand-ink)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-wa{background:var(--wa);color:#fff} .btn-sm{padding:7px 11px;font-size:13.5px}
+  .btn-bad{background:transparent;color:var(--bad);border:1px solid var(--line)}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .between{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+  .msg{border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;cursor:pointer}
+  .msg.ok{background:var(--ok-bg);color:var(--ok)} .msg.bad{background:var(--bad-bg);color:var(--bad)} .msg.warn{background:var(--warn-bg);color:var(--warn)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .tabs button{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 13px;cursor:pointer}
+  .tabs button.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+  .badge{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;margin-left:6px;text-align:center}
+  .steps{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .steps span{font-size:12.5px;padding:5px 10px;border-radius:999px;background:var(--card);border:1px solid var(--line);color:var(--muted)}
+  .steps span.on{background:var(--soft);color:var(--brand);border-color:var(--brand);font-weight:600}
+  .steps span.done{color:var(--brand)}
+  .tiles{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:14px}
+  .tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .tile .l{font-size:13px;color:var(--muted)} .tile .v{font-family:"Space Grotesk";font-size:30px;font-weight:700;margin-top:4px}
+  .list>div{border-top:1px solid var(--line);padding:12px 0} .list>div:first-child{border-top:0}
+  .imv{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center}
+  .imv img,.ph{width:96px;height:72px;object-fit:cover;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
+  .pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--line);margin-right:4px}
+  .pill.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent} .pill.warn{background:var(--warn-bg);color:var(--warn);border-color:transparent}
+  .fotos{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px} .fotos div{position:relative} .fotos img{width:90px;height:68px;object-fit:cover;border-radius:8px}
+  .fotos button{position:absolute;top:2px;right:2px;border:0;border-radius:6px;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:12px}
+  .dia{display:grid;grid-template-columns:110px 1fr;gap:10px;align-items:start;border-top:1px solid var(--line);padding:10px 0}
+  .dia:first-child{border-top:0} .janela{display:flex;gap:6px;align-items:center;margin-bottom:6px} .janela input{width:auto}
+  .phone{max-width:420px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--surface)}
+  .phone .hd{background:var(--wa);color:#fff;padding:10px 14px;font-weight:600}
+  .phone .bd{height:420px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+  .b{max-width:82%;padding:8px 11px;border-radius:12px;font-size:14px;white-space:pre-wrap;line-height:1.4}
+  .b.user{align-self:flex-end;background:var(--soft)} .b.dri{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+  .b.corretor{align-self:flex-end;background:var(--warn-bg)} .b img{max-width:220px;border-radius:8px;display:block}
+  .phone .ft{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);background:var(--card)}
+  .conv{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:14px}
+  .conv .lst button{display:block;width:100%;text-align:left;font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:6px;cursor:pointer}
+  .conv .lst button.on{border-color:var(--brand)}
+  ol.passo{padding-left:20px;line-height:1.6} ol.passo li{margin-bottom:6px}
+  code{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-size:13px;word-break:break-all}
+  @media (max-width:720px){ .conv{grid-template-columns:1fr} .imv{grid-template-columns:72px 1fr} .imv>div:last-child{grid-column:1/-1} .imv img,.ph{width:72px;height:56px} .dia{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const configurado = !!(SUPABASE_URL && SUPABASE_ANON_KEY && WORKER_URL);
+const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+const brl = (v)=> v==null||v==="" ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
+const fmtDT = (iso)=> new Date(iso).toLocaleString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Bahia"});
+const fmtTel = (t)=>{ const d=String(t||"").replace(/\D/g,""); if(d.length===13) return `(${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`; if(d.length===12) return `(${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`; return t||"—"; };
+const num = (v)=> v===""||v==null ? null : Number(String(v).replace(/\./g,"").replace(",","."));
+
+async function worker(caminho, corpo){
+  const { data:{ session } } = await sb.auth.getSession();
+  const r = await fetch(WORKER_URL.replace(/\/$/,"")+caminho, { method:"POST",
+    headers:{ "content-type":"application/json", authorization:"Bearer "+(session?.access_token||"") },
+    body: JSON.stringify(corpo||{}) });
+  const j = await r.json().catch(()=>({error:"Resposta inválida do servidor."}));
+  if(!r.ok || j.error) throw new Error(j.error || ("Erro "+r.status));
+  return j;
+}
+
+// Reduz a foto para no máximo 1600 px (o WhatsApp aceita até 5 MB)
+async function reduzirFoto(arquivo){
+  const img = await createImageBitmap(arquivo);
+  const escala = Math.min(1, 1600/Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width=Math.round(img.width*escala); c.height=Math.round(img.height*escala);
+  c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+  return await new Promise(ok=>c.toBlob(ok,"image/jpeg",0.82));
+}
+
+function Aviso({msg,limpar}){ return msg ? <div className={"msg "+msg.t} onClick={limpar}>{msg.x}</div> : null; }
+
+// ======================================================================== login
+function Login(){
+  const [modo,setModo]=useState("criar"); const [email,setEmail]=useState(""); const [senha,setSenha]=useState("");
+  const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  async function enviar(e){
+    e.preventDefault(); setOcupado(true); setMsg(null);
+    try{
+      if(modo==="criar"){
+        const { data, error } = await sb.auth.signUp({ email, password:senha, options:{ emailRedirectTo: location.href.split("#")[0] } });
+        if(error) throw error;
+        if(!data.session) setMsg({t:"ok",x:"Conta criada! Abra o email que mandamos para "+email+" e clique no link para confirmar. Depois entre aqui."});
+      } else if(modo==="entrar"){
+        const { error } = await sb.auth.signInWithPassword({ email, password:senha }); if(error) throw error;
+      } else {
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split("#")[0] }); if(error) throw error;
+        setMsg({t:"ok",x:"Se o email estiver cadastrado, você vai receber um link para criar uma senha nova."});
+      }
+    }catch(err){ setMsg({t:"bad",x: /Invalid login/i.test(err.message) ? "Email ou senha incorretos." : err.message}); }
+    setOcupado(false);
+  }
+  return (
+    <div className="wrap" style={{maxWidth:440}}>
+      <div className="brand" style={{marginBottom:18}}><h1>Dri Imóveis</h1><p>A assistente que atende seus clientes no WhatsApp, apresenta os imóveis e marca a visita na sua agenda.</p></div>
+      <form className="card" onSubmit={enviar}>
+        <h3>{modo==="criar"?"Criar minha conta":modo==="entrar"?"Entrar":"Esqueci a senha"}</h3>
+        <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+        <label>Email</label><input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+        {modo!=="senha" && <><label>Senha {modo==="criar" && <span className="muted">(mínimo 8 caracteres)</span>}</label>
+          <input type="password" required minLength={8} value={senha} onChange={e=>setSenha(e.target.value)} autoComplete={modo==="criar"?"new-password":"current-password"}/></>}
+        <div className="row" style={{marginTop:14}}>
+          <button className="btn btn-primary" disabled={ocupado}>{ocupado?"Aguarde…":modo==="criar"?"Criar conta":modo==="entrar"?"Entrar":"Enviar link"}</button>
+        </div>
+        <p className="small muted" style={{marginBottom:0}}>
+          {modo!=="entrar" && <a href="#" onClick={e=>{e.preventDefault();setModo("entrar")}}>Já tenho conta</a>}
+          {modo!=="criar" && <> · <a href="#" onClick={e=>{e.preventDefault();setModo("criar")}}>Criar conta</a></>}
+          {modo==="entrar" && <> · <a href="#" onClick={e=>{e.preventDefault();setModo("senha")}}>Esqueci a senha</a></>}
+        </p>
+      </form>
+    </div>
+  );
+}
+
+function NovaSenha({fim}){
+  const [s,setS]=useState(""); const [msg,setMsg]=useState(null);
+  async function salvar(e){ e.preventDefault(); const { error } = await sb.auth.updateUser({ password:s }); if(error) setMsg({t:"bad",x:error.message}); else fim(); }
+  return <div className="wrap" style={{maxWidth:440}}><form className="card" onSubmit={salvar}><h3>Nova senha</h3><Aviso msg={msg}/>
+    <input type="password" minLength={8} required value={s} onChange={e=>setS(e.target.value)}/>
+    <div style={{marginTop:12}}><button className="btn btn-primary">Salvar senha</button></div></form></div>;
+}
+
+// ======================================================================== perfil
+function Perfil({conta, salvo, botao="Salvar"}){
+  const [f,setF]=useState(()=>({ nome:"", tipo:"corretor", creci:"", cidade:"", whatsapp_pessoal:"", email_notificacao:"",
+    nome_assistente:"Dri", apresentacao:"", duracao_visita_min:60, antecedencia_min_horas:2, ...(conta||{}) }));
+  const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  async function salvar(e){
+    e.preventDefault(); setOcupado(true); setMsg(null);
+    const { data:{ user } } = await sb.auth.getUser();
+    const linha = { nome:f.nome.trim(), tipo:f.tipo, creci:f.creci||null, cidade:f.cidade||null,
+      whatsapp_pessoal:f.whatsapp_pessoal.replace(/\D/g,"")||null, email_notificacao:f.email_notificacao||user.email,
+      nome_assistente:f.nome_assistente.trim()||"Dri", apresentacao:f.apresentacao||null,
+      duracao_visita_min:Number(f.duracao_visita_min)||60, antecedencia_min_horas:Number(f.antecedencia_min_horas)||0 };
+    const r = conta ? await sb.from("contas").update(linha).eq("id",conta.id).select().single()
+                    : await sb.from("contas").insert({...linha, owner_id:user.id, onboarding_etapa:2}).select().single();
+    setOcupado(false);
+    if(r.error) return setMsg({t:"bad",x:r.error.message});
+    salvo(r.data); if(conta) setMsg({t:"ok",x:"Perfil salvo."});
+  }
+  return (
+    <form className="card" onSubmit={salvar}>
+      <h3>Seu perfil</h3>
+      <p className="small muted" style={{marginTop:0}}>É assim que a assistente vai se apresentar para os seus clientes.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <div className="grid">
+        <div><label>Seu nome ou da imobiliária *</label><input required value={f.nome} onChange={set("nome")} placeholder="Ex.: Carlos Andrade Imóveis"/></div>
+        <div><label>Você é</label><select value={f.tipo} onChange={set("tipo")}><option value="corretor">Corretor autônomo</option><option value="imobiliaria">Imobiliária</option></select></div>
+        <div><label>CRECI</label><input value={f.creci||""} onChange={set("creci")}/></div>
+        <div><label>Cidade onde atua</label><input value={f.cidade||""} onChange={set("cidade")} placeholder="Salvador, BA"/></div>
+        <div><label>Seu WhatsApp pessoal (avisos)</label><input value={f.whatsapp_pessoal||""} onChange={set("whatsapp_pessoal")} placeholder="71 99999-0000"/></div>
+        <div><label>Email para avisos</label><input type="email" value={f.email_notificacao||""} onChange={set("email_notificacao")} placeholder="o mesmo do login"/></div>
+        <div><label>Nome da assistente</label><input value={f.nome_assistente} onChange={set("nome_assistente")}/></div>
+        <div><label>Duração da visita (min)</label><input type="number" min={15} max={240} step={15} value={f.duracao_visita_min} onChange={set("duracao_visita_min")}/></div>
+        <div><label>Antecedência mínima (horas)</label><input type="number" min={0} max={72} value={f.antecedencia_min_horas} onChange={set("antecedencia_min_horas")}/></div>
+      </div>
+      <label>Orientações para a assistente</label>
+      <textarea value={f.apresentacao||""} onChange={set("apresentacao")} placeholder={"Ex.: Atuo na Pituba, Itaigara e Caminho das Árvores. Trabalho com venda e aluguel. Não aceito permuta. Para aluguel peço fiador ou seguro-fiança. Visitas aos sábados podem ser com meu assistente Pedro."}/>
+      <div className="row" style={{marginTop:14}}><button className="btn btn-primary" disabled={ocupado}>{ocupado?"Salvando…":botao}</button></div>
+    </form>
+  );
+}
+
+// ======================================================================== imóveis
+const VAZIO = { titulo:"", codigo:"", finalidade:"venda", tipo:"apartamento", bairro:"", cidade:"", endereco:"", preco:"", condominio:"", iptu:"",
+  quartos:"", suites:"", banheiros:"", vagas:"", area_m2:"", aceita_financiamento:"", aceita_pet:"", mobiliado:"", descricao:"", caracteristicas:"", fotos:[], ativo:true };
+
+function FormImovel({conta, imovel, fechar, salvo}){
+  const [f,setF]=useState(()=> imovel ? {...VAZIO, ...Object.fromEntries(Object.entries(imovel).map(([k,v])=>[k, v==null?"":v])),
+      caracteristicas:(imovel.caracteristicas||[]).join(", "), aceita_financiamento:imovel.aceita_financiamento==null?"":String(imovel.aceita_financiamento),
+      aceita_pet:imovel.aceita_pet==null?"":String(imovel.aceita_pet), mobiliado:imovel.mobiliado==null?"":String(imovel.mobiliado)}
+    : {...VAZIO, cidade: conta.cidade||""});
+  const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false); const [subindo,setSubindo]=useState(0);
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  const bool=(v)=> v===""?null:v==="true";
+
+  async function subirFotos(e){
+    const arquivos=[...e.target.files]; e.target.value=""; if(!arquivos.length) return;
+    setSubindo(arquivos.length); const novas=[];
+    for(const a of arquivos){
+      try{
+        const blob = await reduzirFoto(a);
+        const caminho = `${conta.id}/${crypto.randomUUID()}.jpg`;
+        const { error } = await sb.storage.from("fotos-imoveis").upload(caminho, blob, { contentType:"image/jpeg" });
+        if(error) throw error;
+        novas.push(sb.storage.from("fotos-imoveis").getPublicUrl(caminho).data.publicUrl);
+      }catch(err){ setMsg({t:"bad",x:"Não consegui enviar "+a.name+": "+err.message}); }
+      setSubindo(n=>n-1);
+    }
+    setF(x=>({...x, fotos:[...x.fotos, ...novas]}));
+  }
+  function moverFoto(i, d){ const fs=[...f.fotos]; const j=i+d; if(j<0||j>=fs.length) return; [fs[i],fs[j]]=[fs[j],fs[i]]; setF({...f,fotos:fs}); }
+
+  async function salvar(e){
+    e.preventDefault(); setOcupado(true); setMsg(null);
+    const linha = { conta_id:conta.id, titulo:f.titulo.trim(), codigo:f.codigo||null, finalidade:f.finalidade, tipo:f.tipo,
+      bairro:f.bairro||null, cidade:f.cidade||null, endereco:f.endereco||null, preco:num(f.preco), condominio:num(f.condominio), iptu:num(f.iptu),
+      quartos:num(f.quartos), suites:num(f.suites), banheiros:num(f.banheiros), vagas:num(f.vagas), area_m2:num(f.area_m2),
+      aceita_financiamento:bool(f.aceita_financiamento), aceita_pet:bool(f.aceita_pet), mobiliado:bool(f.mobiliado),
+      descricao:f.descricao||null, caracteristicas:f.caracteristicas.split(",").map(s=>s.trim()).filter(Boolean), fotos:f.fotos, ativo:!!f.ativo };
+    const r = imovel ? await sb.from("imoveis").update(linha).eq("id",imovel.id).select().single() : await sb.from("imoveis").insert(linha).select().single();
+    setOcupado(false);
+    if(r.error) return setMsg({t:"bad",x:r.error.message});
+    salvo(r.data);
+  }
+  const simNao=(k,rot)=> <div><label>{rot}</label><select value={f[k]} onChange={set(k)}><option value="">Não informar</option><option value="true">Sim</option><option value="false">Não</option></select></div>;
+  return (
+    <form className="card" onSubmit={salvar}>
+      <div className="between"><h3>{imovel?"Editar imóvel":"Novo imóvel"}</h3>{fechar && <button type="button" className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button>}</div>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <div className="grid">
+        <div style={{gridColumn:"1/-1"}}><label>Título do anúncio *</label><input required value={f.titulo} onChange={set("titulo")} placeholder="Apartamento 3/4 com varanda na Pituba"/></div>
+        <div><label>Finalidade</label><select value={f.finalidade} onChange={set("finalidade")}><option value="venda">Venda</option><option value="aluguel">Aluguel</option></select></div>
+        <div><label>Tipo</label><select value={f.tipo} onChange={set("tipo")}>{["apartamento","casa","casa em condomínio","cobertura","studio","terreno","sala comercial","loja","galpão"].map(t=><option key={t}>{t}</option>)}</select></div>
+        <div><label>{f.finalidade==="aluguel"?"Aluguel (R$/mês)":"Valor (R$)"}</label><input inputMode="decimal" value={f.preco} onChange={set("preco")}/></div>
+        <div><label>Condomínio (R$)</label><input inputMode="decimal" value={f.condominio} onChange={set("condominio")}/></div>
+        <div><label>IPTU (R$/ano)</label><input inputMode="decimal" value={f.iptu} onChange={set("iptu")}/></div>
+        <div><label>Código</label><input value={f.codigo} onChange={set("codigo")}/></div>
+        <div><label>Bairro</label><input value={f.bairro} onChange={set("bairro")}/></div>
+        <div><label>Cidade</label><input value={f.cidade} onChange={set("cidade")}/></div>
+        <div><label>Quartos</label><input type="number" min={0} value={f.quartos} onChange={set("quartos")}/></div>
+        <div><label>Suítes</label><input type="number" min={0} value={f.suites} onChange={set("suites")}/></div>
+        <div><label>Banheiros</label><input type="number" min={0} value={f.banheiros} onChange={set("banheiros")}/></div>
+        <div><label>Vagas</label><input type="number" min={0} value={f.vagas} onChange={set("vagas")}/></div>
+        <div><label>Área (m²)</label><input inputMode="decimal" value={f.area_m2} onChange={set("area_m2")}/></div>
+        {f.finalidade==="venda" ? simNao("aceita_financiamento","Aceita financiamento?") : simNao("aceita_pet","Aceita pet?")}
+        {simNao("mobiliado","Mobiliado?")}
+      </div>
+      <label>Endereço completo <span className="muted">(a assistente só informa depois que a visita é marcada)</span></label>
+      <input value={f.endereco} onChange={set("endereco")} placeholder="Rua, número, apto, ponto de referência"/>
+      <label>Características <span className="muted">(separe por vírgula)</span></label>
+      <input value={f.caracteristicas} onChange={set("caracteristicas")} placeholder="varanda gourmet, piscina, academia, nascente, portaria 24h"/>
+      <label>Descrição</label><textarea value={f.descricao} onChange={set("descricao")}/>
+      <label>Fotos <span className="muted">(a primeira é a capa)</span></label>
+      <div className="fotos">{f.fotos.map((u,i)=><div key={u}><img src={u} alt=""/>
+        <button type="button" onClick={()=>setF({...f,fotos:f.fotos.filter(x=>x!==u)})} aria-label="Remover">✕</button>
+        {i>0 && <button type="button" style={{left:2,right:"auto"}} onClick={()=>moverFoto(i,-1)} aria-label="Mover para a esquerda">◀</button>}</div>)}</div>
+      <div className="row" style={{marginTop:8}}>
+        <label className="btn btn-ghost btn-sm" style={{margin:0}}>{subindo?`Enviando ${subindo}…`:"Adicionar fotos"}<input type="file" accept="image/*" multiple hidden onChange={subirFotos}/></label>
+        <label className="row small" style={{margin:0}}><input type="checkbox" style={{width:"auto"}} checked={!!f.ativo} onChange={e=>setF({...f,ativo:e.target.checked})}/> Disponível (a assistente oferece este imóvel)</label>
+      </div>
+      <div className="row" style={{marginTop:14}}><button className="btn btn-primary" disabled={ocupado||subindo>0}>{ocupado?"Salvando…":"Salvar imóvel"}</button></div>
+    </form>
+  );
+}
+
+function Imoveis({conta, aoMudar}){
+  const [lista,setLista]=useState(null); const [editando,setEditando]=useState(null); const [msg,setMsg]=useState(null);
+  async function carregar(){ const { data, error } = await sb.from("imoveis").select("*").order("criado_em",{ascending:false}); if(error) setMsg({t:"bad",x:error.message}); setLista(data||[]); aoMudar && aoMudar(data||[]); }
+  useEffect(()=>{ carregar(); },[]);
+  async function apagar(i){ if(!confirm(`Apagar "${i.titulo}"? As visitas dele também somem.`)) return; const { error } = await sb.from("imoveis").delete().eq("id",i.id); if(error) setMsg({t:"bad",x:error.message}); carregar(); }
+  if(editando) return <FormImovel conta={conta} imovel={editando==="novo"?null:editando} fechar={()=>setEditando(null)} salvo={()=>{setEditando(null);carregar();setMsg({t:"ok",x:"Imóvel salvo."});}}/>;
+  return (
+    <div className="card">
+      <div className="between"><h3>Imóveis {lista && <span className="muted small">({lista.filter(i=>i.ativo).length} disponíveis)</span>}</h3>
+        <button className="btn btn-primary btn-sm" onClick={()=>setEditando("novo")}>+ Novo imóvel</button></div>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {lista===null ? <p className="muted">Carregando…</p> : !lista.length ? <p className="muted">Nenhum imóvel ainda. Cadastre o primeiro: a assistente só oferece o que está aqui.</p> :
+      <div className="list">{lista.map(i=>(
+        <div key={i.id} className="imv">
+          {i.fotos?.[0] ? <img src={i.fotos[0]} alt=""/> : <div className="ph">sem foto</div>}
+          <div><b>{i.titulo}</b><div className="small muted">{[i.bairro,i.quartos!=null&&`${i.quartos} quartos`,i.area_m2&&`${i.area_m2} m²`,brl(i.preco)+(i.finalidade==="aluguel"?"/mês":"")].filter(Boolean).join(" · ")}</div>
+            <div style={{marginTop:4}}><span className="pill">{i.finalidade}</span>{i.ativo?<span className="pill ok">disponível</span>:<span className="pill warn">pausado</span>}{!i.fotos?.length && <span className="pill warn">sem fotos</span>}{!i.endereco && <span className="pill warn">sem endereço</span>}</div></div>
+          <div className="row"><button className="btn btn-ghost btn-sm" onClick={()=>setEditando(i)}>Editar</button><button className="btn btn-bad btn-sm" onClick={()=>apagar(i)}>Apagar</button></div>
+        </div>))}</div>}
+    </div>
+  );
+}
+
+// ======================================================================== horários
+function Horarios({conta, salvo, botao="Salvar horários"}){
+  const [janelas,setJanelas]=useState(null); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  useEffect(()=>{ (async()=>{
+    const { data } = await sb.from("disponibilidades").select("*").is("imovel_id",null);
+    setJanelas((data && data.length) ? data.map(d=>({dia_semana:d.dia_semana,hora_inicio:d.hora_inicio.slice(0,5),hora_fim:d.hora_fim.slice(0,5)}))
+      : [1,2,3,4,5].map(d=>({dia_semana:d,hora_inicio:"09:00",hora_fim:"18:00"})).concat([{dia_semana:6,hora_inicio:"09:00",hora_fim:"13:00"}]));
+  })(); },[]);
+  const doDia=(d)=> (janelas||[]).map((j,i)=>({...j,i})).filter(j=>j.dia_semana===d);
+  const mudar=(i,k,v)=> setJanelas(js=>js.map((j,n)=>n===i?{...j,[k]:v}:j));
+  async function salvar(){
+    const ruins = janelas.filter(j=>!(j.hora_fim>j.hora_inicio));
+    if(ruins.length) return setMsg({t:"bad",x:"Em algum dia o horário de fim está antes do início."});
+    setOcupado(true); setMsg(null);
+    const del = await sb.from("disponibilidades").delete().eq("conta_id",conta.id).is("imovel_id",null);
+    const ins = janelas.length ? await sb.from("disponibilidades").insert(janelas.map(j=>({conta_id:conta.id, imovel_id:null, dia_semana:j.dia_semana, hora_inicio:j.hora_inicio, hora_fim:j.hora_fim}))) : {};
+    setOcupado(false);
+    const erro = del.error || ins.error; if(erro) return setMsg({t:"bad",x:erro.message});
+    setMsg({t:"ok",x:"Horários salvos."}); salvo && salvo();
+  }
+  if(!janelas) return <div className="card muted">Carregando…</div>;
+  return (
+    <div className="card">
+      <h3>Horários para visita</h3>
+      <p className="small muted" style={{marginTop:0}}>A assistente só oferece horários dentro destas janelas, já tirando as visitas marcadas e os bloqueios. Cada visita dura {conta.duracao_visita_min} min.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {DIAS.map((nome,d)=>(
+        <div className="dia" key={d}><b>{nome}</b>
+          <div>{doDia(d).length===0 && <span className="small muted">Sem visitas · </span>}
+            {doDia(d).map(j=>(<div className="janela" key={j.i}>
+              <input type="time" value={j.hora_inicio} onChange={e=>mudar(j.i,"hora_inicio",e.target.value)}/> até
+              <input type="time" value={j.hora_fim} onChange={e=>mudar(j.i,"hora_fim",e.target.value)}/>
+              <button className="btn btn-ghost btn-sm" onClick={()=>setJanelas(js=>js.filter((_,n)=>n!==j.i))} aria-label="Remover">✕</button></div>))}
+            <button className="btn btn-ghost btn-sm" onClick={()=>setJanelas(js=>[...js,{dia_semana:d,hora_inicio:"09:00",hora_fim:"12:00"}])}>+ janela</button>
+          </div></div>))}
+      <div className="row" style={{marginTop:14}}><button className="btn btn-primary" onClick={salvar} disabled={ocupado}>{ocupado?"Salvando…":botao}</button></div>
+    </div>
+  );
+}
+
+function Bloqueios({conta}){
+  const [lista,setLista]=useState([]); const [f,setF]=useState({inicio:"",fim:"",motivo:""}); const [msg,setMsg]=useState(null);
+  async function carregar(){ const { data } = await sb.from("bloqueios").select("*").gte("fim",new Date().toISOString()).order("inicio"); setLista(data||[]); }
+  useEffect(()=>{ carregar(); },[]);
+  async function add(e){ e.preventDefault();
+    const ini = new Date(f.inicio+":00-03:00"), fim = new Date(f.fim+":00-03:00");
+    if(!(fim>ini)) return setMsg({t:"bad",x:"O fim precisa ser depois do início."});
+    const { error } = await sb.from("bloqueios").insert({conta_id:conta.id, inicio:ini.toISOString(), fim:fim.toISOString(), motivo:f.motivo||null});
+    if(error) return setMsg({t:"bad",x:error.message}); setF({inicio:"",fim:"",motivo:""}); carregar(); }
+  async function del(id){ await sb.from("bloqueios").delete().eq("id",id); carregar(); }
+  return (
+    <form className="card" onSubmit={add}>
+      <h3>Bloquear horários</h3><p className="small muted" style={{marginTop:0}}>Folga, viagem, outro compromisso: a assistente não marca nada nesses períodos.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <div className="grid"><div><label>De</label><input type="datetime-local" required value={f.inicio} onChange={e=>setF({...f,inicio:e.target.value})}/></div>
+        <div><label>Até</label><input type="datetime-local" required value={f.fim} onChange={e=>setF({...f,fim:e.target.value})}/></div>
+        <div><label>Motivo</label><input value={f.motivo} onChange={e=>setF({...f,motivo:e.target.value})}/></div></div>
+      <div style={{marginTop:10}}><button className="btn btn-ghost btn-sm">Bloquear</button></div>
+      {lista.length>0 && <div className="list" style={{marginTop:10}}>{lista.map(b=><div key={b.id} className="between small"><span>{fmtDT(b.inicio)} → {fmtDT(b.fim)} {b.motivo && <span className="muted">· {b.motivo}</span>}</span><button type="button" className="btn btn-bad btn-sm" onClick={()=>del(b.id)}>Remover</button></div>)}</div>}
+    </form>
+  );
+}
+
+function Visitas(){
+  const [lista,setLista]=useState(null);
+  async function carregar(){ const { data } = await sb.from("visitas").select("*, imoveis(titulo,bairro)").gte("fim",new Date(Date.now()-864e5).toISOString()).in("status",["marcada","teste"]).order("inicio"); setLista(data||[]); }
+  useEffect(()=>{ carregar(); },[]);
+  async function mudar(v,status){ if(status==="cancelada" && !confirm("Cancelar esta visita? Avise o cliente.")) return; await sb.from("visitas").update({status}).eq("id",v.id); carregar(); }
+  return (
+    <div className="card"><h3>Próximas visitas</h3>
+      {lista===null ? <p className="muted">Carregando…</p> : !lista.length ? <p className="muted">Nenhuma visita marcada ainda.</p> :
+      <div className="list">{lista.map(v=>(
+        <div key={v.id} className="between">
+          <div><b>{fmtDT(v.inicio)}</b> · {v.imoveis?.titulo} {v.status==="teste" && <span className="pill warn">teste</span>}
+            <div className="small muted">{v.cliente_nome||"Cliente"} · {fmtTel(v.cliente_telefone)} {v.origem==="dri" && "· marcada pela assistente"}{v.observacoes && ` · ${v.observacoes}`}</div></div>
+          <div className="row">{/^\d+$/.test(v.cliente_telefone||"") && <a className="btn btn-wa btn-sm" href={"https://wa.me/"+v.cliente_telefone} target="_blank" rel="noreferrer">WhatsApp</a>}
+            <button className="btn btn-ghost btn-sm" onClick={()=>mudar(v,"realizada")}>Realizada</button>
+            <button className="btn btn-bad btn-sm" onClick={()=>mudar(v,"cancelada")}>Cancelar</button></div>
+        </div>))}</div>}
+    </div>
+  );
+}
+
+// ======================================================================== simulador
+function Simulador({conta}){
+  const [msgs,setMsgs]=useState([]); const [txt,setTxt]=useState(""); const [esperando,setEsperando]=useState(false); const fim=useRef(null);
+  useEffect(()=>{ fim.current?.scrollIntoView({behavior:"smooth"}); },[msgs,esperando]);
+  async function enviar(e){ e.preventDefault(); const t=txt.trim(); if(!t||esperando) return; setTxt(""); setMsgs(m=>[...m,{de:"user",texto:t}]); setEsperando(true);
+    try{ const r = await worker("/simular",{texto:t}); setMsgs(m=>[...m,...r.respostas.map(x=>x.tipo==="foto"?{de:"dri",foto:x.url,texto:x.legenda}:{de:"dri",texto:x.texto})]); }
+    catch(err){ setMsgs(m=>[...m,{de:"dri",texto:"(erro: "+err.message+")"}]); }
+    setEsperando(false); }
+  async function reiniciar(){ await worker("/simular/reiniciar"); setMsgs([]); }
+  return (
+    <div className="card">
+      <div className="between"><h3>Testar a {conta.nome_assistente}</h3><button className="btn btn-ghost btn-sm" onClick={reiniciar}>Recomeçar conversa</button></div>
+      <p className="small muted" style={{marginTop:0}}>Converse como se fosse um cliente. Ela usa seus imóveis e sua agenda de verdade. Visitas marcadas aqui aparecem como <b>teste</b> e não bloqueiam a agenda.</p>
+      <div className="phone">
+        <div className="hd">{conta.nome_assistente} · {conta.nome}</div>
+        <div className="bd">{msgs.length===0 && <div className="small muted">Tente: "Oi, procuro apartamento de 3 quartos para comprar, até 700 mil"</div>}
+          {msgs.map((m,i)=><div key={i} className={"b "+m.de}>{m.foto && <img src={m.foto} alt=""/>}{m.texto}</div>)}
+          {esperando && <div className="b dri muted">digitando…</div>}<div ref={fim}/></div>
+        <form className="ft" onSubmit={enviar}><input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Escreva como cliente…"/><button className="btn btn-wa" disabled={esperando}>Enviar</button></form>
+      </div>
+    </div>
+  );
+}
+
+// ======================================================================== WhatsApp
+function useFacebookSdk(appId, versao){
+  const [pronto,setPronto]=useState(!!window.FB);
+  useEffect(()=>{ if(!appId || window.FB) return;
+    window.fbAsyncInit = ()=>{ FB.init({ appId, autoLogAppEvents:true, xfbml:false, version:versao }); setPronto(true); };
+    const s=document.createElement("script"); s.src="https://connect.facebook.net/pt_BR/sdk.js"; s.async=true; s.crossOrigin="anonymous"; document.body.appendChild(s);
+  },[appId]);
+  return pronto;
+}
+
+function WhatsApp({conta, conectado}){
+  const [cfg,setCfg]=useState(null); const [status,setStatus]=useState(null); const [msg,setMsg]=useState(null);
+  const [modo,setModo]=useState("novo"); const [manual,setManual]=useState({phone_number_id:"",waba_id:"",access_token:""}); const [ocupado,setOcupado]=useState(false);
+  const sessao = useRef({});
+  useEffect(()=>{ fetch(WORKER_URL.replace(/\/$/,"")+"/config").then(r=>r.json()).then(setCfg).catch(()=>setCfg({}));
+    worker("/whatsapp/status").then(setStatus).catch(e=>setStatus({conectado:false,erro:e.message})); },[]);
+  const fbPronto = useFacebookSdk(cfg?.meta_app_id, cfg?.graph_version||"v23.0");
+
+  // A janela da Meta avisa por postMessage qual número e conta foram escolhidos
+  useEffect(()=>{ function ouvir(ev){
+      if(!/facebook\.com$/.test(new URL(ev.origin).hostname)) return;
+      try{ const d = JSON.parse(ev.data); if(d.type==="WA_EMBEDDED_SIGNUP" && /^FINISH/.test(d.event)) sessao.current = { ...sessao.current, ...d.data };
+        if(d.type==="WA_EMBEDDED_SIGNUP" && d.event==="CANCEL") setMsg({t:"warn",x:"Conexão interrompida na etapa: "+(d.data?.current_step||"—")+". Pode tentar de novo."}); }catch{}
+    }
+    window.addEventListener("message", ouvir); return ()=>window.removeEventListener("message", ouvir); },[]);
+
+  function conectarFacebook(){
+    setMsg(null); sessao.current={};
+    FB.login(async (resp)=>{
+      const code = resp?.authResponse?.code; if(!code) return setMsg({t:"warn",x:"A janela do Facebook foi fechada antes de terminar."});
+      // o postMessage pode chegar um pouco depois do callback
+      for(let i=0;i<20 && !sessao.current.phone_number_id;i++) await new Promise(r=>setTimeout(r,250));
+      setOcupado(true);
+      try{ const r = await worker("/whatsapp/embedded",{ code, phone_number_id:sessao.current.phone_number_id, waba_id:sessao.current.waba_id, coexistencia: modo==="coexistencia" });
+        setStatus({conectado:true, numero:r.numero, nome:r.nome}); setMsg({t:"ok",x:"WhatsApp conectado! A partir de agora a "+conta.nome_assistente+" responde esse número."}); conectado && conectado(); }
+      catch(err){ setMsg({t:"bad",x:err.message}); }
+      setOcupado(false);
+    }, { config_id: cfg.meta_config_id, response_type:"code", override_default_response_type:true,
+         extras:{ setup:{}, sessionInfoVersion:"3", ...(modo==="coexistencia"?{featureType:"whatsapp_business_app_onboarding"}:{}) } });
+  }
+  async function salvarManual(e){ e.preventDefault(); setOcupado(true); setMsg(null);
+    try{ const r = await worker("/whatsapp/manual", manual); setStatus({conectado:true,numero:r.numero,nome:r.nome}); setMsg({t:"ok",x:"WhatsApp conectado!"}); conectado && conectado(); }
+    catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(false); }
+
+  const temEmbedded = cfg?.meta_app_id && cfg?.meta_config_id;
+  return (
+    <div className="card">
+      <h3>Conectar o WhatsApp</h3>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {status?.conectado ? <div className="msg ok" style={{cursor:"default"}}>✅ Conectado: <b>{status.numero}</b> {status.nome && `(${status.nome})`}. A {conta.nome_assistente} está respondendo esse número.</div>
+        : status?.erro ? <div className="msg bad" style={{cursor:"default"}}>A conexão parou: {status.erro}. Conecte de novo abaixo.</div> : null}
+      <p className="small muted">Usamos a API oficial do WhatsApp (Meta): sem risco de bloqueio do número. Responder clientes que escreveram para você é gratuito; a Meta só cobra quando a empresa escreve primeiro (centavos por mensagem, no cartão da sua conta Meta).</p>
+
+      <label>Qual número a assistente vai usar?</label>
+      <div className="grid">
+        <label className="card" style={{margin:"0 0 10px",cursor:"pointer",borderColor:modo==="novo"?"var(--brand)":undefined}}><input type="radio" style={{width:"auto"}} checked={modo==="novo"} onChange={()=>setModo("novo")}/> <b>Um número só para ela</b><div className="small muted">Chip novo ou número que não está em nenhum WhatsApp. Recomendado: você divulga esse número nos anúncios.</div></label>
+        <label className="card" style={{margin:"0 0 10px",cursor:"pointer",borderColor:modo==="coexistencia"?"var(--brand)":undefined}}><input type="radio" style={{width:"auto"}} checked={modo==="coexistencia"} onChange={()=>setModo("coexistencia")}/> <b>Meu WhatsApp Business atual</b><div className="small muted">Você continua usando o app no celular e a assistente responde junto. Precisa ser o app WhatsApp Business (não o comum), atualizado.</div></label>
+      </div>
+
+      <h3 style={{fontSize:15,marginTop:8}}>Passo a passo</h3>
+      <ol className="passo small">
+        <li>Tenha em mãos: email e senha do Facebook, o CNPJ ou CPF (MEI serve) e {modo==="novo"?"o chip do número novo no celular (para receber o código por SMS)":"o celular com o WhatsApp Business aberto"}.</li>
+        <li>Clique em <b>Conectar com o Facebook</b>. Abre uma janela da Meta.</li>
+        <li>Crie ou escolha seu <b>Portfólio empresarial</b> (nome do seu negócio, site ou Instagram, endereço).</li>
+        <li>Crie a <b>conta do WhatsApp Business</b>: nome de exibição (ex.: “{conta.nome}”), categoria <i>Imóveis</i>.</li>
+        <li>{modo==="novo" ? <>Digite o <b>número novo</b> e confirme com o código que chega por SMS ou ligação.</> : <>Escolha <b>conectar o app WhatsApp Business</b>, digite seu número e leia o QR code que aparece, pelo app no celular (Configurações → Conta → Plataforma de negócios).</>}</li>
+        <li>Conclua. Esta tela confirma sozinha quando terminar.</li>
+        <li>Depois, em <a href="https://business.facebook.com/billing_hub" target="_blank" rel="noreferrer">Faturamento da Meta</a>, cadastre um cartão (só é cobrado se a empresa escrever primeiro).</li>
+      </ol>
+      {temEmbedded ? <button className="btn btn-primary" onClick={conectarFacebook} disabled={!fbPronto||ocupado}>{ocupado?"Conectando…":fbPronto?"Conectar com o Facebook":"Carregando…"}</button>
+        : <div className="msg warn" style={{cursor:"default"}}>O botão automático ainda não está ativo nesta plataforma (falta configurar o app da Meta). Use a conexão manual abaixo ou peça ajuda ao suporte.</div>}
+
+      <details style={{marginTop:16}}><summary className="small">Conexão manual (avançado)</summary>
+        <form onSubmit={salvarManual}>
+          <ol className="passo small"><li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com</a>, no seu app com WhatsApp, abra <b>WhatsApp → Configuração da API</b> e copie o <b>ID do número de telefone</b> e o <b>ID da conta do WhatsApp Business</b>.</li>
+            <li>Crie um <b>token permanente</b> em Configurações do negócio → Usuários do sistema (permissões whatsapp_business_messaging e whatsapp_business_management).</li>
+            <li>No app, em WhatsApp → Configuração, aponte o webhook para <code>{cfg?.webhook_url||"…/webhook"}</code> e assine o campo <b>messages</b>.</li></ol>
+          <div className="grid"><div><label>ID do número</label><input required value={manual.phone_number_id} onChange={e=>setManual({...manual,phone_number_id:e.target.value.trim()})}/></div>
+            <div><label>ID da conta (WABA)</label><input required value={manual.waba_id} onChange={e=>setManual({...manual,waba_id:e.target.value.trim()})}/></div></div>
+          <label>Token</label><input required type="password" value={manual.access_token} onChange={e=>setManual({...manual,access_token:e.target.value.trim()})}/>
+          <div style={{marginTop:10}}><button className="btn btn-ghost" disabled={ocupado}>Conectar manualmente</button></div>
+        </form></details>
+    </div>
+  );
+}
+
+// ======================================================================== conversas
+function Conversas({conta, aoContar}){
+  const [lista,setLista]=useState([]); const [aberta,setAberta]=useState(null); const [txt,setTxt]=useState(""); const [msg,setMsg]=useState(null); const [enviando,setEnviando]=useState(false);
+  async function carregar(){ const { data } = await sb.from("conversas").select("id,telefone,nome,transcricao,precisa_corretor,motivo,atualizado_em,ultima_cliente_em").neq("telefone","simulador").order("atualizado_em",{ascending:false}).limit(100);
+    setLista(data||[]); aoContar && aoContar((data||[]).filter(c=>c.precisa_corretor).length);
+    if(aberta) setAberta((data||[]).find(c=>c.id===aberta.id)||null); }
+  useEffect(()=>{ carregar(); const t=setInterval(carregar,15000); return ()=>clearInterval(t); },[aberta?.id]);
+  async function resolver(c){ const { error } = await sb.from("conversas").update({precisa_corretor:false,motivo:null}).eq("id",c.id); if(error) setMsg({t:"bad",x:error.message}); else { setMsg({t:"ok",x:`Pronto: a ${conta.nome_assistente} volta a responder esse cliente.`}); carregar(); } }
+  async function assumir(c){ await sb.from("conversas").update({precisa_corretor:true,motivo:"Corretor assumiu a conversa"}).eq("id",c.id); carregar(); }
+  async function responder(e){ e.preventDefault(); if(!txt.trim()) return; setEnviando(true);
+    try{ await worker("/responder",{telefone:aberta.telefone,texto:txt}); setTxt(""); carregar(); }catch(err){ setMsg({t:"bad",x:err.message}); } setEnviando(false); }
+  const ordenadas = [...lista].sort((a,b)=>(b.precisa_corretor-a.precisa_corretor));
+  return (
+    <div className="card">
+      <h3>Conversas</h3><Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {!lista.length ? <p className="muted">Nenhuma conversa ainda. Quando clientes escreverem no WhatsApp, elas aparecem aqui.</p> :
+      <div className="conv">
+        <div className="lst">{ordenadas.map(c=>(<button key={c.id} className={aberta?.id===c.id?"on":""} onClick={()=>setAberta(c)}>
+          <b>{c.nome||fmtTel(c.telefone)}</b>{c.precisa_corretor && <span className="badge">!</span>}
+          <div className="small muted">{c.precisa_corretor ? (c.motivo||"precisa de você") : (c.transcricao?.at(-1)?.texto||"").slice(0,60)}</div></button>))}</div>
+        <div>{!aberta ? <p className="muted">Escolha uma conversa.</p> : <>
+          <div className="between" style={{marginBottom:8}}><div><b>{aberta.nome||"Cliente"}</b> · {fmtTel(aberta.telefone)}</div>
+            <div className="row">{aberta.precisa_corretor ? <button className="btn btn-primary btn-sm" onClick={()=>resolver(aberta)}>Resolvido, {conta.nome_assistente} pode voltar</button>
+              : <button className="btn btn-ghost btn-sm" onClick={()=>assumir(aberta)}>Assumir conversa</button>}
+              <a className="btn btn-wa btn-sm" href={"https://wa.me/"+aberta.telefone} target="_blank" rel="noreferrer">Abrir no WhatsApp</a></div></div>
+          {aberta.precisa_corretor && <div className="msg warn" style={{cursor:"default"}}>{conta.nome_assistente} está em silêncio nesta conversa: {aberta.motivo||"você assumiu"}.</div>}
+          <div className="phone" style={{maxWidth:"none"}}><div className="bd">{(aberta.transcricao||[]).map((m,i)=><div key={i} className={"b "+(m.de==="cliente"?"dri":m.de==="dri"?"user":"corretor")}>{m.texto}<div className="small muted" style={{marginTop:2}}>{m.de==="cliente"?"cliente":m.de==="dri"?conta.nome_assistente:"você"} · {fmtDT(m.em)}</div></div>)}</div>
+            <form className="ft" onSubmit={responder}><input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Responder pelo número da assistente…"/><button className="btn btn-wa" disabled={enviando}>Enviar</button></form></div>
+        </>}</div>
+      </div>}
+    </div>
+  );
+}
+
+function Inicio({conta, irPara}){
+  const [n,setN]=useState(null);
+  useEffect(()=>{ (async()=>{ const ini=new Date(Date.now()-30*864e5).toISOString(), agora=new Date().toISOString();
+    const [c,p,v,m] = await Promise.all([
+      sb.from("conversas").select("id",{count:"exact",head:true}).neq("telefone","simulador").gte("atualizado_em",ini),
+      sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true),
+      sb.from("visitas").select("id",{count:"exact",head:true}).eq("status","marcada").gte("inicio",agora),
+      sb.from("visitas").select("id",{count:"exact",head:true}).eq("origem","dri").neq("status","teste").gte("criado_em",ini)]);
+    setN({conversas:c.count||0, pendentes:p.count||0, proximas:v.count||0, marcadasDri:m.count||0}); })(); },[]);
+  if(!n) return <div className="card muted">Carregando…</div>;
+  return <>
+    <div className="tiles">
+      <div className="tile"><div className="l">Conversas nos últimos 30 dias</div><div className="v">{n.conversas}</div></div>
+      <div className="tile"><div className="l">Visitas marcadas pela {conta.nome_assistente} (30 dias)</div><div className="v">{n.marcadasDri}</div></div>
+      <div className="tile"><div className="l">Próximas visitas</div><div className="v">{n.proximas}</div></div>
+      <div className="tile" style={{cursor:"pointer"}} onClick={()=>irPara("conversas")}><div className="l">Clientes esperando você</div><div className="v" style={{color:n.pendentes?"var(--bad)":undefined}}>{n.pendentes}</div></div>
+    </div>
+    <Visitas/>
+  </>;
+}
+
+// ======================================================================== onboarding
+const ETAPAS = ["Perfil","Imóveis","Horários","Testar","WhatsApp"];
+function Onboarding({conta, setConta}){
+  const etapa = conta ? Math.min(conta.onboarding_etapa,5) : 1;
+  const [imoveis,setImoveis]=useState([]);
+  async function avancar(para){ const { data } = await sb.from("contas").update({onboarding_etapa:para}).eq("id",conta.id).select().single(); if(data) setConta(data); }
+  return (
+    <div>
+      <div className="steps">{ETAPAS.map((e,i)=><span key={e} className={i+1===etapa?"on":i+1<etapa?"done":""}>{i+1<etapa?"✓ ":`${i+1}. `}{e}</span>)}</div>
+      {etapa===1 && <><div className="card"><h3>Bem-vindo! Vamos deixar sua assistente pronta</h3><p className="muted" style={{margin:0}}>São 5 passos, uns 15 minutos. Você pode parar e continuar depois: fica tudo salvo.</p></div>
+        <Perfil conta={conta} salvo={async (c)=>{ setConta(c); if(c.onboarding_etapa<2) await avancar(2); }} botao="Salvar e continuar"/></>}
+      {etapa===2 && <><div className="card"><h3>Cadastre seus imóveis</h3><p className="muted" style={{margin:0}}>Comece com 1 ou 2 para testar. Você pode cadastrar o resto depois. Capriche nas fotos e no endereço: ela só passa o endereço quando a visita é marcada.</p></div>
+        <Imoveis conta={conta} aoMudar={setImoveis}/>
+        <div className="row"><button className="btn btn-ghost" onClick={()=>avancar(1)}>Voltar</button><button className="btn btn-primary" disabled={!imoveis.length} onClick={()=>avancar(3)}>Continuar</button>{!imoveis.length && <span className="small muted">Cadastre pelo menos 1 imóvel.</span>}</div></>}
+      {etapa===3 && <><Horarios conta={conta} salvo={()=>avancar(4)} botao="Salvar e continuar"/><Bloqueios conta={conta}/><button className="btn btn-ghost" onClick={()=>avancar(2)}>Voltar</button></>}
+      {etapa===4 && <><Simulador conta={conta}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(3)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(5)}>Gostei, conectar o WhatsApp</button><span className="small muted">Se algo não ficou bom, ajuste as orientações no perfil.</span></div></>}
+      {etapa===5 && <><WhatsApp conta={conta} conectado={()=>{}}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(4)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(6)}>Ir para o painel</button><span className="small muted">Dá para conectar o WhatsApp depois, pela aba WhatsApp.</span></div></>}
+    </div>
+  );
+}
+
+// ======================================================================== app
+function Painel({conta, setConta}){
+  const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0);
+  useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0)); },[aba]);
+  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["testar","Testar"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
+  return <>
+    <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}</button>)}</div>
+    {aba==="inicio" && <Inicio conta={conta} irPara={setAba}/>}
+    {aba==="conversas" && <Conversas conta={conta} aoContar={setPend}/>}
+    {aba==="agenda" && <><Visitas/><Horarios conta={conta}/><Bloqueios conta={conta}/></>}
+    {aba==="imoveis" && <Imoveis conta={conta}/>}
+    {aba==="testar" && <Simulador conta={conta}/>}
+    {aba==="whatsapp" && <WhatsApp conta={conta}/>}
+    {aba==="perfil" && <Perfil conta={conta} salvo={setConta}/>}
+  </>;
+}
+
+function App(){
+  const [sessao,setSessao]=useState(undefined); const [conta,setConta]=useState(undefined); const [recuperando,setRecuperando]=useState(false);
+  useEffect(()=>{ if(!sb) return;
+    sb.auth.getSession().then(({data})=>setSessao(data.session));
+    const { data:{ subscription } } = sb.auth.onAuthStateChange((ev,s)=>{ setSessao(s); if(ev==="PASSWORD_RECOVERY") setRecuperando(true); });
+    return ()=>subscription.unsubscribe(); },[]);
+  useEffect(()=>{ if(!sessao) { setConta(sessao===null?null:undefined); return; }
+    sb.from("contas").select("*").maybeSingle().then(({data})=>setConta(data||null)); },[sessao?.user?.id]);
+
+  if(!configurado) return <div className="wrap"><div className="card"><h3>Falta configurar</h3><p>Preencha <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code> e <code>WORKER_URL</code> no topo deste arquivo.</p></div></div>;
+  if(sessao===undefined) return <div className="wrap muted">Carregando…</div>;
+  if(recuperando) return <NovaSenha fim={()=>setRecuperando(false)}/>;
+  if(!sessao) return <Login/>;
+  if(conta===undefined) return <div className="wrap muted">Carregando…</div>;
+  const pronto = conta && conta.onboarding_etapa>=6;
+  return (
+    <div className="wrap">
+      <div className="top"><div className="brand"><h1>{conta?.nome_assistente||"Dri"} · {conta?.nome||"Imóveis"}</h1><p>Sua assistente de WhatsApp para imóveis</p></div>
+        <button className="btn btn-ghost btn-sm" onClick={()=>sb.auth.signOut()}>Sair</button></div>
+      {pronto ? <Painel conta={conta} setConta={setConta}/> : <Onboarding conta={conta} setConta={setConta}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

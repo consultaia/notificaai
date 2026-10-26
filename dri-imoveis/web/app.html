@@ -294,8 +294,8 @@ const simNaoSel=(valor,mudar,rot)=> <div><label>{rot}</label><select value={valo
 const bool=(v)=> v===""||v==null?null:v==="true"||v===true;
 
 // ------------------------------------------------------------------ imóvel avulso
-function FormImovel({conta, imovel, fechar, salvo}){
-  const i0 = imovel||{};
+function FormImovel({conta, imovel, inicial, fechar, salvo}){
+  const i0 = imovel||inicial||{};
   const [f,setF]=useState(()=>({ titulo:i0.titulo||"", codigo:i0.codigo||"", finalidade:i0.finalidade||"venda", tipo:i0.tipo||"apartamento",
     bairro:i0.bairro||"", cidade:i0.cidade||conta.cidade||"", endereco:i0.endereco||"", preco:textoNum(i0.preco), condominio:textoNum(i0.condominio), iptu:textoNum(i0.iptu),
     quartos:i0.quartos??"", suites:i0.suites??"", banheiros:i0.banheiros??"", vagas:i0.vagas??"", area_m2:textoNum(i0.area_m2),
@@ -603,6 +603,61 @@ function Imoveis({conta, aoMudar}){
             <div style={{marginTop:4}}><span className="pill">{i.finalidade}</span>{i.ativo?<span className="pill ok">disponível</span>:<span className="pill warn">pausado</span>}{!i.fotos?.length && <span className="pill warn">sem fotos</span>}{!i.endereco && <span className="pill warn">sem endereço</span>}</div></div>
           <div className="row"><button className="btn btn-ghost btn-sm" onClick={()=>setTela({tipo:"avulso",imovel:i})}>Editar</button><button className="btn btn-bad btn-sm" onClick={()=>apagar(g)}>Apagar</button></div>
         </div>); })}</div>}
+    </div>
+  );
+}
+
+// ======================================================================== captações (proprietários)
+const STATUS_CAP = ["nova","em contato","avaliação marcada","captado","descartada"];
+function Captacoes({conta, aoContar}){
+  const [lista,setLista]=useState(null); const [filtro,setFiltro]=useState("abertas"); const [cadastrando,setCadastrando]=useState(null); const [msg,setMsg]=useState(null);
+  async function carregar(){ const { data, error } = await sb.from("captacoes").select("*").order("criado_em",{ascending:false});
+    if(error) setMsg({t:"bad",x:error.message}); setLista(data||[]); aoContar && aoContar((data||[]).filter(c=>c.status==="nova").length); }
+  useEffect(()=>{ carregar(); const t=setInterval(carregar,20000); return ()=>clearInterval(t); },[]);
+  async function mudar(c,status){ const { error } = await sb.from("captacoes").update({status}).eq("id",c.id); if(error) setMsg({t:"bad",x:error.message}); carregar(); }
+  if(cadastrando){ const c=cadastrando;
+    const tipoTxt=(c.tipo||"imóvel"); const inicial={ titulo:[tipoTxt[0].toUpperCase()+tipoTxt.slice(1), c.quartos?`${c.quartos}/4`:null].filter(Boolean).join(" ")+(c.bairro?` – ${c.bairro}`:""),
+      finalidade: c.finalidade==="aluguel"?"aluguel":"venda", tipo: TIPOS.includes(c.tipo)?c.tipo:"apartamento", bairro:c.bairro, cidade:c.cidade||conta.cidade, endereco:c.endereco,
+      preco:c.valor_pretendido, condominio:c.condominio, iptu:c.iptu, quartos:c.quartos, suites:c.suites, banheiros:c.banheiros, vagas:c.vagas, area_m2:c.area_m2,
+      caracteristicas:c.caracteristicas||[], descricao:c.observacoes, fotos:c.fotos||[], ativo:false };
+    return <>
+      <div className="msg warn" style={{cursor:"default"}}>Confira os dados de {c.nome||"proprietário"} e complete o que faltar. O imóvel começa <b>pausado</b>: marque "Disponível" quando o contrato com o proprietário estiver fechado.</div>
+      <FormImovel conta={conta} inicial={inicial} fechar={()=>setCadastrando(null)} salvo={async (im)=>{ await sb.from("captacoes").update({status:"captado", imovel_id:im.id}).eq("id",c.id); setCadastrando(null); setMsg({t:"ok",x:"Imóvel cadastrado a partir da captação."}); carregar(); }}/>
+    </>; }
+  const abertas=(lista||[]).filter(c=>!["captado","descartada"].includes(c.status));
+  const mostradas = filtro==="abertas" ? abertas : (lista||[]).filter(c=>c.status===filtro);
+  const v=(x)=>x==null||x===""?null:x;
+  return (
+    <div className="card">
+      <h3>Captações</h3>
+      <p className="small muted" style={{marginTop:0}}>Proprietários que procuraram você para vender ou alugar. A {conta.nome_assistente} conversa, anota os dados, guarda as fotos que a pessoa manda e te avisa.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <div className="tabs" style={{marginBottom:10}}>
+        {[["abertas",`Em aberto (${abertas.length})`],...STATUS_CAP.map(x=>[x,`${x[0].toUpperCase()+x.slice(1)} (${(lista||[]).filter(c=>c.status===x).length})`])].map(([k,n])=>
+          <button key={k} className={filtro===k?"on":""} onClick={()=>setFiltro(k)}>{n}</button>)}
+      </div>
+      {lista===null ? <p className="muted">Carregando…</p> : !mostradas.length ? <p className="muted">{filtro==="abertas" ? `Nenhuma captação em aberto. Quando um proprietário escrever querendo vender ou alugar, a ${conta.nome_assistente} anota tudo aqui.` : "Nada nesta situação."}</p> :
+      <div className="list">{mostradas.map(c=>(
+        <div key={c.id}>
+          <div className="between">
+            <div><b>{c.nome||"Proprietário"}</b> · {fmtTel(c.telefone)} {c.status==="nova" && <span className="badge">novo</span>}
+              <div className="small muted">{[[c.tipo, c.finalidade&&`para ${c.finalidade}`].filter(Boolean).join(" "), c.bairro].filter(Boolean).join(" · ")||"dados em coleta"} · {fmtDT(c.criado_em)}{!c.completa && " · a Dri ainda está conversando"}</div></div>
+            <select value={c.status} onChange={e=>mudar(c,e.target.value)} style={{width:"auto"}} aria-label="Situação da captação">{STATUS_CAP.map(x=><option key={x}>{x}</option>)}</select>
+          </div>
+          <div className="small" style={{marginTop:6,lineHeight:1.7}}>
+            {[v(c.quartos)!=null&&`${c.quartos} quarto${c.quartos===1?"":"s"}`, v(c.suites)!=null&&`${c.suites} suíte${c.suites===1?"":"s"}`, v(c.vagas)!=null&&`${c.vagas} vaga${c.vagas===1?"":"s"}`, v(c.area_m2)&&`${String(c.area_m2).replace(".",",")} m²`,
+              v(c.valor_pretendido)&&`pede ${brl(c.valor_pretendido)}${c.finalidade==="aluguel"?"/mês":""}`, v(c.condominio)&&`condomínio ${brl(c.condominio)}`, v(c.ocupacao)].filter(Boolean).join(" · ")}
+            {c.endereco && <div>Endereço: {c.endereco}</div>}
+            {c.melhor_horario && <div><b>Melhor horário:</b> {c.melhor_horario}</div>}
+            {c.caracteristicas?.length>0 && <div>{c.caracteristicas.map(x=><span key={x} className="pill">{x}</span>)}</div>}
+            {c.observacoes && <div className="muted">{c.observacoes}</div>}
+          </div>
+          {c.fotos?.length>0 && <div className="fotos">{c.fotos.map(u=><a key={u} href={u} target="_blank" rel="noreferrer"><img src={u} alt="Foto enviada pelo proprietário"/></a>)}</div>}
+          <div className="row" style={{marginTop:8}}>
+            <a className="btn btn-wa btn-sm" href={"https://wa.me/"+c.telefone} target="_blank" rel="noreferrer">Falar no WhatsApp</a>
+            {!c.imovel_id ? <button className="btn btn-primary btn-sm" onClick={()=>setCadastrando(c)}>Cadastrar como imóvel</button> : <span className="pill ok">imóvel cadastrado</span>}
+          </div>
+        </div>))}</div>}
     </div>
   );
 }
@@ -952,12 +1007,13 @@ function Inicio({conta, irPara}){
   const [n,setN]=useState(null); const [cap,setCap]=useState(null);
   useEffect(()=>{ worker("/ia/status").then(r=>setCap(r.capacidade)).catch(()=>{}); },[]);
   useEffect(()=>{ (async()=>{ const ini=new Date(Date.now()-30*864e5).toISOString(), agora=new Date().toISOString();
-    const [c,p,v,m] = await Promise.all([
+    const [c,p,v,m,cap] = await Promise.all([
       sb.from("conversas").select("id",{count:"exact",head:true}).neq("telefone","simulador").gte("atualizado_em",ini),
       sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true),
       sb.from("visitas").select("id",{count:"exact",head:true}).eq("status","marcada").gte("inicio",agora),
-      sb.from("visitas").select("id",{count:"exact",head:true}).eq("origem","dri").neq("status","teste").gte("criado_em",ini)]);
-    setN({conversas:c.count||0, pendentes:p.count||0, proximas:v.count||0, marcadasDri:m.count||0}); })(); },[]);
+      sb.from("visitas").select("id",{count:"exact",head:true}).eq("origem","dri").neq("status","teste").gte("criado_em",ini),
+      sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova")]);
+    setN({conversas:c.count||0, pendentes:p.count||0, proximas:v.count||0, marcadasDri:m.count||0, captacoes:cap.count||0}); })(); },[]);
   if(!n) return <div className="card muted">Carregando…</div>;
   const capPct = cap ? cap.usadas/Math.max(cap.cota,1) : 0;
   return <>
@@ -971,6 +1027,7 @@ function Inicio({conta, irPara}){
       <div className="tile"><div className="l">Visitas marcadas pela {conta.nome_assistente} (30 dias)</div><div className="v">{n.marcadasDri}</div></div>
       <div className="tile"><div className="l">Próximas visitas</div><div className="v">{n.proximas}</div></div>
       <div className="tile" style={{cursor:"pointer"}} onClick={()=>irPara("conversas")}><div className="l">Clientes esperando você</div><div className="v" style={{color:n.pendentes?"var(--bad)":undefined}}>{n.pendentes}</div></div>
+      <div className="tile" style={{cursor:"pointer"}} onClick={()=>irPara("captacoes")}><div className="l">Imóveis novos para captar</div><div className="v" style={{color:n.captacoes?"var(--brand)":undefined}}>{n.captacoes}</div></div>
     </div>
     <Visitas/>
   </>;
@@ -1000,15 +1057,17 @@ function Onboarding({conta, setConta}){
 
 // ======================================================================== app
 function Painel({conta, setConta}){
-  const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0);
-  useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0)); },[aba]);
-  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
+  const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0); const [capNovas,setCapNovas]=useState(0);
+  useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0));
+    sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova").then(r=>setCapNovas(r.count||0)); },[aba]);
+  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
   return <>
-    <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}</button>)}</div>
+    <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}{k==="captacoes"&&capNovas>0&&<span className="badge">{capNovas}</span>}</button>)}</div>
     {aba==="inicio" && <Inicio conta={conta} irPara={setAba}/>}
     {aba==="conversas" && <Conversas conta={conta} aoContar={setPend}/>}
     {aba==="agenda" && <><Visitas/><Horarios conta={conta}/><Bloqueios conta={conta}/></>}
     {aba==="imoveis" && <Imoveis conta={conta}/>}
+    {aba==="captacoes" && <Captacoes conta={conta} aoContar={setCapNovas}/>}
     {aba==="testar" && <Simulador conta={conta}/>}
     {aba==="ia" && <IA conta={conta}/>}
     {aba==="whatsapp" && <WhatsApp conta={conta}/>}

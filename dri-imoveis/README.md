@@ -31,7 +31,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 ### 1. Supabase
 1. Crie um projeto (região São Paulo).
-2. SQL Editor → rode, em ordem, os arquivos da pasta `supabase/migrations/` (001 a 005).
+2. SQL Editor → rode, em ordem, os arquivos da pasta `supabase/migrations/` (001 a 006).
 3. Authentication → URL Configuration: **Site URL** = endereço do `app.html`; adicione o mesmo
    em Redirect URLs. Deixe a confirmação de email ligada.
 4. Anote a URL do projeto, a chave pública (anon) e a service role.
@@ -87,6 +87,13 @@ para foto. Se o PDF for só imagem, a Claude lê as imagens das primeiras 12 pá
 mesmo formulário de empreendimento e completa o que o book não traz (preços, vagas): cada planta vira um
 imóvel, com a imagem da planta como primeira foto e as páginas escolhidas depois. Até 50 MB o próprio PDF fica guardado (bucket `books-imoveis`) e a Dri manda o book ao cliente
 (ferramenta `enviar_book`). Testado com books reais de 3 MB/48 páginas e 30 MB/32 páginas.
+
+**Captação (proprietários):** quando quem escreve quer vender ou alugar o imóvel dele, a Dri colhe os
+dados aos poucos (finalidade, tipo, bairro, quartos, vagas, área, valor pretendido, ocupação, melhor
+horário) com a ferramenta `salvar_captacao`, guarda as fotos que a pessoa manda pelo WhatsApp (bucket
+`fotos-imoveis`, pasta `recebidas/`) e avisa o corretor por email e WhatsApp. No painel, a aba Captações
+lista tudo com a situação (nova, em contato, avaliação marcada, captado, descartada) e o botão
+"Cadastrar como imóvel", que já preenche o formulário (o imóvel começa pausado).
 
 **Áudio:** a Dri baixa o áudio do WhatsApp e transcreve com o Whisper do Groq (gratuito), usando a
 chave do Groq do corretor ou a da plataforma. Se não der para transcrever, ela pede para o cliente escrever.

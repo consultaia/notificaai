@@ -19,7 +19,7 @@ Nunca pedir chave ou token no chat.
 ## Passos
 1. **Supabase** (MCP do Supabase): `list_organizations`, achar a org nova da Dri (Pro), `create_project`
    (`dri-imoveis`, `sa-east-1`), esperar ficar ACTIVE_HEALTHY. Aplicar em ordem
-   `supabase/migrations/001` a `005` com `apply_migration`. Depois:
+   `supabase/migrations/001` a `006` com `apply_migration`. Depois:
    - `update storage.buckets set file_size_limit = 209715200 where id = 'books-imoveis'` (200 MB, plano Pro);
    - `get_advisors` (security) e corrigir o que for apontado;
    - pegar URL e chave pública (`get_project_url`, `get_publishable_keys`).
@@ -41,7 +41,7 @@ Nunca pedir chave ou token no chat.
    - no simulador do painel, conversar como cliente: saudação, bairro sem imóvel, "quero" depois de
      uma oferta, fotos, book, marcar visita, pedir para falar com o corretor; conferir tom (mensagens
      separadas, calor humano) e que nada é inventado;
-   - importar os dois books de exemplo do Janan (Encanto Piatã e Imbuí Class; pedir os PDFs de novo se
+   - mandar como proprietário "quero vender meu apartamento" (conferir a aba Captações e o aviso), importar os dois books de exemplo do Janan (Encanto Piatã e Imbuí Class; pedir os PDFs de novo se
      não estiverem na sessão) e conferir o que a IA extraiu;
    - ajustar o prompt em `worker/src/agente.js` se preciso, rodar `npm test`, publicar.
 6. Entregar ao Janan o link do painel e o link da política de privacidade (o corretor usa na Meta).

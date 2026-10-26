@@ -21,6 +21,17 @@ function montar(tipo, ctx, dados) {
       texto: `❌ Visita cancelada pelo cliente\n${dados.visita.imoveis?.titulo || ""}\n${descreverHorario(new Date(dados.visita.inicio))}\nCliente: ${cliente}`,
     };
   }
+  if (tipo === "captacao") {
+    const c = dados.captacao;
+    const brl = (v) => (v == null ? null : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }));
+    const resumo = [[c.tipo, c.finalidade && `para ${c.finalidade}`].filter(Boolean).join(" "), c.bairro].filter(Boolean).join(" · ");
+    const detalhes = [c.quartos != null && `${c.quartos} quarto${c.quartos === 1 ? "" : "s"}`, c.vagas != null && `${c.vagas} vaga${c.vagas === 1 ? "" : "s"}`, c.area_m2 && `${String(c.area_m2).replace(".", ",")} m²`,
+      c.valor_pretendido && `pede ${brl(c.valor_pretendido)}`].filter(Boolean).join(" · ");
+    return {
+      assunto: `Imóvel para captar: ${resumo || "proprietário quer anunciar"}`,
+      texto: `🏡 Um proprietário quer ${c.finalidade === "aluguel" ? "alugar" : "vender"} com você\n\n${c.nome || "Proprietário"} · +${ctx.telefone}\n${resumo}${detalhes ? `\n${detalhes}` : ""}${c.melhor_horario ? `\nMelhor horário: ${c.melhor_horario}` : ""}${(c.fotos || []).length ? `\n${c.fotos.length} foto(s) recebida(s)` : ""}\n\nVeja tudo na aba Captações do painel.`,
+    };
+  }
   if (tipo === "capacidade") {
     const { nivel, usadas, cota, temChavesProprias } = dados;
     const nome = ctx.conta.nome_assistente;

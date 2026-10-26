@@ -312,6 +312,15 @@ async function encaminhar(env, contaId, msgs) {
   }
 }
 
+async function guardarMidia(db, contaId, telefone, nome, url) {
+  const { data: conv } = await db.from("conversas").select("id,midias_recebidas").eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
+  if (conv) await db.from("conversas").update({ midias_recebidas: [...(conv.midias_recebidas || []), url] }).eq("id", conv.id);
+  else await db.from("conversas").insert({ conta_id: contaId, telefone, nome, midias_recebidas: [url] });
+  const { data: cap } = await db.from("captacoes").select("id,fotos").eq("conta_id", contaId).eq("telefone", telefone)
+    .in("status", ["nova", "em contato", "avaliação marcada"]).maybeSingle();
+  if (cap) await db.from("captacoes").update({ fotos: [...(cap.fotos || []), url] }).eq("id", cap.id);
+}
+
 const TIPO_SEM_TEXTO = {
   audio: "[O cliente mandou um áudio que não deu para transcrever.]",
   video: "[O cliente mandou um vídeo, que você não consegue ver.]",
@@ -378,6 +387,21 @@ export class Conversa {
           const texto = await transcrever(chaves, await baixarMidia(env, conexao, m.midiaId), env);
           if (texto) m.texto = `[Áudio do cliente, transcrito] ${texto}`;
         } catch (e) { console.warn("transcrição", e.message); }
+      }
+    }
+    // Fotos do cliente: guarda no storage e na conversa; se for um proprietário com captação aberta, vai para ela
+    for (const m of fila.filter((m) => m.imagemId)) {
+      try {
+        const { dados, tipo } = await baixarMidia(env, conexao, m.imagemId);
+        const caminho = `${contaId}/recebidas/${crypto.randomUUID()}.${tipo.includes("png") ? "png" : "jpg"}`;
+        const up = await db.storage.from("fotos-imoveis").upload(caminho, dados, { contentType: tipo.split(";")[0] });
+        if (up.error) throw new Error(up.error.message);
+        const url = db.storage.from("fotos-imoveis").getPublicUrl(caminho).data.publicUrl;
+        await guardarMidia(db, contaId, telefone, nome, url);
+        m.texto = `[O cliente mandou uma foto${m.legenda ? ` com a legenda "${m.legenda}"` : ""}. Ela foi guardada para o corretor; você não consegue vê-la.]`;
+      } catch (e) {
+        console.warn("foto recebida", e.message);
+        m.texto = `[O cliente mandou uma foto${m.legenda ? ` com a legenda "${m.legenda}"` : ""} que não deu para guardar.]`;
       }
     }
     const textos = fila.map((m) => m.texto ?? TIPO_SEM_TEXTO[m.tipo] ?? (m.tipo in TIPO_SEM_TEXTO ? null : `[Mensagem do tipo ${m.tipo}]`))

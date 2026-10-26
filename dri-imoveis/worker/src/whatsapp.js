@@ -73,11 +73,12 @@ export function extrairMensagens(payload) {
           texto = m.interactive?.button_reply?.title || m.interactive?.list_reply?.title;
         else if (m.type === "location")
           texto = `[O cliente enviou uma localização: ${m.location?.name || ""} ${m.location?.address || ""} (${m.location?.latitude}, ${m.location?.longitude})]`;
-        else if (m.type === "image" && m.image?.caption) texto = `[Imagem] ${m.image.caption}`;
+        // imagem: o texto é montado depois de guardar a foto (index.js)
         saida.push({
           phoneNumberId, id: m.id, de: m.from, nome: nomes[m.from] || null,
           tipo: m.type, texto, em: new Date(Number(m.timestamp) * 1000 || Date.now()),
           ...(m.type === "audio" && m.audio?.id ? { midiaId: m.audio.id } : {}),
+          ...(m.type === "image" && m.image?.id ? { imagemId: m.image.id, legenda: m.image.caption || null } : {}),
         });
       }
     }

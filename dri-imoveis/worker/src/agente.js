@@ -41,6 +41,14 @@ Como conduzir:
 - Para marcar visita: consulte horarios_visita, ofereça 2 ou 3 horários, confirme o nome da pessoa e use marcar_visita com o horário exato devolvido pela ferramenta. Depois confirme dia, hora e endereço.
 - Para remarcar ou cancelar, use visitas_do_cliente e cancelar_visita, depois marque o novo horário.
 - Guarde o que a pessoa procura com salvar_perfil_cliente assim que souber (ajuda o corretor).
+
+Quando a pessoa quer vender ou alugar o imóvel DELA (proprietário):
+- Isso é ótimo para o corretor: receba com entusiasmo e explique que você vai anotar algumas informações para o ${conta.tipo === "imobiliaria" ? "corretor" : conta.nome.split(" ")[0]} avaliar e entrar em contato.
+- Chame salvar_captacao assim que entender que é um proprietário, e de novo a cada informação nova (só os campos novos).
+- Colha aos poucos, conversando, uma ou duas perguntas por vez: vender ou alugar; tipo de imóvel; bairro (endereço completo só se a pessoa quiser passar); quartos, suítes, vagas e área aproximada; valor que ela pensa em pedir (se não souber, diga que o corretor ajuda a definir o valor certo); condomínio e IPTU se souber; se está desocupado, se mora lá ou se está alugado; o que o imóvel tem de especial; e o melhor dia e horário para o corretor ligar ou visitar.
+- Peça fotos com naturalidade ("se tiver fotos, pode mandar aqui mesmo que eu já deixo separado pro corretor"). Fotos que chegam ficam guardadas automaticamente; você não consegue vê-las, então só agradeça.
+- Não peça documentos, CPF nem dados bancários. Não prometa valor de venda, prazo nem comissão: isso o corretor conversa com a pessoa.
+- Quando tiver o essencial (finalidade, tipo, bairro, tamanho e um contato/horário), chame salvar_captacao com finalizar: true, agradeça e diga que o corretor vai entrar em contato. Se a pessoa também procura outro imóvel para ela, siga ajudando normalmente.
 - Chame o corretor (chamar_corretor) quando a pessoa pedir para falar com uma pessoa, quiser fazer proposta ou negociar valor, perguntar de documentação, contrato, financiamento em detalhe, avaliação do imóvel dela, ou qualquer coisa que você não saiba responder com certeza. Avise a pessoa que o corretor vai continuar o atendimento.
 - Não prometa desconto, não dê opinião jurídica e não peça dados sensíveis (CPF, renda exata, documentos).
 - Áudios do cliente chegam transcritos, marcados como "[Áudio do cliente, transcrito]": responda normalmente; se a transcrição parecer sem sentido, peça para repetir. Se vier vídeo, figurinha ou áudio que não deu para transcrever, peça gentilmente para escrever.
@@ -128,6 +136,28 @@ const FERRAMENTAS = [
       properties: {
         nome: { type: "string" },
         perfil: { type: "string", description: "Resumo curto: finalidade, tipo, região, faixa de valor, quartos, financiamento, prazo" },
+      },
+    },
+  },
+  {
+    name: "salvar_captacao",
+    description: "Guarda os dados de um proprietário que quer vender ou alugar o imóvel dele com o corretor. Chame logo que identificar e a cada informação nova (só os campos novos). Use finalizar: true quando tiver o essencial; o corretor é avisado.",
+    input_schema: {
+      type: "object", additionalProperties: false,
+      properties: {
+        nome: { type: "string" },
+        finalidade: { type: "string", enum: ["venda", "aluguel", "venda ou aluguel"] },
+        tipo: { type: "string", description: "apartamento, casa, terreno, sala comercial…" },
+        bairro: { type: "string" }, cidade: { type: "string" }, endereco: { type: "string" },
+        quartos: { type: "integer" }, suites: { type: "integer" }, banheiros: { type: "integer" }, vagas: { type: "integer" },
+        area_m2: { type: "number" },
+        valor_pretendido: { type: "number", description: "Valor em reais que a pessoa quer pedir (venda) ou cobrar por mês (aluguel)" },
+        condominio: { type: "number" }, iptu: { type: "number" },
+        ocupacao: { type: "string", description: "desocupado, mora no imóvel, alugado" },
+        caracteristicas: { type: "array", items: { type: "string" } },
+        observacoes: { type: "string", description: "Outras informações úteis (reforma, urgência, motivo da venda…)" },
+        melhor_horario: { type: "string", description: "Quando o corretor pode ligar ou visitar" },
+        finalizar: { type: "boolean", description: "true quando já tiver o essencial; avisa o corretor" },
       },
     },
   },
@@ -272,6 +302,33 @@ async function executar(nome, input, ctx) {
     case "salvar_perfil_cliente": {
       await salvarLead(ctx, input);
       return { ok: true };
+    }
+    case "salvar_captacao": {
+      const { finalizar, ...campos } = input;
+      const dados = Object.fromEntries(Object.entries(campos).filter(([, v]) => v !== null && v !== undefined && v !== ""));
+      const { data: aberta } = await db.from("captacoes").select("*").eq("conta_id", conta.id).eq("telefone", ctx.telefone)
+        .in("status", ["nova", "em contato", "avaliação marcada"]).maybeSingle();
+      let cap;
+      if (aberta) {
+        if (dados.caracteristicas) dados.caracteristicas = [...new Set([...(aberta.caracteristicas || []), ...dados.caracteristicas])];
+        const r = await db.from("captacoes").update(dados).eq("id", aberta.id).select().single();
+        if (r.error) throw new Error(r.error.message);
+        cap = r.data;
+      } else {
+        // fotos que a pessoa mandou antes de a captação existir
+        const { data: conv } = await db.from("conversas").select("midias_recebidas").eq("conta_id", conta.id).eq("telefone", ctx.telefone).maybeSingle();
+        const r = await db.from("captacoes").insert({ conta_id: conta.id, telefone: ctx.telefone, nome: dados.nome || ctx.nome || null, ...dados, fotos: conv?.midias_recebidas || [], status: "nova" }).select().single();
+        if (r.error) throw new Error(r.error.message);
+        cap = r.data;
+      }
+      if (finalizar && !cap.completa) {
+        await db.from("captacoes").update({ completa: true }).eq("id", cap.id);
+        if (ctx.canal !== "simulador") await notificarCorretor(ctx, "captacao", { captacao: cap });
+      }
+      const faltam = [["finalidade", "vender ou alugar"], ["tipo", "tipo do imóvel"], ["bairro", "bairro"], ["quartos", "quartos"],
+        ["area_m2", "área"], ["valor_pretendido", "valor pretendido"], ["melhor_horario", "melhor horário para o corretor"]]
+        .filter(([k]) => cap[k] == null || cap[k] === "").map(([, rotulo]) => rotulo);
+      return { ok: true, fotos_recebidas: (cap.fotos || []).length, ainda_falta: faltam, corretor_avisado: !!(finalizar || cap.completa) };
     }
     case "chamar_corretor": {
       await db.from("conversas").update({ precisa_corretor: true, motivo: input.motivo })

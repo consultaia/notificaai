@@ -1,4 +1,4 @@
-// WhatsApp Cloud API (Meta): envio, assinatura do webhook e conexão (Embedded Signup).
+// WhatsApp Cloud API (Meta): envio, assinatura do webhook e conexão manual (app da Meta do próprio corretor).
 
 export const graph = (env) => `https://graph.facebook.com/${env.GRAPH_VERSION || "v23.0"}`;
 
@@ -33,12 +33,12 @@ export const marcarLida = (env, conexao, messageId) =>
 export const lerNumero = (env, token, phoneNumberId) =>
   chamar(env, token, `${phoneNumberId}?fields=display_phone_number,verified_name`, null, "GET");
 
-// A Meta assina o corpo com o App Secret: header X-Hub-Signature-256 = "sha256=<hex>"
-export async function assinaturaValida(env, corpoBruto, header) {
-  if (!env.META_APP_SECRET) return false;
+// A Meta assina o corpo com a chave secreta do app: header X-Hub-Signature-256 = "sha256=<hex>"
+export async function assinaturaValida(appSecret, corpoBruto, header) {
+  if (!appSecret) return false;
   if (!header?.startsWith("sha256=")) return false;
   const chave = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(env.META_APP_SECRET),
+    "raw", new TextEncoder().encode(appSecret),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", chave, new TextEncoder().encode(corpoBruto)));
   const hex = [...sig].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -76,25 +76,9 @@ export function extrairMensagens(payload) {
   return saida;
 }
 
-// Embedded Signup: troca o "code" pelo token da empresa e liga o número ao app da Dri
-export async function concluirEmbeddedSignup(env, { code, phone_number_id, waba_id, coexistencia }) {
-  const u = new URL(`${graph(env)}/oauth/access_token`);
-  u.searchParams.set("client_id", env.META_APP_ID);
-  u.searchParams.set("client_secret", env.META_APP_SECRET);
-  u.searchParams.set("code", code);
-  const r = await fetch(u);
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.access_token) throw new Error(j?.error?.message || "A Meta não devolveu o token.");
-  const token = j.access_token;
-  await assinarWaba(env, token, waba_id);
-  if (!coexistencia) {
-    // Número novo na API precisa ser registrado (PIN de 2 etapas). Já registrado = ok.
-    await chamar(env, token, `${phone_number_id}/register`, {
-      messaging_product: "whatsapp", pin: env.META_REGISTRO_PIN || "202611",
-    }).catch((e) => { if (!/already|registered/i.test(e.message)) throw e; });
-  }
-  const numero = await lerNumero(env, token, phone_number_id);
-  return { token, numero };
-}
-
 export const assinarWaba = (env, token, wabaId) => chamar(env, token, `${wabaId}/subscribed_apps`, {});
+
+// Número adicionado na API precisa ser registrado uma vez, com um PIN de 6 dígitos
+// (verificação em duas etapas). Se já estiver registrado, a Meta aceita de novo com o mesmo PIN.
+export const registrarNumero = (env, token, phoneNumberId, pin) =>
+  chamar(env, token, `${phoneNumberId}/register`, { messaging_product: "whatsapp", pin });

@@ -2,11 +2,13 @@
 
 Assistente de WhatsApp para corretores e imobiliárias. O corretor se cadastra sozinho pelo link,
 cadastra os imóveis e os horários de visita, testa a assistente e conecta o WhatsApp oficial
-num passo a passo. A Dri atende os clientes, apresenta as opções da carteira, manda fotos e
+sozinho, num passo a passo dentro do painel (com o app da Meta dele; a ConsultaIA não precisa ser
+Tech Provider). A Dri atende os clientes, apresenta as opções da carteira, manda fotos e
 marca a visita na agenda real, sem conflito de horário.
 
 ```
 web/app.html            painel do corretor (cadastro, passo a passo, imóveis, agenda, conversas)
+web/privacidade.html    política de privacidade que o corretor informa no app da Meta
 worker/                 Cloudflare Worker: webhook do WhatsApp, cérebro da Dri (3 IAs gratuitas), simulador
 supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 ```
@@ -16,7 +18,8 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 1. O corretor abre o link e cria a conta (email e senha).
 2. Passo a passo: **perfil** → **imóveis** (com fotos e endereço) → **horários de visita** →
    **testar a Dri** num WhatsApp simulado → **conectar o WhatsApp**.
-3. O cliente escreve no número. A Meta entrega a mensagem no Worker, que junta mensagens
+3. O cliente escreve no número. A Meta entrega a mensagem no endereço de webhook da conta
+   (`/webhook/<chave>`); o Worker confere a assinatura com a chave secreta do app do corretor, que junta mensagens
    picadas (3,5 s), chama a IA com as ferramentas da conta e responde.
 4. A Dri busca imóveis, envia fotos, consulta horários livres e marca a visita. O endereço só
    é passado depois da visita marcada. O corretor recebe aviso por email e WhatsApp.
@@ -28,7 +31,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 ### 1. Supabase
 1. Crie um projeto (região São Paulo).
-2. SQL Editor → rode `supabase/migrations/001_base.sql`.
+2. SQL Editor → rode `supabase/migrations/001_base.sql` e depois `002_whatsapp_manual.sql`.
 3. Authentication → URL Configuration: **Site URL** = endereço do `app.html`; adicione o mesmo
    em Redirect URLs. Deixe a confirmação de email ligada.
 4. Anote a URL do projeto, a chave pública (anon) e a service role.
@@ -43,10 +46,6 @@ npx wrangler secret put GROQ_API_KEY             # console.groq.com/keys
 npx wrangler secret put CEREBRAS_API_KEY         # cloud.cerebras.ai
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put META_APP_ID
-npx wrangler secret put META_APP_SECRET
-npx wrangler secret put META_VERIFY_TOKEN        # invente uma senha longa
-npx wrangler secret put META_CONFIG_ID           # do Embedded Signup (passo 3)
 npx wrangler secret put RESEND_API_KEY           # opcional: aviso por email
 npx wrangler secret put EMAIL_REMETENTE          # ex.: "Dri <avisos@seudominio.com.br>"
 npm run deploy
@@ -62,29 +61,34 @@ demorar mais de 25 s, a mesma pergunta vai para a próxima, sem o cliente perceb
 bateu o limite fica 1 minuto no fim da fila. Basta configurar uma chave para funcionar; com as
 três, uma cobre a outra. `GET /` no Worker mostra quais estão ativas.
 
-### 3. App da Meta (para o botão "Conectar com o Facebook")
-1. Em developers.facebook.com, crie um app do tipo **Empresa** com o produto **WhatsApp**,
-   ligado ao portfólio empresarial da ConsultaIA (verificado com o CNPJ).
-2. WhatsApp → Configuração → Webhook: URL `https://SEU-WORKER/webhook`, token = `META_VERIFY_TOKEN`.
-   Assine o campo **messages**.
-3. Para que *outras empresas* conectem os próprios números, o app precisa virar
-   **Tech Provider** (Provedor de tecnologia) e passar pela análise da Meta, pedindo
-   `whatsapp_business_messaging` e `whatsapp_business_management`. Leva de dias a algumas semanas.
-4. Login do Facebook para Empresas → Configurações → crie uma configuração de
-   **WhatsApp Embedded Signup**. O ID dela é o `META_CONFIG_ID`.
-5. Em Login do Facebook → Configurações, adicione o domínio do painel em "Domínios permitidos
-   para o SDK do JavaScript".
+### 3. WhatsApp: o corretor conecta sozinho
+Não há nada a configurar na Meta pela ConsultaIA. Na aba **WhatsApp** do painel, o corretor segue
+um passo a passo de 22 itens, que leva uns 30 minutos:
 
-Enquanto o app não é aprovado: o primeiro corretor (o seu amigo) pode ser ligado pela
-**conexão manual** do painel, com um número adicionado ao próprio app da ConsultaIA.
+| Etapa | O que ele faz |
+|---|---|
+| A | Cria a conta de desenvolvedor e um app em developers.facebook.com (caso de uso WhatsApp) |
+| B | Adiciona o número dele e copia o ID do número e o ID da conta do WhatsApp Business |
+| C | Cria um usuário do sistema e gera um **token permanente** |
+| D | Copia a **chave secreta do app**, informa a política de privacidade e cola tudo no painel, com um PIN de 6 dígitos |
+| E | Cola no app o **endereço de webhook** e o **token de verificação** que o painel mostra (com botão Copiar) e ativa `messages` |
+| F | Publica o app (modo Ao vivo) e manda um "oi" de outro celular |
+
+O painel confere os dados com a Meta na hora (erros viram instruções do que corrigir) e mostra uma
+lista de verificação que se atualiza sozinha: dados conectados → webhook confirmado → primeira
+mensagem recebida.
+
+Limites desse caminho: o número não pode estar em uso em nenhum app do WhatsApp (o corretor usa
+um chip novo ou apaga a conta do WhatsApp daquele número). Manter o app WhatsApp Business no
+celular junto com a Dri só é possível pelo cadastro incorporado da Meta, que exige Tech Provider.
 
 ### 4. Painel
-Preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WORKER_URL` no topo de `web/app.html` e publique a
-pasta `web/` (Cloudflare Pages, GitHub Pages ou junto do site). Esse é o link que o corretor recebe.
+Preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WORKER_URL` no topo de `web/app.html`, troque
+`CONTATO` em `web/privacidade.html` por um email de contato, e publique a pasta `web/` (Cloudflare Pages, GitHub Pages ou junto do site). Esse é o link que o corretor recebe.
 
 ## Custos (por corretor)
 - **Meta:** responder cliente que escreveu é grátis. Mensagem que a empresa inicia (modelo aprovado)
-  custa centavos e cai no cartão da conta Meta do corretor.
+  custa centavos e cai no cartão da conta Meta do corretor. Cada corretor tem o próprio app e a própria conta.
 - **IA:** R$ 0 nos planos gratuitos do Gemini, Groq e Cerebras. Eles têm limite de pedidos por
   minuto e por dia; cada mensagem do cliente usa de 1 a 4 pedidos. Para poucos corretores sobra.
   Com muitos clientes, o primeiro passo é ativar o plano pago de uma delas (barato) e manter as

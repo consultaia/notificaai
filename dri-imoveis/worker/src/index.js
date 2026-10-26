@@ -1,34 +1,36 @@
 // ============================================================
 // Dri Imóveis — Cloudflare Worker
 //   GET  /                      diagnóstico (quais segredos estão configurados)
-//   GET  /config                dados públicos para o painel (app da Meta)
-//   GET  /webhook               verificação do webhook pela Meta
-//   POST /webhook               mensagens do WhatsApp -> Durable Object da conversa
+//   GET  /webhook/<chave>       verificação do webhook pela Meta (app do corretor)
+//   POST /webhook/<chave>       mensagens do WhatsApp -> Durable Object da conversa
 //   POST /simular               conversa de teste no painel (login do corretor)
 //   POST /simular/reiniciar     apaga a conversa de teste
-//   POST /whatsapp/embedded     conclui o "Conectar WhatsApp" (Embedded Signup)
-//   POST /whatsapp/manual       conexão manual com token (plano B)
-//   POST /whatsapp/status       confere a conexão
+//   POST /whatsapp/preparar     cria o endereço de webhook e o token de verificação da conta
+//   POST /whatsapp/conectar     o corretor cola IDs, token e chave secreta do app dele
+//   POST /whatsapp/status       lista de verificação da conexão
 //   POST /responder             corretor responde um cliente pelo painel
 //
-// Segredos (wrangler secret put …): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-//   META_APP_ID, META_APP_SECRET, META_VERIFY_TOKEN e pelo menos uma IA:
+// Cada corretor usa o próprio app da Meta (não precisa de Tech Provider): cada conta tem
+// um webhook próprio, e a assinatura das mensagens é conferida com a chave secreta do app dela.
+//
+// Segredos (wrangler secret put …): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e pelo menos uma IA:
 //   GEMINI_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY (as três = troca automática)
-// Opcionais: META_CONFIG_ID (Embedded Signup), RESEND_API_KEY + EMAIL_REMETENTE,
-//   TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM, IA_ORDEM, *_MODELO, GRAPH_VERSION
+// Opcionais: RESEND_API_KEY + EMAIL_REMETENTE, TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM,
+//   IA_ORDEM, *_MODELO, GRAPH_VERSION
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder } from "./agente.js";
 import { provedoresAtivos } from "./ia.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
-  concluirEmbeddedSignup, lerNumero, assinarWaba,
+  lerNumero, assinarWaba, registrarNumero,
 } from "./whatsapp.js";
 
 const ESPERA_MS = 3500;          // junta mensagens picadas ("oi" / "tudo bem?" / "vi o anúncio")
 const SIMULADOR = "simulador";
 
-const banco = (env) => createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+// (__dbTeste: só os testes usam, para trocar o Supabase por um banco em memória)
+const banco = (env) => env.__dbTeste || createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
@@ -60,16 +62,19 @@ async function conexaoDaConta(db, contaId) {
   return { ...c.data, token: s.data.access_token };
 }
 
-async function salvarConexao(db, contaId, { phone_number_id, waba_id, token, numero }) {
-  const r1 = await db.from("whatsapp_conexoes").upsert({
-    conta_id: contaId, phone_number_id, waba_id,
-    numero_exibicao: numero?.display_phone_number || null,
-    status: "conectado", detalhe: numero?.verified_name || null, conectado_em: new Date().toISOString(),
-  });
-  if (r1.error) throw new Error(r1.error.code === "23505" ? "Esse número já está ligado a outra conta." : r1.error.message);
-  const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: contaId, access_token: token, atualizado_em: new Date().toISOString() });
-  if (r2.error) throw new Error(r2.error.message);
+const aleatorio = (bytes) => [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+// Endereço de webhook e token de verificação da conta (criados uma vez)
+async function prepararConexao(db, contaId) {
+  const { data } = await db.from("whatsapp_conexoes").select("*").eq("conta_id", contaId).maybeSingle();
+  if (data?.webhook_chave && data?.verify_token) return data;
+  const novo = { conta_id: contaId, webhook_chave: aleatorio(16), verify_token: aleatorio(12) };
+  const r = await db.from("whatsapp_conexoes").upsert(novo, { onConflict: "conta_id" }).select().single();
+  if (r.error) throw new Error(r.error.message);
+  return r.data;
 }
+
+const soNumeros = (v) => String(v || "").replace(/\D/g, "");
 
 export default {
   async fetch(req, env, ctx) {
@@ -82,30 +87,38 @@ export default {
         return json(env, {
           servico: "dri-imoveis",
           ia: provedoresAtivos(env), banco: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
-          meta_app: !!(env.META_APP_ID && env.META_APP_SECRET), webhook: !!env.META_VERIFY_TOKEN,
-          embedded_signup: !!env.META_CONFIG_ID, email: !!env.RESEND_API_KEY,
-        });
-      }
-      if (rota === "GET /config") {
-        return json(env, {
-          meta_app_id: env.META_APP_ID || null, meta_config_id: env.META_CONFIG_ID || null,
-          graph_version: env.GRAPH_VERSION || "v23.0", webhook_url: `${url.origin}/webhook`,
+          email: !!env.RESEND_API_KEY,
         });
       }
 
-      // ---------------------------------------------------------------- Meta
-      if (rota === "GET /webhook") {
-        const ok = url.searchParams.get("hub.mode") === "subscribe" &&
-          env.META_VERIFY_TOKEN && url.searchParams.get("hub.verify_token") === env.META_VERIFY_TOKEN;
-        return ok ? new Response(url.searchParams.get("hub.challenge")) : new Response("forbidden", { status: 403 });
-      }
-      if (rota === "POST /webhook") {
-        const bruto = await req.text();
-        if (!(await assinaturaValida(env, bruto, req.headers.get("x-hub-signature-256"))))
-          return new Response("assinatura inválida", { status: 401 });
-        const msgs = extrairMensagens(JSON.parse(bruto));
-        if (msgs.length) ctx.waitUntil(encaminhar(env, msgs));
-        return new Response("ok"); // a Meta precisa de 200 rápido
+      // ---------------------------------------------------------------- Meta (app de cada corretor)
+      const webhook = url.pathname.match(/^\/webhook\/([a-f0-9]{32})\/?$/);
+      if (webhook) {
+        const db = banco(env);
+        const { data: conexao } = await db.from("whatsapp_conexoes").select("*").eq("webhook_chave", webhook[1]).maybeSingle();
+        if (!conexao) return new Response("not found", { status: 404 });
+
+        if (req.method === "GET") {
+          const ok = url.searchParams.get("hub.mode") === "subscribe" && url.searchParams.get("hub.verify_token") === conexao.verify_token;
+          if (!ok) return new Response("forbidden", { status: 403 });
+          await db.from("whatsapp_conexoes").update({ webhook_verificado_em: new Date().toISOString() }).eq("conta_id", conexao.conta_id);
+          return new Response(url.searchParams.get("hub.challenge"));
+        }
+        if (req.method === "POST") {
+          const bruto = await req.text();
+          const { data: segredo } = await db.from("whatsapp_segredos").select("app_secret").eq("conta_id", conexao.conta_id).maybeSingle();
+          if (!(await assinaturaValida(segredo?.app_secret, bruto, req.headers.get("x-hub-signature-256"))))
+            return new Response("assinatura inválida", { status: 401 });
+          const msgs = extrairMensagens(JSON.parse(bruto))
+            .filter((m) => !conexao.phone_number_id || m.phoneNumberId === conexao.phone_number_id);
+          if (msgs.length) {
+            ctx.waitUntil(Promise.all([
+              db.from("whatsapp_conexoes").update({ ultima_mensagem_em: new Date().toISOString() }).eq("conta_id", conexao.conta_id),
+              conexao.status === "conectado" ? encaminhar(env, conexao.conta_id, msgs) : null,
+            ]));
+          }
+          return new Response("ok"); // a Meta precisa de 200 rápido
+        }
       }
 
       // ---------------------------------------------------------------- painel
@@ -135,32 +148,52 @@ export default {
         return json(env, { ok: true });
       }
 
-      if (rota === "POST /whatsapp/embedded") {
-        if (!corpo.code || !corpo.phone_number_id || !corpo.waba_id)
-          return json(env, { error: "A Meta não devolveu os dados do número. Tente de novo." }, 400);
-        const { token, numero } = await concluirEmbeddedSignup(env, corpo);
-        await salvarConexao(db, conta.id, { ...corpo, token, numero });
-        return json(env, { ok: true, numero: numero?.display_phone_number, nome: numero?.verified_name });
-      }
-      if (rota === "POST /whatsapp/manual") {
-        const { phone_number_id, waba_id, access_token } = corpo;
-        if (!phone_number_id || !waba_id || !access_token)
-          return json(env, { error: "Preencha o ID do número, o ID da conta (WABA) e o token." }, 400);
-        const numero = await lerNumero(env, access_token, phone_number_id);
-        await assinarWaba(env, access_token, waba_id);
-        await salvarConexao(db, conta.id, { phone_number_id, waba_id, token: access_token, numero });
-        return json(env, { ok: true, numero: numero?.display_phone_number, nome: numero?.verified_name });
-      }
-      if (rota === "POST /whatsapp/status") {
+      if (rota === "POST /whatsapp/preparar" || rota === "POST /whatsapp/status") {
+        const c = await prepararConexao(db, conta.id);
+        const base = {
+          webhook_url: `${url.origin}/webhook/${c.webhook_chave}`, verify_token: c.verify_token,
+          conectado: c.status === "conectado", numero: c.numero_exibicao, nome: c.detalhe,
+          webhook_verificado_em: c.webhook_verificado_em, ultima_mensagem_em: c.ultima_mensagem_em,
+        };
+        if (rota === "POST /whatsapp/preparar" || c.status !== "conectado") return json(env, { ...base, erro: c.status === "erro" ? c.detalhe : null });
+        // confere se o token ainda vale
         const conexao = await conexaoDaConta(db, conta.id);
-        if (!conexao) return json(env, { conectado: false });
         try {
           const numero = await lerNumero(env, conexao.token, conexao.phone_number_id);
-          return json(env, { conectado: true, numero: numero.display_phone_number, nome: numero.verified_name });
+          return json(env, { ...base, numero: numero.display_phone_number, nome: numero.verified_name });
         } catch (e) {
           await db.from("whatsapp_conexoes").update({ status: "erro", detalhe: e.message }).eq("conta_id", conta.id);
-          return json(env, { conectado: false, erro: e.message });
+          return json(env, { ...base, conectado: false, erro: `O token parou de funcionar: ${e.message}` });
         }
+      }
+      if (rota === "POST /whatsapp/conectar") {
+        const phone_number_id = soNumeros(corpo.phone_number_id), waba_id = soNumeros(corpo.waba_id);
+        const access_token = String(corpo.access_token || "").trim(), app_secret = String(corpo.app_secret || "").trim().toLowerCase();
+        const pin = soNumeros(corpo.pin);
+        if (!phone_number_id || !waba_id || !access_token || !app_secret)
+          return json(env, { error: "Preencha os quatro campos: ID do número, ID da conta do WhatsApp Business, token e chave secreta do app." }, 400);
+        if (!/^[a-f0-9]{32}$/.test(app_secret))
+          return json(env, { error: "A chave secreta do app tem 32 letras e números (de 0 a 9 e de a a f). Confira em Configurações do app → Básico." }, 400);
+        if (corpo.pin && pin.length !== 6) return json(env, { error: "O PIN precisa ter 6 números." }, 400);
+        await prepararConexao(db, conta.id);
+
+        let numero;
+        try { numero = await lerNumero(env, access_token, phone_number_id); }
+        catch (e) { return json(env, { error: `A Meta não aceitou o token ou o ID do número: ${e.message}. Confira se copiou o ID do número (não o número de telefone) e se o token tem as permissões whatsapp_business_messaging e whatsapp_business_management.` }, 400); }
+        try { await assinarWaba(env, access_token, waba_id); }
+        catch (e) { return json(env, { error: `Não consegui ligar a conta do WhatsApp Business ao seu app: ${e.message}. Confira o ID da conta (WABA) e se o usuário do sistema tem acesso a ela.` }, 400); }
+        if (pin) {
+          try { await registrarNumero(env, access_token, phone_number_id, pin); }
+          catch (e) { return json(env, { error: `Não consegui ativar o número na API: ${e.message}. Se o número já tinha verificação em duas etapas, use o mesmo PIN.` }, 400); }
+        }
+        const r1 = await db.from("whatsapp_conexoes").update({
+          phone_number_id, waba_id, numero_exibicao: numero.display_phone_number || null, detalhe: numero.verified_name || null,
+          status: "conectado", conectado_em: new Date().toISOString(),
+        }).eq("conta_id", conta.id);
+        if (r1.error) return json(env, { error: r1.error.code === "23505" ? "Esse número já está ligado a outra conta da Dri." : r1.error.message }, 400);
+        const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: conta.id, access_token, app_secret, atualizado_em: new Date().toISOString() });
+        if (r2.error) throw new Error(r2.error.message);
+        return json(env, { ok: true, numero: numero.display_phone_number, nome: numero.verified_name });
       }
       if (rota === "POST /responder") {
         const texto = String(corpo.texto || "").trim();
@@ -190,18 +223,15 @@ export default {
 };
 
 // Webhook: descarta repetidas e entrega cada mensagem ao objeto da conversa
-async function encaminhar(env, msgs) {
+async function encaminhar(env, contaId, msgs) {
   const db = banco(env);
   for (const m of msgs) {
     const { data: nova } = await db.from("wa_mensagens_recebidas")
       .upsert({ message_id: m.id }, { onConflict: "message_id", ignoreDuplicates: true }).select();
     if (!nova?.length) continue; // a Meta reenviou
-    const { data: conexao } = await db.from("whatsapp_conexoes").select("conta_id")
-      .eq("phone_number_id", m.phoneNumberId).eq("status", "conectado").maybeSingle();
-    if (!conexao) continue;
-    const stub = env.CONVERSA.get(env.CONVERSA.idFromName(`${conexao.conta_id}:${m.de}`));
+    const stub = env.CONVERSA.get(env.CONVERSA.idFromName(`${contaId}:${m.de}`));
     await stub.fetch("https://conversa/mensagem", {
-      method: "POST", body: JSON.stringify({ ...m, contaId: conexao.conta_id }),
+      method: "POST", body: JSON.stringify({ ...m, contaId }),
     });
   }
 }

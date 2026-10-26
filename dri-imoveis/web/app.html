@@ -428,89 +428,106 @@ function Simulador({conta}){
 }
 
 // ======================================================================== WhatsApp
-function useFacebookSdk(appId, versao){
-  const [pronto,setPronto]=useState(!!window.FB);
-  useEffect(()=>{ if(!appId || window.FB) return;
-    window.fbAsyncInit = ()=>{ FB.init({ appId, autoLogAppEvents:true, xfbml:false, version:versao }); setPronto(true); };
-    const s=document.createElement("script"); s.src="https://connect.facebook.net/pt_BR/sdk.js"; s.async=true; s.crossOrigin="anonymous"; document.body.appendChild(s);
-  },[appId]);
-  return pronto;
+function Copiar({valor}){
+  const [ok,setOk]=useState(false);
+  return <div className="row" style={{flexWrap:"nowrap"}}><code style={{flex:1}}>{valor||"…"}</code>
+    <button type="button" className="btn btn-ghost btn-sm" onClick={()=>{navigator.clipboard.writeText(valor);setOk(true);setTimeout(()=>setOk(false),1500);}}>{ok?"Copiado":"Copiar"}</button></div>;
 }
+const Item = ({ok, children}) => <li style={{listStyle:"none",marginLeft:-18}}>{ok?"✅":"⬜"} {children}</li>;
 
 function WhatsApp({conta, conectado}){
-  const [cfg,setCfg]=useState(null); const [status,setStatus]=useState(null); const [msg,setMsg]=useState(null);
-  const [modo,setModo]=useState("novo"); const [manual,setManual]=useState({phone_number_id:"",waba_id:"",access_token:""}); const [ocupado,setOcupado]=useState(false);
-  const sessao = useRef({});
-  useEffect(()=>{ fetch(WORKER_URL.replace(/\/$/,"")+"/config").then(r=>r.json()).then(setCfg).catch(()=>setCfg({}));
-    worker("/whatsapp/status").then(setStatus).catch(e=>setStatus({conectado:false,erro:e.message})); },[]);
-  const fbPronto = useFacebookSdk(cfg?.meta_app_id, cfg?.graph_version||"v23.0");
-
-  // A janela da Meta avisa por postMessage qual número e conta foram escolhidos
-  useEffect(()=>{ function ouvir(ev){
-      if(!/facebook\.com$/.test(new URL(ev.origin).hostname)) return;
-      try{ const d = JSON.parse(ev.data); if(d.type==="WA_EMBEDDED_SIGNUP" && /^FINISH/.test(d.event)) sessao.current = { ...sessao.current, ...d.data };
-        if(d.type==="WA_EMBEDDED_SIGNUP" && d.event==="CANCEL") setMsg({t:"warn",x:"Conexão interrompida na etapa: "+(d.data?.current_step||"—")+". Pode tentar de novo."}); }catch{}
-    }
-    window.addEventListener("message", ouvir); return ()=>window.removeEventListener("message", ouvir); },[]);
-
-  function conectarFacebook(){
-    setMsg(null); sessao.current={};
-    FB.login(async (resp)=>{
-      const code = resp?.authResponse?.code; if(!code) return setMsg({t:"warn",x:"A janela do Facebook foi fechada antes de terminar."});
-      // o postMessage pode chegar um pouco depois do callback
-      for(let i=0;i<20 && !sessao.current.phone_number_id;i++) await new Promise(r=>setTimeout(r,250));
-      setOcupado(true);
-      try{ const r = await worker("/whatsapp/embedded",{ code, phone_number_id:sessao.current.phone_number_id, waba_id:sessao.current.waba_id, coexistencia: modo==="coexistencia" });
-        setStatus({conectado:true, numero:r.numero, nome:r.nome}); setMsg({t:"ok",x:"WhatsApp conectado! A partir de agora a "+conta.nome_assistente+" responde esse número."}); conectado && conectado(); }
-      catch(err){ setMsg({t:"bad",x:err.message}); }
-      setOcupado(false);
-    }, { config_id: cfg.meta_config_id, response_type:"code", override_default_response_type:true,
-         extras:{ setup:{}, sessionInfoVersion:"3", ...(modo==="coexistencia"?{featureType:"whatsapp_business_app_onboarding"}:{}) } });
-  }
-  async function salvarManual(e){ e.preventDefault(); setOcupado(true); setMsg(null);
-    try{ const r = await worker("/whatsapp/manual", manual); setStatus({conectado:true,numero:r.numero,nome:r.nome}); setMsg({t:"ok",x:"WhatsApp conectado!"}); conectado && conectado(); }
+  const [st,setSt]=useState(null); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  const [f,setF]=useState({phone_number_id:"",waba_id:"",access_token:"",app_secret:"",pin:""});
+  const privacidade = new URL("privacidade.html", location.href).href;
+  async function atualizar(rota="/whatsapp/status"){ try{ setSt(await worker(rota)); }catch(e){ setMsg({t:"bad",x:e.message}); } }
+  useEffect(()=>{ atualizar("/whatsapp/preparar"); const t=setInterval(()=>atualizar(),10000); return ()=>clearInterval(t); },[]);
+  async function conectar(e){ e.preventDefault(); setOcupado(true); setMsg(null);
+    try{ const r = await worker("/whatsapp/conectar", f); setMsg({t:"ok",x:`Dados conferidos com a Meta: ${r.numero} (${r.nome||conta.nome}). Agora faça a etapa E.`}); setF({...f,access_token:"",app_secret:""}); atualizar(); conectado && conectado(); }
     catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(false); }
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  const tudoPronto = st?.conectado && st?.webhook_verificado_em && st?.ultima_mensagem_em;
 
-  const temEmbedded = cfg?.meta_app_id && cfg?.meta_config_id;
-  return (
+  return (<>
     <div className="card">
       <h3>Conectar o WhatsApp</h3>
+      <p className="small muted" style={{marginTop:0}}>Você mesmo liga seu número à {conta.nome_assistente}, pela API oficial do WhatsApp (Meta), sem risco de bloqueio. Leva uns 30 minutos, no computador. Os nomes dos botões no site da Meta podem variar um pouco.</p>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
-      {status?.conectado ? <div className="msg ok" style={{cursor:"default"}}>✅ Conectado: <b>{status.numero}</b> {status.nome && `(${status.nome})`}. A {conta.nome_assistente} está respondendo esse número.</div>
-        : status?.erro ? <div className="msg bad" style={{cursor:"default"}}>A conexão parou: {status.erro}. Conecte de novo abaixo.</div> : null}
-      <p className="small muted">Usamos a API oficial do WhatsApp (Meta): sem risco de bloqueio do número. Responder clientes que escreveram para você é gratuito; a Meta só cobra quando a empresa escreve primeiro (centavos por mensagem, no cartão da sua conta Meta).</p>
-
-      <label>Qual número a assistente vai usar?</label>
-      <div className="grid">
-        <label className="card" style={{margin:"0 0 10px",cursor:"pointer",borderColor:modo==="novo"?"var(--brand)":undefined}}><input type="radio" style={{width:"auto"}} checked={modo==="novo"} onChange={()=>setModo("novo")}/> <b>Um número só para ela</b><div className="small muted">Chip novo ou número que não está em nenhum WhatsApp. Recomendado: você divulga esse número nos anúncios.</div></label>
-        <label className="card" style={{margin:"0 0 10px",cursor:"pointer",borderColor:modo==="coexistencia"?"var(--brand)":undefined}}><input type="radio" style={{width:"auto"}} checked={modo==="coexistencia"} onChange={()=>setModo("coexistencia")}/> <b>Meu WhatsApp Business atual</b><div className="small muted">Você continua usando o app no celular e a assistente responde junto. Precisa ser o app WhatsApp Business (não o comum), atualizado.</div></label>
-      </div>
-
-      <h3 style={{fontSize:15,marginTop:8}}>Passo a passo</h3>
-      <ol className="passo small">
-        <li>Tenha em mãos: email e senha do Facebook, o CNPJ ou CPF (MEI serve) e {modo==="novo"?"o chip do número novo no celular (para receber o código por SMS)":"o celular com o WhatsApp Business aberto"}.</li>
-        <li>Clique em <b>Conectar com o Facebook</b>. Abre uma janela da Meta.</li>
-        <li>Crie ou escolha seu <b>Portfólio empresarial</b> (nome do seu negócio, site ou Instagram, endereço).</li>
-        <li>Crie a <b>conta do WhatsApp Business</b>: nome de exibição (ex.: “{conta.nome}”), categoria <i>Imóveis</i>.</li>
-        <li>{modo==="novo" ? <>Digite o <b>número novo</b> e confirme com o código que chega por SMS ou ligação.</> : <>Escolha <b>conectar o app WhatsApp Business</b>, digite seu número e leia o QR code que aparece, pelo app no celular (Configurações → Conta → Plataforma de negócios).</>}</li>
-        <li>Conclua. Esta tela confirma sozinha quando terminar.</li>
-        <li>Depois, em <a href="https://business.facebook.com/billing_hub" target="_blank" rel="noreferrer">Faturamento da Meta</a>, cadastre um cartão (só é cobrado se a empresa escrever primeiro).</li>
-      </ol>
-      {temEmbedded ? <button className="btn btn-primary" onClick={conectarFacebook} disabled={!fbPronto||ocupado}>{ocupado?"Conectando…":fbPronto?"Conectar com o Facebook":"Carregando…"}</button>
-        : <div className="msg warn" style={{cursor:"default"}}>O botão automático ainda não está ativo nesta plataforma (falta configurar o app da Meta). Use a conexão manual abaixo ou peça ajuda ao suporte.</div>}
-
-      <details style={{marginTop:16}}><summary className="small">Conexão manual (avançado)</summary>
-        <form onSubmit={salvarManual}>
-          <ol className="passo small"><li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com</a>, no seu app com WhatsApp, abra <b>WhatsApp → Configuração da API</b> e copie o <b>ID do número de telefone</b> e o <b>ID da conta do WhatsApp Business</b>.</li>
-            <li>Crie um <b>token permanente</b> em Configurações do negócio → Usuários do sistema (permissões whatsapp_business_messaging e whatsapp_business_management).</li>
-            <li>No app, em WhatsApp → Configuração, aponte o webhook para <code>{cfg?.webhook_url||"…/webhook"}</code> e assine o campo <b>messages</b>.</li></ol>
-          <div className="grid"><div><label>ID do número</label><input required value={manual.phone_number_id} onChange={e=>setManual({...manual,phone_number_id:e.target.value.trim()})}/></div>
-            <div><label>ID da conta (WABA)</label><input required value={manual.waba_id} onChange={e=>setManual({...manual,waba_id:e.target.value.trim()})}/></div></div>
-          <label>Token</label><input required type="password" value={manual.access_token} onChange={e=>setManual({...manual,access_token:e.target.value.trim()})}/>
-          <div style={{marginTop:10}}><button className="btn btn-ghost" disabled={ocupado}>Conectar manualmente</button></div>
-        </form></details>
+      <b>Situação</b>
+      <ul className="small" style={{lineHeight:1.9,marginTop:4}}>
+        <Item ok={st?.conectado}>Dados da Meta conectados {st?.numero && <>— <b>{st.numero}</b> {st.nome && `(${st.nome})`}</>}</Item>
+        <Item ok={!!st?.webhook_verificado_em}>Webhook confirmado pela Meta (etapa E)</Item>
+        <Item ok={!!st?.ultima_mensagem_em}>Primeira mensagem de cliente recebida (etapa F) {st?.ultima_mensagem_em && <span className="muted">· última em {fmtDT(st.ultima_mensagem_em)}</span>}</Item>
+      </ul>
+      {st?.erro && <div className="msg bad" style={{cursor:"default"}}>{st.erro}</div>}
+      {tudoPronto && <div className="msg ok" style={{cursor:"default"}}>Tudo certo! A {conta.nome_assistente} está atendendo esse número.</div>}
     </div>
-  );
+
+    <div className="card"><h3>Antes de começar</h3>
+      <ul className="small" style={{lineHeight:1.7}}>
+        <li>Um número que <b>não esteja em nenhum WhatsApp</b> (nem no comum, nem no Business). Pode ser um chip novo. Se for um número que já usa, apague a conta do WhatsApp dele antes (no app: Configurações → Conta → Apagar conta).</li>
+        <li>O celular com esse chip por perto, para receber o código por SMS ou ligação.</li>
+        <li>Seu Facebook pessoal (é só para entrar; nada é publicado).</li>
+      </ul></div>
+
+    <div className="card"><h3>A. Criar o app na Meta</h3>
+      <ol className="passo small">
+        <li>Entre em <a href="https://developers.facebook.com" target="_blank" rel="noreferrer">developers.facebook.com</a> com seu Facebook e clique em <b>Começar</b> para virar desenvolvedor (confirma email e telefone).</li>
+        <li>Clique em <b>Meus apps → Criar app</b>.</li>
+        <li>No caso de uso, escolha <b>Conectar-se com clientes pelo WhatsApp</b>. Se não aparecer, escolha <b>Outro</b> e depois o tipo <b>Empresa</b>.</li>
+        <li>Nome do app: <i>Dri {conta.nome}</i>. Quando pedir o <b>portfólio empresarial</b>, crie um com o nome do seu negócio (se ainda não tiver). Conclua.</li>
+        <li>Se o app ainda não tiver o WhatsApp, procure <b>WhatsApp</b> na lista de produtos e clique em <b>Configurar</b>.</li>
+      </ol></div>
+
+    <div className="card"><h3>B. Colocar o seu número</h3>
+      <ol className="passo small" start={6}>
+        <li>No menu do app, abra <b>WhatsApp → Configuração da API</b>.</li>
+        <li>Clique em <b>Adicionar número de telefone</b>. Preencha o nome que os clientes vão ver (ex.: <i>{conta.nome}</i>), a categoria <b>Imóveis</b> e o número. Confirme com o código que chegar.</li>
+        <li>De volta à Configuração da API, escolha o número novo no campo <b>De</b> e copie o <b>ID do número de telefone</b> e o <b>ID da conta do WhatsApp Business</b> para o formulário abaixo. São números compridos, diferentes do telefone.</li>
+      </ol></div>
+
+    <div className="card"><h3>C. Criar a chave permanente (token)</h3>
+      <p className="small muted" style={{marginTop:0}}>O token que aparece na Configuração da API vence em 24 horas. Este não vence.</p>
+      <ol className="passo small" start={9}>
+        <li>Abra <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">Configurações do negócio → Usuários do sistema</a> e clique em <b>Adicionar</b>. Nome: <i>Dri</i>. Função: <b>Administrador</b>.</li>
+        <li>Clique no usuário criado → <b>Atribuir ativos</b>. Em <b>Apps</b>, marque o seu app com <b>controle total</b>. Em <b>Contas do WhatsApp</b>, marque a sua conta com <b>controle total</b>. Salve.</li>
+        <li>Clique em <b>Gerar token</b>: escolha o app, validade <b>Nunca</b>, e marque as permissões <code>whatsapp_business_messaging</code> e <code>whatsapp_business_management</code>. Copie o token (ele só aparece uma vez).</li>
+      </ol></div>
+
+    <div className="card"><h3>D. Chave secreta e política de privacidade</h3>
+      <ol className="passo small" start={12}>
+        <li>No app: <b>Configurações do app → Básico</b>. Em <b>Chave secreta do aplicativo</b>, clique em <b>Mostrar</b> e copie.</li>
+        <li>Na mesma tela, em <b>URL da Política de Privacidade</b>, cole o link abaixo e clique em <b>Salvar alterações</b>.<Copiar valor={privacidade}/></li>
+        <li>Preencha e envie o formulário:</li>
+      </ol>
+      <form onSubmit={conectar}>
+        <div className="grid">
+          <div><label>ID do número de telefone</label><input required inputMode="numeric" value={f.phone_number_id} onChange={set("phone_number_id")}/></div>
+          <div><label>ID da conta do WhatsApp Business</label><input required inputMode="numeric" value={f.waba_id} onChange={set("waba_id")}/></div>
+          <div><label>Chave secreta do aplicativo</label><input required value={f.app_secret} onChange={set("app_secret")} autoComplete="off"/></div>
+          <div><label>Crie um PIN de 6 números <span className="muted">(guarde)</span></label><input inputMode="numeric" maxLength={6} value={f.pin} onChange={set("pin")} placeholder="ex.: 482915"/></div>
+        </div>
+        <label>Token permanente</label><input required type="password" value={f.access_token} onChange={set("access_token")} autoComplete="off"/>
+        <p className="small muted">O PIN ativa o número na API (verificação em duas etapas). Se o número já tinha um PIN de duas etapas, use o mesmo. Se o número já estiver ativo, pode deixar em branco.</p>
+        <button className="btn btn-primary" disabled={ocupado}>{ocupado?"Conferindo com a Meta…":"Conectar"}</button>
+      </form></div>
+
+    <div className="card"><h3>E. Ligar as mensagens à {conta.nome_assistente} (webhook)</h3>
+      <ol className="passo small" start={15}>
+        <li>No app: <b>WhatsApp → Configuração</b>. Em <b>Webhook</b>, clique em <b>Editar</b>.</li>
+        <li>Em <b>URL de callback</b>, cole:<Copiar valor={st?.webhook_url}/></li>
+        <li>Em <b>Token de verificação</b>, cole:<Copiar valor={st?.verify_token}/></li>
+        <li>Clique em <b>Verificar e salvar</b>. O segundo item da Situação, lá em cima, fica ✅.</li>
+        <li>Logo abaixo, em <b>Campos do webhook</b>, clique em <b>Gerenciar</b> e ative <b>messages</b>.</li>
+      </ol></div>
+
+    <div className="card"><h3>F. Publicar e testar</h3>
+      <ol className="passo small" start={20}>
+        <li>No topo da página do app, mude o modo de <b>Desenvolvimento</b> para <b>Ao vivo</b> (ou clique em <b>Publicar</b>). Sem isso a Meta não entrega as mensagens dos clientes.</li>
+        <li>De outro celular, mande um "oi" para o seu número. Em alguns segundos a {conta.nome_assistente} responde e o terceiro item fica ✅.</li>
+        <li>Opcional: no <a href="https://business.facebook.com/wa/manage/" target="_blank" rel="noreferrer">Gerenciador do WhatsApp</a>, em Pagamentos, cadastre um cartão. Responder clientes é grátis; a Meta só cobra centavos quando a empresa escreve primeiro.</li>
+      </ol>
+      <p className="small muted" style={{marginBottom:0}}>Travou em algum passo? A Situação lá em cima mostra o que falta. Se aparecer erro da Meta ao conectar, a mensagem diz qual dado conferir.</p></div>
+  </>);
 }
 
 // ======================================================================== conversas
@@ -584,7 +601,7 @@ function Onboarding({conta, setConta}){
         <div className="row"><button className="btn btn-ghost" onClick={()=>avancar(1)}>Voltar</button><button className="btn btn-primary" disabled={!imoveis.length} onClick={()=>avancar(3)}>Continuar</button>{!imoveis.length && <span className="small muted">Cadastre pelo menos 1 imóvel.</span>}</div></>}
       {etapa===3 && <><Horarios conta={conta} salvo={()=>avancar(4)} botao="Salvar e continuar"/><Bloqueios conta={conta}/><button className="btn btn-ghost" onClick={()=>avancar(2)}>Voltar</button></>}
       {etapa===4 && <><Simulador conta={conta}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(3)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(5)}>Gostei, conectar o WhatsApp</button><span className="small muted">Se algo não ficou bom, ajuste as orientações no perfil.</span></div></>}
-      {etapa===5 && <><WhatsApp conta={conta} conectado={()=>{}}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(4)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(6)}>Ir para o painel</button><span className="small muted">Dá para conectar o WhatsApp depois, pela aba WhatsApp.</span></div></>}
+      {etapa===5 && <><WhatsApp conta={conta} conectado={()=>{}}/><div className="row"><button className="btn btn-ghost" onClick={()=>avancar(4)}>Voltar</button><button className="btn btn-primary" onClick={()=>avancar(6)}>Ir para o painel</button><span className="small muted">Pode terminar depois, pela aba WhatsApp: fica tudo salvo.</span></div></>}
     </div>
   );
 }

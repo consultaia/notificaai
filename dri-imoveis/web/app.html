@@ -124,6 +124,13 @@ async function reduzirFoto(arquivo){
   return await new Promise(ok=>c.toBlob(ok,"image/jpeg",0.82));
 }
 
+// Texto no estilo do WhatsApp: *negrito* e _itálico_
+function Zap({texto}){
+  if(!texto) return null;
+  const partes = String(texto).split(/(\*[^*\n]+\*|_[^_\n]+_)/g);
+  return <>{partes.map((p,i)=> /^\*[^*]+\*$/.test(p) ? <b key={i}>{p.slice(1,-1)}</b> : /^_[^_]+_$/.test(p) ? <i key={i}>{p.slice(1,-1)}</i> : p)}</>;
+}
+
 function Aviso({msg,limpar}){ return msg ? <div className={"msg "+msg.t} onClick={limpar}>{msg.x}</div> : null; }
 
 // ======================================================================== login
@@ -688,7 +695,7 @@ function Simulador({conta}){
   const [msgs,setMsgs]=useState([]); const [txt,setTxt]=useState(""); const [esperando,setEsperando]=useState(false); const fim=useRef(null);
   useEffect(()=>{ fim.current?.scrollIntoView({behavior:"smooth"}); },[msgs,esperando]);
   async function enviar(e){ e.preventDefault(); const t=txt.trim(); if(!t||esperando) return; setTxt(""); setMsgs(m=>[...m,{de:"user",texto:t}]); setEsperando(true);
-    try{ const r = await worker("/simular",{texto:t}); setMsgs(m=>[...m,...r.respostas.map(x=>x.tipo==="foto"?{de:"dri",foto:x.url,texto:x.legenda}:{de:"dri",texto:x.texto})]); }
+    try{ const r = await worker("/simular",{texto:t}); setMsgs(m=>[...m,...r.respostas.map(x=>x.tipo==="foto"?{de:"dri",foto:x.url,texto:x.legenda}:x.tipo==="arquivo"?{de:"dri",arquivo:x.nome||"book.pdf",url:x.url}:{de:"dri",texto:x.texto})]); }
     catch(err){ setMsgs(m=>[...m,{de:"dri",texto:"(erro: "+err.message+")"}]); }
     setEsperando(false); }
   async function reiniciar(){ await worker("/simular/reiniciar"); setMsgs([]); }
@@ -699,7 +706,7 @@ function Simulador({conta}){
       <div className="phone">
         <div className="hd">{conta.nome_assistente} · {conta.nome}</div>
         <div className="bd">{msgs.length===0 && <div className="small muted">Tente: "Oi, procuro apartamento de 3 quartos para comprar, até 700 mil"</div>}
-          {msgs.map((m,i)=><div key={i} className={"b "+m.de}>{m.foto && <img src={m.foto} alt=""/>}{m.texto}</div>)}
+          {msgs.map((m,i)=><div key={i} className={"b "+m.de}>{m.foto && <img src={m.foto} alt=""/>}{m.arquivo && <div>📄 <b>{m.arquivo}</b><div className="small muted">PDF enviado ao cliente</div></div>}<Zap texto={m.texto}/></div>)}
           {esperando && <div className="b dri muted">digitando…</div>}<div ref={fim}/></div>
         <form className="ft" onSubmit={enviar}><input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Escreva como cliente…"/><button className="btn btn-wa" disabled={esperando}>Enviar</button></form>
       </div>
@@ -799,7 +806,11 @@ function IA({conta}){
 function Copiar({valor}){
   const [ok,setOk]=useState(false);
   return <div className="row" style={{flexWrap:"nowrap"}}><code style={{flex:1}}>{valor||"…"}</code>
-    <button type="button" className="btn btn-ghost btn-sm" onClick={()=>{navigator.clipboard.writeText(valor);setOk(true);setTimeout(()=>setOk(false),1500);}}>{ok?"Copiado":"Copiar"}</button></div>;
+    <button type="button" className="btn btn-ghost btn-sm" onClick={(e)=>{
+      // se o aparelho recusar copiar, seleciona o texto para a pessoa copiar na mão
+      const codigo=e.currentTarget.parentNode.querySelector("code");
+      const selecionar=()=>{ const r=document.createRange(); r.selectNodeContents(codigo); const sel=getSelection(); sel.removeAllRanges(); sel.addRange(r); };
+      try{ navigator.clipboard.writeText(valor).then(()=>{ setOk(true); setTimeout(()=>setOk(false),1500); }, selecionar); }catch{ selecionar(); } }}>{ok?"Copiado":"Copiar"}</button></div>;
 }
 const Item = ({ok, children}) => <li style={{listStyle:"none",marginLeft:-18}}>{ok?"✅":"⬜"} {children}</li>;
 
@@ -924,7 +935,7 @@ function Conversas({conta, aoContar}){
               : <button className="btn btn-ghost btn-sm" onClick={()=>assumir(aberta)}>Assumir conversa</button>}
               <a className="btn btn-wa btn-sm" href={"https://wa.me/"+aberta.telefone} target="_blank" rel="noreferrer">Abrir no WhatsApp</a></div></div>
           {aberta.precisa_corretor && <div className="msg warn" style={{cursor:"default"}}>{conta.nome_assistente} está em silêncio nesta conversa: {aberta.motivo||"você assumiu"}.</div>}
-          <div className="phone" style={{maxWidth:"none"}}><div className="bd">{(aberta.transcricao||[]).map((m,i)=><div key={i} className={"b "+(m.de==="cliente"?"dri":m.de==="dri"?"user":"corretor")}>{m.texto}<div className="small muted" style={{marginTop:2}}>{m.de==="cliente"?"cliente":m.de==="dri"?conta.nome_assistente:"você"} · {fmtDT(m.em)}</div></div>)}</div>
+          <div className="phone" style={{maxWidth:"none"}}><div className="bd">{(aberta.transcricao||[]).map((m,i)=><div key={i} className={"b "+(m.de==="cliente"?"dri":m.de==="dri"?"user":"corretor")}><Zap texto={m.texto}/><div className="small muted" style={{marginTop:2}}>{m.de==="cliente"?"cliente":m.de==="dri"?conta.nome_assistente:"você"} · {fmtDT(m.em)}</div></div>)}</div>
             <form className="ft" onSubmit={responder}><input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Responder pelo número da assistente…"/><button className="btn btn-wa" disabled={enviando}>Enviar</button></form></div>
         </>}</div>
       </div>}

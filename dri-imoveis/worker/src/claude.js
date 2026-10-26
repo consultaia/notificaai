@@ -51,6 +51,7 @@ export function deClaude(resposta) {
     content: texto || null,
     ...(usos.length ? { tool_calls: usos.map((u) => ({ id: u.id, type: "function", function: { name: u.name, arguments: JSON.stringify(u.input || {}) } })) } : {}),
     _claude: resposta.content,
+    _uso: resposta.usage,   // só para contar a capacidade; não vai para o histórico
   };
 }
 

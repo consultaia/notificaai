@@ -56,5 +56,13 @@ export function fakeDb(tabelas) {
     }
     then(ok, erro) { return Promise.resolve(this.executar()).then(ok, erro); }
   }
-  return { from: (n) => new Q(n), tabelas };
+  // funções do banco usadas pelo Worker
+  const rpc = async (nome, a) => {
+    if (nome !== "registrar_uso_ia") return { data: null, error: { message: "rpc desconhecida" } };
+    let u = t("ia_uso").find((r) => r.conta_id === a.p_conta && r.mes === a.p_mes);
+    if (!u) { u = { conta_id: a.p_conta, mes: a.p_mes, mensagens: 0, tokens_entrada: 0, tokens_saida: 0 }; t("ia_uso").push(u); }
+    u.mensagens += a.p_mensagens; u.tokens_entrada += a.p_entrada; u.tokens_saida += a.p_saida;
+    return { data: { ...u }, error: null };
+  };
+  return { from: (n) => new Q(n), rpc, tabelas };
 }

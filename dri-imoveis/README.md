@@ -31,8 +31,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 
 ### 1. Supabase
 1. Crie um projeto (região São Paulo).
-2. SQL Editor → rode, em ordem, `001_base.sql`, `002_whatsapp_manual.sql` e `003_ia_por_conta.sql`
-   (pasta `supabase/migrations/`).
+2. SQL Editor → rode, em ordem, os arquivos da pasta `supabase/migrations/` (001 a 004).
 3. Authentication → URL Configuration: **Site URL** = endereço do `app.html`; adicione o mesmo
    em Redirect URLs. Deixe a confirmação de email ligada.
 4. Anote a URL do projeto, a chave pública (anon) e a service role.
@@ -63,6 +62,13 @@ Em `wrangler.toml`, preencha `PAINEL_URL` e `PAINEL_ORIGEM` (endereço do painel
 incluída na mensalidade. Fica ligada quando há `ANTHROPIC_API_KEY`. Para o corretor, a etapa IA vira
 opcional. Custo estimado: uns R$ 0,10 por conversa. `IA_CLAUDE = "reserva"` inverte a ordem (gratuitas
 primeiro, Claude só se todas falharem); `CLAUDE_MODELO` troca o modelo; `CLAUDE_ESFORCO` (padrão `low`).
+
+**Capacidade incluída:** cada conta tem uma cota mensal de mensagens respondidas pela Claude
+(`IA_COTA_MENSAL`, padrão 1.500 ≈ 150 conversas ≈ R$ 15; por conta: coluna `contas.cota_ia_mensal`).
+Renova todo dia 1º (horário de Brasília). Em 80% e em 100% o corretor recebe aviso por email e
+WhatsApp (desligável no perfil) e vê uma barra no painel. Passou da cota, a Dri continua com as
+chaves gratuitas dele; sem elas, com a reserva compartilhada da plataforma. O uso (mensagens e
+tokens) fica na tabela `ia_uso`, para você acompanhar o custo por corretor.
 
 **Áudio:** a Dri baixa o áudio do WhatsApp e transcreve com o Whisper do Groq (gratuito), usando a
 chave do Groq do corretor ou a da plataforma. Se não der para transcrever, ela pede para o cliente escrever.

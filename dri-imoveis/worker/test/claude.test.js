@@ -4,6 +4,7 @@ import { fakeDb } from "./fakedb.js";
 
 // Claude e Groq falsos. A Claude recebe o pedido pelo SDK oficial (fetch por baixo).
 let roteiroClaude, statusClaude, pedidosClaude, pedidosGroq;
+const emails = [];
 globalThis.fetch = async (url, init) => {
   const u = String(url);
   if (u.startsWith("https://api.anthropic.com/v1/messages")) {
@@ -15,6 +16,7 @@ globalThis.fetch = async (url, init) => {
       stop_reason: content.some((b) => b.type === "tool_use") ? "tool_use" : "end_turn", stop_sequence: null,
       usage: { input_tokens: 1, output_tokens: 1 } }), { status: 200, headers: { "content-type": "application/json", "request-id": "r" } });
   }
+  if (u.startsWith("https://api.resend.com/")) { emails.push(JSON.parse(init.body)); return new Response("{}"); }
   if (u.includes("groq")) {
     pedidosGroq.push(JSON.parse(init.body));
     return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "resposta do Groq" } }] }));
@@ -86,4 +88,46 @@ test("conversão: resultados de ferramenta juntos, ids válidos, histórico vind
   assert.equal(msgs[1].content[0].id, "call_1_a");
   assert.deepEqual(msgs[1].content[0].input, { x: 1 });
   assert.deepEqual(msgs[2].content.map((b) => b.tool_use_id), ["call_1_a", "call_2"]);
+});
+
+test("capacidade incluída: conta, avisa em 80% e 100%, e depois usa as chaves do corretor", async () => {
+  const mes = (await import("../src/agente.js")).mesDe(new Date());
+  const db = fakeDb({ conversas: [], leads: [], ia_chaves: [], ia_uso: [{ conta_id: "c1", mes, mensagens: 7, tokens_entrada: 0, tokens_saida: 0 }] });
+  const contaAviso = { ...conta, cota_ia_mensal: 10, email_notificacao: "ana@ex.com" };
+  const env = { ANTHROPIC_API_KEY: "sk-ant", GROQ_API_KEY: "gsk_plat", RESEND_API_KEY: "re", EMAIL_REMETENTE: "Dri <a@b.c>" };
+  const c = (extra = {}) => ({ ...ctx(db, env), conta: contaAviso, ...extra });
+  emails.length = 0;
+  const falaClaude = () => [{ type: "text", text: "oi" }];
+
+  roteiroClaude = [falaClaude]; await responder(c(), ["msg 8"]);           // 8 de 10 = 80%
+  assert.equal(db.tabelas.ia_uso[0].mensagens, 8);
+  assert.equal(emails.length, 1);
+  assert.match(emails[0].subject, /80% da capacidade/);
+  assert.match(emails[0].text, /8 de 10 mensagens.*cadastre suas chaves gratuitas/s);
+
+  roteiroClaude = [falaClaude]; await responder(c(), ["msg 9"]);           // 90%: não repete aviso
+  assert.equal(emails.length, 1);
+
+  roteiroClaude = [falaClaude]; await responder(c(), ["msg 10"]);          // 100%
+  assert.equal(emails.length, 2);
+  assert.match(emails[1].subject, /acabou/);
+  assert.match(emails[1].text, /reserva compartilhada/);
+
+  // passou da cota: a Claude não é mais chamada para esta conta
+  pedidosClaude.length = 0; pedidosGroq.length = 0;
+  await responder(c(), ["msg 11"]);
+  assert.equal(pedidosClaude.length, 0);
+  assert.equal(pedidosGroq.length, 1);
+  assert.equal(db.tabelas.ia_uso[0].mensagens, 10, "resposta das gratuitas não conta na capacidade");
+  assert.equal(emails.length, 2);
+});
+
+test("corretor que desligou os avisos não recebe email de capacidade", async () => {
+  const mes = (await import("../src/agente.js")).mesDe(new Date());
+  const db = fakeDb({ conversas: [], leads: [], ia_uso: [{ conta_id: "c1", mes, mensagens: 9, tokens_entrada: 0, tokens_saida: 0 }] });
+  emails.length = 0;
+  roteiroClaude = [() => [{ type: "text", text: "oi" }]];
+  await responder({ ...ctx(db, { ANTHROPIC_API_KEY: "k", RESEND_API_KEY: "re", EMAIL_REMETENTE: "x" }), conta: { ...conta, cota_ia_mensal: 10, avisar_capacidade: false, email_notificacao: "a@b.c" } }, ["oi"]);
+  assert.equal(emails.length, 0);
+  assert.ok(db.tabelas.ia_uso[0].aviso_100_em, "registra que chegou em 100% mesmo sem avisar");
 });

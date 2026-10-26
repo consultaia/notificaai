@@ -175,7 +175,7 @@ function NovaSenha({fim}){
 // ======================================================================== perfil
 function Perfil({conta, salvo, botao="Salvar"}){
   const [f,setF]=useState(()=>({ nome:"", tipo:"corretor", creci:"", cidade:"", whatsapp_pessoal:"", email_notificacao:"",
-    nome_assistente:"Dri", apresentacao:"", duracao_visita_min:60, antecedencia_min_horas:2, ...(conta||{}) }));
+    nome_assistente:"Dri", apresentacao:"", duracao_visita_min:60, antecedencia_min_horas:2, avisar_capacidade:true, ...(conta||{}) }));
   const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
   const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
   async function salvar(e){
@@ -184,7 +184,8 @@ function Perfil({conta, salvo, botao="Salvar"}){
     const linha = { nome:f.nome.trim(), tipo:f.tipo, creci:f.creci||null, cidade:f.cidade||null,
       whatsapp_pessoal:f.whatsapp_pessoal.replace(/\D/g,"")||null, email_notificacao:f.email_notificacao||user.email,
       nome_assistente:f.nome_assistente.trim()||"Dri", apresentacao:f.apresentacao||null,
-      duracao_visita_min:Number(f.duracao_visita_min)||60, antecedencia_min_horas:Number(f.antecedencia_min_horas)||0 };
+      duracao_visita_min:Number(f.duracao_visita_min)||60, antecedencia_min_horas:Number(f.antecedencia_min_horas)||0,
+      avisar_capacidade: f.avisar_capacidade!==false };
     const r = conta ? await sb.from("contas").update(linha).eq("id",conta.id).select().single()
                     : await sb.from("contas").insert({...linha, owner_id:user.id, onboarding_etapa:2}).select().single();
     setOcupado(false);
@@ -207,6 +208,7 @@ function Perfil({conta, salvo, botao="Salvar"}){
         <div><label>Duração da visita (min)</label><input type="number" min={15} max={240} step={15} value={f.duracao_visita_min} onChange={set("duracao_visita_min")}/></div>
         <div><label>Antecedência mínima (horas)</label><input type="number" min={0} max={72} value={f.antecedencia_min_horas} onChange={set("antecedencia_min_horas")}/></div>
       </div>
+      <label className="row" style={{fontWeight:400,marginTop:12}}><input type="checkbox" style={{width:"auto"}} checked={f.avisar_capacidade!==false} onChange={e=>setF({...f,avisar_capacidade:e.target.checked})}/> Me avisar por email e WhatsApp quando a capacidade de IA do mês estiver acabando</label>
       <label>Orientações para a assistente</label>
       <textarea value={f.apresentacao||""} onChange={set("apresentacao")} placeholder={"Ex.: Atuo na Pituba, Itaigara e Caminho das Árvores. Trabalho com venda e aluguel. Não aceito permuta. Para aluguel peço fiador ou seguro-fiança. Visitas aos sábados podem ser com meu assistente Pedro."}/>
       <div className="row" style={{marginTop:14}}><button className="btn btn-primary" disabled={ocupado}>{ocupado?"Salvando…":botao}</button></div>
@@ -428,6 +430,23 @@ function Simulador({conta}){
 }
 
 // ======================================================================== IA própria
+function Capacidade({cap, conta, curto}){
+  if(!cap) return null;
+  const pct = Math.min(100, Math.round(100*cap.usadas/Math.max(cap.cota,1)));
+  const cor = pct>=100 ? "var(--bad)" : pct>=80 ? "var(--warn)" : "var(--brand)";
+  const [a,m] = cap.mes.split("-");
+  return (
+    <div style={{margin:"10px 0"}}>
+      <div className="between small"><b>Capacidade incluída em {m}/{a}</b><span>{cap.usadas} de {cap.cota} mensagens</span></div>
+      <div style={{height:10,borderRadius:99,background:"var(--surface)",border:"1px solid var(--line)",overflow:"hidden",marginTop:6}}>
+        <div style={{width:pct+"%",height:"100%",background:cor}}/></div>
+      {!curto && <p className="small muted" style={{margin:"6px 0 0"}}>Conta cada mensagem de cliente respondida pela IA incluída. Renova todo dia 1º.
+        {pct>=100 ? ` A capacidade do mês acabou: a ${conta.nome_assistente} está usando suas chaves gratuitas (ou a reserva compartilhada, se você não tiver nenhuma).`
+         : pct>=80 ? " Está acabando: cadastre suas chaves gratuitas abaixo para ela continuar sem interrupção." : ""}</p>}
+    </div>
+  );
+}
+
 const IAS = [
   { id:"groq", nome:"Groq", link:"https://console.groq.com/keys", prefixo:"gsk_", tempo:"2 min", recomendada:true,
     nota:"A mais rápida. Não usa suas conversas para treinar.",
@@ -467,11 +486,11 @@ function IA({conta}){
     <div className="card">
       <h3>A inteligência da {conta.nome_assistente}</h3>
       {st?.ia_inclusa
-        ? <p className="small muted" style={{marginTop:0}}>A inteligência da {conta.nome_assistente} já vem incluída: você não precisa fazer nada aqui. As chaves gratuitas abaixo são <b>opcionais</b> e servem de reserva extra. A do <b>Groq</b> também ajuda a {conta.nome_assistente} a entender os áudios dos clientes.</p>
+        ? <p className="small muted" style={{marginTop:0}}>A inteligência da {conta.nome_assistente} já vem incluída, com uma capacidade por mês. Para <b>ampliar</b> essa capacidade, cadastre suas chaves gratuitas abaixo (opcional, uns 5 minutos): quando a capacidade incluída acabar, ela continua com as suas. A do <b>Groq</b> também ajuda a {conta.nome_assistente} a entender os áudios dos clientes.</p>
         : <p className="small muted" style={{marginTop:0}}>A {conta.nome_assistente} usa IAs com plano gratuito. Criando as suas chaves (grátis, sem cartão), o limite de uso é só seu: o movimento de outros corretores não atrapalha o seu atendimento. Se uma IA atingir o limite, a próxima responde no lugar.</p>}
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       {st && (st.ia_inclusa
-        ? <div className="msg ok" style={{cursor:"default"}}>✓ IA incluída e funcionando.{total>0 && ` Reserva própria: ${total} de 3.`}</div>
+        ? <><div className="msg ok" style={{cursor:"default"}}>✓ IA incluída e funcionando.{total>0 && ` Reserva própria: ${total} de 3.`}</div><Capacidade cap={st.capacidade} conta={conta}/></>
         : total===0
         ? <div className="msg warn" style={{cursor:"default"}}>{st.reserva_da_plataforma ? "Você ainda não tem chave própria: a assistente está usando a reserva compartilhada da plataforma, que tem limite dividido entre todos. Cadastre pelo menos uma abaixo." : "Cadastre pelo menos uma chave para a assistente funcionar."}</div>
         : <div className="msg ok" style={{cursor:"default"}}>{total} de 3 IAs cadastradas.{total<3 && " Com as três, uma cobre a outra."}</div>)}
@@ -636,7 +655,8 @@ function Conversas({conta, aoContar}){
 }
 
 function Inicio({conta, irPara}){
-  const [n,setN]=useState(null);
+  const [n,setN]=useState(null); const [cap,setCap]=useState(null);
+  useEffect(()=>{ worker("/ia/status").then(r=>setCap(r.capacidade)).catch(()=>{}); },[]);
   useEffect(()=>{ (async()=>{ const ini=new Date(Date.now()-30*864e5).toISOString(), agora=new Date().toISOString();
     const [c,p,v,m] = await Promise.all([
       sb.from("conversas").select("id",{count:"exact",head:true}).neq("telefone","simulador").gte("atualizado_em",ini),
@@ -645,7 +665,13 @@ function Inicio({conta, irPara}){
       sb.from("visitas").select("id",{count:"exact",head:true}).eq("origem","dri").neq("status","teste").gte("criado_em",ini)]);
     setN({conversas:c.count||0, pendentes:p.count||0, proximas:v.count||0, marcadasDri:m.count||0}); })(); },[]);
   if(!n) return <div className="card muted">Carregando…</div>;
+  const capPct = cap ? cap.usadas/Math.max(cap.cota,1) : 0;
   return <>
+    {capPct>=0.8 && <div className="card" style={{borderColor:capPct>=1?"var(--bad)":"var(--warn)"}}>
+      <h3>{capPct>=1 ? "A capacidade de IA do mês acabou" : "A capacidade de IA do mês está acabando"}</h3>
+      <Capacidade cap={cap} conta={conta} curto/>
+      <p className="small" style={{margin:"0 0 10px"}}>Cadastre suas chaves gratuitas para a {conta.nome_assistente} continuar atendendo sem interrupção. Leva uns 5 minutos.</p>
+      <button className="btn btn-primary btn-sm" onClick={()=>irPara("ia")}>Ampliar capacidade</button></div>}
     <div className="tiles">
       <div className="tile"><div className="l">Conversas nos últimos 30 dias</div><div className="v">{n.conversas}</div></div>
       <div className="tile"><div className="l">Visitas marcadas pela {conta.nome_assistente} (30 dias)</div><div className="v">{n.marcadasDri}</div></div>

@@ -23,7 +23,7 @@
 //   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs)
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { responder, registrarSemResponder } from "./agente.js";
+import { responder, registrarSemResponder, cotaDa, mesDe } from "./agente.js";
 import { transcrever } from "./audio.js";
 import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
 import {
@@ -207,8 +207,11 @@ export default {
       }
       if (rota === "POST /ia/status") {
         const { data } = await db.from("ia_chaves").select("provedor,chave,validada_em,ultimo_erro,ultimo_erro_em").eq("conta_id", conta.id);
+        const mes = mesDe(new Date());
+        const { data: uso } = await db.from("ia_uso").select("mensagens").eq("conta_id", conta.id).eq("mes", mes).maybeSingle();
         return json(env, {
           ia_inclusa: claudePrincipal(env),
+          capacidade: claudePrincipal(env) ? { mes, usadas: uso?.mensagens || 0, cota: cotaDa(conta, env) } : null,
           reserva_da_plataforma: env.IA_RESERVA_PLATAFORMA !== "nao" && provedoresAtivos(env).length > 0,
           chaves: (data || []).map((c) => ({
             provedor: c.provedor, final: `…${c.chave.slice(-4)}`, validada_em: c.validada_em,

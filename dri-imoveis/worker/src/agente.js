@@ -1,6 +1,10 @@
 // O cérebro da Dri: IA (gratuita, com troca automática) + ferramentas que leem os imóveis e a agenda da conta.
 import { perguntar, guardarResposta } from "./ia.js";
 import { horariosLivres, descreverHorario, descreverAgora, local } from "./agenda.js";
+
+const COTA_PADRAO = 1500; // mensagens de cliente respondidas pela Claude por mês (≈ 150 conversas)
+export const cotaDa = (conta, env) => conta.cota_ia_mensal ?? (Number(env.IA_COTA_MENSAL) || COTA_PADRAO);
+export const mesDe = (data) => { const l = local(data); return `${l.ano}-${String(l.mes).padStart(2, "0")}`; };
 import { notificarCorretor } from "./notificar.js";
 
 const MAX_VOLTAS = 8;              // chamadas de ferramenta por mensagem do cliente
@@ -317,7 +321,14 @@ export async function responder(ctx, textosDoCliente) {
   mensagens.push({ role: "user", content: `${cabecalho}\n${textosDoCliente.join("\n")}` });
   const sistema = promptSistema(conta);
   const { data: linhasChaves } = await db.from("ia_chaves").select("provedor,chave").eq("conta_id", conta.id);
-  const iaConta = { contaId: conta.id, chaves: Object.fromEntries((linhasChaves || []).map((l) => [l.provedor, l.chave])) };
+  const mes = mesDe(ctx.agora);
+  const cota = cotaDa(conta, env);
+  const { data: usoMes } = await db.from("ia_uso").select("mensagens").eq("conta_id", conta.id).eq("mes", mes).maybeSingle();
+  const iaConta = {
+    contaId: conta.id, chaves: Object.fromEntries((linhasChaves || []).map((l) => [l.provedor, l.chave])),
+    semClaude: (usoMes?.mensagens || 0) >= cota,
+  };
+  const usoClaude = { usou: false, entrada: 0, saida: 0 };
   const anotarFalhas = (falhas) => Promise.all(falhas.filter((f) => f.origem === "conta").map((f) =>
     db.from("ia_chaves").update({ ultimo_erro: f.erro.slice(0, 300), ultimo_erro_em: new Date().toISOString() })
       .eq("conta_id", conta.id).eq("provedor", f.nome)));
@@ -328,6 +339,12 @@ export async function responder(ctx, textosDoCliente) {
     try {
       const r = await perguntar(env, { sistema, mensagens, ferramentas: FERRAMENTAS_IA }, iaConta);
       msg = r.msg;
+      if (r.provedor === "claude") {
+        usoClaude.usou = true;
+        const u = msg._uso || {};
+        usoClaude.entrada += (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+        usoClaude.saida += u.output_tokens || 0;
+      }
       if (r.falhas.length) await anotarFalhas(r.falhas);
     } catch (e) {
       await anotarFalhas((e.falhas || []));
@@ -354,6 +371,8 @@ export async function responder(ctx, textosDoCliente) {
   if (mensagens[mensagens.length - 1].role !== "assistant" || mensagens[mensagens.length - 1].tool_calls)
     mensagens.push({ role: "assistant", content: respostaFinal || "…" });
 
+  if (usoClaude.usou) await contarCapacidade(ctx, mes, cota, usoClaude);
+
   const agoraIso = ctx.agora.toISOString();
   const transcricao = [...(conversa.transcricao || []),
     ...textosDoCliente.map((t) => ({ de: "cliente", texto: t, em: agoraIso })),
@@ -378,4 +397,21 @@ export async function registrarSemResponder(ctx, textosDoCliente) {
     transcricao: [...(conversa.transcricao || []), ...textosDoCliente.map((t) => ({ de: "cliente", texto: t, em }))].slice(-200),
     ultima_cliente_em: em, atualizado_em: em,
   }).eq("id", conversa.id);
+}
+
+// Soma a mensagem na capacidade do mês e avisa o corretor em 80% e 100% (uma vez cada)
+async function contarCapacidade(ctx, mes, cota, { entrada, saida }) {
+  const { db, conta } = ctx;
+  const { data: uso, error } = await db.rpc("registrar_uso_ia", {
+    p_conta: conta.id, p_mes: mes, p_mensagens: 1, p_entrada: entrada, p_saida: saida,
+  });
+  if (error || !uso) { console.warn("uso IA", error?.message); return; }
+  const nivel = uso.mensagens >= cota ? 100 : uso.mensagens >= cota * 0.8 ? 80 : 0;
+  if (!nivel) return;
+  const campo = nivel === 100 ? "aviso_100_em" : "aviso_80_em";
+  if (uso[campo]) return;
+  await db.from("ia_uso").update({ [campo]: new Date().toISOString() }).eq("conta_id", conta.id).eq("mes", mes);
+  if (conta.avisar_capacidade === false) return;
+  const { data: chaves } = await db.from("ia_chaves").select("provedor").eq("conta_id", conta.id);
+  await notificarCorretor(ctx, "capacidade", { nivel, usadas: uso.mensagens, cota, temChavesProprias: (chaves || []).length > 0 });
 }

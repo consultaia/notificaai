@@ -208,7 +208,8 @@ async function chamarModelo(env, { nome, chave, id }, modelo, { sistema, mensage
 
 /**
  * Pergunta para a primeira IA disponível; em erro passa para a próxima.
- * conta: { contaId, chaves: { gemini?: "...", groq?: "...", cerebras?: "..." } }
+ * conta: { contaId, chaves: { gemini?: "...", groq?: "...", cerebras?: "..." }, semClaude?: true }
+ *   semClaude: a capacidade incluída do mês acabou; a Claude fica de fora para esta conta.
  * Devolve { msg, provedor, origem: "conta"|"plataforma", falhas }.
  */
 export async function perguntar(env, pedido, conta = {}) {
@@ -216,7 +217,7 @@ export async function perguntar(env, pedido, conta = {}) {
     .map((nome) => ({ nome, chave: conta.chaves[nome], origem: "conta", id: `conta:${conta.contaId}:${nome}` }));
   const daPlataforma = (nome) => ({ nome, chave: env[PROVEDORES[nome].chave], origem: "plataforma", id: `plataforma:${nome}` });
   const reserva = env.IA_RESERVA_PLATAFORMA === "nao" ? [] : ordem(env).filter((n) => env[PROVEDORES[n].chave]).map(daPlataforma);
-  const claude = claudeAtiva(env) ? [daPlataforma("claude")] : [];
+  const claude = claudeAtiva(env) && !conta.semClaude ? [daPlataforma("claude")] : [];
   const tentativas = claudePrincipal(env) ? [...claude, ...proprias, ...reserva] : [...proprias, ...reserva, ...claude];
   if (!tentativas.length) throw new Error("Nenhuma IA configurada: cadastre uma chave na aba IA do painel.");
   // quem está pausado por limite vai para o fim da fila, mas ainda é tentado se os outros falharem

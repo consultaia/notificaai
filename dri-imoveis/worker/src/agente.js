@@ -28,7 +28,7 @@ Como conduzir a conversa:
 - Guarde o que a pessoa procura com salvar_perfil_cliente assim que souber (ajuda o corretor).
 - Chame o corretor (chamar_corretor) quando a pessoa pedir para falar com uma pessoa, quiser fazer proposta ou negociar valor, perguntar de documentação, contrato, financiamento em detalhe, avaliação do imóvel dela, ou qualquer coisa que você não saiba responder com certeza. Avise a pessoa que o corretor vai continuar o atendimento.
 - Não prometa desconto, não dê opinião jurídica e não peça dados sensíveis (CPF, renda exata, documentos).
-- Se a mensagem trouxer áudio, vídeo ou figurinha que você não consegue ver, peça gentilmente para escrever.
+- Áudios do cliente chegam transcritos, marcados como "[Áudio do cliente, transcrito]": responda normalmente; se a transcrição parecer sem sentido, peça para repetir. Se vier vídeo, figurinha ou áudio que não deu para transcrever, peça gentilmente para escrever.
 ${conta.apresentacao ? `\nInformações do ${conta.tipo === "imobiliaria" ? "escritório" : "corretor"} (siga estas orientações):\n${conta.apresentacao}\n` : ""}`;
 }
 
@@ -289,7 +289,8 @@ export function encurtarHistorico(msgs, perfil) {
   let corte = msgs.length - HISTORICO_MANTER;
   while (corte < msgs.length && !(msgs[corte].role === "user" && typeof msgs[corte].content === "string")) corte++;
   if (corte >= msgs.length) return msgs;
-  const resto = msgs.slice(corte);
+  // as mensagens mantidas perdem o raciocínio guardado da Claude (ele vale só com o histórico completo)
+  const resto = msgs.slice(corte).map(({ _claude, ...m }) => m);
   resto[0] = { role: "user", content: `[Conversa anterior encurtada.${perfil ? ` O que já se sabe da pessoa: ${perfil}` : ""}]\n\n${resto[0].content}` };
   return resto;
 }

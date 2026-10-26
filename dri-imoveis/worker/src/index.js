@@ -17,16 +17,18 @@
 // um webhook próprio, e a assinatura das mensagens é conferida com a chave secreta do app dela.
 //
 // Segredos (wrangler secret put …): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e pelo menos uma IA:
-//   GEMINI_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY (as três = troca automática)
+//   ANTHROPIC_API_KEY (Claude Haiku, paga, principal) e/ou GEMINI_API_KEY, GROQ_API_KEY,
+//   CEREBRAS_API_KEY (gratuitas; viram reserva)
 // Opcionais: RESEND_API_KEY + EMAIL_REMETENTE, TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM,
 //   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs)
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder } from "./agente.js";
-import { provedoresAtivos, validarChave, PROVEDORES, autotestar } from "./ia.js";
+import { transcrever } from "./audio.js";
+import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
-  lerNumero, assinarWaba, registrarNumero,
+  lerNumero, assinarWaba, registrarNumero, baixarMidia,
 } from "./whatsapp.js";
 
 const ESPERA_MS = 3500;          // junta mensagens picadas ("oi" / "tudo bem?" / "vi o anúncio")
@@ -206,6 +208,7 @@ export default {
       if (rota === "POST /ia/status") {
         const { data } = await db.from("ia_chaves").select("provedor,chave,validada_em,ultimo_erro,ultimo_erro_em").eq("conta_id", conta.id);
         return json(env, {
+          ia_inclusa: claudePrincipal(env),
           reserva_da_plataforma: env.IA_RESERVA_PLATAFORMA !== "nao" && provedoresAtivos(env).length > 0,
           chaves: (data || []).map((c) => ({
             provedor: c.provedor, final: `…${c.chave.slice(-4)}`, validada_em: c.validada_em,
@@ -215,7 +218,7 @@ export default {
       }
       if (rota === "POST /ia/salvar") {
         const provedor = String(corpo.provedor || ""), chave = String(corpo.chave || "").trim();
-        if (!PROVEDORES[provedor]) return json(env, { error: "Escolha Gemini, Groq ou Cerebras." }, 400);
+        if (!PROVEDORES[provedor] || PROVEDORES[provedor].anthropic) return json(env, { error: "Escolha Gemini, Groq ou Cerebras." }, 400);
         if (chave.length < 20) return json(env, { error: "Essa chave parece incompleta. Copie de novo." }, 400);
         try { await validarChave(provedor, chave); }
         catch (e) { return json(env, { error: `A ${provedor} não aceitou a chave: ${e.message}` }, 400); }
@@ -294,7 +297,7 @@ async function encaminhar(env, contaId, msgs) {
 }
 
 const TIPO_SEM_TEXTO = {
-  audio: "[O cliente mandou um áudio, que você não consegue ouvir.]",
+  audio: "[O cliente mandou um áudio que não deu para transcrever.]",
   video: "[O cliente mandou um vídeo, que você não consegue ver.]",
   sticker: "[O cliente mandou uma figurinha.]",
   image: "[O cliente mandou uma imagem sem legenda, que você não consegue ver.]",
@@ -343,15 +346,27 @@ export class Conversa {
     const db = banco(env);
     const { contaId, de: telefone } = fila[0];
     const nome = fila.map((m) => m.nome).filter(Boolean).pop() || null;
-    const textos = fila.map((m) => m.texto ?? TIPO_SEM_TEXTO[m.tipo] ?? (m.tipo in TIPO_SEM_TEXTO ? null : `[Mensagem do tipo ${m.tipo}]`))
-      .filter(Boolean);
-    if (!textos.length) return;
 
     const [{ data: conta }, conexao] = await Promise.all([
       db.from("contas").select("*").eq("id", contaId).maybeSingle(),
       conexaoDaConta(db, contaId),
     ]);
     if (!conta || !conexao) return;
+
+    // Áudio vira texto (Whisper do Groq); se não der, a Dri pede para escrever
+    if (fila.some((m) => m.midiaId)) {
+      const { data: chaveConta } = await db.from("ia_chaves").select("chave").eq("conta_id", contaId).eq("provedor", "groq").maybeSingle();
+      const chaves = [chaveConta?.chave, env.GROQ_API_KEY].filter(Boolean);
+      for (const m of fila.filter((m) => m.midiaId)) {
+        try {
+          const texto = await transcrever(chaves, await baixarMidia(env, conexao, m.midiaId), env);
+          if (texto) m.texto = `[Áudio do cliente, transcrito] ${texto}`;
+        } catch (e) { console.warn("transcrição", e.message); }
+      }
+    }
+    const textos = fila.map((m) => m.texto ?? TIPO_SEM_TEXTO[m.tipo] ?? (m.tipo in TIPO_SEM_TEXTO ? null : `[Mensagem do tipo ${m.tipo}]`))
+      .filter(Boolean);
+    if (!textos.length) return;
     await marcarLida(env, conexao, fila[fila.length - 1].id);
 
     const ctx = {

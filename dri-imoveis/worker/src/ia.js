@@ -1,8 +1,12 @@
-// Três IAs com plano gratuito, em fila: se uma falhar, bater o limite ou demorar, passa para a próxima.
+import { chamarClaude, listarModelosClaude, ErroClaude } from "./claude.js";
+
+// Claude Haiku (paga pela plataforma) + três IAs com plano gratuito, em fila: se uma falhar, bater o limite ou demorar, passa para a próxima.
 // Todas falam o formato "chat completions" (padrão OpenAI) com ferramentas.
 // Primeiro vêm as chaves da própria conta (o limite gratuito é só do corretor); as chaves da
 // plataforma ficam de reserva (desligue com IA_RESERVA_PLATAFORMA="nao").
-// Ordem configurável: IA_ORDEM="gemini,groq,cerebras".
+// Ordem configurável: IA_ORDEM="gemini,groq,cerebras" (as gratuitas).
+// Claude: ligada quando há ANTHROPIC_API_KEY. IA_CLAUDE="principal" (padrão: vem antes de tudo)
+// ou "reserva" (só entra quando todas as gratuitas falharem).
 //
 // Proteção contra modelo aposentado (o Groq já tirou o Llama do ar de um dia para o outro):
 //   1. cada provedor tem uma lista de modelos em ordem de preferência; se um sumir, usa o próximo;
@@ -11,6 +15,11 @@
 // Para trocar modelos sem mexer no código: GEMINI_MODELO, GROQ_MODELO, CEREBRAS_MODELO (aceitam lista separada por vírgula).
 
 export const PROVEDORES = {
+  claude: {
+    anthropic: true, chave: "ANTHROPIC_API_KEY", modelo: "CLAUDE_MODELO",
+    preferidos: ["claude-haiku-5-5"],
+    familia: /^claude-haiku/,
+  },
   gemini: {
     url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     modelos: "https://generativelanguage.googleapis.com/v1beta/openai/models",
@@ -53,6 +62,10 @@ export const modeloSumiu = (status, texto) => status === 404 || ((status === 400
 async function descobrirModelo(nome, chave) {
   const p = PROVEDORES[nome];
   try {
+    if (p.anthropic) {
+      const ids = await listarModelosClaude(chave);
+      return ids.filter((id) => p.familia.test(id) && !aposentados.has(`${nome}:${id}`)).sort().reverse()[0] || null;
+    }
     const r = await fetch(p.modelos, { headers: { authorization: `Bearer ${chave}` } });
     if (!r.ok) return null;
     const j = await r.json();
@@ -65,11 +78,15 @@ const TEMPO_LIMITE_MS = 25_000;
 const PAUSA_APOS_LIMITE_MS = 60_000;   // provedor que deu 429 fica de lado por 1 min
 const pausados = new Map();             // "conta:<id>:gemini" ou "plataforma:gemini" -> até quando
 
-const ordem = (env) => (env.IA_ORDEM || "gemini,groq,cerebras").split(",").map((s) => s.trim()).filter((n) => PROVEDORES[n]);
+// IAs gratuitas, na ordem configurada
+const ordem = (env) => (env.IA_ORDEM || "gemini,groq,cerebras").split(",").map((s) => s.trim())
+  .filter((n) => PROVEDORES[n] && !PROVEDORES[n].anthropic);
+const claudeAtiva = (env) => !!env.ANTHROPIC_API_KEY;
+export const claudePrincipal = (env) => claudeAtiva(env) && (env.IA_CLAUDE || "principal") !== "reserva";
 
-// Chaves da plataforma configuradas no Worker
+// Chaves da plataforma configuradas no Worker (Claude primeiro, se ativa)
 export function provedoresAtivos(env) {
-  return ordem(env).filter((n) => env[PROVEDORES[n].chave]);
+  return [...(claudeAtiva(env) ? ["claude"] : []), ...ordem(env).filter((n) => env[PROVEDORES[n].chave])];
 }
 
 // Confere uma chave antes de salvar (lista os modelos do provedor)
@@ -100,6 +117,7 @@ function limparMensagem(m, provedor) {
 // Guarda a resposta só com o que interessa (sem campos de raciocínio de cada provedor)
 export function guardarResposta(msg) {
   const m = { role: "assistant", content: msg.content || null };
+  if (msg._claude) m._claude = msg._claude;
   if (msg.tool_calls?.length) {
     m.tool_calls = msg.tool_calls.map((c, i) => ({
       id: c.id || `chamada_${Date.now()}_${i}`, type: "function",
@@ -144,6 +162,16 @@ class ModeloSumiu extends Error {}
 
 async function chamarModelo(env, { nome, chave, id }, modelo, { sistema, mensagens, ferramentas }) {
   const p = PROVEDORES[nome];
+  if (p.anthropic) {
+    try {
+      return await chamarClaude({ chave, modelo, esforco: env.CLAUDE_ESFORCO || "low", sistema, mensagens, ferramentas, timeoutMs: TEMPO_LIMITE_MS });
+    } catch (e) {
+      if (!(e instanceof ErroClaude)) throw e;
+      if (e.modeloSumiu) throw new ModeloSumiu(e.message);
+      if (e.limite) pausados.set(id, Date.now() + PAUSA_APOS_LIMITE_MS);
+      throw new FalhaProvedor(`${id}: ${e.message}`);
+    }
+  }
   const ctrl = new AbortController();
   const relogio = setTimeout(() => ctrl.abort(), TEMPO_LIMITE_MS);
   let r;
@@ -186,9 +214,10 @@ async function chamarModelo(env, { nome, chave, id }, modelo, { sistema, mensage
 export async function perguntar(env, pedido, conta = {}) {
   const proprias = ordem(env).filter((n) => conta.chaves?.[n])
     .map((nome) => ({ nome, chave: conta.chaves[nome], origem: "conta", id: `conta:${conta.contaId}:${nome}` }));
-  const reserva = env.IA_RESERVA_PLATAFORMA === "nao" ? [] : provedoresAtivos(env)
-    .map((nome) => ({ nome, chave: env[PROVEDORES[nome].chave], origem: "plataforma", id: `plataforma:${nome}` }));
-  const tentativas = [...proprias, ...reserva];
+  const daPlataforma = (nome) => ({ nome, chave: env[PROVEDORES[nome].chave], origem: "plataforma", id: `plataforma:${nome}` });
+  const reserva = env.IA_RESERVA_PLATAFORMA === "nao" ? [] : ordem(env).filter((n) => env[PROVEDORES[n].chave]).map(daPlataforma);
+  const claude = claudeAtiva(env) ? [daPlataforma("claude")] : [];
+  const tentativas = claudePrincipal(env) ? [...claude, ...proprias, ...reserva] : [...proprias, ...reserva, ...claude];
   if (!tentativas.length) throw new Error("Nenhuma IA configurada: cadastre uma chave na aba IA do painel.");
   // quem está pausado por limite vai para o fim da fila, mas ainda é tentado se os outros falharem
   const agora = Date.now();

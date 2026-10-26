@@ -69,6 +69,7 @@ export function extrairMensagens(payload) {
         saida.push({
           phoneNumberId, id: m.id, de: m.from, nome: nomes[m.from] || null,
           tipo: m.type, texto, em: new Date(Number(m.timestamp) * 1000 || Date.now()),
+          ...(m.type === "audio" && m.audio?.id ? { midiaId: m.audio.id } : {}),
         });
       }
     }
@@ -82,3 +83,11 @@ export const assinarWaba = (env, token, wabaId) => chamar(env, token, `${wabaId}
 // (verificação em duas etapas). Se já estiver registrado, a Meta aceita de novo com o mesmo PIN.
 export const registrarNumero = (env, token, phoneNumberId, pin) =>
   chamar(env, token, `${phoneNumberId}/register`, { messaging_product: "whatsapp", pin });
+
+// Baixa a mídia que o cliente mandou (o link da Meta vale por alguns minutos e exige o token)
+export async function baixarMidia(env, conexao, midiaId) {
+  const info = await chamar(env, conexao.token, midiaId, null, "GET");
+  const r = await fetch(info.url, { headers: { authorization: `Bearer ${conexao.token}` } });
+  if (!r.ok) throw new Error(`Meta não entregou a mídia (${r.status})`);
+  return { dados: await r.arrayBuffer(), tipo: info.mime_type || "audio/ogg" };
+}

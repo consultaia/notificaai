@@ -9,7 +9,7 @@ marca a visita na agenda real, sem conflito de horário.
 ```
 web/app.html            painel do corretor (cadastro, passo a passo, imóveis, agenda, conversas)
 web/privacidade.html    política de privacidade que o corretor informa no app da Meta
-worker/                 Cloudflare Worker: webhook do WhatsApp, cérebro da Dri (3 IAs gratuitas), simulador
+worker/                 Cloudflare Worker: webhook do WhatsApp, cérebro da Dri (Claude Haiku + 3 IAs gratuitas de reserva), simulador
 supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 ```
 
@@ -42,8 +42,9 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 cd worker
 npm install
 npx wrangler login
+npx wrangler secret put ANTHROPIC_API_KEY        # platform.claude.com: a Claude Haiku é a IA principal
 npx wrangler secret put GEMINI_API_KEY           # aistudio.google.com/apikey
-npx wrangler secret put GROQ_API_KEY             # console.groq.com/keys
+npx wrangler secret put GROQ_API_KEY             # console.groq.com/keys (reserva e transcrição de áudio)
 npx wrangler secret put CEREBRAS_API_KEY         # cloud.cerebras.ai
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
@@ -57,7 +58,16 @@ Em `wrangler.toml`, preencha `PAINEL_URL` e `PAINEL_ORIGEM` (endereço do painel
 `IA_ORDEM` define a ordem das IAs (padrão `gemini,groq,cerebras`). Os modelos podem ser trocados com
 `GEMINI_MODELO` (padrão `gemini-2.5-flash`), `GROQ_MODELO` e `CEREBRAS_MODELO` (padrão `gpt-oss-120b`).
 
-### As 3 IAs gratuitas
+### A IA da Dri
+**Principal: Claude Haiku 5.5** (`claude-haiku-5-5`, a Claude mais barata), paga pela plataforma e
+incluída na mensalidade. Fica ligada quando há `ANTHROPIC_API_KEY`. Para o corretor, a etapa IA vira
+opcional. Custo estimado: uns R$ 0,10 por conversa. `IA_CLAUDE = "reserva"` inverte a ordem (gratuitas
+primeiro, Claude só se todas falharem); `CLAUDE_MODELO` troca o modelo; `CLAUDE_ESFORCO` (padrão `low`).
+
+**Áudio:** a Dri baixa o áudio do WhatsApp e transcreve com o Whisper do Groq (gratuito), usando a
+chave do Groq do corretor ou a da plataforma. Se não der para transcrever, ela pede para o cliente escrever.
+
+### As 3 IAs gratuitas (reserva)
 Cada corretor cadastra as **próprias chaves** (Groq, Gemini e Cerebras, grátis e sem cartão) na
 etapa IA do painel. O painel confere a chave antes de salvar e nunca mostra a chave inteira de
 volta. Assim o limite gratuito é de cada corretor, e o movimento de um não atrapalha os outros.
@@ -108,9 +118,9 @@ Preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WORKER_URL` no topo de `web/app.
 ## Custos (por corretor)
 - **Meta:** responder cliente que escreveu é grátis. Mensagem que a empresa inicia (modelo aprovado)
   custa centavos e cai no cartão da conta Meta do corretor. Cada corretor tem o próprio app e a própria conta.
-- **IA:** R$ 0. Cada corretor usa o plano gratuito das próprias chaves (limite por pedidos por
-  minuto e por dia; cada mensagem do cliente usa de 1 a 4 pedidos). Se um corretor crescer muito,
-  ele mesmo pode ativar o plano pago de uma delas, sem afetar os outros.
+- **IA:** Claude Haiku, cobrada por uso na conta da plataforma: uns R$ 0,10 por conversa
+  (US$ 0,10 por milhão de tokens de entrada e US$ 0,50 de saída), ou uns R$ 30 por mês para um
+  corretor com 10 conversas por dia. As gratuitas (do corretor e da plataforma) só entram se a Claude falhar.
 - **Privacidade:** no plano gratuito, o Google pode usar o conteúdo enviado ao Gemini para melhorar
   os produtos dele. Groq e Cerebras não treinam com os dados da API. Se isso importar, ponha
   `IA_ORDEM = "groq,cerebras,gemini"` ou ative o plano pago do Gemini. Cite isso na política de
@@ -118,7 +128,7 @@ Preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `WORKER_URL` no topo de `web/app.
 - **Supabase e Cloudflare:** os planos gratuitos aguentam o começo.
 
 ## Limites conhecidos
-- A Dri não ouve áudio nem vê imagem do cliente: pede para escrever.
+- A Dri entende áudio (transcrição), mas não vê imagem nem vídeo do cliente: pede para escrever.
 - Fuso fixo de Brasília (UTC-3), que vale para quase todo o Brasil.
 - Aviso por WhatsApp ao corretor fora da janela de 24 h precisa de um modelo aprovado
   (`TEMPLATE_AVISO`, com uma variável `{{1}}`); sem ele, o aviso vai por email e aparece no painel.

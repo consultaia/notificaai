@@ -98,6 +98,10 @@
       }
     } catch (e) { }
     experiencia();
+    DB.videos_educacao = [
+      { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
+      { id: uuid(), created_at: diasAtras(10).toISOString(), hospital_id: HID, subnucleo: 'queda', titulo: 'Prevenção de quedas no hospital', url: 'https://www.youtube.com/watch?v=QPADgajXCxg', descricao: 'Para pacientes e acompanhantes.', publico: 'pacientes', ordem: 0, ativo: true, criado_por: 'gestor' }
+    ];
   }
 
   // pesquisa de experiência do paciente (PNQSP)

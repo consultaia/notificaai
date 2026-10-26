@@ -3,7 +3,8 @@
 --
 -- Somente ADITIVO, seguro com o sistema em uso:
 --   * nao apaga nem altera nenhum dado existente;
---   * so acrescenta 4 colunas em notifications e cria a tabela experiencia_paciente;
+--   * so acrescenta 4 colunas em notifications e cria as tabelas experiencia_paciente
+--     e videos_educacao;
 --   * pode ser executado mais de uma vez.
 --
 -- Como rodar: Supabase > SQL Editor > New query > colar este arquivo > Run.
@@ -43,5 +44,27 @@ drop policy if exists experiencia_insere on public.experiencia_paciente;
 create policy experiencia_insere on public.experiencia_paciente for insert with check (true);
 drop policy if exists experiencia_le on public.experiencia_paciente;
 create policy experiencia_le on public.experiencia_paciente for select using (true);
+
+-- 3. Videos de educacao em saude do proprio hospital (links do YouTube) ---------
+-- Aparecem na Central de Conhecimento, por subnucleo. Cadastrados pelo gestor e
+-- pelos subnucleos dentro da plataforma.
+create table if not exists public.videos_educacao (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  hospital_id text not null default 'hnsa',
+  subnucleo text,              -- id do subnucleo (queda, lpp...) ou 'geral'
+  titulo text not null,
+  url text not null,           -- link do YouTube
+  descricao text,
+  publico text default 'todos', -- todos | pacientes | equipe
+  ordem integer default 0,
+  ativo boolean not null default true,
+  criado_por text
+);
+create index if not exists videos_educacao_hosp_idx on public.videos_educacao (hospital_id, subnucleo);
+-- Mesmo acesso das demais tabelas do app (a protecao por login vem na fase 2).
+alter table public.videos_educacao enable row level security;
+drop policy if exists videos_educacao_tudo on public.videos_educacao;
+create policy videos_educacao_tudo on public.videos_educacao for all using (true) with check (true);
 
 commit;

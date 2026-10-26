@@ -67,6 +67,9 @@
         showBootError('Falha ao CARREGAR um recurso externo (nao e erro de codigo):\n\n'+srcFalha+'\n\nIsso costuma ser bloqueio de rede/firewall da instituicao para o dominio acima, CDN fora do ar, ou falta de internet no dispositivo. Teste: (1) abrir o link acima direto no navegador; (2) testar em outra rede (dados moveis); (3) verificar se o firewall do HNSA libera cdnjs.cloudflare.com, cdn.jsdelivr.net.');
         return;
       }
+      // Imagem/video/iframe que nao carregou (capa do YouTube, logo, foto) nao e erro do app:
+      // antes isso cobria a tela inteira com "Erro desconhecido".
+      if(tgt && tgt!==window && tgt.tagName) return;
       var msg=ev.message||'Erro desconhecido';
       var loc=ev.filename?(' \n'+ev.filename+':'+ev.lineno+':'+ev.colno):'';
       var stack=(ev.error&&ev.error.stack)?('\n\n'+ev.error.stack):'';
@@ -5974,7 +5977,7 @@ const semAcento=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]
 function eventoComDano(n){
   return /dano leve|dano moderado|dano grave|obito|sentinela|evento adverso/.test(semAcento((n.gravidade||'')+' | '+(n.patient_outcome||'')));
 }
-const faltaSQL004=e=>/comunicado_|experiencia_paciente|PGRST204|PGRST205|42703|42P01|does not exist|schema cache/i.test(String(e&&e.message||e));
+const faltaSQL004=e=>/comunicado_|experiencia_paciente|videos_educacao|PGRST204|PGRST205|42703|42P01|does not exist|schema cache/i.test(String(e&&e.message||e));
 const COMUNICACAO_OPCOES=[
   {v:'comunicado',l:'Comunicado ao paciente/família'},
   {v:'pendente',l:'Ainda não comunicado'},
@@ -7745,11 +7748,129 @@ html,body{margin:0;background:#000066}body{font-family:Calibri,Arial,sans-serif}
     </div>
   </div>);
 }
-function CentralView({sbUrl,sbKey,hospital,profileMode}) {
+// ── Videos de educacao em saude do proprio hospital (YouTube) ─────────────────
+// Tabela videos_educacao (SQL 004). Gestor cadastra para qualquer subnucleo; o
+// membro de subnucleo cadastra para o seu. Publico ve tudo que estiver ativo.
+const ytId=url=>{const m=String(url||'').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([A-Za-z0-9_-]{11})/);return m?m[1]:null;};
+const PUBLICO_VIDEO={todos:'Pacientes e equipe',pacientes:'Pacientes e acompanhantes',equipe:'Equipe'};
+
+function VideoYoutube({url,titulo}){
+  const id=ytId(url);const [tocar,setTocar]=useState(false);
+  if(!id) return null;
+  return(<div style={{borderRadius:12,overflow:'hidden',background:'#000',aspectRatio:'16/9',position:'relative'}}>
+    {tocar?<iframe width="100%" height="100%" src={'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0'} title={titulo||'Vídeo'} frameBorder="0" allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowFullScreen style={{display:'block'}}/>
+      :<button onClick={()=>setTocar(true)} aria-label={'Assistir: '+(titulo||'vídeo')} style={{all:'unset',cursor:'pointer',position:'absolute',inset:0,display:'block'}}>
+        <img src={'https://img.youtube.com/vi/'+id+'/hqdefault.jpg'} alt="" loading="lazy" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+        <span style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:64,height:44,borderRadius:12,background:'#FF0000',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><polygon points="8,5 19,12 8,19"/></svg>
+        </span>
+      </button>}
+  </div>);
+}
+
+function VideosEducacaoView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,showToast,onBack}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const podeEditar=profileMode==='gestor'||profileMode==='membro_nsp';
+  const travado=profileMode==='membro_nsp'&&userSubnucleo?userSubnucleo:null;
+  const [lista,setLista]=useState([]);
+  const [erro,setErro]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [filtro,setFiltro]=useState('todos');
+  const [form,setForm]=useState(null);
+  const [salvando,setSalvando]=useState(false);
+  const toast=(m,t)=>showToast?showToast(m,t):alert(m);
+  const grupos=[...SUBNUCLEOS_HNSA,{id:'geral',label:'Segurança do paciente (geral)',icon:String.fromCodePoint(127973),color:C.teal}];
+  const load=()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);setErro(null);
+    sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${h.id}&order=ordem.asc,created_at.desc&select=*`)
+      .then(d=>setLista(d||[])).catch(e=>setErro(faltaSQL004(e)||/videos_educacao/.test(e.message)?'sql':e.message)).finally(()=>setLoading(false));
+  };
+  useEffect(load,[sbUrl,sbKey]);
+  const visiveis=lista.filter(v=>(v.ativo!==false||podeEditar)&&(filtro==='todos'||v.subnucleo===filtro));
+  const novo=()=>setForm({titulo:'',url:'',descricao:'',subnucleo:travado||(filtro!=='todos'?filtro:'geral'),publico:'todos',ativo:true});
+  const salvar=async()=>{
+    if(!form.titulo.trim()){toast('Informe o título do vídeo','error');return;}
+    if(!ytId(form.url)){toast('Cole um link válido do YouTube (youtube.com/watch?v=... ou youtu.be/...)','error');return;}
+    setSalvando(true);
+    const d={hospital_id:h.id,titulo:form.titulo.trim(),url:form.url.trim(),descricao:form.descricao.trim()||null,subnucleo:travado||form.subnucleo,publico:form.publico,ativo:form.ativo!==false};
+    try{
+      if(form.id) await sbPatch(sbUrl,sbKey,'videos_educacao',`id=eq.${form.id}`,d);
+      else await sbInsert(sbUrl,sbKey,'videos_educacao',{...d,criado_por:profileMode==='membro_nsp'?(userSubnucleo||'subnucleo'):'gestor'});
+      toast(form.id?'Vídeo atualizado':'Vídeo publicado na Central de Conhecimento','success');setForm(null);load();
+    }catch(e){toast(faltaSQL004(e)||/videos_educacao/.test(e.message)?'Falta preparar o banco: rode o arquivo '+SQL_004+' no Supabase (SQL Editor). É só uma vez.':'Erro ao salvar: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const excluir=async v=>{
+    if(!window.confirm('Remover o vídeo "'+v.titulo+'" da plataforma? (O vídeo continua no YouTube.)')) return;
+    try{await sbDelete(sbUrl,sbKey,'videos_educacao',`id=eq.${v.id}`);toast('Vídeo removido','success');load();}catch(e){toast('Erro ao remover: '+e.message,'error');}
+  };
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,fontFamily:'inherit'};
+  const lab={fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4};
+  const podeMexer=v=>profileMode==='gestor'||(travado&&v.subnucleo===travado);
+  return(<div>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
+      <button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}>←</button>
+      <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:C.text}}>{String.fromCodePoint(127916)+' Vídeos de educação em saúde'}</div><div style={{fontSize:11,color:C.muted}}>Produzidos pelo {siglaH(h)} · por protocolo</div></div>
+      {podeEditar&&!form&&!erro&&<button onClick={novo} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>+ Vídeo</button>}
+    </div>
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
+      {erro==='sql'&&<div style={{background:C.card,border:'1px solid '+C.yellow+'66',borderRadius:12,padding:14,color:C.yellow,fontSize:12,lineHeight:1.6}}>{podeEditar?<>A área de vídeos ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run).</>:'Em breve, vídeos de educação em saúde do hospital.'}</div>}
+      {erro&&erro!=='sql'&&<div style={{color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
+      {form&&<div style={{background:C.card,border:'1px solid '+C.teal+'55',borderRadius:12,padding:14}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>{form.id?'Editar vídeo':'Novo vídeo'}</div>
+        <label style={lab}>Link do YouTube *</label>
+        <input value={form.url} onChange={e=>setForm({...form,url:e.target.value})} placeholder="https://youtu.be/..." style={inp}/>
+        {ytId(form.url)&&<div style={{marginBottom:10}}><VideoYoutube url={form.url} titulo={form.titulo}/></div>}
+        <label style={lab}>Título *</label>
+        <input value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Ex.: Como prevenir quedas no hospital" style={inp} maxLength={120}/>
+        <label style={lab}>Descrição (opcional)</label>
+        <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} style={{...inp,resize:'none'}} maxLength={400}/>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div><label style={lab}>Protocolo / subnúcleo</label>
+            <select value={travado||form.subnucleo} disabled={!!travado} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+              {grupos.map(g=><option key={g.id} value={g.id}>{g.label}</option>)}
+            </select></div>
+          <div><label style={lab}>Para quem</label>
+            <select value={form.publico} onChange={e=>setForm({...form,publico:e.target.value})} style={{...inp,appearance:'none'}}>
+              {Object.entries(PUBLICO_VIDEO).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select></div>
+        </div>
+        {form.id&&<label style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:C.text,marginBottom:10}}><input type="checkbox" checked={form.ativo!==false} onChange={e=>setForm({...form,ativo:e.target.checked})}/> Visível na Central de Conhecimento</label>}
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>setForm(null)} style={{flex:1,background:'transparent',border:'1px solid '+C.border,borderRadius:8,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':form.id?'Salvar':'Publicar'}</button>
+        </div>
+        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Dica: no YouTube, publique como "Não listado" se o vídeo for só para o hospital; ele toca aqui normalmente.</div>
+      </div>}
+      {!erro&&<div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}} className="abas-sub">
+        {[{id:'todos',label:'Todos'},...grupos].filter(g=>g.id==='todos'||lista.some(v=>v.subnucleo===g.id)).map(g=><button key={g.id} onClick={()=>setFiltro(g.id)} style={{flexShrink:0,fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(filtro===g.id?C.teal:C.border),background:filtro===g.id?C.teal+'20':'transparent',color:filtro===g.id?C.teal:C.muted,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>{g.icon?g.icon+' ':''}{g.label}</button>)}
+      </div>}
+      {loading&&<div style={{color:C.muted,fontSize:12}}>Carregando...</div>}
+      {!loading&&!erro&&!visiveis.length&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,fontSize:12,color:C.muted,lineHeight:1.6,textAlign:'center'}}>{podeEditar?'Nenhum vídeo ainda. Publique o vídeo no YouTube, toque em "+ Vídeo" e cole o link.':'Em breve, vídeos de educação em saúde do hospital.'}</div>}
+      {visiveis.map(v=>{const g=grupos.find(x=>x.id===v.subnucleo)||grupos[grupos.length-1];return(<div key={v.id} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+g.color,borderRadius:12,padding:12,opacity:v.ativo===false?.55:1}}>
+        <VideoYoutube url={v.url} titulo={v.titulo}/>
+        <div style={{fontSize:14,fontWeight:800,color:C.text,marginTop:10}}>{v.titulo}</div>
+        <div style={{fontSize:10,color:g.color,fontWeight:700,marginTop:2}}>{g.icon} {g.label} · {PUBLICO_VIDEO[v.publico]||PUBLICO_VIDEO.todos}{v.ativo===false?' · oculto':''}</div>
+        {v.descricao&&<div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.5}}>{v.descricao}</div>}
+        {podeEditar&&podeMexer(v)&&<div style={{display:'flex',gap:6,marginTop:8}}>
+          <button onClick={()=>{setForm({...v,descricao:v.descricao||''});window.scrollTo&&window.scrollTo(0,0);}} style={{fontSize:10,padding:'5px 10px',background:C.teal+'20',color:C.teal,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Editar</button>
+          <button onClick={()=>excluir(v)} style={{fontSize:10,padding:'5px 10px',background:C.red+'15',color:C.red,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Remover</button>
+        </div>}
+      </div>);})}
+    </div>
+  </div>);
+}
+
+function CentralView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,showToast}) {
   const [selected,setSelected]=useState(null);
+  const [verVideos,setVerVideos]=useState(()=>{try{return new URLSearchParams(location.search).get('secao')==='videos';}catch{return false;}});
+  const [nVideos,setNVideos]=useState(null);
+  useEffect(()=>{if(!sbUrl||!sbKey)return;sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&ativo=eq.true&select=id`).then(d=>setNVideos((d||[]).length)).catch(()=>setNVideos(null));},[sbUrl,sbKey,verVideos]);
   const [items,setItems]=useState(KNOWLEDGE);
   const getYtId=url=>{const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);return m?m[1]:null;};
 
+  if(verVideos) return(<VideosEducacaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo} showToast={showToast} onBack={()=>setVerVideos(false)}/>);
   const item=items.find(k=>k.id===selected);
   if(selected&&item) return(<div>
     <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
@@ -7770,6 +7891,11 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Central de Conhecimento</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Materiais de apoio, treinamentos e educação em saúde</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {(nVideos>0||profileMode==='gestor'||profileMode==='membro_nsp')&&<button onClick={()=>setVerVideos(true)} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'18)',border:'1px solid '+C.teal+'55',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
+        <div style={{width:48,height:48,borderRadius:14,background:C.teal+'30',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{String.fromCodePoint(127916)}</div>
+        <div style={{flex:1}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>Vídeos de educação em saúde</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{nVideos>0?nVideos+' vídeo(s) produzidos pelo '+siglaH(hospital||DEFAULT_HOSPITAL):'Publique aqui os vídeos do hospital, por protocolo'}</div></div>
+        <IconChev size={16} color={C.muted}/>
+      </button>}
       {items.map(item=>(
         <button key={item.id} onClick={()=>setSelected(item.id)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%'}}>
           <div style={{width:48,height:48,borderRadius:14,background:(item.color||C.teal)+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{item.icon}</div>
@@ -7788,7 +7914,7 @@ const TABELAS_BACKUP=[
   ['treinamentos_nsp','Treinamentos e reunioes'],['indicadores_dsm','Indicadores DSM'],['indicadores_mensais','Indicadores por setor'],
   ['saq_respostas','Pesquisa de cultura'],['notivisa_analise','Analises Notivisa'],['acao_comentarios','Comentarios de acoes'],
   ['config_dsm','Configuracao DSM'],['semestres_dsm','Semestres DSM'],['setor_emails','Emails por setor'],
-  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],['experiencia_paciente','Experiencia do paciente'],
+  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],['experiencia_paciente','Experiencia do paciente'],['videos_educacao','Videos de educacao'],
 ];
 async function sbTodos(sbUrl,sbKey,tabela,filtro){
   // pagina de 1000 em 1000 (limite padrao do Supabase por consulta)
@@ -8217,7 +8343,7 @@ function NotificaAI() {
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel onConfig={()=>setShowConfig(true)} sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
-        {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
+        {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo} showToast={showToast}/>}
         {view==='indicadores'&&<IndicadoresHubView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}

@@ -17,6 +17,7 @@ globalThis.fetch = async (url, init = {}) => {
   }
   if (u.endsWith("/chat/completions")) {
     const c = JSON.parse(init.body);
+    if (c.messages.at(-1).content.includes("vou casar")) return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Que notícia boa, parabéns! 💍\n---\nPra vocês dois, tenho um 2 quartos na Pituba.\n---\nQuer ver as fotos?" } }] }));
     return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", content: "Recebi: " + c.messages.at(-1).content.split("\n").slice(1).join(" ") } }] }));
   }
   if (u.includes("graph.facebook.com")) return new Response(JSON.stringify({ messages: [{ id: "ok" }] }));
@@ -58,4 +59,26 @@ test("se a transcrição falhar, a Dri recebe o aviso para pedir texto", async (
   assert.deepEqual(chamadas.filter((c) => c.u.endsWith("/audio/transcriptions")).map((c) => c.auth), ["Bearer gsk_corretor", "Bearer gsk_plataforma"]);
   const enviada = chamadas.filter((c) => c.u.endsWith("/111/messages")).map((c) => JSON.parse(c.corpo)).find((b) => b.type === "text");
   assert.match(enviada.text.body, /não deu para transcrever/);
+});
+
+test("resposta em várias mensagens, com 'digitando…' antes", async () => {
+  const { db, objeto } = montar();
+  chamadas.length = 0;
+  await objeto.processar([{ contaId: "c1", de: "5571999", id: "wamid.C", tipo: "text", texto: "oi, vou casar e procuro apê", nome: "Bia" }]);
+  const posts = chamadas.filter((c) => c.u.endsWith("/111/messages")).map((c) => JSON.parse(c.corpo));
+  assert.deepEqual(posts.filter((b) => b.type === "text").map((b) => b.text.body),
+    ["Que notícia boa, parabéns! 💍", "Pra vocês dois, tenho um 2 quartos na Pituba.", "Quer ver as fotos?"]);
+  const lidas = posts.filter((b) => b.status === "read");
+  assert.ok(lidas.length >= 1 && lidas.every((b) => b.typing_indicator?.type === "text"));
+  assert.deepEqual(db.tabelas.conversas[0].transcricao.filter((t) => t.de === "dri").length, 3);
+});
+
+test("conversa com o corretor no comando: marca como lida sem 'digitando…'", async () => {
+  const { db, objeto } = montar();
+  db.tabelas.conversas.push({ id: "x", conta_id: "c1", telefone: "5571999", precisa_corretor: true, transcricao: [], mensagens: [] });
+  chamadas.length = 0;
+  await objeto.processar([{ contaId: "c1", de: "5571999", id: "wamid.D", tipo: "text", texto: "oi?", nome: "Bia" }]);
+  const posts = chamadas.filter((c) => c.u.endsWith("/111/messages")).map((c) => JSON.parse(c.corpo));
+  assert.equal(posts.filter((b) => b.type === "text").length, 0);
+  assert.equal(posts.find((b) => b.status === "read").typing_indicator, undefined);
 });

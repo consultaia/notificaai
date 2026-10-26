@@ -24,7 +24,7 @@
 //   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs)
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
-import { responder, registrarSemResponder, cotaDa, mesDe } from "./agente.js";
+import { responder, registrarSemResponder, cotaDa, mesDe, dividirMensagens } from "./agente.js";
 import { transcrever } from "./audio.js";
 import { lerBook } from "./catalogo.js";
 import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
@@ -149,7 +149,7 @@ export default {
           enviarFoto: async (u, legenda) => respostas.push({ tipo: "foto", url: u, legenda }),
           enviarArquivo: async (u, nomeArquivo) => respostas.push({ tipo: "arquivo", url: u, nome: nomeArquivo }),
         }, [texto]);
-        if (resposta) respostas.push({ tipo: "texto", texto: resposta });
+        for (const parte of dividirMensagens(resposta)) respostas.push({ tipo: "texto", texto: parte });
         return json(env, { respostas });
       }
       if (rota === "POST /simular/reiniciar") {
@@ -383,7 +383,6 @@ export class Conversa {
     const textos = fila.map((m) => m.texto ?? TIPO_SEM_TEXTO[m.tipo] ?? (m.tipo in TIPO_SEM_TEXTO ? null : `[Mensagem do tipo ${m.tipo}]`))
       .filter(Boolean);
     if (!textos.length) return;
-    await marcarLida(env, conexao, fila[fila.length - 1].id);
 
     const ctx = {
       env, db, conta, conexao, telefone, nome, canal: "whatsapp", agora: new Date(),
@@ -392,11 +391,20 @@ export class Conversa {
     };
     const { data: conversa } = await db.from("conversas").select("precisa_corretor")
       .eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
+    // com o corretor no comando, só marca como lida (sem "digitando…")
+    await marcarLida(env, conexao, fila[fila.length - 1].id, !conversa?.precisa_corretor);
     if (conversa?.precisa_corretor) return registrarSemResponder(ctx, textos);
 
     try {
       const resposta = await responder(ctx, textos);
-      if (resposta) await enviarTexto(env, conexao, telefone, resposta);
+      const partes = dividirMensagens(resposta);
+      for (const [i, parte] of partes.entries()) {
+        if (i > 0) { // pausa curta entre mensagens, como alguém digitando
+          await marcarLida(env, conexao, fila[fila.length - 1].id);
+          await new Promise((r) => setTimeout(r, Math.min(2500, 600 + parte.length * 15)));
+        }
+        await enviarTexto(env, conexao, telefone, parte);
+      }
     } catch (e) {
       console.error("responder", e);
       await enviarTexto(env, conexao, telefone,

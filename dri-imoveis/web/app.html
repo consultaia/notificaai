@@ -695,7 +695,12 @@ function Simulador({conta}){
   const [msgs,setMsgs]=useState([]); const [txt,setTxt]=useState(""); const [esperando,setEsperando]=useState(false); const fim=useRef(null);
   useEffect(()=>{ fim.current?.scrollIntoView({behavior:"smooth"}); },[msgs,esperando]);
   async function enviar(e){ e.preventDefault(); const t=txt.trim(); if(!t||esperando) return; setTxt(""); setMsgs(m=>[...m,{de:"user",texto:t}]); setEsperando(true);
-    try{ const r = await worker("/simular",{texto:t}); setMsgs(m=>[...m,...r.respostas.map(x=>x.tipo==="foto"?{de:"dri",foto:x.url,texto:x.legenda}:x.tipo==="arquivo"?{de:"dri",arquivo:x.nome||"book.pdf",url:x.url}:{de:"dri",texto:x.texto})]); }
+    try{ const r = await worker("/simular",{texto:t});
+      // uma mensagem por vez, com "digitando…" entre elas, como no celular
+      for(const [i,x] of r.respostas.entries()){
+        if(i>0) await new Promise(ok=>setTimeout(ok, x.tipo==="texto" ? Math.min(1800, 500+(x.texto||"").length*12) : 350));
+        setMsgs(m=>[...m, x.tipo==="foto"?{de:"dri",foto:x.url,texto:x.legenda}:x.tipo==="arquivo"?{de:"dri",arquivo:x.nome||"book.pdf",url:x.url}:{de:"dri",texto:x.texto}]);
+      } }
     catch(err){ setMsgs(m=>[...m,{de:"dri",texto:"(erro: "+err.message+")"}]); }
     setEsperando(false); }
   async function reiniciar(){ await worker("/simular/reiniciar"); setMsgs([]); }

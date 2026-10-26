@@ -31,9 +31,11 @@ export const enviarDocumento = (env, conexao, para, url, nomeArquivo, legenda) =
     document: { link: url, filename: nomeArquivo, ...(legenda ? { caption: legenda.slice(0, 1024) } : {}) },
   });
 
-export const marcarLida = (env, conexao, messageId) =>
+// Marca como lida e mostra "digitando…" para o cliente (some quando a resposta chega, ou em ~25 s)
+export const marcarLida = (env, conexao, messageId, digitando = true) =>
   chamar(env, conexao.token, `${conexao.phone_number_id}/messages`, {
     messaging_product: "whatsapp", status: "read", message_id: messageId,
+    ...(digitando ? { typing_indicator: { type: "text" } } : {}),
   }).catch(() => {});
 
 export const lerNumero = (env, token, phoneNumberId) =>

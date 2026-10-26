@@ -1,5 +1,5 @@
-// O cérebro da Dri: Claude + ferramentas que leem os imóveis e a agenda da conta.
-import Anthropic from "@anthropic-ai/sdk";
+// O cérebro da Dri: IA (gratuita, com troca automática) + ferramentas que leem os imóveis e a agenda da conta.
+import { perguntar, guardarResposta } from "./ia.js";
 import { horariosLivres, descreverHorario, descreverAgora, local } from "./agenda.js";
 import { notificarCorretor } from "./notificar.js";
 
@@ -10,7 +10,7 @@ const HISTORICO_MANTER = 30;       // quantas sobram quando o histórico é encu
 const brl = (v) => v == null ? null : Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 // ------------------------------------------------------------------ prompt
-// Fica igual em toda a conversa (o cache da API depende disso). Data e hora vão em cada mensagem.
+// Data e hora vão em cada mensagem do cliente, não aqui.
 export function promptSistema(conta) {
   const quem = conta.tipo === "imobiliaria" ? `a imobiliária ${conta.nome}` : `o corretor ${conta.nome}`;
   return `Você é ${conta.nome_assistente}, assistente virtual que atende pelo WhatsApp para ${quem}${conta.creci ? ` (CRECI ${conta.creci})` : ""}${conta.cidade ? `, em ${conta.cidade}` : ""}.
@@ -272,24 +272,25 @@ async function salvarLead({ db, conta, telefone }, { nome, perfil }) {
 }
 
 // ------------------------------------------------------------------ histórico
-const temThinking = (m) => Array.isArray(m.content) && m.content.some((b) => b.type === "thinking" || b.type === "redacted_thinking");
-const semThinking = (m) => Array.isArray(m.content)
-  ? { ...m, content: m.content.filter((b) => b.type !== "thinking" && b.type !== "redacted_thinking") }
-  : m;
-const ehTextoDoCliente = (m) => m.role === "user" &&
-  (typeof m.content === "string" || (Array.isArray(m.content) && m.content.every((b) => b.type === "text")));
+// Formato das ferramentas no padrão "chat completions". O Gemini recusa additionalProperties.
+const semExtras = (o) => {
+  if (Array.isArray(o)) return o.map(semExtras);
+  if (o && typeof o === "object")
+    return Object.fromEntries(Object.entries(o).filter(([k]) => k !== "additionalProperties").map(([k, v]) => [k, semExtras(v)]));
+  return o;
+};
+const FERRAMENTAS_IA = FERRAMENTAS.map((f) => ({
+  type: "function", function: { name: f.name, description: f.description, parameters: semExtras(f.input_schema) },
+}));
 
-// Encurta conversas longas mantendo o final. As mensagens mantidas perdem os blocos
-// de raciocínio (thinking), porque eles valem só com o histórico completo.
+// Encurta conversas longas mantendo o final, sempre começando numa mensagem do cliente
 export function encurtarHistorico(msgs, perfil) {
   if (msgs.length <= HISTORICO_MAX) return msgs;
   let corte = msgs.length - HISTORICO_MANTER;
-  while (corte < msgs.length && !ehTextoDoCliente(msgs[corte])) corte++;
+  while (corte < msgs.length && !(msgs[corte].role === "user" && typeof msgs[corte].content === "string")) corte++;
   if (corte >= msgs.length) return msgs;
-  const resto = msgs.slice(corte).map(semThinking);
-  const primeira = resto[0];
-  const texto = typeof primeira.content === "string" ? primeira.content : primeira.content.map((b) => b.text).join("\n");
-  resto[0] = { role: "user", content: `[Conversa anterior encurtada.${perfil ? ` O que já se sabe da pessoa: ${perfil}` : ""}]\n\n${texto}` };
+  const resto = msgs.slice(corte);
+  resto[0] = { role: "user", content: `[Conversa anterior encurtada.${perfil ? ` O que já se sabe da pessoa: ${perfil}` : ""}]\n\n${resto[0].content}` };
   return resto;
 }
 
@@ -300,7 +301,6 @@ export function encurtarHistorico(msgs, perfil) {
  */
 export async function responder(ctx, textosDoCliente) {
   const { env, db, conta } = ctx;
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   let { data: conversa } = await db.from("conversas").select("*")
     .eq("conta_id", conta.id).eq("telefone", ctx.telefone).maybeSingle();
@@ -312,62 +312,33 @@ export async function responder(ctx, textosDoCliente) {
   const { data: lead } = await db.from("leads").select("perfil").eq("conta_id", conta.id).eq("telefone", ctx.telefone).maybeSingle();
 
   const cabecalho = `[${descreverAgora(ctx.agora)}, horário de Brasília${ctx.nome && !conversa.mensagens.length ? ` · nome no WhatsApp: ${ctx.nome}` : ""}]`;
-  let mensagens = encurtarHistorico(conversa.mensagens, lead?.perfil);
+  const mensagens = encurtarHistorico(conversa.mensagens, lead?.perfil);
   mensagens.push({ role: "user", content: `${cabecalho}\n${textosDoCliente.join("\n")}` });
-
-  const pedido = (msgs) => client.beta.messages.create({
-    model: env.MODELO || "claude-opus-5-5",
-    max_tokens: 16000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: env.ESFORCO || "low" },
-    cache_control: { type: "ephemeral" },
-    system: promptSistema(conta),
-    tools: FERRAMENTAS,
-    messages: msgs,
-  });
+  const sistema = promptSistema(conta);
 
   let respostaFinal = "";
   for (let volta = 0; volta < MAX_VOLTAS; volta++) {
-    let resposta;
-    try {
-      resposta = await pedido(mensagens);
-    } catch (e) {
-      // Se o prompt mudou (ex.: o corretor editou a apresentação), os blocos de raciocínio
-      // antigos deixam de valer. Recuperação: tira esses blocos e tenta uma vez.
-      if (e instanceof Anthropic.BadRequestError && mensagens.some(temThinking)) {
-        mensagens = mensagens.map(semThinking);
-        resposta = await pedido(mensagens);
-      } else throw e;
-    }
-    mensagens.push({ role: "assistant", content: resposta.content });
+    const { msg } = await perguntar(env, { sistema, mensagens, ferramentas: FERRAMENTAS_IA });
+    const resposta = guardarResposta(msg);
+    mensagens.push(resposta);
+    const texto = (resposta.content || "").trim();
+    if (!resposta.tool_calls) { respostaFinal = texto; break; }
 
-    if (resposta.stop_reason === "refusal") {
-      respostaFinal = "Desculpe, não consigo ajudar com isso por aqui. Vou pedir para o corretor falar com você.";
-      await executar("chamar_corretor", { motivo: "A assistente não pôde responder a última mensagem." }, ctx);
-      break;
-    }
-    if (resposta.stop_reason === "pause_turn") continue;
-
-    const usos = resposta.content.filter((b) => b.type === "tool_use");
-    const texto = resposta.content.filter((b) => b.type === "text").map((b) => b.text).join("\n").trim();
-    if (!usos.length) { respostaFinal = texto; break; }
-
-    const resultados = [];
-    for (const uso of usos) {
+    for (const chamada of resposta.tool_calls) {
+      let conteudo;
       try {
-        const r = await executar(uso.name, uso.input || {}, ctx);
-        resultados.push({ type: "tool_result", tool_use_id: uso.id, content: JSON.stringify(r) });
+        const r = await executar(chamada.function.name, JSON.parse(chamada.function.arguments || "{}"), ctx);
+        conteudo = JSON.stringify(r);
       } catch (e) {
-        resultados.push({ type: "tool_result", tool_use_id: uso.id, content: String(e.message || e), is_error: true });
+        conteudo = JSON.stringify({ erro: String(e.message || e) });
       }
+      mensagens.push({ role: "tool", tool_call_id: chamada.id, content: conteudo });
     }
-    mensagens.push({ role: "user", content: resultados });
     if (volta === MAX_VOLTAS - 1) respostaFinal = texto || "Só um instante, vou confirmar isso com o corretor.";
   }
   // O histórico precisa terminar com a resposta da Dri; se parou no meio, fecha a rodada
-  if (mensagens[mensagens.length - 1].role !== "assistant")
-    mensagens.push({ role: "assistant", content: [{ type: "text", text: respostaFinal || "…" }] });
+  if (mensagens[mensagens.length - 1].role !== "assistant" || mensagens[mensagens.length - 1].tool_calls)
+    mensagens.push({ role: "assistant", content: respostaFinal || "…" });
 
   const agoraIso = ctx.agora.toISOString();
   const transcricao = [...(conversa.transcricao || []),

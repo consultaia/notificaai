@@ -3,27 +3,29 @@ import assert from "node:assert/strict";
 import { fakeDb } from "./fakedb.js";
 import { utcDe } from "../src/agenda.js";
 
-// Respostas roteirizadas da API da Claude; guarda os pedidos para conferir
+// Respostas roteirizadas no formato "chat completions"; guarda os pedidos para conferir
 const pedidos = [];
 let roteiro = [];
+let falhar = {};   // { gemini: 429, groq: 500 } -> esses provedores devolvem erro
+const nomeDe = (url) => url.includes("generativelanguage") ? "gemini" : url.includes("groq") ? "groq" : url.includes("cerebras") ? "cerebras" : null;
 globalThis.fetch = async (url, init) => {
-  if (String(url).includes("api.anthropic.com")) {
-    const corpo = JSON.parse(init.body);
-    pedidos.push(corpo);
-    const passo = roteiro.shift();
-    const content = typeof passo === "function" ? passo(corpo) : passo;
-    const usaFerramenta = content.some((b) => b.type === "tool_use");
-    return new Response(JSON.stringify({
-      id: "msg_" + pedidos.length, type: "message", role: "assistant", model: corpo.model, content,
-      stop_reason: usaFerramenta ? "tool_use" : "end_turn", stop_sequence: null,
-      usage: { input_tokens: 10, output_tokens: 10 },
-    }), { status: 200, headers: { "content-type": "application/json", "request-id": "req_1" } });
-  }
-  throw new Error("fetch inesperado: " + url);
+  const prov = nomeDe(String(url));
+  if (!prov) throw new Error("fetch inesperado: " + url);
+  const corpo = JSON.parse(init.body);
+  if (falhar[prov]) return new Response(JSON.stringify({ error: { message: "limite" } }), { status: falhar[prov] });
+  pedidos.push({ ...corpo, prov });
+  const passo = roteiro.shift();
+  const message = typeof passo === "function" ? passo(corpo) : passo;
+  return new Response(JSON.stringify({ choices: [{ message: { role: "assistant", ...message } }] }), { status: 200 });
 };
 const { responder } = await import("../src/agente.js");
+const { _teste } = await import("../src/ia.js");
+const ENV = { GEMINI_API_KEY: "g", GROQ_API_KEY: "q", CEREBRAS_API_KEY: "c" };
+const chamada = (id, name, args) => ({ id, type: "function", function: { name, arguments: JSON.stringify(args) } });
+const usar = (...chamadas) => ({ content: null, tool_calls: chamadas });
+const falar = (texto) => ({ content: texto });
 
-const ultimoResultado = (corpo) => JSON.parse(corpo.messages.at(-1).content.find((b) => b.type === "tool_result").content);
+const ultimoResultado = (corpo) => JSON.parse(corpo.messages.at(-1).content);
 
 test("conversa completa: busca, horários, marca visita, envia fotos", async () => {
   const db = fakeDb({
@@ -38,31 +40,30 @@ test("conversa completa: busca, horários, marca visita, envia fotos", async () 
   const conta = { id: "c1", nome: "João Corretor", tipo: "corretor", nome_assistente: "Dri", duracao_visita_min: 60, antecedencia_min_horas: 2, cidade: "Salvador" };
   const fotos = [];
   const ctx = {
-    env: { ANTHROPIC_API_KEY: "test" }, db, conta, telefone: "5571988887777", nome: "Maria", canal: "whatsapp",
+    env: ENV, db, conta, telefone: "5571988887777", nome: "Maria", canal: "whatsapp",
     agora: utcDe(2026, 10, 29, "21:00"), conexao: null, enviarFoto: async (u) => fotos.push(u),
   };
   roteiro = [
-    [{ type: "tool_use", id: "t1", name: "buscar_imoveis", input: { finalidade: "venda", bairro: "pituba", palavra_chave: "varanda" } }],
+    usar(chamada("t1", "buscar_imoveis", { finalidade: "venda", bairro: "pituba", palavra_chave: "varanda" })),
     (corpo) => {
       const r = ultimoResultado(corpo);
       assert.equal(r.total_encontrado, 1);
       assert.equal(r.imoveis[0].id, "i1");
       assert.equal(r.imoveis[0].endereco, undefined, "endereço não pode ir antes da visita");
-      return [{ type: "tool_use", id: "t2", name: "enviar_fotos", input: { imovel_id: "i1", quantidade: 5 } },
-              { type: "tool_use", id: "t3", name: "horarios_visita", input: { imovel_id: "i1" } }];
+      return usar(chamada("t2", "enviar_fotos", { imovel_id: "i1", quantidade: 5 }), chamada("t3", "horarios_visita", { imovel_id: "i1" }));
     },
     (corpo) => {
-      const resultados = corpo.messages.at(-1).content;
-      assert.equal(resultados.length, 2, "os dois tool_result voltam numa mensagem só");
+      const resultados = corpo.messages.slice(-2);
+      assert.deepEqual(resultados.map((m) => [m.role, m.tool_call_id]), [["tool", "t2"], ["tool", "t3"]]);
       const h = JSON.parse(resultados[1].content);
       assert.equal(h.horarios[0].descricao, "sábado 31/10 às 09:00");
-      return [{ type: "tool_use", id: "t4", name: "marcar_visita", input: { imovel_id: "i1", inicio: h.horarios[0].inicio, nome_cliente: "Maria Souza" } }];
+      return usar(chamada("t4", "marcar_visita", { imovel_id: "i1", inicio: h.horarios[0].inicio, nome_cliente: "Maria Souza" }));
     },
     (corpo) => {
       const r = ultimoResultado(corpo);
       assert.equal(r.ok, true);
       assert.equal(r.endereco, "Rua das Hortênsias, 100");
-      return [{ type: "text", text: "Prontinho, Maria! Visita marcada para sábado 31/10 às 9h." }];
+      return falar("Prontinho, Maria! Visita marcada para sábado 31/10 às 9h.");
     },
   ];
   const resposta = await responder(ctx, ["Oi, vi o anúncio de apartamento com varanda na Pituba"]);
@@ -76,10 +77,11 @@ test("conversa completa: busca, horários, marca visita, envia fotos", async () 
   assert.equal(db.tabelas.leads[0].nome, "Maria Souza");
 
   const pedido = pedidos[0];
-  assert.equal(pedido.model, "claude-opus-5-5");
-  assert.equal(pedido.fallbacks, "default");
-  assert.match(pedido.messages[0].content, /quinta, 29\/10\/2026 21:00, horário de Brasília · nome no WhatsApp: Maria/);
-  assert.ok(!("temperature" in pedido));
+  assert.equal(pedido.prov, "gemini");
+  assert.equal(pedido.model, "gemini-2.5-flash");
+  assert.equal(pedido.messages[0].role, "system");
+  assert.match(pedido.messages[1].content, /quinta, 29\/10\/2026 21:00, horário de Brasília · nome no WhatsApp: Maria/);
+  assert.ok(!JSON.stringify(pedido.tools).includes("additionalProperties"));
 
   const conversa = db.tabelas.conversas[0];
   assert.equal(conversa.mensagens.at(-1).role, "assistant");
@@ -87,9 +89,9 @@ test("conversa completa: busca, horários, marca visita, envia fotos", async () 
 
   // Segunda mensagem: histórico continua, sem repetir o nome no cabeçalho
   pedidos.length = 0;
-  roteiro = [[{ type: "text", text: "Até sábado!" }]];
+  roteiro = [falar("Até sábado!")];
   assert.equal(await responder(ctx, ["obrigada"]), "Até sábado!");
-  assert.equal(pedidos[0].messages.length, conversa.mensagens.length - 1);
+  assert.equal(pedidos[0].messages.length, conversa.mensagens.length); // + system, - resposta nova
   assert.doesNotMatch(pedidos[0].messages.at(-1).content, /nome no WhatsApp/);
 });
 
@@ -101,12 +103,12 @@ test("horário ocupado e horário fora da agenda são recusados", async () => {
     conversas: [], leads: [], bloqueios: [],
   });
   const conta = { id: "c1", nome: "Ana", tipo: "corretor", nome_assistente: "Dri", duracao_visita_min: 60, antecedencia_min_horas: 2 };
-  const ctx = { env: { ANTHROPIC_API_KEY: "t" }, db, conta, telefone: "557100", canal: "whatsapp", agora: utcDe(2026, 10, 29, "10:00"), conexao: null, enviarFoto: async () => {} };
+  const ctx = { env: ENV, db, conta, telefone: "557100", canal: "whatsapp", agora: utcDe(2026, 10, 29, "10:00"), conexao: null, enviarFoto: async () => {} };
   roteiro = [
-    [{ type: "tool_use", id: "a", name: "marcar_visita", input: { imovel_id: "i1", inicio: utcDe(2026, 10, 31, "09:00").toISOString(), nome_cliente: "Zé" } }],
-    (c) => { assert.match(ultimoResultado(c).erro, /ocupado/); return [{ type: "tool_use", id: "b", name: "marcar_visita", input: { imovel_id: "i1", inicio: utcDe(2026, 10, 31, "15:00").toISOString(), nome_cliente: "Zé" } }]; },
-    (c) => { assert.match(ultimoResultado(c).erro, /não está na agenda/); return [{ type: "tool_use", id: "d", name: "detalhes_imovel", input: { imovel_id: "de-outra-conta" } }]; },
-    (c) => { const r = c.messages.at(-1).content[0]; assert.equal(r.is_error, true); return [{ type: "text", text: "ok" }]; },
+    usar(chamada("a", "marcar_visita", { imovel_id: "i1", inicio: utcDe(2026, 10, 31, "09:00").toISOString(), nome_cliente: "Zé" })),
+    (c) => { assert.match(ultimoResultado(c).erro, /ocupado/); return usar(chamada("b", "marcar_visita", { imovel_id: "i1", inicio: utcDe(2026, 10, 31, "15:00").toISOString(), nome_cliente: "Zé" })); },
+    (c) => { assert.match(ultimoResultado(c).erro, /não está na agenda/); return usar(chamada("d", "detalhes_imovel", { imovel_id: "de-outra-conta" })); },
+    (c) => { assert.match(ultimoResultado(c).erro, /não encontrado/); return falar("ok"); },
   ];
   assert.equal(await responder(ctx, ["quero sábado 9h"]), "ok");
   assert.equal(db.tabelas.visitas.length, 1);
@@ -115,9 +117,62 @@ test("horário ocupado e horário fora da agenda são recusados", async () => {
 test("chamar_corretor marca a conversa", async () => {
   const db = fakeDb({ conversas: [], leads: [], imoveis: [] });
   const conta = { id: "c1", nome: "Ana", tipo: "corretor", nome_assistente: "Dri", duracao_visita_min: 60, antecedencia_min_horas: 2 };
-  const ctx = { env: { ANTHROPIC_API_KEY: "t" }, db, conta, telefone: "5571", canal: "simulador", agora: new Date(), conexao: null, enviarFoto: async () => {} };
-  roteiro = [[{ type: "tool_use", id: "x", name: "chamar_corretor", input: { motivo: "Quer fazer proposta" } }], [{ type: "text", text: "Vou chamar o corretor." }]];
+  const ctx = { env: ENV, db, conta, telefone: "5571", canal: "simulador", agora: new Date(), conexao: null, enviarFoto: async () => {} };
+  roteiro = [usar(chamada("x", "chamar_corretor", { motivo: "Quer fazer proposta" })), falar("Vou chamar o corretor.")];
   await responder(ctx, ["quero fazer uma proposta de 500 mil"]);
   assert.equal(db.tabelas.conversas[0].precisa_corretor, true);
   assert.equal(db.tabelas.conversas[0].motivo, "Quer fazer proposta");
+});
+
+const contaBase = { id: "c1", nome: "Ana", tipo: "corretor", nome_assistente: "Dri", duracao_visita_min: 60, antecedencia_min_horas: 2 };
+const ctxBase = (db, env = ENV) => ({ env, db, conta: contaBase, telefone: "5571", canal: "whatsapp", agora: new Date(), conexao: null, enviarFoto: async () => {} });
+
+test("se o Gemini bate o limite, passa para o Groq e depois deixa o Gemini de lado", async () => {
+  _teste.pausados.clear(); pedidos.length = 0;
+  falhar = { gemini: 429 };
+  roteiro = [falar("Oi! Sou a Dri.")];
+  const db = fakeDb({ conversas: [], leads: [] });
+  assert.equal(await responder(ctxBase(db), ["oi"]), "Oi! Sou a Dri.");
+  assert.deepEqual(pedidos.map((p) => p.prov), ["groq"]);
+  assert.equal(pedidos[0].model, "openai/gpt-oss-120b");
+  // Na mensagem seguinte o Gemini (pausado) vai para o fim da fila: Groq é tentado primeiro
+  falhar = {}; pedidos.length = 0; roteiro = [falar("Claro!")];
+  await responder(ctxBase(db), ["pode me ajudar?"]);
+  assert.deepEqual(pedidos.map((p) => p.prov), ["groq"]);
+});
+
+test("troca de IA no meio das ferramentas mantém o histórico e chega na terceira", async () => {
+  _teste.pausados.clear(); pedidos.length = 0; falhar = {};
+  const db = fakeDb({ conversas: [], leads: [], imoveis: [] });
+  roteiro = [
+    () => { // depois desta resposta do Gemini, Gemini e Groq passam a falhar
+      falhar = { gemini: 503, groq: 500 };
+      return usar({ ...chamada("g1", "buscar_imoveis", { finalidade: "aluguel" }), extra_content: { google: { thought_signature: "sig" } } });
+    },
+    (c) => {
+      assert.equal(c.messages.at(-2).tool_calls[0].extra_content, undefined, "Cerebras não recebe campo do Gemini");
+      assert.equal(ultimoResultado(c).total_encontrado, 0);
+      return falar("No momento não tenho imóvel para aluguel.");
+    },
+  ];
+  assert.equal(await responder(ctxBase(db), ["tem algo pra alugar?"]), "No momento não tenho imóvel para aluguel.");
+  falhar = {};
+  assert.deepEqual(pedidos.map((p) => p.prov), ["gemini", "cerebras"]);
+  // o histórico guardado mantém a assinatura do Gemini para quando ele voltar
+  assert.equal(db.tabelas.conversas[0].mensagens[1].tool_calls[0].extra_content.google.thought_signature, "sig");
+});
+
+test("todas as IAs fora do ar: erro claro", async () => {
+  _teste.pausados.clear(); falhar = { gemini: 500, groq: 500, cerebras: 500 };
+  const db = fakeDb({ conversas: [], leads: [] });
+  await assert.rejects(responder(ctxBase(db), ["oi"]), /Todas as IAs falharam/);
+  falhar = {};
+});
+
+test("só uma IA configurada também funciona", async () => {
+  _teste.pausados.clear(); pedidos.length = 0; falhar = {};
+  roteiro = [falar("ok")];
+  const db = fakeDb({ conversas: [], leads: [] });
+  await responder(ctxBase(db, { GROQ_API_KEY: "q" }), ["oi"]);
+  assert.deepEqual(pedidos.map((p) => p.prov), ["groq"]);
 });

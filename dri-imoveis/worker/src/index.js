@@ -11,13 +11,15 @@
 //   POST /whatsapp/status       confere a conexão
 //   POST /responder             corretor responde um cliente pelo painel
 //
-// Segredos (wrangler secret put …): ANTHROPIC_API_KEY, SUPABASE_URL,
-//   SUPABASE_SERVICE_ROLE_KEY, META_APP_ID, META_APP_SECRET, META_VERIFY_TOKEN
+// Segredos (wrangler secret put …): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
+//   META_APP_ID, META_APP_SECRET, META_VERIFY_TOKEN e pelo menos uma IA:
+//   GEMINI_API_KEY, GROQ_API_KEY, CEREBRAS_API_KEY (as três = troca automática)
 // Opcionais: META_CONFIG_ID (Embedded Signup), RESEND_API_KEY + EMAIL_REMETENTE,
-//   TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM, MODELO, ESFORCO, GRAPH_VERSION
+//   TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM, IA_ORDEM, *_MODELO, GRAPH_VERSION
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder } from "./agente.js";
+import { provedoresAtivos } from "./ia.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, marcarLida,
   concluirEmbeddedSignup, lerNumero, assinarWaba,
@@ -79,7 +81,7 @@ export default {
       if (rota === "GET /") {
         return json(env, {
           servico: "dri-imoveis",
-          ia: !!env.ANTHROPIC_API_KEY, banco: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
+          ia: provedoresAtivos(env), banco: !!(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
           meta_app: !!(env.META_APP_ID && env.META_APP_SECRET), webhook: !!env.META_VERIFY_TOKEN,
           embedded_signup: !!env.META_CONFIG_ID, email: !!env.RESEND_API_KEY,
         });

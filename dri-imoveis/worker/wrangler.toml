@@ -13,6 +13,6 @@ new_sqlite_classes = ["Conversa"]
 
 [vars]
 GRAPH_VERSION = "v23.0"
-ESFORCO = "low"
+IA_ORDEM = "gemini,groq,cerebras"
 # PAINEL_URL = "https://SEU-PAINEL/app.html"
 # PAINEL_ORIGEM = "https://SEU-PAINEL"

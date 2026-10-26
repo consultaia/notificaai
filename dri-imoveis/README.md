@@ -7,7 +7,7 @@ marca a visita na agenda real, sem conflito de horário.
 
 ```
 web/app.html            painel do corretor (cadastro, passo a passo, imóveis, agenda, conversas)
-worker/                 Cloudflare Worker: webhook do WhatsApp, cérebro da Dri (Claude), simulador
+worker/                 Cloudflare Worker: webhook do WhatsApp, cérebro da Dri (3 IAs gratuitas), simulador
 supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 ```
 
@@ -17,7 +17,7 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 2. Passo a passo: **perfil** → **imóveis** (com fotos e endereço) → **horários de visita** →
    **testar a Dri** num WhatsApp simulado → **conectar o WhatsApp**.
 3. O cliente escreve no número. A Meta entrega a mensagem no Worker, que junta mensagens
-   picadas (3,5 s), chama a Claude com as ferramentas da conta e responde.
+   picadas (3,5 s), chama a IA com as ferramentas da conta e responde.
 4. A Dri busca imóveis, envia fotos, consulta horários livres e marca a visita. O endereço só
    é passado depois da visita marcada. O corretor recebe aviso por email e WhatsApp.
 5. Se o cliente quer negociar, fazer proposta ou falar com gente, a Dri chama o corretor e fica
@@ -38,7 +38,9 @@ supabase/migrations/    banco (Postgres + login + fotos), com RLS por conta
 cd worker
 npm install
 npx wrangler login
-npx wrangler secret put ANTHROPIC_API_KEY
+npx wrangler secret put GEMINI_API_KEY           # aistudio.google.com/apikey
+npx wrangler secret put GROQ_API_KEY             # console.groq.com/keys
+npx wrangler secret put CEREBRAS_API_KEY         # cloud.cerebras.ai
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler secret put META_APP_ID
@@ -51,7 +53,14 @@ npm run deploy
 npm test                                         # testes da agenda e da conversa
 ```
 Em `wrangler.toml`, preencha `PAINEL_URL` e `PAINEL_ORIGEM` (endereço do painel).
-`MODELO` (padrão `claude-opus-5-5`) e `ESFORCO` (padrão `low`) podem ser trocados ali.
+`IA_ORDEM` define a ordem das IAs (padrão `gemini,groq,cerebras`). Os modelos podem ser trocados com
+`GEMINI_MODELO` (padrão `gemini-2.5-flash`), `GROQ_MODELO` e `CEREBRAS_MODELO` (padrão `gpt-oss-120b`).
+
+### As 3 IAs gratuitas
+A Dri pergunta para a primeira da fila. Se ela der erro, bater o limite do plano gratuito ou
+demorar mais de 25 s, a mesma pergunta vai para a próxima, sem o cliente perceber. Uma IA que
+bateu o limite fica 1 minuto no fim da fila. Basta configurar uma chave para funcionar; com as
+três, uma cobre a outra. `GET /` no Worker mostra quais estão ativas.
 
 ### 3. App da Meta (para o botão "Conectar com o Facebook")
 1. Em developers.facebook.com, crie um app do tipo **Empresa** com o produto **WhatsApp**,
@@ -76,7 +85,14 @@ pasta `web/` (Cloudflare Pages, GitHub Pages ou junto do site). Esse é o link q
 ## Custos (por corretor)
 - **Meta:** responder cliente que escreveu é grátis. Mensagem que a empresa inicia (modelo aprovado)
   custa centavos e cai no cartão da conta Meta do corretor.
-- **Claude:** cobrado por uso na conta da ConsultaIA; entra na mensalidade. O prompt é cacheado.
+- **IA:** R$ 0 nos planos gratuitos do Gemini, Groq e Cerebras. Eles têm limite de pedidos por
+  minuto e por dia; cada mensagem do cliente usa de 1 a 4 pedidos. Para poucos corretores sobra.
+  Com muitos clientes, o primeiro passo é ativar o plano pago de uma delas (barato) e manter as
+  outras como reserva.
+- **Privacidade:** no plano gratuito, o Google pode usar o conteúdo enviado ao Gemini para melhorar
+  os produtos dele. Groq e Cerebras não treinam com os dados da API. Se isso importar, ponha
+  `IA_ORDEM = "groq,cerebras,gemini"` ou ative o plano pago do Gemini. Cite isso na política de
+  privacidade (a Meta pede uma).
 - **Supabase e Cloudflare:** os planos gratuitos aguentam o começo.
 
 ## Limites conhecidos

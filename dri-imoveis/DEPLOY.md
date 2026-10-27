@@ -2,10 +2,12 @@
 
 Código: pasta `dri-imoveis/` do repositório `consultaia/notificaai`, branch `claude/tender-dirac-tfvz9r`.
 Dono: Janan (janan.almeida@gmail.com). Decisões já tomadas, não perguntar de novo:
-- Supabase: organização **"Dri imoveis"** (plano Pro, slug `gwinofiomyeplnrhicyf`; antes chamada printou-festa).
-  O projeto da Dri é o que estiver nela (nome `dri-imoveis`, região `sa-east-1`); um projeto anterior
-  com ID `tfxdiozfvftgxuviisua` pode ter sido excluído. Se a organização estiver sem projeto, o Janan
-  cria pelo painel (ele guarda a senha do banco); não criar pelo MCP sem perguntar.
+- Supabase: organização **"Dri imoveis"** (plano Pro, slug `gwinofiomyeplnrhicyf`), projeto
+  **`dri-imoveis`**, ID **`xmqmnmyejkfpmniljkbt`**, região `sa-east-1`,
+  URL `https://xmqmnmyejkfpmniljkbt.supabase.co`. **Banco já pronto**: migrações 001 a 007 aplicadas,
+  bucket de books em 200 MB, verificador de segurança revisado. URL e chave pública já estão em `web/app.html`.
+  Avisos que ficam de propósito: tabelas com RLS sem policy (`ia_chaves`, `whatsapp_segredos`,
+  `wa_mensagens_recebidas`: só o Worker lê) e `minha_conta()` executável por usuário logado (as policies usam).
 - Hospedagem: Cloudflare (Worker `dri-imoveis` + painel no Cloudflare Pages).
 - IA principal: Claude Haiku 5.5 paga pela plataforma, com capacidade mensal por conta (padrão 1.500
   mensagens). Gratuitas (Groq, Gemini, Cerebras) como reserva; Groq também transcreve áudio.
@@ -19,24 +21,18 @@ Variáveis/segredos no ambiente da sessão: `CLOUDFLARE_API_TOKEN` (Workers + Pa
 Nunca pedir chave ou token no chat.
 
 ## Passos
-1. **Supabase** (MCP do Supabase): `list_organizations` e `list_projects`; achar o projeto na organização
-   "Dri imoveis" e conferir com o Janan que é esse. Se a organização não aparecer ou der "sem permissão",
-   o conector não tem acesso a ela: pedir ao Janan para reconectar em https://claude.ai/customize/connectors
-   marcando a organização "Dri imoveis" e abrir sessão nova. Aplicar em ordem
-   `supabase/migrations/001` a `006` com `apply_migration`. Depois:
-   - `update storage.buckets set file_size_limit = 209715200 where id = 'books-imoveis'` (200 MB, plano Pro);
-   - `get_advisors` (security) e corrigir o que for apontado;
-   - pegar URL e chave pública (`get_project_url`, `get_publishable_keys`).
+1. **Supabase**: já feito (ver acima). Só conferir com `list_migrations` no projeto `xmqmnmyejkfpmniljkbt`
+   que 001 a 007 estão lá. Migração nova futura: arquivo em `supabase/migrations/` + `apply_migration`.
    - Service role key: pedir ao Janan para criar o segredo `SUPABASE_SERVICE_ROLE_KEY` no ambiente,
      ou para colar direto no Cloudflare (Worker → Settings → Variables and Secrets). Não pelo chat.
+     Fica em Supabase → Project Settings → API Keys (chave `service_role` / secret).
 2. **Worker**: em `worker/`, `npm ci`, `npm test` (precisa passar tudo), depois
    `npx wrangler deploy`. Segredos com `npx wrangler secret put` (lendo das variáveis de ambiente,
    ex.: `printf %s "$ANTHROPIC_API_KEY" | npx wrangler secret put ANTHROPIC_API_KEY`):
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `GROQ_API_KEY` e os opcionais.
    `ALERTA_EMAIL = janan.almeida@gmail.com` em `wrangler.toml` (se houver Resend + `EMAIL_REMETENTE`).
    Conferir `GET /` do Worker: `ia` deve listar `claude` e `groq`.
-3. **Painel**: preencher `SUPABASE_URL`, `SUPABASE_ANON_KEY` (chave pública) e `WORKER_URL` no topo de
-   `web/app.html`; publicar a pasta `web/` com `npx wrangler pages deploy web --project-name dri-imoveis`.
+3. **Painel**: preencher `WORKER_URL` no topo de `web/app.html` (Supabase já preenchido); publicar a pasta `web/` com `npx wrangler pages deploy web --project-name dri-imoveis`.
    Pôr `PAINEL_URL` e `PAINEL_ORIGEM` no `wrangler.toml` com o endereço do Pages e publicar o Worker de novo.
 4. **Login do Supabase**: Authentication → URL Configuration: Site URL e Redirect URL = endereço do
    `app.html` (se o MCP não fizer, pedir ao Janan, com o caminho exato).

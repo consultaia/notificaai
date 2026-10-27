@@ -5,7 +5,7 @@
 -- O Worker da Dri usa a service role e ignora a RLS.
 -- ============================================================
 
-create extension if not exists btree_gist;
+create extension if not exists btree_gist with schema extensions;  -- Supabase guarda extensões no schema "extensions"
 
 -- ------------------------------------------------------------ contas
 create table public.contas (

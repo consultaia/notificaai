@@ -13,6 +13,14 @@
 //   POST /ia/status             quais IAs a conta tem (sem mostrar a chave)
 //   POST /ia/salvar             confere e guarda a chave de IA do corretor
 //   POST /ia/remover            apaga a chave de IA do corretor
+//   GET  /plano                 preço e dias de teste (página de vendas)
+//   POST /mercadopago/webhook   avisos do Mercado Pago (assinatura autorizada, cobrança paga ou recusada)
+//   POST /eu                    quem está logado (é administrador?)
+//   POST /assinatura/status     situação da assinatura da conta (faixa do painel)
+//   POST /assinatura/assinar    cria a assinatura no Mercado Pago e devolve o link de pagamento
+//   POST /parceiro/status       link e comissões do corretor que é parceiro
+//   POST /parceiro/aderir       corretor aceita ser parceiro (chave PIX) e recebe o link
+//   POST /admin/…               área do administrador (ADMIN_EMAILS): ver admin.js
 //
 // Cada corretor usa o próprio app da Meta (não precisa de Tech Provider): cada conta tem
 // um webhook próprio, e a assinatura das mensagens é conferida com a chave secreta do app dela.
@@ -21,13 +29,19 @@
 //   ANTHROPIC_API_KEY (Claude Haiku, paga, principal) e/ou GEMINI_API_KEY, GROQ_API_KEY,
 //   CEREBRAS_API_KEY (gratuitas; viram reserva)
 // Opcionais: RESEND_API_KEY + EMAIL_REMETENTE, TEMPLATE_AVISO, PAINEL_URL, PAINEL_ORIGEM,
-//   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs)
+//   IA_ORDEM, *_MODELO, GRAPH_VERSION, ALERTA_EMAIL (recebe o autoteste diário das IAs),
+//   MERCADOPAGO_ACCESS_TOKEN + MERCADOPAGO_WEBHOOK_SECRET (cobrança), ADMIN_EMAILS, SITE_URL
 // ============================================================
 import { createClient } from "@supabase/supabase-js";
 import { responder, registrarSemResponder, cotaDa, mesDe, dividirMensagens } from "./agente.js";
 import { transcrever } from "./audio.js";
 import { lerBook } from "./catalogo.js";
 import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
+import {
+  lerConfig, situacaoDaConta, ehAdmin, criarAssinatura, webhookValido, processarAvisoMP, atualizarPausas,
+} from "./cobranca.js";
+import { rotaAdmin } from "./admin.js";
+import { aderir, resumoDoParceiro, linkDoParceiro } from "./parceiros.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, enviarDocumento, marcarLida,
   lerNumero, assinarWaba, registrarNumero, baixarMidia,
@@ -51,12 +65,16 @@ function cors(env) {
 const json = (env, dados, status = 200) =>
   new Response(JSON.stringify(dados), { status, headers: { "content-type": "application/json", ...cors(env) } });
 
-async function contaDoUsuario(req, env, db) {
+async function usuarioDe(req, db) {
   const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
   if (!token) return null;
   const { data, error } = await db.auth.getUser(token);
-  if (error || !data?.user) return null;
-  const { data: conta } = await db.from("contas").select("*").eq("owner_id", data.user.id).maybeSingle();
+  return error || !data?.user ? null : data.user;
+}
+
+async function contaDe(db, usuario) {
+  if (!usuario) return null;
+  const { data: conta } = await db.from("contas").select("*").eq("owner_id", usuario.id).maybeSingle();
   return conta;
 }
 
@@ -87,6 +105,7 @@ export default {
   // Autoteste diário das IAs (cron em wrangler.toml): avisa por email se alguma caiu ou trocou de modelo
   async scheduled(_evento, env, ctx) {
     ctx.waitUntil(avisarAutoteste(env));
+    ctx.waitUntil(atualizarPausas(env, banco(env)).catch((e) => console.error("pausas", e)));
   },
 
   async fetch(req, env, ctx) {
@@ -133,13 +152,82 @@ export default {
         }
       }
 
-      // ---------------------------------------------------------------- painel
+      // ---------------------------------------------------------------- página de vendas e Mercado Pago
+      if (rota === "GET /plano") {
+        const cfg = await lerConfig(banco(env));
+        return json(env, { preco_mensal: Number(cfg.preco_mensal), dias_teste: cfg.dias_teste, comissao_adesao: Number(cfg.comissao_adesao) });
+      }
+      if (rota === "POST /mercadopago/webhook") {
+        const bruto = await req.text();
+        const aviso = (() => { try { return JSON.parse(bruto || "{}"); } catch { return {}; } })();
+        const id = url.searchParams.get("data.id") || url.searchParams.get("id") || aviso.data?.id;
+        const tipo = aviso.type || url.searchParams.get("type") || url.searchParams.get("topic");
+        if (env.MERCADOPAGO_WEBHOOK_SECRET && !(await webhookValido(env.MERCADOPAGO_WEBHOOK_SECRET, req.headers, id)))
+          return new Response("assinatura inválida", { status: 401 });
+        if (!id || !tipo) return new Response("ok");
+        // os dados são lidos da API do Mercado Pago; erro devolve 500 para ele tentar de novo
+        const r = await processarAvisoMP(env, banco(env), { tipo, id: String(id) });
+        console.log("mercadopago", tipo, id, JSON.stringify(r));
+        return new Response("ok");
+      }
+
+      // ---------------------------------------------------------------- administrador
       const db = banco(env);
-      const conta = await contaDoUsuario(req, env, db);
-      if (!conta) return json(env, { error: "Faça login de novo." }, 401);
+      const usuario = await usuarioDe(req, db);
+      if (!usuario) return json(env, { error: "Faça login de novo." }, 401);
       const corpo = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+      const admin = ehAdmin(env, usuario.email) && !!usuario.email_confirmed_at;
+      if (rota === "POST /eu") return json(env, { admin, email: usuario.email });
+      if (rota.startsWith("POST /admin/")) {
+        if (!admin) return json(env, { error: "Acesso só para o administrador." }, 403);
+        const r = await rotaAdmin(rota, corpo, { env, db, url: url.origin });
+        if (!r) return json(env, { error: "Rota não encontrada." }, 404);
+        return r.erro ? json(env, { error: r.erro }, r.status || 400) : json(env, r);
+      }
+
+      // ---------------------------------------------------------------- painel
+      const conta = await contaDe(db, usuario);
+      if (!conta) return json(env, { error: "Faça login de novo." }, 401);
+      const site = env.SITE_URL || env.PAINEL_ORIGEM || url.origin;
+
+      if (rota === "POST /assinatura/status") {
+        const cfg = await lerConfig(db);
+        const s = await situacaoDaConta(db, conta.id, cfg);
+        return json(env, {
+          status: s.status, pode_atender: s.pode_atender, motivo: s.motivo || null, dias_restantes: s.dias_restantes ?? null,
+          teste_ate: s.assinatura?.teste_ate || null, pausa_em: s.pausa_em || null, tem_cartao: !!s.assinatura?.mp_preapproval_id,
+          proxima_cobranca: s.assinatura?.proxima_cobranca || null, aviso_enviado_em: s.assinatura?.aviso_enviado_em || null,
+          preco_mensal: Number(s.assinatura?.valor_mensal ?? cfg.preco_mensal), pagamento_configurado: !!env.MERCADOPAGO_ACCESS_TOKEN,
+          email: usuario.email, admin,
+        });
+      }
+      if (rota === "POST /assinatura/assinar") {
+        const email = String(corpo.email || usuario.email || "").trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json(env, { error: "Informe o email da sua conta do Mercado Pago." }, 400);
+        try {
+          return json(env, await criarAssinatura(env, db, { conta, email, voltarPara: env.PAINEL_URL || `${site}/app` }));
+        } catch (e) {
+          return json(env, { error: `Não consegui abrir o pagamento: ${e.message}` }, 400);
+        }
+      }
+      if (rota === "POST /parceiro/status" || rota === "POST /parceiro/aderir") {
+        let { data: parceiro } = await db.from("parceiros").select("*").eq("conta_id", conta.id).maybeSingle();
+        if (rota === "POST /parceiro/aderir") {
+          if (corpo.aceito !== true) return json(env, { error: "Para ser parceiro, aceite os termos." }, 400);
+          const r = await aderir(db, conta, { pix: corpo.pix, codigo: corpo.codigo });
+          if (r.erro) return json(env, { error: r.erro }, 400);
+          parceiro = r.parceiro;
+        }
+        const cfg = await lerConfig(db);
+        return json(env, {
+          parceiro: parceiro ? { codigo: parceiro.codigo, pix: parceiro.pix, ativo: parceiro.ativo, link: linkDoParceiro(site, parceiro.codigo) } : null,
+          resumo: await resumoDoParceiro(db, parceiro), comissao_adesao: Number(cfg.comissao_adesao),
+        });
+      }
 
       if (rota === "POST /simular") {
+        const sit = await situacaoDaConta(db, conta.id);
+        if (!sit.pode_atender) return json(env, { error: "A assistente está pausada. Assine ou atualize o pagamento no topo do painel para ela voltar a responder." }, 402);
         const texto = String(corpo.texto || "").trim().slice(0, 2000);
         if (!texto) return json(env, { error: "Mensagem vazia." }, 400);
         const respostas = [];
@@ -321,6 +409,16 @@ async function guardarMidia(db, contaId, telefone, nome, url) {
   if (cap) await db.from("captacoes").update({ fotos: [...(cap.fotos || []), url] }).eq("id", cap.id);
 }
 
+// Assistente pausada: a mensagem fica na aba Conversas, marcada para o corretor responder
+async function guardarComAssistentePausada(db, contaId, telefone, nome, fila) {
+  const em = new Date().toISOString();
+  const novas = fila.map((m) => ({ de: "cliente", texto: m.texto || (m.tipo ? `[${m.tipo}]` : "[mensagem]"), em }));
+  const { data: conversa } = await db.from("conversas").select("id,transcricao").eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
+  const campos = { precisa_corretor: true, motivo: "Assistente pausada (assinatura)", ultima_cliente_em: em, atualizado_em: em };
+  if (conversa) await db.from("conversas").update({ ...campos, transcricao: [...(conversa.transcricao || []), ...novas].slice(-200) }).eq("id", conversa.id);
+  else await db.from("conversas").insert({ conta_id: contaId, telefone, nome, transcricao: novas, ...campos });
+}
+
 const TIPO_SEM_TEXTO = {
   audio: "[O cliente mandou um áudio que não deu para transcrever.]",
   video: "[O cliente mandou um vídeo, que você não consegue ver.]",
@@ -377,6 +475,9 @@ export class Conversa {
       conexaoDaConta(db, contaId),
     ]);
     if (!conta || !conexao) return;
+    // Conta pausada (teste acabou ou pagamento atrasado além da tolerância): guarda para o corretor e não responde
+    const sit = await situacaoDaConta(db, contaId);
+    if (!sit.pode_atender) return guardarComAssistentePausada(db, contaId, telefone, nome, fila);
 
     // Áudio vira texto (Whisper do Groq); se não der, a Dri pede para escrever
     if (fila.some((m) => m.midiaId)) {

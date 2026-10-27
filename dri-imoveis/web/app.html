@@ -93,6 +93,9 @@
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 const configurado = !!(SUPABASE_URL && SUPABASE_ANON_KEY && WORKER_URL);
+// Link de parceiro (…/?p=codigo): guarda para o cadastro ligar a conta a ele
+try{ const p=new URLSearchParams(location.search).get("p"); if(p) localStorage.setItem("dri_parceiro", p.toLowerCase()); }catch{}
+const parceiroDoLink = ()=>{ try{ return localStorage.getItem("dri_parceiro")||undefined; }catch{ return undefined; } };
 const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
@@ -141,7 +144,7 @@ function Login(){
     e.preventDefault(); setOcupado(true); setMsg(null);
     try{
       if(modo==="criar"){
-        const { data, error } = await sb.auth.signUp({ email, password:senha, options:{ emailRedirectTo: location.href.split("#")[0] } });
+        const { data, error } = await sb.auth.signUp({ email, password:senha, options:{ emailRedirectTo: location.href.split("#")[0].split("?")[0], data:{ parceiro: parceiroDoLink() } } });
         if(error) throw error;
         if(!data.session) setMsg({t:"ok",x:"Conta criada! Abra o email que mandamos para "+email+" e clique no link para confirmar. Depois entre aqui."});
       } else if(modo==="entrar"){
@@ -1060,12 +1063,273 @@ function Onboarding({conta, setConta}){
   );
 }
 
+// ======================================================================== assinatura
+const fmtDia = (iso)=> iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",timeZone:"America/Bahia"}) : "—";
+const reais = (v)=> v==null ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+function Assinar({st, fechar}){
+  const [email,setEmail]=useState(st.email||""); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  async function ir(e){ e.preventDefault(); setOcupado(true); setMsg(null);
+    try{ const r=await worker("/assinatura/assinar",{email}); location.href=r.link; }
+    catch(err){ setMsg({t:"bad",x:err.message}); setOcupado(false); } }
+  return (
+    <form className="card" onSubmit={ir}>
+      <div className="between"><h3>Assinar a Dri · {reais(st.preco_mensal)} por mês</h3><button type="button" className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
+      <p className="small muted" style={{marginTop:0}}>Cobrança no cartão pelo Mercado Pago, renovada todo mês. Você digita o cartão na página do Mercado Pago: a Dri não vê os dados do cartão.
+        {st.status==="teste" && st.teste_ate && <> A primeira cobrança só acontece quando o teste grátis terminar ({fmtDia(st.teste_ate)}).</>} Dá para cancelar quando quiser.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <label>Email da sua conta do Mercado Pago</label>
+      <input type="email" required value={email} onChange={e=>setEmail(e.target.value)}/>
+      <p className="small muted">Use o mesmo email com que você entra no Mercado Pago (se não tiver conta, dá para criar lá na hora).</p>
+      <button className="btn btn-primary" disabled={ocupado}>{ocupado?"Abrindo o Mercado Pago…":"Ir para o pagamento"}</button>
+    </form>
+  );
+}
+
+// Faixa no topo do painel: teste grátis, pagamento recusado, pausada
+function FaixaAssinatura(){
+  const voltouDoPagamento = /preapproval_id=/.test(location.search);
+  const [st,setSt]=useState(null); const [abrir,setAbrir]=useState(false);
+  useEffect(()=>{ let n=0, vivo=true;
+    const ler=()=>worker("/assinatura/status").then(s=>{ if(!vivo) return; setSt(s);
+      // voltou do Mercado Pago: confere de novo enquanto o aviso dele não chega
+      if(voltouDoPagamento && !s.tem_cartao && n++<6) setTimeout(ler,5000); }).catch(()=>{});
+    ler(); return ()=>{ vivo=false; }; },[]);
+  if(!st) return null;
+  if(abrir) return <Assinar st={st} fechar={()=>setAbrir(false)}/>;
+  const botao=(txt)=> st.pagamento_configurado
+    ? <button className="btn btn-primary btn-sm" onClick={()=>setAbrir(true)}>{txt}</button>
+    : <span className="small">(pagamento em configuração)</span>;
+  const faixa=(tipo,conteudo)=> <div className={"msg "+tipo} style={{cursor:"default"}}><div className="between">{conteudo}</div></div>;
+  if(voltouDoPagamento && !st.tem_cartao && st.status!=="ativa") return faixa("ok",<span>Recebemos você de volta do Mercado Pago. Estamos confirmando o pagamento: isso leva alguns segundos.</span>);
+  if(st.status==="cortesia" || st.status==="ativa") return null;
+  if(st.status==="teste") return st.tem_cartao
+    ? faixa("ok",<span>✓ Assinatura registrada. Seu teste grátis vai até {fmtDia(st.teste_ate)}; depois a cobrança é de {reais(st.preco_mensal)} por mês no cartão.</span>)
+    : faixa("ok",<><span><b>Teste grátis:</b> {st.dias_restantes===1?"falta 1 dia":`faltam ${st.dias_restantes} dias`} (até {fmtDia(st.teste_ate)}). Depois, {reais(st.preco_mensal)} por mês.</span>{botao("Assinar agora")}</>);
+  if(st.status==="atrasada") return faixa("bad",<><span><b>O pagamento da assinatura não foi aprovado.</b> A {"Dri"} pausa em {fmtDT(st.pausa_em)} se não for regularizado.</span>{botao("Atualizar pagamento")}</>);
+  if(st.status==="pausada" && st.motivo==="teste_acabou") return faixa("bad",<><span><b>Seu teste grátis terminou e a assistente está pausada.</b> As mensagens dos clientes continuam chegando em Conversas. Assine para ela voltar a responder.</span>{botao("Assinar e reativar")}</>);
+  if(st.status==="cancelada") return faixa("bad",<><span><b>Assinatura cancelada:</b> a assistente está pausada. As mensagens dos clientes continuam chegando em Conversas.</span>{botao("Assinar de novo")}</>);
+  return faixa("bad",<><span><b>A assistente está pausada por falta de pagamento.</b> As mensagens dos clientes continuam chegando em Conversas. Ela volta assim que o Mercado Pago aprovar.</span>{botao("Atualizar pagamento")}</>);
+}
+
+// ======================================================================== indique e ganhe
+function Parceiro({conta}){
+  const [st,setSt]=useState(null); const [pix,setPix]=useState(""); const [codigo,setCodigo]=useState(""); const [aceito,setAceito]=useState(false);
+  const [editando,setEditando]=useState(false); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  async function ler(){ try{ const s=await worker("/parceiro/status"); setSt(s); setPix(s.parceiro?.pix||""); setCodigo(s.parceiro?.codigo||""); }catch(e){ setMsg({t:"bad",x:e.message}); } }
+  useEffect(()=>{ ler(); },[]);
+  async function salvar(e){ e.preventDefault(); setOcupado(true); setMsg(null);
+    try{ const s=await worker("/parceiro/aderir",{pix, codigo:codigo||undefined, aceito: st?.parceiro ? true : aceito}); setSt(s); setEditando(false);
+      setMsg({t:"ok",x: st?.parceiro ? "Dados salvos." : "Pronto! Seu link de parceiro está abaixo."}); }
+    catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(false); }
+  if(!st) return <div className="card muted">Carregando…</div>;
+  const valor = reais(st.comissao_adesao);
+  const p = st.parceiro, r = st.resumo;
+  const convite = p && `Conheça a Dri: uma assistente que atende seus clientes no WhatsApp, mostra os imóveis e marca as visitas na sua agenda. Teste grátis: ${p.link}`;
+  return (
+    <div className="card">
+      <h3>Indique e ganhe</h3>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      {p && !editando ? <>
+        <p className="small muted" style={{marginTop:0}}>Você ganha <b>{valor} por PIX</b> para cada corretor que chegar pelo seu link <b>e assinar</b>. A comissão só é gerada quando o primeiro pagamento dele é aprovado: só criar conta ou fazer o teste grátis não conta.</p>
+        <label>Seu link</label><Copiar valor={p.link}/>
+        <div className="row" style={{marginTop:10}}>
+          <a className="btn btn-wa btn-sm" href={"https://wa.me/?text="+encodeURIComponent(convite)} target="_blank" rel="noreferrer">Mandar pelo WhatsApp</a>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setEditando(true)}>Trocar PIX ou link</button>
+        </div>
+        <div className="tiles" style={{marginTop:14}}>
+          <div className="tile"><div className="l">Cadastros pelo link</div><div className="v">{r.cadastros}</div></div>
+          <div className="tile"><div className="l">Assinaram (geram comissão)</div><div className="v">{r.adesoes}</div></div>
+          <div className="tile"><div className="l">A receber</div><div className="v">{reais(r.a_receber)}</div></div>
+          <div className="tile"><div className="l">Já recebido</div><div className="v">{reais(r.recebido)}</div></div>
+        </div>
+        <p className="small muted" style={{margin:0}}>PIX cadastrado: {p.pix}</p>
+      </> : <form onSubmit={salvar}>
+        {!p && <><p style={{marginTop:0}}>Ganhe <b>{valor} por PIX</b> para cada corretor que chegar pelo seu link <b>e assinar</b> a Dri.</p>
+          <ul className="small" style={{lineHeight:1.6,paddingLeft:18}}>
+            <li>Você recebe um link só seu para divulgar.</li>
+            <li>Quem cria a conta pelo seu link fica ligado a você.</li>
+            <li><b>Só há comissão se a pessoa indicada assinar:</b> os {valor} são gerados quando o primeiro pagamento dela é aprovado. Criar conta ou usar o teste grátis, sozinho, não gera comissão.</li>
+            <li>Vale uma vez por conta indicada. A sua própria conta não conta.</li>
+            <li>O pagamento é feito pela Dri Imóveis na chave PIX que você informar.</li>
+          </ul></>}
+        <div className="grid">
+          <div><label>Chave PIX para receber *</label><input required value={pix} onChange={e=>setPix(e.target.value)} placeholder="CPF, email, celular ou chave aleatória"/></div>
+          <div><label>Nome do link <span className="muted">(opcional)</span></label><input value={codigo} onChange={e=>setCodigo(e.target.value)} placeholder="ex.: carlos-imoveis"/></div>
+        </div>
+        {!p && <label className="row" style={{fontWeight:400,marginTop:12}}><input type="checkbox" style={{width:"auto"}} checked={aceito} onChange={e=>setAceito(e.target.checked)}/> Li e aceito as condições do programa de parceiros</label>}
+        <div className="row" style={{marginTop:14}}>
+          <button className="btn btn-primary" disabled={ocupado || (!p && !aceito)}>{ocupado?"Salvando…":p?"Salvar":"Quero ser parceiro"}</button>
+          {p && <button type="button" className="btn btn-ghost" onClick={()=>setEditando(false)}>Cancelar</button>}
+        </div>
+      </form>}
+    </div>
+  );
+}
+
+// ======================================================================== administrador
+const STATUS_ROTULO = { teste:"teste grátis", ativa:"pagando", atrasada:"pagamento recusado", pausada:"pausada", cancelada:"cancelada", cortesia:"cortesia" };
+const STATUS_COR = { teste:"", ativa:"ok", atrasada:"warn", pausada:"warn", cancelada:"warn", cortesia:"ok" };
+
+function AdminConta({c, acao}){
+  const [aviso,setAviso]=useState(null);
+  async function abrirAviso(){ const r=await acao(c,"previa_aviso",{},true); if(r) setAviso(r.texto); }
+  return (
+    <div>
+      <div className="between">
+        <div><b>{c.nome}</b> <span className={"pill "+STATUS_COR[c.status]}>{STATUS_ROTULO[c.status]||c.status}</span>
+          {c.parceiro && <span className="pill">via {c.parceiro}</span>}
+          <div className="small muted">{[c.email, c.cidade, c.whatsapp_pessoal && fmtTel(c.whatsapp_pessoal)].filter(Boolean).join(" · ")}</div>
+          <div className="small muted">
+            {[`desde ${fmtDia(c.criado_em)}`,
+              c.status==="teste" && `teste até ${fmtDia(c.teste_ate)}`,
+              c.status==="atrasada" && `recusado em ${fmtDia(c.falhou_em)} · pausa em ${fmtDT(c.pausa_em)}`,
+              c.status==="cortesia" && c.cortesia_motivo,
+              c.tem_cartao ? `cartão no Mercado Pago${c.proxima_cobranca?` · próxima cobrança ${fmtDia(c.proxima_cobranca)}`:""}` : "sem cartão",
+              c.aviso_enviado_em && `aviso enviado ${fmtDia(c.aviso_enviado_em)}`].filter(Boolean).join(" · ")}
+          </div>
+          <div className="small muted">{[c.whatsapp ? `WhatsApp ${c.whatsapp}` : `WhatsApp não conectado (etapa ${Math.min(c.onboarding_etapa,7)} de 7)`,
+            `${c.ia_mensagens_mes} msgs de IA no mês`, `${c.conversas_30d} conversas · ${c.visitas_30d} visitas · ${c.captacoes_30d} captações (30 dias)`].join(" · ")}</div>
+        </div>
+        <div className="row">
+          {c.status==="cortesia"
+            ? <button className="btn btn-ghost btn-sm" onClick={()=>acao(c,"tirar_cortesia")}>Tirar cortesia</button>
+            : <button className="btn btn-ghost btn-sm" onClick={()=>{ const m=prompt(`Cortesia para ${c.nome}. Motivo (opcional):`,""); if(m!==null) acao(c,"cortesia",{motivo:m}); }}>Dar cortesia</button>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>{ const d=prompt("Quantos dias de teste grátis a partir de hoje?","5"); if(d) acao(c,"estender_teste",{dias:Number(d)}); }}>Teste grátis</button>
+          {["atrasada","pausada","cancelada","teste"].includes(c.status) && <button className="btn btn-ghost btn-sm" onClick={abrirAviso}>Enviar aviso</button>}
+          {c.pode_atender
+            ? <button className="btn btn-bad btn-sm" onClick={()=>confirm(`Pausar a assistente de ${c.nome}?`) && acao(c,"pausar")}>Pausar</button>
+            : <button className="btn btn-ghost btn-sm" onClick={()=>confirm(`Reativar ${c.nome} sem pagamento registrado?`) && acao(c,"reativar")}>Reativar</button>}
+        </div>
+      </div>
+      {aviso!==null && <div style={{marginTop:8}}>
+        <label>Mensagem para {c.nome} (vai por email e pelo WhatsApp pessoal, quando possível)</label>
+        <textarea value={aviso} onChange={e=>setAviso(e.target.value)}/>
+        <div className="row" style={{marginTop:8}}><button className="btn btn-primary btn-sm" onClick={async()=>{ await acao(c,"aviso",{texto:aviso}); setAviso(null); }}>Enviar</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setAviso(null)}>Cancelar</button></div>
+      </div>}
+    </div>
+  );
+}
+
+function Admin(){
+  const [d,setD]=useState(null); const [aba,setAba]=useState("geral"); const [msg,setMsg]=useState(null);
+  const [filtro,setFiltro]=useState("todas"); const [busca,setBusca]=useState("");
+  const [cfg,setCfg]=useState(null); const [novo,setNovo]=useState({nome:"",codigo:"",pix:"",whatsapp:"",email:""});
+  async function ler(){ try{ const r=await worker("/admin/resumo"); setD(r); setCfg(r.config); }catch(e){ setMsg({t:"bad",x:e.message}); } }
+  useEffect(()=>{ ler(); },[]);
+  async function chamar(caminho, corpo, silencioso){ setMsg(null);
+    try{ const r=await worker(caminho, corpo); if(!silencioso){ if(r.ok && r.ok!==true) setMsg({t:"ok",x:r.ok}); await ler(); } return r; }
+    catch(e){ setMsg({t:"bad",x:e.message}); return null; } }
+  const acao=(c,a,extra={},silencioso)=>chamar("/admin/conta",{conta_id:c.id, acao:a, ...extra}, silencioso);
+  if(!d) return <div className="card">{msg ? <Aviso msg={msg}/> : <span className="muted">Carregando…</span>}</div>;
+  const n=d.numeros;
+  const aPagar=d.comissoes.filter(c=>c.status==="a pagar"||c.status==="em análise");
+  const naoLidos=d.avisos.filter(a=>!a.lido).length;
+  const contas=d.contas.filter(c=>(filtro==="todas"||c.status===filtro) && (!busca || `${c.nome} ${c.email} ${c.cidade}`.toLowerCase().includes(busca.toLowerCase())));
+  const abas=[["geral","Visão geral"],["contas",`Corretores (${n.contas})`],["comissoes","Comissões"],["parceiros","Parceiros"],["valores","Valores"]];
+  return <>
+    <div className="tabs">{abas.map(([k,t])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{t}
+      {k==="geral"&&naoLidos>0&&<span className="badge">{naoLidos}</span>}{k==="comissoes"&&aPagar.length>0&&<span className="badge">{aPagar.length}</span>}</button>)}</div>
+    <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+
+    {aba==="geral" && <>
+      <div className="tiles">
+        <div className="tile"><div className="l">Receita recorrente (mês)</div><div className="v">{reais(n.receita_recorrente)}</div></div>
+        <div className="tile"><div className="l">Recebido este mês</div><div className="v">{reais(n.recebido_mes)}</div></div>
+        <div className="tile"><div className="l">Pagando</div><div className="v">{n.ativas}</div></div>
+        <div className="tile"><div className="l">Em teste grátis</div><div className="v">{n.teste}</div></div>
+        <div className="tile"><div className="l">Pagamento recusado</div><div className="v">{n.atrasadas}</div></div>
+        <div className="tile"><div className="l">Pausadas / canceladas</div><div className="v">{n.pausadas+n.canceladas}</div></div>
+        <div className="tile"><div className="l">Cortesia</div><div className="v">{n.cortesia}</div></div>
+        <div className="tile"><div className="l">Comissões a pagar</div><div className="v">{reais(n.comissoes_a_pagar)}</div></div>
+        <div className="tile"><div className="l">WhatsApp conectado</div><div className="v">{n.whatsapp_conectados} de {n.contas}</div></div>
+        <div className="tile"><div className="l">Conversas (30 dias)</div><div className="v">{n.conversas_30d}</div></div>
+        <div className="tile"><div className="l">Visitas marcadas (30 dias)</div><div className="v">{n.visitas_30d}</div></div>
+        <div className="tile"><div className="l">Mensagens de IA no mês</div><div className="v">{n.ia_mensagens_mes}</div></div>
+      </div>
+      <div className="card">
+        <div className="between"><h3>Avisos</h3>{naoLidos>0 && <button className="btn btn-ghost btn-sm" onClick={()=>chamar("/admin/avisos/lidos",{})}>Marcar como lidos</button>}</div>
+        {!d.avisos.length ? <p className="muted">Nenhum aviso ainda. Pagamento recusado, pausa, cancelamento e nova adesão com comissão aparecem aqui.</p> :
+        <div className="list">{d.avisos.map(a=><div key={a.id}><b>{!a.lido && "● "}{a.assunto}</b> <span className="small muted">{fmtDT(a.criado_em)}</span><div className="small">{a.texto}</div></div>)}</div>}
+      </div>
+    </>}
+
+    {aba==="contas" && <div className="card">
+      <div className="row" style={{marginBottom:8}}>
+        <select value={filtro} onChange={e=>setFiltro(e.target.value)} style={{width:"auto"}}><option value="todas">Todas</option>{Object.entries(STATUS_ROTULO).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
+        <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, email ou cidade" style={{flex:1,minWidth:200}}/>
+      </div>
+      {!contas.length ? <p className="muted">Nenhum corretor aqui.</p> : <div className="list">{contas.map(c=><AdminConta key={c.id} c={c} acao={acao}/>)}</div>}
+    </div>}
+
+    {aba==="comissoes" && <div className="card">
+      <h3>Comissões</h3>
+      <p className="small muted" style={{marginTop:0}}>Só gera comissão quem criou a conta pelo link do parceiro <b>e assinou</b>: {reais(cfg.comissao_adesao)} no primeiro pagamento aprovado, uma vez por conta (cancelar e assinar de novo não gera outra). Se parecer a mesma pessoa com outra conta, ou o próprio parceiro, fica <b>em análise</b> para você decidir. Faça o PIX e marque como paga.</p>
+      {!d.comissoes.length ? <p className="muted">Nenhuma comissão ainda.</p> :
+      <div className="list">{d.comissoes.map(c=><div key={c.id} className="between">
+        <div><b>{reais(c.valor)}</b> para <b>{c.parceiro}</b>{c.codigo && <span className="small muted"> (?p={c.codigo})</span>} <span className={"pill "+(c.status==="pago"?"ok":c.status==="cancelada"?"":"warn")}>{c.status}</span>
+          <div className="small muted">{c.conta}: cadastro pelo link em {fmtDia(c.cadastro_em)} → primeiro pagamento em {fmtDia(c.criado_em)}{c.pagamento_mp_id?` (Mercado Pago nº ${c.pagamento_mp_id})`:""}{c.pago_em?` · comissão paga em ${fmtDia(c.pago_em)}`:""}</div>
+          {c.status==="em análise" && <div className="small" style={{color:"var(--warn)",marginTop:4}}>Em análise: {c.motivo}</div>}
+          {c.status==="a pagar" && <div className="small" style={{marginTop:4}}>PIX: {c.pix ? <code>{c.pix}</code> : <span style={{color:"var(--warn)"}}>parceiro sem chave PIX</span>}</div>}</div>
+        <div className="row">{c.status==="em análise" ? <>
+          <button className="btn btn-primary btn-sm" onClick={()=>chamar("/admin/comissao",{id:c.id,acao:"aprovar"})}>Aprovar</button>
+          <button className="btn btn-bad btn-sm" onClick={()=>confirm("Cancelar esta comissão?") && chamar("/admin/comissao",{id:c.id,acao:"cancelar"})}>Cancelar</button></>
+          : c.status==="a pagar" ? <>
+          <button className="btn btn-primary btn-sm" onClick={()=>chamar("/admin/comissao",{id:c.id,acao:"pago"})}>Marcar como paga</button>
+          <button className="btn btn-bad btn-sm" onClick={()=>confirm("Cancelar esta comissão?") && chamar("/admin/comissao",{id:c.id,acao:"cancelar"})}>Cancelar</button></>
+          : c.status==="cancelada" ? <button className="btn btn-ghost btn-sm" onClick={()=>chamar("/admin/comissao",{id:c.id,acao:"reabrir"})}>Voltar para a pagar</button>
+          : <button className="btn btn-ghost btn-sm" onClick={()=>confirm("Desfazer o pagamento desta comissão? Use só se o PIX não foi feito.") && chamar("/admin/comissao",{id:c.id,acao:"reabrir"})}>Desfazer pagamento</button>}</div>
+      </div>)}</div>}
+    </div>}
+
+    {aba==="parceiros" && <>
+      <div className="card">
+        <h3>Parceiros</h3>
+        <p className="small muted" style={{marginTop:0}}>Corretores viram parceiros pela aba "Indique e ganhe" do painel deles. Aqui você também cadastra parceiros de fora da plataforma.</p>
+        {!d.parceiros.length ? <p className="muted">Nenhum parceiro ainda.</p> :
+        <div className="list">{d.parceiros.map(p=><div key={p.id}>
+          <div className="between"><div><b>{p.nome}</b> {p.corretor && <span className="pill">corretor</span>}{!p.ativo && <span className="pill warn">inativo</span>}
+            <div className="small muted">{p.cadastros} cadastros · {p.pagantes} pagando · {p.adesoes} adesões · a pagar {reais(p.a_pagar)} · pago {reais(p.pago)}{p.pix?` · PIX ${p.pix}`:""}</div></div>
+            <button className="btn btn-ghost btn-sm" onClick={()=>chamar("/admin/parceiro",{...p, ativo:!p.ativo})}>{p.ativo?"Desativar":"Ativar"}</button></div>
+          <div style={{marginTop:6}}><Copiar valor={p.link}/></div>
+          {p.indicados.length>0 && <details style={{marginTop:6}}><summary className="small" style={{cursor:"pointer"}}>Indicados ({p.indicados.length})</summary>
+            <div className="small" style={{marginTop:6}}>{p.indicados.map((x,i)=><div key={i}>{x.nome} · cadastro {fmtDia(x.cadastro_em)} · {STATUS_ROTULO[x.status]||x.status}{x.assinou_em?` · assinou ${fmtDia(x.assinou_em)}`:""} · comissão: {x.comissao||"ainda não (não assinou)"}</div>)}</div></details>}
+        </div>)}</div>}
+      </div>
+      <form className="card" onSubmit={async e=>{ e.preventDefault(); const r=await chamar("/admin/parceiro",novo); if(r) setNovo({nome:"",codigo:"",pix:"",whatsapp:"",email:""}); }}>
+        <h3>Novo parceiro</h3>
+        <div className="grid">
+          <div><label>Nome *</label><input required value={novo.nome} onChange={e=>setNovo({...novo,nome:e.target.value})}/></div>
+          <div><label>Nome do link *</label><input required value={novo.codigo} onChange={e=>setNovo({...novo,codigo:e.target.value})} placeholder="ex.: joao"/></div>
+          <div><label>Chave PIX</label><input value={novo.pix} onChange={e=>setNovo({...novo,pix:e.target.value})}/></div>
+          <div><label>WhatsApp</label><input value={novo.whatsapp} onChange={e=>setNovo({...novo,whatsapp:e.target.value})}/></div>
+          <div><label>Email</label><input type="email" value={novo.email} onChange={e=>setNovo({...novo,email:e.target.value})}/></div>
+        </div>
+        <div style={{marginTop:14}}><button className="btn btn-primary">Criar parceiro</button></div>
+      </form>
+    </>}
+
+    {aba==="valores" && <form className="card" onSubmit={e=>{ e.preventDefault(); chamar("/admin/config",cfg); }}>
+      <h3>Valores da plataforma</h3>
+      <div className="grid">
+        <div><label>Mensalidade (R$)</label><input inputMode="decimal" value={cfg.preco_mensal} onChange={e=>setCfg({...cfg,preco_mensal:e.target.value})}/></div>
+        <div><label>Dias de teste grátis</label><input type="number" min={0} max={60} value={cfg.dias_teste} onChange={e=>setCfg({...cfg,dias_teste:e.target.value})}/></div>
+        <div><label>Dias até pausar (pagamento recusado)</label><input type="number" min={0} max={30} value={cfg.dias_tolerancia} onChange={e=>setCfg({...cfg,dias_tolerancia:e.target.value})}/></div>
+        <div><label>PIX por adesão ao parceiro (R$)</label><input inputMode="decimal" value={cfg.comissao_adesao} onChange={e=>setCfg({...cfg,comissao_adesao:e.target.value})}/></div>
+      </div>
+      <p className="small muted">O preço novo vale para quem assinar daqui em diante; quem já assina continua com o valor da própria assinatura no Mercado Pago.</p>
+      <button className="btn btn-primary">Salvar valores</button>
+    </form>}
+  </>;
+}
+
 // ======================================================================== app
 function Painel({conta, setConta}){
   const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0); const [capNovas,setCapNovas]=useState(0);
   useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0));
     sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova").then(r=>setCapNovas(r.count||0)); },[aba]);
-  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["perfil","Perfil"]];
+  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["parceiro","Indique e ganhe"],["perfil","Perfil"]];
   return <>
     <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}{k==="captacoes"&&capNovas>0&&<span className="badge">{capNovas}</span>}</button>)}</div>
     {aba==="inicio" && <Inicio conta={conta} irPara={setAba}/>}
@@ -1076,12 +1340,16 @@ function Painel({conta, setConta}){
     {aba==="testar" && <Simulador conta={conta}/>}
     {aba==="ia" && <IA conta={conta}/>}
     {aba==="whatsapp" && <WhatsApp conta={conta}/>}
+    {aba==="parceiro" && <Parceiro conta={conta}/>}
     {aba==="perfil" && <Perfil conta={conta} salvo={setConta}/>}
   </>;
 }
 
 function App(){
   const [sessao,setSessao]=useState(undefined); const [conta,setConta]=useState(undefined); const [recuperando,setRecuperando]=useState(false);
+  const [admin,setAdmin]=useState(false); const [verAdmin,setVerAdmin]=useState(location.hash==="#admin");
+  useEffect(()=>{ const f=()=>setVerAdmin(location.hash==="#admin"); addEventListener("hashchange",f); return ()=>removeEventListener("hashchange",f); },[]);
+  useEffect(()=>{ if(sessao) worker("/eu").then(r=>setAdmin(!!r.admin)).catch(()=>setAdmin(false)); else setAdmin(false); },[sessao?.user?.id]);
   useEffect(()=>{ if(!sb) return;
     sb.auth.getSession().then(({data})=>setSessao(data.session));
     const { data:{ subscription } } = sb.auth.onAuthStateChange((ev,s)=>{ setSessao(s); if(ev==="PASSWORD_RECOVERY") setRecuperando(true); });
@@ -1097,9 +1365,12 @@ function App(){
   const pronto = conta && conta.onboarding_etapa>=7;
   return (
     <div className="wrap">
-      <div className="top"><div className="brand"><h1>{conta?.nome_assistente||"Dri"} · {conta?.nome||"Imóveis"}</h1><p>Sua assistente de WhatsApp para imóveis</p></div>
-        <button className="btn btn-ghost btn-sm" onClick={()=>sb.auth.signOut()}>Sair</button></div>
-      {pronto ? <Painel conta={conta} setConta={setConta}/> : <Onboarding conta={conta} setConta={setConta}/>}
+      <div className="top"><div className="brand"><h1>{admin && verAdmin ? "Dri Imóveis · Administração" : `${conta?.nome_assistente||"Dri"} · ${conta?.nome||"Imóveis"}`}</h1><p>{admin && verAdmin ? "Corretores, cobrança e parceiros" : "Sua assistente de WhatsApp para imóveis"}</p></div>
+        <div className="row">{admin && <a className="btn btn-ghost btn-sm" href={verAdmin?"#":"#admin"}>{verAdmin?"Meu painel":"Administração"}</a>}
+          <button className="btn btn-ghost btn-sm" onClick={()=>sb.auth.signOut()}>Sair</button></div></div>
+      {admin && verAdmin ? <Admin/> : <>
+        {conta && <FaixaAssinatura/>}
+        {pronto ? <Painel conta={conta} setConta={setConta}/> : <Onboarding conta={conta} setConta={setConta}/>}</>}
     </div>
   );
 }

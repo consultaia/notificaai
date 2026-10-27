@@ -20,4 +20,6 @@ GRAPH_VERSION = "v23.0"
 IA_ORDEM = "gemini,groq,cerebras"
 PAINEL_URL = "https://dri-imoveis.pages.dev/app"
 PAINEL_ORIGEM = "https://dri-imoveis.pages.dev"
+ADMIN_EMAILS = "janan.almeida@gmail.com"   # área do administrador e avisos de cobrança
+SITE_URL = "https://dri-imoveis.pages.dev" # base dos links de parceiro
 # ALERTA_EMAIL = "voce@exemplo.com"   # recebe o aviso se uma IA cair ou trocar de modelo

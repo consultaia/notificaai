@@ -1,3 +1,160 @@
 <!DOCTYPE html>
-<html lang="pt-BR"><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0; url=app.html"><title>Dri Imóveis</title></head>
-<body><a href="app.html">Abrir a Dri Imóveis</a></body></html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dri Imóveis · Assistente de WhatsApp para corretores</title>
+<meta name="description" content="A Dri atende seus clientes no WhatsApp na hora, apresenta seus imóveis com fotos e book e marca a visita na sua agenda. Teste grátis." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{ --ink:#13232E; --muted:#5D6C76; --surface:#F4F6F7; --card:#FFFFFF; --line:#DFE5E8;
+    --brand:#0F6E5C; --brand-ink:#FFFFFF; --soft:#E6F2EF; --wa:#1F8B4C; --bolha:#DCF8C6; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --ink:#E7EDF0; --muted:#9AA8B1; --surface:#0F171C; --card:#162229; --line:#25343C;
+    --brand:#3CB39A; --brand-ink:#08130F; --soft:#17302B; --wa:#3DBE73; --bolha:#1E4636; } }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--surface);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Space Grotesk",Inter,sans-serif;margin:0;line-height:1.15}
+  a{color:var(--brand)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+  header{display:flex;justify-content:space-between;align-items:center;padding:18px 0}
+  .logo{font-family:"Space Grotesk";font-weight:700;font-size:20px;color:var(--ink);text-decoration:none}
+  .btn{font:inherit;font-weight:600;border:0;border-radius:12px;padding:13px 20px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+  .btn-primary{background:var(--brand);color:var(--brand-ink)} .btn-ghost{border:1px solid var(--line);color:var(--ink);background:var(--card)}
+  .btn-sm{padding:8px 14px;font-size:14px}
+  .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center;padding:40px 0 56px}
+  .hero h1{font-size:clamp(32px,5vw,50px)}
+  .hero p.lead{font-size:18px;color:var(--muted);margin:16px 0 24px;max-width:540px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .nota{font-size:14px;color:var(--muted);margin-top:12px}
+  .phone{background:var(--card);border:1px solid var(--line);border-radius:22px;overflow:hidden;max-width:380px;margin-left:auto;box-shadow:0 10px 40px rgba(0,0,0,.08)}
+  .phone .hd{background:var(--wa);color:#fff;padding:12px 16px;font-weight:600;font-size:15px}
+  .phone .bd{padding:14px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
+  .b{max-width:85%;padding:8px 12px;border-radius:12px;font-size:14px;line-height:1.4}
+  .b.c{align-self:flex-end;background:var(--bolha)} .b.d{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+  .b.f{padding:0;overflow:hidden} .b.f div{height:110px;width:220px;background:linear-gradient(135deg,#2a9d8f,#4a7fb5)} .b.f span{display:block;padding:6px 10px}
+  section{padding:56px 0} section h2{font-size:clamp(26px,3.5vw,36px);margin-bottom:10px}
+  section p.sub{color:var(--muted);margin:0 0 28px;max-width:640px}
+  .cards{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .card h3{font-size:18px;margin-bottom:6px} .card p{margin:0;color:var(--muted);font-size:15px}
+  .ico{width:38px;height:38px;border-radius:10px;background:var(--soft);color:var(--brand);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+  .passos{counter-reset:p} .passos .card h3::before{counter-increment:p;content:counter(p) ". ";color:var(--brand)}
+  .preco{max-width:460px;margin:0 auto;text-align:center}
+  .preco .v{font-family:"Space Grotesk";font-size:48px;font-weight:700} .preco .v small{font-size:18px;color:var(--muted);font-weight:500}
+  .preco ul{text-align:left;padding-left:0;list-style:none;margin:18px 0 22px} .preco li{padding:6px 0;border-top:1px solid var(--line)} .preco li::before{content:"✓ ";color:var(--brand);font-weight:700}
+  .faixa{background:var(--soft);border-radius:18px;padding:28px;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
+  summary{font-weight:600;cursor:pointer} details p{color:var(--muted);margin:10px 0 0}
+  footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--muted);font-size:14px}
+  @media (max-width:820px){ .hero{grid-template-columns:1fr;padding-top:16px} .phone{margin:0 auto} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="./">Dri Imóveis</a>
+    <a class="btn btn-ghost btn-sm" data-app href="/app">Entrar</a>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>Sua assistente no WhatsApp que atende, mostra imóveis e marca visitas</h1>
+      <p class="lead">A Dri responde seus clientes na hora, a qualquer hora. Ela apresenta os imóveis da sua carteira com fotos e book, tira dúvidas e marca a visita direto na sua agenda. Você só aparece para fechar negócio.</p>
+      <div class="row">
+        <a class="btn btn-primary" data-app href="/app">Começar teste grátis</a>
+        <a class="btn btn-ghost" href="#como-funciona">Como funciona</a>
+      </div>
+      <p class="nota"><span data-dias>5</span> dias grátis · depois <span data-preco>R$ 197</span>/mês no cartão · cancele quando quiser</p>
+    </div>
+    <div class="phone" aria-hidden="true">
+      <div class="hd">Dri · Carlos Imóveis</div>
+      <div class="bd">
+        <div class="b c">Oi! Tem apartamento de 2 quartos na Pituba?</div>
+        <div class="b d">Oi! Tenho sim 😊 O Residencial Jardins tem 2 quartos com suíte e varanda, 62 m², com piscina e academia.</div>
+        <div class="b d f"><div></div><span>Residencial Jardins · 2/4 com suíte</span></div>
+        <div class="b c">Posso visitar sábado de manhã?</div>
+        <div class="b d">Pode! Tenho 9h, 10h ou 11h. Qual fica melhor pra você?</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section id="como-funciona"><div class="wrap">
+  <h2>Pronta em uns 15 minutos</h2>
+  <p class="sub">Você mesmo configura pelo painel, no celular ou no computador.</p>
+  <div class="cards passos">
+    <div class="card"><h3>Cadastre seus imóveis</h3><p>Mande o book em PDF e a IA preenche plantas, fotos e diferenciais para você conferir. Ou cadastre à mão.</p></div>
+    <div class="card"><h3>Diga seus horários</h3><p>A Dri só oferece horários livres da sua agenda, já descontando visitas marcadas e folgas.</p></div>
+    <div class="card"><h3>Teste como cliente</h3><p>Converse com ela no simulador antes de ligar no WhatsApp e ajuste o jeito dela falar.</p></div>
+    <div class="card"><h3>Conecte o seu WhatsApp</h3><p>Ela atende no seu número comercial, pela API oficial do WhatsApp, com um passo a passo guiado.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>O que a Dri faz por você</h2>
+  <p class="sub">Cliente que espera esfria. Com a Dri, ninguém fica sem resposta.</p>
+  <div class="cards">
+    <div class="card"><div class="ico">⚡</div><h3>Responde na hora</h3><p>De madrugada, no domingo ou enquanto você está em outra visita.</p></div>
+    <div class="card"><div class="ico">🏢</div><h3>Apresenta seus imóveis</h3><p>Manda fotos, plantas e o book. Só fala do que está cadastrado: não inventa preço nem característica.</p></div>
+    <div class="card"><div class="ico">📅</div><h3>Marca a visita</h3><p>Combina o horário com o cliente, coloca na sua agenda e te avisa.</p></div>
+    <div class="card"><div class="ico">🏡</div><h3>Capta imóveis</h3><p>Quando um proprietário quer vender ou alugar, ela anota os dados e as fotos e te passa.</p></div>
+    <div class="card"><div class="ico">🎙️</div><h3>Entende áudio</h3><p>O cliente pode mandar áudio: ela transcreve e responde por escrito.</p></div>
+    <div class="card"><div class="ico">🙋</div><h3>Passa para você</h3><p>Se o cliente pedir um humano, ela te chama e fica em silêncio naquela conversa.</p></div>
+  </div>
+</div></section>
+
+<section id="preco"><div class="wrap">
+  <div class="card preco">
+    <h2>Um plano, tudo incluído</h2>
+    <div class="v" style="margin-top:12px"><span data-preco>R$ 197</span><small>/mês</small></div>
+    <ul>
+      <li><span data-dias>5</span> dias de teste grátis</li>
+      <li>Atendimento no seu WhatsApp, 24 horas</li>
+      <li>Imóveis, fotos e books ilimitados</li>
+      <li>Agenda de visitas e avisos para você</li>
+      <li>Inteligência artificial incluída</li>
+      <li>Cobrança mensal no cartão pelo Mercado Pago, sem fidelidade</li>
+    </ul>
+    <a class="btn btn-primary" data-app href="/app">Começar teste grátis</a>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="faixa">
+    <div><h2 style="font-size:26px">Indique e ganhe <span data-comissao>R$ 100</span> por PIX</h2>
+      <p style="margin:6px 0 0;color:var(--muted)">Já usa a Dri? Na aba "Indique e ganhe" do painel você pega o seu link. Para cada corretor que chegar por ele <b>e assinar</b>, você recebe por PIX (a comissão sai quando o primeiro pagamento dele é aprovado).</p></div>
+    <a class="btn btn-ghost" data-app href="/app">Quero meu link</a>
+  </div>
+</div></section>
+
+<section><div class="wrap" style="max-width:760px">
+  <h2>Perguntas frequentes</h2>
+  <details><summary>Preciso de um número novo?</summary><p>Não precisa ser novo, mas precisa ser um número que possa ser ligado à API oficial do WhatsApp (o WhatsApp Business da Meta). O painel mostra o passo a passo.</p></details>
+  <details><summary>A Dri pode inventar informação?</summary><p>Ela só fala dos imóveis, preços e características que você cadastrou. Quando não sabe, diz que não tem a informação e oferece chamar você.</p></details>
+  <details><summary>Como funciona o pagamento?</summary><p>Depois do teste grátis, a cobrança é mensal no cartão, pelo Mercado Pago. Você digita o cartão na página do Mercado Pago e pode cancelar quando quiser.</p></details>
+  <details><summary>E se o pagamento falhar?</summary><p>Você recebe um aviso e tem alguns dias para atualizar o cartão. Se a assistente chegar a pausar, as mensagens dos clientes continuam chegando no painel, e ela volta assim que o pagamento for aprovado.</p></details>
+  <details><summary>Meus dados e os dos meus clientes ficam seguros?</summary><p>Cada corretor só enxerga a própria conta. Veja a <a href="/privacidade">política de privacidade</a>.</p></details>
+</div></section>
+
+<footer><div class="wrap row" style="justify-content:space-between">
+  <span>Dri Imóveis</span>
+  <span><a href="/privacidade">Privacidade</a> · <a href="mailto:janan.almeida@gmail.com">Contato</a></span>
+</div></footer>
+
+<script>
+  const WORKER_URL = "https://dri-imoveis.janan-almeida.workers.dev";
+  // Link de parceiro (?p=codigo): segue para o cadastro
+  const p = new URLSearchParams(location.search).get("p");
+  if (p) { try { localStorage.setItem("dri_parceiro", p.toLowerCase()); } catch {} }
+  document.querySelectorAll("[data-app]").forEach(a => { if (p) a.href = "/app?p=" + encodeURIComponent(p); });
+  const reais = (v) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: Number(v) % 1 ? 2 : 0 });
+  fetch(WORKER_URL + "/plano").then(r => r.json()).then(c => {
+    if (c.preco_mensal) document.querySelectorAll("[data-preco]").forEach(e => e.textContent = reais(c.preco_mensal));
+    if (c.dias_teste != null) document.querySelectorAll("[data-dias]").forEach(e => e.textContent = c.dias_teste);
+    if (c.comissao_adesao) document.querySelectorAll("[data-comissao]").forEach(e => e.textContent = reais(c.comissao_adesao));
+  }).catch(() => {});
+</script>
+</body>
+</html>

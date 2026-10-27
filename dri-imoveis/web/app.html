@@ -102,7 +102,8 @@ const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
 const DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
 const brl = (v)=> v==null||v==="" ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
 const fmtDT = (iso)=> new Date(iso).toLocaleString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Bahia"});
-const fmtTel = (t)=>{ const d=String(t||"").replace(/\D/g,""); if(d.length===13) return `(${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`; if(d.length===12) return `(${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`; return t||"—"; };
+const fmtTel = (t)=>{ const d=String(t||"").replace(/\D/g,""); if(d.length===13) return `(${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`; if(d.length===12) return `(${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
+  if(d.length===11) return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`; if(d.length===10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`; return t||"—"; };
 // Número em formato brasileiro ("1.200.000", "38,54") ou já numérico (38.54)
 const num = (v)=>{ if(v===""||v==null) return null; if(typeof v==="number") return isFinite(v)?v:null;
   const t=String(v).trim().replace(/[R$\s]/g,""); if(!t) return null;
@@ -915,6 +916,40 @@ function Copiar({valor}){
 }
 const Item = ({ok, children}) => <li style={{listStyle:"none",marginLeft:-18}}>{ok?"✅":"⬜"} {children}</li>;
 
+// Conexão assistida: o corretor convida o suporte no portfólio da Meta e manda os dados; a gente conecta
+const SITUACAO_NUMERO = { livre:"Não está em nenhum WhatsApp (chip novo ou sem uso)", apagar:"Está no WhatsApp, mas posso apagar a conta do WhatsApp dele", em_uso:"Está no WhatsApp e quero continuar usando no celular" };
+function PedidoConexao({conta, pedido, salvo, voltar}){
+  const [f,setF]=useState(()=>({ nome_exibicao:conta.nome, numero:"", numero_situacao:"", documento:"", melhor_horario:"", portfolio_convidado:false, observacoes:"", ...(pedido||{}) }));
+  const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  async function enviar(e){ e.preventDefault(); setOcupado(true); setMsg(null);
+    try{ const r=await worker("/whatsapp/pedir",f); salvo(r.pedido); }catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(false); }
+  return (
+    <form className="card" onSubmit={enviar}>
+      <div className="between"><h3>Quero que conectem para mim</h3>{voltar && <button type="button" className="btn btn-ghost btn-sm" onClick={voltar}>Voltar</button>}</div>
+      <p className="small muted" style={{marginTop:0}}>Você faz só 2 passos rápidos na Meta (uns 5 minutos) e manda os dados abaixo. A gente faz o resto e te chama no horário que você escolher, só para você passar o código que chega por SMS.</p>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <ol className="passo small">
+        <li><b>Crie o portfólio empresarial</b> do seu negócio na Meta: abra <a href="https://business.facebook.com/overview" target="_blank" rel="noreferrer">business.facebook.com</a>, entre com seu Facebook e clique em <b>Criar conta</b> (nome do negócio, seu nome e email). Se já tiver, pule.</li>
+        <li><b>Convide o suporte como administrador:</b> em <a href="https://business.facebook.com/settings/people" target="_blank" rel="noreferrer">Configurações do negócio → Pessoas</a>, clique em <b>Adicionar</b> (ou Convidar pessoas), coloque o email abaixo e escolha <b>acesso total / administrador</b>. Assim a gente configura sem precisar da sua senha.<Copiar valor={SUPORTE_EMAIL}/></li>
+      </ol>
+      <div className="grid">
+        <div><label>Nome que os clientes vão ver *</label><input required value={f.nome_exibicao} onChange={set("nome_exibicao")}/></div>
+        <div><label>Número a conectar (com DDD) *</label><input required inputMode="tel" value={f.numero} onChange={set("numero")} placeholder="71 99999-0000"/></div>
+        <div><label>CPF ou CNPJ <span className="muted">(opcional)</span></label><input value={f.documento||""} onChange={set("documento")}/></div>
+        <div><label>Melhor dia e horário para receber o código *</label><input required value={f.melhor_horario||""} onChange={set("melhor_horario")} placeholder="ex.: dias úteis, de manhã"/></div>
+      </div>
+      <label>Esse número está no WhatsApp hoje? *</label>
+      {Object.entries(SITUACAO_NUMERO).map(([k,v])=><label key={k} className="row" style={{fontWeight:400,margin:"4px 0"}}><input type="radio" name="sit" style={{width:"auto"}} checked={f.numero_situacao===k} onChange={()=>setF({...f,numero_situacao:k})}/> {v}</label>)}
+      {f.numero_situacao==="em_uso" && <div className="msg warn" style={{cursor:"default",marginTop:6}}>Hoje o mesmo número não pode ficar ao mesmo tempo no aplicativo do WhatsApp e na assistente. O mais simples é usar um chip novo só para ela. Se preferir manter o número, mande assim mesmo que a gente conversa sobre as opções.</div>}
+      {f.numero_situacao==="apagar" && <div className="msg warn" style={{cursor:"default",marginTop:6}}>Antes da conexão, apague a conta do WhatsApp desse número (no app: Configurações → Conta → Apagar conta). As conversas antigas desse número somem do celular.</div>}
+      <label>Alguma observação?</label><textarea value={f.observacoes||""} onChange={set("observacoes")} style={{minHeight:60}}/>
+      <label className="row" style={{fontWeight:400,marginTop:12}}><input type="checkbox" style={{width:"auto"}} checked={!!f.portfolio_convidado} onChange={e=>setF({...f,portfolio_convidado:e.target.checked})}/> Já criei o portfólio e convidei o suporte como administrador</label>
+      <div className="row" style={{marginTop:14}}><button className="btn btn-primary" disabled={ocupado||!f.numero_situacao}>{ocupado?"Enviando…":"Enviar pedido"}</button></div>
+    </form>
+  );
+}
+
 function WhatsApp({conta, conectado}){
   const [st,setSt]=useState(null); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
   const [f,setF]=useState({phone_number_id:"",waba_id:"",access_token:"",app_secret:"",pin:""});
@@ -926,6 +961,30 @@ function WhatsApp({conta, conectado}){
     catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(false); }
   const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
   const tudoPronto = st?.conectado && st?.webhook_verificado_em && st?.ultima_mensagem_em;
+  const [pedido,setPedido]=useState(undefined); const [modo,setModo]=useState(null);   // null = escolher, "ajuda", "sozinho"
+  useEffect(()=>{ worker("/whatsapp/pedido").then(r=>setPedido(r.pedido)).catch(()=>setPedido(null)); },[]);
+  const STATUS_PEDIDO={ novo:"Recebemos seu pedido. Vamos te chamar no horário que você indicou para fazer a conexão.", "em andamento":"Estamos conectando seu WhatsApp. Fique de olho: vamos te pedir o código que chega por SMS.", concluido:"Conexão concluída.", cancelado:"Pedido cancelado." };
+
+  if(!st?.conectado && pedido===undefined) return <div className="card muted">Carregando…</div>;
+  if(!st?.conectado && modo==="ajuda") return <PedidoConexao conta={conta} pedido={pedido} salvo={(p)=>{ setPedido(p); setModo(null); setMsg({t:"ok",x:"Pedido enviado! A gente te chama no horário que você indicou."}); }} voltar={()=>setModo(null)}/>;
+  if(!st?.conectado && modo!=="sozinho") return (<>
+    <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+    {pedido && pedido.status!=="cancelado" && <div className="card"><h3>Seu pedido de conexão</h3>
+      <div className={"msg "+(pedido.status==="concluido"?"ok":"warn")} style={{cursor:"default"}}>{STATUS_PEDIDO[pedido.status]}</div>
+      <p className="small muted" style={{margin:0}}>Número {fmtTel(pedido.numero)} · melhor horário: {pedido.melhor_horario||"—"}{pedido.portfolio_convidado?"":" · lembre de convidar o suporte no portfólio da Meta"}</p>
+      <div className="row" style={{marginTop:10}}><button className="btn btn-ghost btn-sm" onClick={()=>setModo("ajuda")}>Editar pedido</button></div></div>}
+    {!pedido && <div className="card"><h3>Conectar o WhatsApp</h3>
+      <p className="small muted" style={{marginTop:0}}>A {conta.nome_assistente} atende pelo seu número usando a API oficial do WhatsApp (Meta). Escolha como prefere fazer:</p>
+      <div className="grid" style={{gap:12}}>
+        <div className="card" style={{margin:0}}><h3 style={{fontSize:15}}>Façam para mim <span className="pill ok">recomendado</span></h3>
+          <p className="small muted">Você faz 2 passos de 5 minutos na Meta, manda os dados e a gente conecta junto com você.</p>
+          <button className="btn btn-primary btn-sm" onClick={()=>setModo("ajuda")}>Quero ajuda</button></div>
+        <div className="card" style={{margin:0}}><h3 style={{fontSize:15}}>Vou fazer sozinho</h3>
+          <p className="small muted">Passo a passo completo no site da Meta. Leva uns 30 minutos, no computador.</p>
+          <button className="btn btn-ghost btn-sm" onClick={()=>setModo("sozinho")}>Ver o passo a passo</button></div>
+      </div></div>}
+    {pedido && <button className="btn btn-ghost btn-sm" onClick={()=>setModo("sozinho")}>Prefiro fazer sozinho: ver o passo a passo</button>}
+  </>);
 
   return (<>
     <div className="card">
@@ -1249,6 +1308,56 @@ function AdminConta({c, acao}){
   );
 }
 
+function AdminPedido({p, chamar}){
+  const [aberto,setAberto]=useState(false); const [dados,setDados]=useState(null);
+  const [f,setF]=useState({phone_number_id:"",waba_id:"",access_token:"",app_secret:"",pin:""}); const [nota,setNota]=useState(p.nota_admin||"");
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  async function abrir(){ setAberto(!aberto); if(!dados){ const r=await chamar("/admin/whatsapp/dados",{conta_id:p.conta_id},true); if(r) setDados(r); } }
+  const cor={ novo:"warn", "em andamento":"warn", concluido:"ok", cancelado:"" }[p.status];
+  return (
+    <div>
+      <div className="between">
+        <div><b>{p.conta}</b> <span className={"pill "+cor}>{p.status}</span>{p.whatsapp_conectado && <span className="pill ok">conectado {p.whatsapp_conectado}</span>}
+          <div className="small muted">{[p.email, `número ${fmtTel(p.numero)}`, `aparece como "${p.nome_exibicao}"`, p.documento && `doc. ${p.documento}`].filter(Boolean).join(" · ")}</div>
+          <div className="small muted">{SITUACAO_NUMERO[p.numero_situacao]} · melhor horário: {p.melhor_horario||"—"} · {p.portfolio_convidado ? "convidou você no portfólio" : <b style={{color:"var(--warn)"}}>ainda não convidou você no portfólio</b>} · pedido em {fmtDia(p.criado_em)}</div>
+          {p.observacoes && <div className="small">“{p.observacoes}”</div>}
+        </div>
+        <button className="btn btn-ghost btn-sm" onClick={abrir}>{aberto?"Fechar":"Fazer a conexão"}</button>
+      </div>
+      {aberto && <div className="card" style={{marginTop:10,background:"var(--surface)"}}>
+        <ol className="passo small">
+          <li>Aceite o convite que chegou no seu email e entre no portfólio de <b>{p.conta}</b> em <a href="https://business.facebook.com" target="_blank" rel="noreferrer">business.facebook.com</a> (troque de portfólio no menu do canto).</li>
+          <li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com</a>: <b>Criar app</b> → caso de uso <b>WhatsApp</b> → escolha o portfólio do corretor. Nome: <i>Dri {p.conta}</i>.</li>
+          <li><b>WhatsApp → Configuração da API → Adicionar número</b>: nome "{p.nome_exibicao}", categoria Imóveis, número {fmtTel(p.numero)}. Ligue para o corretor e peça o código. Copie o <b>ID do número</b> e o <b>ID da conta do WhatsApp Business</b>.</li>
+          <li><b>Usuários do sistema</b> (no portfólio do corretor) → Adicionar "Dri" administrador → Atribuir ativos (app e conta do WhatsApp, controle total) → <b>Gerar token</b>, validade Nunca, permissões <code>whatsapp_business_messaging</code> e <code>whatsapp_business_management</code>.</li>
+          <li>App → <b>Configurações → Básico</b>: copie a <b>chave secreta</b> e cole a política de privacidade:{dados && <Copiar valor={dados.privacidade}/>}</li>
+          <li>Preencha e clique em Conectar (o PIN de 6 números ativa o número; anote e passe ao corretor).</li>
+        </ol>
+        <div className="grid">
+          <div><label>ID do número</label><input value={f.phone_number_id} onChange={set("phone_number_id")}/></div>
+          <div><label>ID da conta do WhatsApp Business</label><input value={f.waba_id} onChange={set("waba_id")}/></div>
+          <div><label>Chave secreta do app</label><input value={f.app_secret} onChange={set("app_secret")} autoComplete="off"/></div>
+          <div><label>PIN (6 números)</label><input value={f.pin} onChange={set("pin")} maxLength={6}/></div>
+        </div>
+        <label>Token permanente</label><input type="password" value={f.access_token} onChange={set("access_token")} autoComplete="off"/>
+        <div style={{marginTop:10}}><button className="btn btn-primary btn-sm" onClick={async()=>{ const r=await chamar("/admin/whatsapp/conectar",{conta_id:p.conta_id,...f}); if(r) setF({...f,access_token:"",app_secret:""}); }}>Conectar</button></div>
+        <ol className="passo small" start={7} style={{marginTop:12}}>
+          <li>App → <b>WhatsApp → Configuração → Webhook → Editar</b>. URL de callback:{dados && <Copiar valor={dados.webhook_url}/>} Token de verificação:{dados && <Copiar valor={dados.verify_token}/>} Verificar e salvar; em <b>Campos do webhook</b>, ative <b>messages</b>.</li>
+          <li>Mude o app para <b>Ao vivo</b> (Publicar). Peça ao corretor para mandar um "oi" de outro celular.</li>
+        </ol>
+        {dados && <p className="small">Situação: {dados.status==="conectado"?"✅ dados conectados":"⬜ dados"} · {dados.webhook_verificado_em?"✅ webhook":"⬜ webhook"} · {dados.ultima_mensagem_em?"✅ primeira mensagem":"⬜ primeira mensagem"}</p>}
+        <label>Anotações</label><textarea value={nota} onChange={e=>setNota(e.target.value)} style={{minHeight:50}}/>
+        <div className="row" style={{marginTop:8}}>
+          <button className="btn btn-ghost btn-sm" onClick={()=>chamar("/admin/pedido",{id:p.id,nota_admin:nota})}>Salvar anotação</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>chamar("/admin/pedido",{id:p.id,status:"em andamento"})}>Em andamento</button>
+          <button className="btn btn-primary btn-sm" onClick={()=>chamar("/admin/pedido",{id:p.id,status:"concluido"})}>Concluído</button>
+          <button className="btn btn-bad btn-sm" onClick={()=>confirm("Cancelar este pedido?") && chamar("/admin/pedido",{id:p.id,status:"cancelado"})}>Cancelar</button>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
 function Admin(){
   const [d,setD]=useState(null); const [aba,setAba]=useState("geral"); const [msg,setMsg]=useState(null);
   const [filtro,setFiltro]=useState("todas"); const [busca,setBusca]=useState("");
@@ -1264,10 +1373,10 @@ function Admin(){
   const aPagar=d.comissoes.filter(c=>c.status==="a pagar"||c.status==="em análise");
   const naoLidos=d.avisos.filter(a=>!a.lido).length;
   const contas=d.contas.filter(c=>(filtro==="todas"||c.status===filtro) && (!busca || `${c.nome} ${c.email} ${c.cidade}`.toLowerCase().includes(busca.toLowerCase())));
-  const abas=[["geral","Visão geral"],["contas",`Corretores (${n.contas})`],["comissoes","Comissões"],["parceiros","Parceiros"],["valores","Valores"]];
+  const abas=[["geral","Visão geral"],["contas",`Corretores (${n.contas})`],["conexoes","Conexões"],["comissoes","Comissões"],["parceiros","Parceiros"],["valores","Valores"]];
   return <>
     <div className="tabs">{abas.map(([k,t])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{t}
-      {k==="geral"&&naoLidos>0&&<span className="badge">{naoLidos}</span>}{k==="comissoes"&&aPagar.length>0&&<span className="badge">{aPagar.length}</span>}</button>)}</div>
+      {k==="geral"&&naoLidos>0&&<span className="badge">{naoLidos}</span>}{k==="comissoes"&&aPagar.length>0&&<span className="badge">{aPagar.length}</span>}{k==="conexoes"&&n.pedidos_conexao>0&&<span className="badge">{n.pedidos_conexao}</span>}</button>)}</div>
     <Aviso msg={msg} limpar={()=>setMsg(null)}/>
 
     {aba==="geral" && <>
@@ -1298,6 +1407,13 @@ function Admin(){
         <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, email ou cidade" style={{flex:1,minWidth:200}}/>
       </div>
       {!contas.length ? <p className="muted">Nenhum corretor aqui.</p> : <div className="list">{contas.map(c=><AdminConta key={c.id} c={c} acao={acao}/>)}</div>}
+    </div>}
+
+    {aba==="conexoes" && <div className="card">
+      <h3>Pedidos de conexão do WhatsApp</h3>
+      <p className="small muted" style={{marginTop:0}}>Corretores que pediram para você conectar o WhatsApp. O passo a passo completo está em <code>dri-imoveis/CONECTAR-WHATSAPP.md</code>.</p>
+      {!d.pedidos.length ? <p className="muted">Nenhum pedido ainda.</p> :
+      <div className="list">{d.pedidos.map(p=><AdminPedido key={p.id} p={p} chamar={chamar}/>)}</div>}
     </div>}
 
     {aba==="comissoes" && <div className="card">

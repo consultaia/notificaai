@@ -2,6 +2,7 @@
 // cobrança, parceiros divulgadores (PIX por adesão) e valores do plano. Tudo passa pelo Worker (service role).
 import { lerConfig, situacao, enviarAvisoCobranca, textoAvisoCobranca } from "./cobranca.js";
 import { normalizarCodigo, linkDoParceiro, codigoReservado } from "./parceiros.js";
+import { prepararConexao, conectarWhatsApp } from "./conexao.js";
 
 const DIA = 24 * 3600e3;
 const inicioDoMes = (agora) => {
@@ -108,12 +109,14 @@ export async function rotaAdmin(rota, corpo, { env, db, url, agora = new Date() 
     const aprovados = t.pagamentos.filter((p) => p.status === "aprovado" && p.pago_em >= ini);
     const conta = (s) => contas.filter((c) => c.status === s).length;
     const { data: avisos } = await db.from("avisos_admin").select("*").order("criado_em", { ascending: false }).limit(30);
+    const { data: pedidos } = await db.from("pedidos_conexao").select("*").order("criado_em", { ascending: false });
     return {
       config: t.cfg,
       numeros: {
         contas: contas.length, teste: conta("teste"), ativas: conta("ativa"), atrasadas: conta("atrasada"),
         pausadas: conta("pausada"), canceladas: conta("cancelada"), cortesia: conta("cortesia"),
         whatsapp_conectados: contas.filter((c) => c.whatsapp).length,
+        pedidos_conexao: (pedidos || []).filter((p) => ["novo", "em andamento"].includes(p.status)).length,
         receita_recorrente: Math.round(contas.filter((c) => c.status === "ativa").reduce((s, c) => s + Number(c.valor_mensal ?? t.cfg.preco_mensal), 0) * 100) / 100,
         recebido_mes: soma(aprovados, "valor"),
         comissoes_a_pagar: soma(t.comissoes.filter((c) => c.status === "a pagar"), "valor"),
@@ -123,6 +126,10 @@ export async function rotaAdmin(rota, corpo, { env, db, url, agora = new Date() 
         ia_mensagens_mes: soma(t.uso, "mensagens"), ia_tokens_mes: soma(t.uso, "tokens_entrada") + soma(t.uso, "tokens_saida"),
       },
       contas, parceiros: montarParceiros(t, contas, site), comissoes: montarComissoes(t), avisos: avisos || [],
+      pedidos: (pedidos || []).map((p) => {
+        const c = contas.find((x) => x.id === p.conta_id);
+        return { ...p, conta: c?.nome || "?", email: c?.email || null, whatsapp_conectado: c?.whatsapp || null };
+      }),
     };
   }
 
@@ -211,6 +218,31 @@ export async function rotaAdmin(rota, corpo, { env, db, url, agora = new Date() 
     const r = await db.from("comissoes").update({ status, pago_em: status === "pago" ? agora.toISOString() : null }).eq("id", String(corpo.id || "")).select();
     if (r.error || !r.data?.length) return { erro: "Comissão não encontrada.", status: 404 };
     return { ok: status === "pago" ? "Comissão marcada como paga." : status === "cancelada" ? "Comissão cancelada." : corpo.acao === "aprovar" ? "Comissão aprovada: agora está a pagar." : "Comissão voltou para a pagar." };
+  }
+
+  // Conexão assistida: o administrador conecta o WhatsApp pelo corretor
+  if (rota === "POST /admin/pedido") {
+    const status = ["novo", "em andamento", "concluido", "cancelado"].includes(corpo.status) ? corpo.status : null;
+    const campos = { atualizado_em: agora.toISOString(), ...(status ? { status } : {}), ...(corpo.nota_admin != null ? { nota_admin: String(corpo.nota_admin).slice(0, 1000) } : {}) };
+    const r = await db.from("pedidos_conexao").update(campos).eq("id", String(corpo.id || "")).select();
+    if (r.error || !r.data?.length) return { erro: "Pedido não encontrado.", status: 404 };
+    return { ok: "Pedido atualizado." };
+  }
+  if (rota === "POST /admin/whatsapp/dados") {
+    const { data: conta } = await db.from("contas").select("id,nome").eq("id", String(corpo.conta_id || "")).maybeSingle();
+    if (!conta) return { erro: "Conta não encontrada.", status: 404 };
+    const c = await prepararConexao(db, conta.id);
+    return { webhook_url: `${url}/webhook/${c.webhook_chave}`, verify_token: c.verify_token, privacidade: `${site}/privacidade`,
+      status: c.status, numero: c.numero_exibicao, webhook_verificado_em: c.webhook_verificado_em, ultima_mensagem_em: c.ultima_mensagem_em };
+  }
+  if (rota === "POST /admin/whatsapp/conectar") {
+    const id = String(corpo.conta_id || "");
+    const { data: conta } = await db.from("contas").select("id").eq("id", id).maybeSingle();
+    if (!conta) return { erro: "Conta não encontrada.", status: 404 };
+    const r = await conectarWhatsApp(env, db, id, corpo);
+    if (r.erro) return { erro: r.erro, status: 400 };
+    await db.from("pedidos_conexao").update({ status: "em andamento", atualizado_em: agora.toISOString() }).eq("conta_id", id).eq("status", "novo");
+    return { ok: `Conectado: ${r.numero}${r.nome ? ` (${r.nome})` : ""}. Falta o webhook e publicar o app.` };
   }
 
   if (rota === "POST /admin/avisos/lidos") {

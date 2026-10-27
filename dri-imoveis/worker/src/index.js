@@ -38,13 +38,14 @@ import { transcrever } from "./audio.js";
 import { lerBook } from "./catalogo.js";
 import { provedoresAtivos, validarChave, PROVEDORES, autotestar, claudePrincipal } from "./ia.js";
 import {
-  lerConfig, situacaoDaConta, ehAdmin, criarAssinatura, webhookValido, processarAvisoMP, atualizarPausas,
+  lerConfig, situacaoDaConta, ehAdmin, criarAssinatura, webhookValido, processarAvisoMP, atualizarPausas, avisarAdmin,
 } from "./cobranca.js";
 import { rotaAdmin } from "./admin.js";
+import { prepararConexao, conectarWhatsApp } from "./conexao.js";
 import { aderir, resumoDoParceiro, linkDoParceiro } from "./parceiros.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, enviarDocumento, marcarLida,
-  lerNumero, assinarWaba, registrarNumero, baixarMidia,
+  lerNumero, baixarMidia,
 } from "./whatsapp.js";
 
 const ESPERA_MS = 3500;          // junta mensagens picadas ("oi" / "tudo bem?" / "vi o anúncio")
@@ -86,20 +87,6 @@ async function conexaoDaConta(db, contaId) {
   if (!c.data?.phone_number_id || !s.data?.access_token || c.data.status !== "conectado") return null;
   return { ...c.data, token: s.data.access_token };
 }
-
-const aleatorio = (bytes) => [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-// Endereço de webhook e token de verificação da conta (criados uma vez)
-async function prepararConexao(db, contaId) {
-  const { data } = await db.from("whatsapp_conexoes").select("*").eq("conta_id", contaId).maybeSingle();
-  if (data?.webhook_chave && data?.verify_token) return data;
-  const novo = { conta_id: contaId, webhook_chave: aleatorio(16), verify_token: aleatorio(12) };
-  const r = await db.from("whatsapp_conexoes").upsert(novo, { onConflict: "conta_id" }).select().single();
-  if (r.error) throw new Error(r.error.message);
-  return r.data;
-}
-
-const soNumeros = (v) => String(v || "").replace(/\D/g, "");
 
 export default {
   // Autoteste diário das IAs (cron em wrangler.toml): avisa por email se alguma caiu ou trocou de modelo
@@ -267,34 +254,30 @@ export default {
           return json(env, { ...base, conectado: false, erro: `O token parou de funcionar: ${e.message}` });
         }
       }
+      if (rota === "POST /whatsapp/pedido") {
+        const { data } = await db.from("pedidos_conexao").select("*").eq("conta_id", conta.id).maybeSingle();
+        return json(env, { pedido: data || null });
+      }
+      if (rota === "POST /whatsapp/pedir") {
+        const txt = (v, n = 200) => String(v || "").trim().slice(0, n) || null;
+        const numero = String(corpo.numero || "").replace(/\D/g, "");
+        if (!txt(corpo.nome_exibicao)) return json(env, { error: "Diga o nome que os clientes vão ver no WhatsApp." }, 400);
+        if (numero.length < 10) return json(env, { error: "Informe o número com DDD." }, 400);
+        if (!["livre", "apagar", "em_uso"].includes(corpo.numero_situacao)) return json(env, { error: "Diga se o número está no WhatsApp hoje." }, 400);
+        const linha = {
+          conta_id: conta.id, nome_exibicao: txt(corpo.nome_exibicao, 120), numero, numero_situacao: corpo.numero_situacao,
+          documento: txt(corpo.documento, 30), melhor_horario: txt(corpo.melhor_horario), portfolio_convidado: corpo.portfolio_convidado === true,
+          observacoes: txt(corpo.observacoes, 1000), status: "novo", atualizado_em: new Date().toISOString(),
+        };
+        const r = await db.from("pedidos_conexao").upsert(linha, { onConflict: "conta_id" }).select().single();
+        if (r.error) throw new Error(r.error.message);
+        await avisarAdmin(env, db, "Pedido de conexão do WhatsApp",
+          `${conta.nome} pediu ajuda para conectar o WhatsApp ${numero}${linha.portfolio_convidado ? " (já convidou você no portfólio da Meta)" : " (ainda não convidou você no portfólio da Meta)"}. Melhor horário: ${linha.melhor_horario || "não informado"}. Veja a aba Conexões do admin.`);
+        return json(env, { pedido: r.data });
+      }
       if (rota === "POST /whatsapp/conectar") {
-        const phone_number_id = soNumeros(corpo.phone_number_id), waba_id = soNumeros(corpo.waba_id);
-        const access_token = String(corpo.access_token || "").trim(), app_secret = String(corpo.app_secret || "").trim().toLowerCase();
-        const pin = soNumeros(corpo.pin);
-        if (!phone_number_id || !waba_id || !access_token || !app_secret)
-          return json(env, { error: "Preencha os quatro campos: ID do número, ID da conta do WhatsApp Business, token e chave secreta do app." }, 400);
-        if (!/^[a-f0-9]{32}$/.test(app_secret))
-          return json(env, { error: "A chave secreta do app tem 32 letras e números (de 0 a 9 e de a a f). Confira em Configurações do app → Básico." }, 400);
-        if (corpo.pin && pin.length !== 6) return json(env, { error: "O PIN precisa ter 6 números." }, 400);
-        await prepararConexao(db, conta.id);
-
-        let numero;
-        try { numero = await lerNumero(env, access_token, phone_number_id); }
-        catch (e) { return json(env, { error: `A Meta não aceitou o token ou o ID do número: ${e.message}. Confira se copiou o ID do número (não o número de telefone) e se o token tem as permissões whatsapp_business_messaging e whatsapp_business_management.` }, 400); }
-        try { await assinarWaba(env, access_token, waba_id); }
-        catch (e) { return json(env, { error: `Não consegui ligar a conta do WhatsApp Business ao seu app: ${e.message}. Confira o ID da conta (WABA) e se o usuário do sistema tem acesso a ela.` }, 400); }
-        if (pin) {
-          try { await registrarNumero(env, access_token, phone_number_id, pin); }
-          catch (e) { return json(env, { error: `Não consegui ativar o número na API: ${e.message}. Se o número já tinha verificação em duas etapas, use o mesmo PIN.` }, 400); }
-        }
-        const r1 = await db.from("whatsapp_conexoes").update({
-          phone_number_id, waba_id, numero_exibicao: numero.display_phone_number || null, detalhe: numero.verified_name || null,
-          status: "conectado", conectado_em: new Date().toISOString(),
-        }).eq("conta_id", conta.id);
-        if (r1.error) return json(env, { error: r1.error.code === "23505" ? "Esse número já está ligado a outra conta da Dri." : r1.error.message }, 400);
-        const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: conta.id, access_token, app_secret, atualizado_em: new Date().toISOString() });
-        if (r2.error) throw new Error(r2.error.message);
-        return json(env, { ok: true, numero: numero.display_phone_number, nome: numero.verified_name });
+        const r = await conectarWhatsApp(env, db, conta.id, corpo);
+        return r.erro ? json(env, { error: r.erro }, 400) : json(env, r);
       }
       if (rota === "POST /importar/analisar") {
         const paginas = Array.isArray(corpo.paginas) ? corpo.paginas.slice(0, 300) : [];

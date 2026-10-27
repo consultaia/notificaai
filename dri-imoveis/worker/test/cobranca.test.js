@@ -14,6 +14,10 @@ globalThis.fetch = async (url, init) => {
     const r = mpRespostas[`${init?.method || "GET"} ${caminho}`] ?? mpRespostas[caminho];
     return new Response(JSON.stringify(r ?? { message: "not found" }), { status: r ? 200 : 404 });
   }
+  if (u.startsWith("https://graph.facebook.com/")) {
+    if (u.includes("?fields=")) return new Response(JSON.stringify({ display_phone_number: "+55 71 98888-0000", verified_name: "Carlos Imóveis" }));
+    return new Response(JSON.stringify({ success: true }));
+  }
   throw new Error("fetch inesperado " + u);
 };
 const { situacao, webhookValido, processarAvisoMP, atualizarPausas, criarAssinatura } = await import("../src/cobranca.js");
@@ -214,4 +218,25 @@ test("o próprio parceiro se indicando com outra conta fica em análise", async 
   await processarAvisoMP({ MERCADOPAGO_ACCESS_TOKEN: "t" }, db, { tipo: "subscription_authorized_payment", id: "980" }, agora);
   assert.equal(db.tabelas.comissoes[0].status, "em análise");
   assert.match(db.tabelas.comissoes[0].motivo, /próprio parceiro/);
+});
+
+test("conexão assistida: corretor pede, administrador vê o pedido e conecta pelo corretor", async () => {
+  const { db, chamar } = montarWorker();
+  Object.assign(db.tabelas, { pedidos_conexao: [], whatsapp_conexoes: [], whatsapp_segredos: [] });
+  assert.equal((await chamar("tok-u1", "/whatsapp/pedir", { nome_exibicao: "Carlos Imóveis", numero: "71 9888" })).status, 400);
+  const p = await chamar("tok-u1", "/whatsapp/pedir", { nome_exibicao: "Carlos Imóveis", numero: "(71) 98888-0000", numero_situacao: "livre", portfolio_convidado: true, melhor_horario: "manhã" });
+  assert.equal(p.status, 200);
+  assert.match(db.tabelas.avisos_admin.at(-1).texto, /já convidou você/);
+  assert.equal((await chamar("tok-u1", "/admin/whatsapp/conectar", { conta_id: "c1" })).status, 403, "só o administrador");
+
+  const r = await chamar("tok-admin", "/admin/resumo");
+  assert.equal(r.j.pedidos[0].conta, "Carlos Andrade");
+  assert.equal(r.j.numeros.pedidos_conexao, 1);
+  const d = await chamar("tok-admin", "/admin/whatsapp/dados", { conta_id: "c1" });
+  assert.match(d.j.webhook_url, /^https:\/\/dri\.test\/webhook\/[a-f0-9]{32}$/);
+  const c = await chamar("tok-admin", "/admin/whatsapp/conectar", { conta_id: "c1", phone_number_id: "111", waba_id: "222", access_token: "tok", app_secret: "a".repeat(32) });
+  assert.equal(c.status, 200, JSON.stringify(c.j));
+  assert.equal(db.tabelas.whatsapp_conexoes[0].status, "conectado");
+  assert.equal(db.tabelas.pedidos_conexao[0].status, "em andamento");
+  assert.equal((await chamar("tok-u1", "/whatsapp/pedido")).j.pedido.status, "em andamento");
 });

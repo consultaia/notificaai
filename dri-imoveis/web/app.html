@@ -150,7 +150,12 @@ function Login(){
         const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split("#")[0] }); if(error) throw error;
         setMsg({t:"ok",x:"Se o email estiver cadastrado, você vai receber um link para criar uma senha nova."});
       }
-    }catch(err){ setMsg({t:"bad",x: /Invalid login/i.test(err.message) ? "Email ou senha incorretos." : err.message}); }
+    }catch(err){
+      if(/not confirmed/i.test(err.message)){
+        await sb.auth.resend({ type:"signup", email, options:{ emailRedirectTo: location.href.split("#")[0] } }).catch(()=>{});
+        setModo("entrar"); setMsg({t:"bad",x:"Seu email ainda não foi confirmado. Mandamos o link de novo para "+email+": abra o email mais recente, clique no link e depois entre aqui."});
+      } else setMsg({t:"bad",x: /Invalid login/i.test(err.message) ? "Email ou senha incorretos." : /already registered/i.test(err.message) ? "Este email já tem conta. Clique em Já tenho conta para entrar." : err.message});
+    }
     setOcupado(false);
   }
   return (

@@ -18,6 +18,6 @@ crons = ["0 11 * * *"]
 [vars]
 GRAPH_VERSION = "v23.0"
 IA_ORDEM = "gemini,groq,cerebras"
-# PAINEL_URL = "https://SEU-PAINEL/app.html"
-# PAINEL_ORIGEM = "https://SEU-PAINEL"
+PAINEL_URL = "https://dri-imoveis.pages.dev/app"
+PAINEL_ORIGEM = "https://dri-imoveis.pages.dev"
 # ALERTA_EMAIL = "voce@exemplo.com"   # recebe o aviso se uma IA cair ou trocar de modelo

@@ -14,6 +14,7 @@
   const SUPABASE_URL = "https://xmqmnmyejkfpmniljkbt.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_N4_V_kGwI9hkN8VAk8xDKg_bP5DcG3r";  // chave pública (pode ficar no código)
   const WORKER_URL = "https://dri-imoveis.janan-almeida.workers.dev";
+  const SUPORTE_EMAIL = "janan.almeida@gmail.com";   // botão "Pedir ajuda" do passo do WhatsApp
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
@@ -291,6 +292,39 @@ async function subirFotos(conta, itens){
   return urls;
 }
 const LIMITE_BOOK = 50*1024*1024;
+const PDFLIB = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+function carregarPdfLib(){
+  if(window.PDFLib) return Promise.resolve(window.PDFLib);
+  return new Promise((ok,erro)=>{ const s=document.createElement("script"); s.src=PDFLIB;
+    s.onload=()=>ok(window.PDFLib); s.onerror=()=>erro(new Error("Não consegui carregar o compressor de PDF.")); document.head.appendChild(s); });
+}
+// Página do PDF em JPEG de até 1400 px (fundo branco: JPEG não tem transparência)
+async function paginaEmJpeg(pg, qualidade){
+  const vp1=pg.getViewport({scale:1}); const vp=pg.getViewport({scale:Math.min(2.5,1400/vp1.width)});
+  const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+  const ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,c.width,c.height);
+  await pg.render({ canvasContext:ctx, viewport:vp }).promise;
+  return { canvas:c, blob: await new Promise(ok=>c.toBlob(ok,"image/jpeg",qualidade)), largura:vp1.width, altura:vp1.height };
+}
+// Refaz o book com as páginas em imagem otimizada: fica bem menor, chega mais rápido no celular do cliente
+// e gasta menos transferência. Se não ficar pelo menos 20% menor (ou der erro), guarda o original.
+async function comprimirBook(arquivo, paginas, progresso){
+  try{
+    let pags = paginas?.every(p=>p.blob && p.largura) ? paginas : null;
+    if(!pags){
+      const lib=await carregarPdfJs(); const pdf=await lib.getDocument({ data: await arquivo.arrayBuffer() }).promise; pags=[];
+      for(let n=1;n<=pdf.numPages;n++){ progresso && progresso(`Comprimindo o book: página ${n} de ${pdf.numPages}…`);
+        const pg=await pdf.getPage(n); const { blob, largura, altura } = await paginaEmJpeg(pg, 0.8); pags.push({ blob, largura, altura }); pg.cleanup(); }
+    }
+    progresso && progresso("Comprimindo o book…");
+    const { PDFDocument } = await carregarPdfLib(); const doc = await PDFDocument.create();
+    for(const p of pags){ const img=await doc.embedJpg(await p.blob.arrayBuffer());
+      doc.addPage([p.largura,p.altura]).drawImage(img,{ x:0, y:0, width:p.largura, height:p.altura }); }
+    const bytes = await doc.save();
+    if(bytes.length > arquivo.size*0.8) return arquivo;
+    return new File([bytes], arquivo.name, { type:"application/pdf" });
+  }catch(e){ console.warn("compressão do book", e); return arquivo; }
+}
 async function subirBook(conta, arquivo){
   if(!arquivo || arquivo.size>LIMITE_BOOK) return null;
   const caminho=`${conta.id}/${crypto.randomUUID()}.pdf`;
@@ -401,7 +435,9 @@ function FormEmpreendimento({conta, existentes, inicial, paginas, arquivoBook, f
       const plantasUrl = [];
       for(const p of f.plantas) plantasUrl.push((await subirFotos(conta, p.planta))[0]||null);
       let book_url=f.book_url;
-      if(book){ setOcupado("Guardando o book…"); book_url = (await subirBook(conta, book)) || book_url; }
+      let reducao="";
+      if(book){ const leve = await comprimirBook(book, paginas, setOcupado); setOcupado("Guardando o book…"); book_url = (await subirBook(conta, leve)) || book_url;
+        if(leve!==book) reducao=` Book comprimido de ${(book.size/1048576).toFixed(1)} MB para ${(leve.size/1048576).toFixed(1)} MB.`; }
       setOcupado("Salvando…");
       const emp=f.empreendimento.trim();
       const linhas=f.plantas.map((p,i)=>({ conta_id:conta.id, titulo:`${emp} · ${p.nome.trim()}`, finalidade:f.finalidade, tipo:f.tipo,
@@ -416,7 +452,7 @@ function FormEmpreendimento({conta, existentes, inicial, paginas, arquivoBook, f
       if(novas.length){ const { error } = await sb.from("imoveis").insert(novas); if(error) throw error; }
       const removidas=(existentes||[]).map(l=>l.id).filter(id=>!f.plantas.some(p=>p.id===id));
       for(const id of removidas) await sb.from("imoveis").delete().eq("id",id);
-      salvo(`${emp}: ${linhas.length} ${linhas.length===1?"planta salva":"plantas salvas"}.${book && !book_url?" O PDF passou de 50 MB e não foi guardado para envio.":""}`);
+      salvo(`${emp}: ${linhas.length} ${linhas.length===1?"planta salva":"plantas salvas"}.${book && !book_url?" O PDF passou de 50 MB mesmo comprimido e não foi guardado para envio.":reducao}`);
     }catch(err){ setMsg({t:"bad",x:err.message}); }
     setOcupado("");
   }
@@ -484,8 +520,8 @@ function FormEmpreendimento({conta, existentes, inicial, paginas, arquivoBook, f
         </div></>}
 
       <h3 style={{fontSize:15,marginTop:18}}>Book (PDF)</h3>
-      <p className="small muted" style={{marginTop:0}}>Opcional. A assistente manda para o cliente quando ele pede. Até 50 MB.</p>
-      {book ? <p className="small">{book.name} ({(book.size/1048576).toFixed(1)} MB){book.size>LIMITE_BOOK && <span style={{color:"var(--warn)"}}> · grande demais para guardar</span>}</p>
+      <p className="small muted" style={{marginTop:0}}>Opcional. A assistente manda para o cliente quando ele pede. Ao salvar, o PDF é comprimido para chegar rápido no celular do cliente (até 50 MB depois de comprimido).</p>
+      {book ? <p className="small">{book.name} ({(book.size/1048576).toFixed(1)} MB){book.size>8*1048576 && <span className="muted"> · será comprimido ao salvar</span>}</p>
         : f.book_url ? <p className="small"><a href={f.book_url} target="_blank" rel="noreferrer">Abrir o book atual</a></p> : null}
       <label className="btn btn-ghost btn-sm" style={{margin:0}}>{book||f.book_url?"Trocar PDF":"Anexar PDF"}<input type="file" accept="application/pdf" hidden onChange={e=>{ const a=e.target.files[0]; e.target.value=""; if(a) setBook(a); }}/></label>
 
@@ -519,12 +555,9 @@ function ImportarBook({conta, fechar, pronto}){
         const pg = await pdf.getPage(n);
         const tc = await pg.getTextContent();
         const texto = tc.items.map(i=>i.str).join(" ").replace(/\s+/g," ").trim();
-        const vp1 = pg.getViewport({scale:1}); const escala = Math.min(2.5, 1400/vp1.width);
-        const vp = pg.getViewport({scale:escala}); const c=document.createElement("canvas"); c.width=Math.round(vp.width); c.height=Math.round(vp.height);
-        await pg.render({ canvasContext:c.getContext("2d"), viewport:vp }).promise;
-        const blob = await new Promise(ok=>c.toBlob(ok,"image/jpeg",0.82));
+        const { canvas:c, blob, largura, altura } = await paginaEmJpeg(pg, 0.82);
         const t=document.createElement("canvas"); t.width=260; t.height=Math.round(260*c.height/c.width); t.getContext("2d").drawImage(c,0,0,t.width,t.height);
-        lidas.push({ n, texto, blob, mini:t.toDataURL("image/jpeg",0.7) });
+        lidas.push({ n, texto, blob, largura, altura, mini:t.toDataURL("image/jpeg",0.7) });
         pg.cleanup();
       }
       setProg("A IA está lendo o book…"); setFase("analisando");
@@ -974,6 +1007,10 @@ function WhatsApp({conta, conectado}){
         <li>Opcional: no <a href="https://business.facebook.com/wa/manage/" target="_blank" rel="noreferrer">Gerenciador do WhatsApp</a>, em Pagamentos, cadastre um cartão. Responder clientes é grátis; a Meta só cobra centavos quando a empresa escreve primeiro.</li>
       </ol>
       <p className="small muted" style={{marginBottom:0}}>Travou em algum passo? A Situação lá em cima mostra o que falta. Se aparecer erro da Meta ao conectar, a mensagem diz qual dado conferir.</p></div>
+
+    <div className="card"><div className="between"><div><h3 style={{marginBottom:4}}>Precisa de ajuda?</h3>
+      <p className="small muted" style={{margin:0}}>A gente faz a conexão junto com você, por chamada de vídeo. Conte em qual passo travou.</p></div>
+      <a className="btn btn-ghost btn-sm" href={`mailto:${SUPORTE_EMAIL}?subject=${encodeURIComponent("Ajuda para conectar o WhatsApp")}&body=${encodeURIComponent(`Olá! Sou ${conta.nome} e travei no passo: `)}`}>Pedir ajuda</a></div></div>
   </>);
 }
 

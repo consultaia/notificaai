@@ -4,7 +4,7 @@
 -- Somente ADITIVO, seguro com o sistema em uso:
 --   * nao apaga nem altera nenhum dado existente;
 --   * so acrescenta 4 colunas em notifications e cria as tabelas experiencia_paciente,
---     videos_educacao e capacitacao_respostas;
+--     videos_educacao, capacitacao_respostas, capacitacao_participantes e capacitacao_config;
 --   * pode ser executado mais de uma vez.
 --
 -- Como rodar: Supabase > SQL Editor > New query > colar este arquivo > Run.
@@ -81,8 +81,10 @@ create table if not exists public.capacitacao_respostas (
   percentual smallint,
   respostas jsonb,             -- {id_da_questao: {"e": alternativa, "c": acertou}}
   duracao_seg integer,
-  versao text
+  versao text,
+  participante_id uuid
 );
+alter table public.capacitacao_respostas add column if not exists participante_id uuid;
 create index if not exists capacitacao_hosp_idx on public.capacitacao_respostas (hospital_id, modulo, created_at);
 -- Qualquer profissional envia pelo link; ninguem altera ou apaga pela chave publica.
 alter table public.capacitacao_respostas enable row level security;
@@ -90,5 +92,37 @@ drop policy if exists capacitacao_insere on public.capacitacao_respostas;
 create policy capacitacao_insere on public.capacitacao_respostas for insert with check (true);
 drop policy if exists capacitacao_le on public.capacitacao_respostas;
 create policy capacitacao_le on public.capacitacao_respostas for select using (true);
+
+-- 5. Cadastro de quem faz a capacitacao + progresso (continuar de onde parou) ----
+create table if not exists public.capacitacao_participantes (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz default now(),
+  hospital_id text not null default 'hnsa',
+  codigo text not null,        -- 6 caracteres; continua em outro aparelho
+  nome text not null,
+  setor text,
+  profissao text,
+  progresso jsonb              -- {modulo: {etapa, resp, pct, cert...}}
+);
+create unique index if not exists capacitacao_part_codigo_idx on public.capacitacao_participantes (hospital_id, codigo);
+alter table public.capacitacao_participantes enable row level security;
+drop policy if exists capacitacao_part_tudo on public.capacitacao_participantes;
+create policy capacitacao_part_tudo on public.capacitacao_participantes for all using (true) with check (true);
+
+-- 6. Assinaturas do certificado (imagem PNG + nome + cargo), uma linha por instituicao
+create table if not exists public.capacitacao_config (
+  hospital_id text primary key,
+  assinatura text,             -- imagem em data URL (PNG transparente, ~30 KB)
+  assinante_nome text,
+  assinante_cargo text,
+  assinatura2 text,
+  assinante2_nome text,
+  assinante2_cargo text,
+  updated_at timestamptz default now()
+);
+alter table public.capacitacao_config enable row level security;
+drop policy if exists capacitacao_config_tudo on public.capacitacao_config;
+create policy capacitacao_config_tudo on public.capacitacao_config for all using (true) with check (true);
 
 commit;

@@ -99,6 +99,13 @@
     } catch (e) { }
     experiencia();
     capacitacao();
+    var svgAss = '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="110" viewBox="0 0 360 110"><path d="M10 78 C 30 20, 55 20, 50 70 S 80 95, 95 50 S 120 20, 128 62 C 133 85, 150 85, 160 55 C 168 32, 180 40, 176 66 C 173 86, 196 84, 210 52 C 222 26, 240 30, 236 64 C 233 88, 262 80, 275 50 C 285 30, 300 34, 305 58 C 309 76, 330 70, 350 40" fill="none" stroke="#1a2a6c" stroke-width="3.2" stroke-linecap="round"/><path d="M40 92 L 320 86" stroke="#1a2a6c" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+    DB.capacitacao_config = [{ hospital_id: HID, assinatura: 'data:image/svg+xml;base64,' + btoa(svgAss), assinante_nome: 'Dra. Helena Exemplo', assinante_cargo: 'Diretora Técnica', assinatura2: null, assinante2_nome: 'Enf. Coordenação NSP', assinante2_cargo: 'Núcleo de Segurança do Paciente', updated_at: new Date().toISOString() }];
+    DB.capacitacao_participantes = [];
+    ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves'].forEach(function (n, i) {
+      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: 'Enfermeiro(a)',
+        progresso: i % 3 === 0 ? { lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 } } } : { queda: { etapa: 'resultado', pct: 88, cert: { pct: 88, data: '01/10/2026' } } } });
+    });
     DB.videos_educacao = [
       { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
       { id: uuid(), created_at: diasAtras(10).toISOString(), hospital_id: HID, subnucleo: 'queda', titulo: 'Prevenção de quedas no hospital', url: 'https://www.youtube.com/watch?v=QPADgajXCxg', descricao: 'Para pacientes e acompanhantes.', publico: 'pacientes', ordem: 0, ativo: true, criado_por: 'gestor' }

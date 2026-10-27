@@ -3,8 +3,8 @@
 --
 -- Somente ADITIVO, seguro com o sistema em uso:
 --   * nao apaga nem altera nenhum dado existente;
---   * so acrescenta 4 colunas em notifications e cria as tabelas experiencia_paciente
---     e videos_educacao;
+--   * so acrescenta 4 colunas em notifications e cria as tabelas experiencia_paciente,
+--     videos_educacao e capacitacao_respostas;
 --   * pode ser executado mais de uma vez.
 --
 -- Como rodar: Supabase > SQL Editor > New query > colar este arquivo > Run.
@@ -66,5 +66,29 @@ create index if not exists videos_educacao_hosp_idx on public.videos_educacao (h
 alter table public.videos_educacao enable row level security;
 drop policy if exists videos_educacao_tudo on public.videos_educacao;
 create policy videos_educacao_tudo on public.videos_educacao for all using (true) with check (true);
+
+-- 4. Capacitacao online: resultado do questionario autoavaliativo por protocolo --
+create table if not exists public.capacitacao_respostas (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  hospital_id text not null default 'hnsa',
+  modulo text not null,        -- id do protocolo/subnucleo (identificacao, queda...)
+  nome text not null,
+  setor text,
+  profissao text,
+  acertos smallint,
+  total smallint,
+  percentual smallint,
+  respostas jsonb,             -- {id_da_questao: {"e": alternativa, "c": acertou}}
+  duracao_seg integer,
+  versao text
+);
+create index if not exists capacitacao_hosp_idx on public.capacitacao_respostas (hospital_id, modulo, created_at);
+-- Qualquer profissional envia pelo link; ninguem altera ou apaga pela chave publica.
+alter table public.capacitacao_respostas enable row level security;
+drop policy if exists capacitacao_insere on public.capacitacao_respostas;
+create policy capacitacao_insere on public.capacitacao_respostas for insert with check (true);
+drop policy if exists capacitacao_le on public.capacitacao_respostas;
+create policy capacitacao_le on public.capacitacao_respostas for select using (true);
 
 commit;

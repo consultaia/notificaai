@@ -98,6 +98,7 @@
       }
     } catch (e) { }
     experiencia();
+    capacitacao();
     DB.videos_educacao = [
       { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
       { id: uuid(), created_at: diasAtras(10).toISOString(), hospital_id: HID, subnucleo: 'queda', titulo: 'Prevenção de quedas no hospital', url: 'https://www.youtube.com/watch?v=QPADgajXCxg', descricao: 'Para pacientes e acompanhantes.', publico: 'pacientes', ordem: 0, ativo: true, criado_por: 'gestor' }
@@ -112,6 +113,21 @@
       var bom = rnd() < 0.78, r = function () { var x = rnd(); return bom ? (x < 0.82 ? 2 : x < 0.95 ? 1 : 0) : (x < 0.45 ? 2 : x < 0.75 ? 1 : 0); };
       DB.experiencia_paciente.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 300)).toISOString(), hospital_id: HID, perfil: rnd() < 0.55 ? 'acompanhante' : 'paciente', setor: rnd() < 0.85 ? pick(SETORES.slice(0, 3)) : null,
         q_identificacao: r(), q_maos: rnd() < 0.1 ? null : r(), q_informacao: r(), q_escuta: r(), q_seguranca: r(), nota: bom ? 8 + Math.floor(rnd() * 3) : 4 + Math.floor(rnd() * 5), comentario: rnd() < 0.3 ? pick(coments) : null });
+    }
+  }
+
+  // capacitação online: respostas fictícias dos questionários (algumas questões mais difíceis)
+  function capacitacao() {
+    DB.capacitacao_respostas = [];
+    var mods = { identificacao: 'ident', medicamentos: 'med', queda: 'queda', lpp: 'lpp', cirurgia: 'cir', comunicacao: 'com', ccih: 'maos' };
+    var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62 };
+    var profs = ['Enfermeiro(a)', 'Técnico(a) ou auxiliar de enfermagem', 'Técnico(a) ou auxiliar de enfermagem', 'Médico(a)', 'Fisioterapeuta', 'Farmacêutico(a)'];
+    var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
+    for (var i = 0; i < 64; i++) {
+      var mod = pick(Object.keys(mods)), pre = mods[mod], nome = pick(nomes), resp = {}, ac = 0, setor = SETORES[nomes.indexOf(nome) % SETORES.length];
+      for (var q = 1; q <= 8; q++) { var id = pre + '_' + q, p = dificeis[id] || 0.88, c = rnd() < p; if (c) ac++; resp[id] = { e: c ? 0 : 1 + Math.floor(rnd() * 3), c: c }; }
+      DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 200)).toISOString(), hospital_id: HID, modulo: mod, nome: nome, setor: setor, profissao: profs[nomes.indexOf(nome) % profs.length],
+        acertos: ac, total: 8, percentual: Math.round(ac / 8 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.1' });
     }
   }
 

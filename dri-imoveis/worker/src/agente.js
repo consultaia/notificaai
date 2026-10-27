@@ -41,6 +41,7 @@ Como conduzir:
 - Para marcar visita: consulte horarios_visita, ofereça 2 ou 3 horários, confirme o nome da pessoa e use marcar_visita com o horário exato devolvido pela ferramenta. Depois confirme dia, hora e endereço.
 - Para remarcar ou cancelar, use visitas_do_cliente e cancelar_visita, depois marque o novo horário.
 - Guarde o que a pessoa procura com salvar_perfil_cliente assim que souber (ajuda o corretor).
+- Novidades: uma vez por conversa, num momento natural (depois de ajudar, ao se despedir ou quando não houver imóvel que sirva agora), pergunte se a pessoa quer receber novidades e lançamentos por aqui. Registre a resposta com registrar_novidades. Não insista se ela disser não, e não pergunte de novo se o cabeçalho disser que ela já respondeu. Se a pessoa pedir para não receber mais mensagens, registre "não" e confirme com gentileza.
 
 Quando a pessoa quer vender ou alugar o imóvel DELA (proprietário):
 - Isso é ótimo para o corretor: receba com entusiasmo e explique que você vai anotar algumas informações para o ${conta.tipo === "imobiliaria" ? "corretor" : conta.nome.split(" ")[0]} avaliar e entrar em contato.
@@ -159,6 +160,14 @@ const FERRAMENTAS = [
         melhor_horario: { type: "string", description: "Quando o corretor pode ligar ou visitar" },
         finalizar: { type: "boolean", description: "true quando já tiver o essencial; avisa o corretor" },
       },
+    },
+  },
+  {
+    name: "registrar_novidades",
+    description: "Guarda se a pessoa aceita receber novidades e lançamentos do corretor por WhatsApp (campanhas). Só registre o que a pessoa disse claramente.",
+    input_schema: {
+      type: "object", additionalProperties: false, required: ["aceita"],
+      properties: { aceita: { type: "boolean" } },
     },
   },
   {
@@ -330,6 +339,11 @@ async function executar(nome, input, ctx) {
         .filter(([k]) => cap[k] == null || cap[k] === "").map(([, rotulo]) => rotulo);
       return { ok: true, fotos_recebidas: (cap.fotos || []).length, ainda_falta: faltam, corretor_avisado: !!(finalizar || cap.completa) };
     }
+    case "registrar_novidades": {
+      await db.from("conversas").update({ novidades: input.aceita ? "sim" : "nao", novidades_em: new Date().toISOString() })
+        .eq("conta_id", conta.id).eq("telefone", ctx.telefone);
+      return { ok: true, aviso: input.aceita ? "Anotado. Agradeça e diga que vai avisar quando tiver novidade." : "Anotado: ela não recebe campanhas." };
+    }
     case "chamar_corretor": {
       await db.from("conversas").update({ precisa_corretor: true, motivo: input.motivo })
         .eq("conta_id", conta.id).eq("telefone", ctx.telefone);
@@ -397,7 +411,7 @@ export async function responder(ctx, textosDoCliente) {
   }
   const { data: lead } = await db.from("leads").select("perfil").eq("conta_id", conta.id).eq("telefone", ctx.telefone).maybeSingle();
 
-  const cabecalho = `[${descreverAgora(ctx.agora)}, horário de Brasília${ctx.nome && !conversa.mensagens.length ? ` · nome no WhatsApp: ${ctx.nome}` : ""}]`;
+  const cabecalho = `[${descreverAgora(ctx.agora)}, horário de Brasília${ctx.nome && !conversa.mensagens.length ? ` · nome no WhatsApp: ${ctx.nome}` : ""}${conversa.novidades ? ` · já respondeu se quer novidades (${conversa.novidades})` : ""}]${ctx.contexto ? `\n${ctx.contexto}` : ""}`;
   const mensagens = encurtarHistorico(conversa.mensagens, lead?.perfil);
   mensagens.push({ role: "user", content: `${cabecalho}\n${textosDoCliente.join("\n")}` });
   const sistema = promptSistema(conta);

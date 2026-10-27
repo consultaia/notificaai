@@ -1159,6 +1159,102 @@ function Onboarding({conta, setConta}){
   );
 }
 
+// ======================================================================== campanhas
+const STATUS_CAMP = { "aguardando aprovação":"warn", agendada:"", enviando:"warn", enviada:"ok", recusada:"", cancelada:"", erro:"" };
+const QUALIDADE = { GREEN:["ok","boa"], YELLOW:["warn","atenção: muitos clientes bloquearam ou denunciaram. Envie menos e só para quem pediu"], RED:["warn","baixa: pare as campanhas por uns dias para não perder o número"] };
+const LIMITE = { TIER_50:"50", TIER_250:"250", TIER_1K:"1.000", TIER_10K:"10.000", TIER_100K:"100.000", TIER_UNLIMITED:"sem limite" };
+
+function NovaCampanha({conta, fechar, criada}){
+  const [f,setF]=useState({ nome:"", texto:"", botao:"Quero saber mais", dias:"", palavra:"", quando:"agora", data:"" });
+  const [imagem,setImagem]=useState([]); const [qtd,setQtd]=useState(null); const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState("");
+  const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
+  useEffect(()=>{ const t=setTimeout(()=>worker("/campanhas/publico",{filtro:{dias:f.dias,palavra:f.palavra}}).then(setQtd).catch(()=>{}),400); return ()=>clearTimeout(t); },[f.dias,f.palavra]);
+  async function criar(e){ e.preventDefault(); setMsg(null);
+    try{
+      setOcupado("Enviando a imagem…"); const [imagem_url] = imagem.length ? await subirFotos(conta, imagem) : [];
+      setOcupado("Mandando para a Meta aprovar…");
+      const r = await worker("/campanhas/criar",{ nome:f.nome, texto:f.texto, botao:f.botao, imagem_url, filtro:{dias:f.dias,palavra:f.palavra},
+        agendada_para: f.quando==="depois" && f.data ? new Date(f.data).toISOString() : null });
+      criada(r.campanha);
+    }catch(err){ setMsg({t:"bad",x:err.message}); } setOcupado(""); }
+  const primeiro="Ana";
+  return (
+    <form className="card" onSubmit={criar}>
+      <div className="between"><h3>Nova campanha</h3><button type="button" className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <div className="conv" style={{gridTemplateColumns:"1fr minmax(240px,320px)"}}>
+        <div>
+          <label>Nome da campanha <span className="muted">(só você vê)</span></label><input required value={f.nome} onChange={set("nome")} placeholder="ex.: Lançamento Jardins da Pituba"/>
+          <label>Imagem</label><Fotos itens={imagem} onChange={setImagem} rotulo={imagem.length?"Trocar imagem":"Escolher imagem"} unica/>
+          <label>Mensagem *</label><textarea required maxLength={900} value={f.texto} onChange={set("texto")} placeholder="ex.: Acabou de chegar na minha carteira o Residencial Jardins, na Pituba: 2 e 3 quartos com suíte, a partir de R$ 520 mil. Quer que eu te mande as plantas?"/>
+          <div className="small muted">{f.texto.length}/900 · o "Olá, (nome)!" entra sozinho no começo</div>
+          <label>Texto do botão</label><input maxLength={25} value={f.botao} onChange={set("botao")}/>
+          <div className="grid">
+            <div><label>Quem recebe</label><select value={f.dias} onChange={set("dias")}><option value="">Todos que aceitaram novidades</option><option value="30">Conversaram nos últimos 30 dias</option><option value="90">Conversaram nos últimos 90 dias</option></select></div>
+            <div><label>Interesse contém <span className="muted">(opcional)</span></label><input value={f.palavra} onChange={set("palavra")} placeholder="ex.: Pituba, 3 quartos, aluguel"/></div>
+          </div>
+          <p className="small" style={{margin:"6px 0 0"}}>{qtd ? <><b>{qtd.disponiveis}</b> pessoa(s) vão receber{qtd.recentes>0 && <span className="muted"> · {qtd.recentes} ficaram de fora porque receberam outra campanha nos últimos 7 dias</span>}</> : "Contando…"}</p>
+          <label>Quando enviar</label>
+          <div className="row"><label className="row" style={{fontWeight:400,margin:0}}><input type="radio" style={{width:"auto"}} checked={f.quando==="agora"} onChange={()=>setF({...f,quando:"agora"})}/> Assim que a Meta aprovar</label>
+            <label className="row" style={{fontWeight:400,margin:0}}><input type="radio" style={{width:"auto"}} checked={f.quando==="depois"} onChange={()=>setF({...f,quando:"depois"})}/> Agendar</label>
+            {f.quando==="depois" && <input type="datetime-local" required value={f.data} onChange={set("data")} style={{width:"auto"}}/>}</div>
+        </div>
+        <div>
+          <label>Como o cliente vê</label>
+          <div className="phone"><div className="hd">{conta.nome}</div><div className="bd" style={{height:"auto",minHeight:200}}>
+            <div className="b dri">{imagem[0] && <img src={imagem[0].preview} alt=""/>}<Zap texto={`Olá, ${primeiro}! ${f.texto||"Sua mensagem aparece aqui."}`}/>
+              <div className="small muted" style={{marginTop:6}}>Responda SAIR para não receber mais.</div></div>
+            <div className="b dri" style={{textAlign:"center",color:"var(--wa)"}}>{f.botao||"Quero saber mais"}</div>
+            <div className="b dri" style={{textAlign:"center",color:"var(--wa)"}}>Não quero receber</div>
+          </div></div>
+        </div>
+      </div>
+      <ul className="small muted" style={{lineHeight:1.6,paddingLeft:18}}>
+        <li>A Meta aprova cada campanha antes do envio (de minutos a algumas horas). Os envios acontecem das 8h às 20h.</li>
+        <li>Só recebe quem disse para a {conta.nome_assistente} que aceita novidades. Quem responder "SAIR" sai da lista na hora.</li>
+        <li>Quem responder cai na {conta.nome_assistente}, que continua a conversa sabendo de qual campanha a pessoa veio.</li>
+        <li>A Meta cobra alguns centavos por mensagem entregue, no cartão cadastrado na sua conta do WhatsApp (Gerenciador do WhatsApp → Pagamentos).</li>
+      </ul>
+      <button className="btn btn-primary" disabled={!!ocupado || !qtd?.disponiveis}>{ocupado || "Criar campanha"}</button>
+    </form>
+  );
+}
+
+function Campanhas({conta}){
+  const [d,setD]=useState(null); const [nova,setNova]=useState(false); const [msg,setMsg]=useState(null);
+  const ler=()=>worker("/campanhas/listar").then(setD).catch(e=>setMsg({t:"bad",x:e.message}));
+  useEffect(()=>{ ler(); const t=setInterval(ler,30000); return ()=>clearInterval(t); },[]);
+  if(!d) return <div className="card">{msg ? <Aviso msg={msg}/> : <span className="muted">Carregando…</span>}</div>;
+  if(nova) return <NovaCampanha conta={conta} fechar={()=>setNova(false)} criada={()=>{ setNova(false); setMsg({t:"ok",x:"Campanha criada! Assim que a Meta aprovar, ela começa a sair no horário escolhido."}); ler(); }}/>;
+  const q = d.saude?.qualidade && QUALIDADE[d.saude.qualidade];
+  return (<>
+    <div className="card">
+      <div className="between"><h3>Campanhas no WhatsApp</h3>{d.conectado && <button className="btn btn-primary btn-sm" disabled={!d.disponiveis} onClick={()=>setNova(true)}>Nova campanha</button>}</div>
+      <Aviso msg={msg} limpar={()=>setMsg(null)}/>
+      <p className="small muted" style={{marginTop:0}}>Mande uma imagem com mensagem para os clientes que aceitaram receber novidades: lançamento, imóvel novo na carteira, condição especial. Quem responder continua a conversa com a {conta.nome_assistente}.</p>
+      {!d.conectado ? <div className="msg warn" style={{cursor:"default"}}>Conecte o WhatsApp (aba WhatsApp) para usar as campanhas.</div> : <>
+        <div className="tiles" style={{marginBottom:0}}>
+          <div className="tile"><div className="l">Aceitaram novidades</div><div className="v">{d.aceitaram}</div></div>
+          <div className="tile"><div className="l">Podem receber agora</div><div className="v">{d.disponiveis}</div></div>
+          {d.saude?.limite && <div className="tile"><div className="l">Limite do número (pessoas/dia)</div><div className="v">{LIMITE[d.saude.limite]||d.saude.limite}</div></div>}
+        </div>
+        {q && <div className={"msg "+q[0]} style={{cursor:"default",marginTop:12}}>Qualidade do seu número: {q[1]}.</div>}
+        {!d.aceitaram && <p className="small muted">Ninguém aceitou ainda: a {conta.nome_assistente} pergunta aos clientes no fim do atendimento se querem receber novidades.</p>}
+      </>}
+    </div>
+    {d.campanhas.length>0 && <div className="card"><h3>Suas campanhas</h3>
+      <div className="list">{d.campanhas.map(c=><div key={c.id} className="between">
+        <div style={{display:"flex",gap:10,alignItems:"center"}}>{c.imagem_url && <img src={c.imagem_url} alt="" style={{width:56,height:56,objectFit:"cover",borderRadius:8}}/>}
+          <div><b>{c.nome}</b> <span className={"pill "+(STATUS_CAMP[c.status]||"")}>{c.status}</span>
+            <div className="small muted">{c.status==="enviada"||c.status==="enviando" ? `${c.enviadas} de ${c.total} enviadas · ${c.entregues} entregues · ${c.lidas} lidas · ${c.respostas} responderam${c.falhas?` · ${c.falhas} falharam`:""}`
+              : `${c.total} pessoa(s) · ${new Date(c.agendada_para)>new Date()?`agendada para ${fmtDT(c.agendada_para)}`:"sai assim que aprovada"}`}</div>
+            {c.status==="recusada" && <div className="small" style={{color:"var(--warn)"}}>A Meta recusou ({c.motivo}). Ajuste o texto (sem promessas exageradas nem tudo em maiúsculas) e crie de novo.</div>}
+          </div></div>
+        {["aguardando aprovação","agendada","enviando"].includes(c.status) && <button className="btn btn-bad btn-sm" onClick={async()=>{ if(!confirm("Cancelar esta campanha?")) return; try{ await worker("/campanhas/cancelar",{id:c.id}); ler(); }catch(e){ setMsg({t:"bad",x:e.message}); } }}>Cancelar</button>}
+      </div>)}</div></div>}
+  </>);
+}
+
 // ======================================================================== assinatura
 const fmtDia = (iso)=> iso ? new Date(iso).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",timeZone:"America/Bahia"}) : "—";
 const reais = (v)=> v==null ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
@@ -1482,7 +1578,7 @@ function Painel({conta, setConta}){
   const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0); const [capNovas,setCapNovas]=useState(0);
   useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0));
     sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova").then(r=>setCapNovas(r.count||0)); },[aba]);
-  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["parceiro","Indique e ganhe"],["perfil","Perfil"]];
+  const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["campanhas","Campanhas"],["parceiro","Indique e ganhe"],["perfil","Perfil"]];
   return <>
     <div className="tabs">{abas.map(([k,n])=><button key={k} className={aba===k?"on":""} onClick={()=>setAba(k)}>{n}{k==="conversas"&&pend>0&&<span className="badge">{pend}</span>}{k==="captacoes"&&capNovas>0&&<span className="badge">{capNovas}</span>}</button>)}</div>
     {aba==="inicio" && <Inicio conta={conta} irPara={setAba}/>}
@@ -1493,6 +1589,7 @@ function Painel({conta, setConta}){
     {aba==="testar" && <Simulador conta={conta}/>}
     {aba==="ia" && <IA conta={conta}/>}
     {aba==="whatsapp" && <WhatsApp conta={conta}/>}
+    {aba==="campanhas" && <Campanhas conta={conta}/>}
     {aba==="parceiro" && <Parceiro conta={conta}/>}
     {aba==="perfil" && <Perfil conta={conta} salvo={setConta}/>}
   </>;

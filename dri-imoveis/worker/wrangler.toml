@@ -11,9 +11,9 @@ class_name = "Conversa"
 tag = "v1"
 new_sqlite_classes = ["Conversa"]
 
-# Autoteste das IAs todo dia às 8h (Brasília)
+# Autoteste das IAs e pausas da cobrança todo dia às 8h (Brasília); campanhas a cada 5 min
 [triggers]
-crons = ["0 11 * * *"]
+crons = ["0 11 * * *", "*/5 * * * *"]   # diário: autoteste e pausas · 5 min: campanhas
 
 [vars]
 GRAPH_VERSION = "v23.0"

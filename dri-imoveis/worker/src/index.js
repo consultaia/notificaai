@@ -20,6 +20,10 @@
 //   POST /assinatura/assinar    cria a assinatura no Mercado Pago e devolve o link de pagamento
 //   POST /parceiro/status       link e comissões do corretor que é parceiro
 //   POST /parceiro/aderir       corretor aceita ser parceiro (chave PIX) e recebe o link
+//   POST /campanhas/listar      campanhas da conta, público que aceitou novidades e saúde do número
+//   POST /campanhas/publico     quantas pessoas recebem com o filtro escolhido
+//   POST /campanhas/criar       cria a campanha (modelo de marketing na Meta) para enviar agora ou depois
+//   POST /campanhas/cancelar    cancela uma campanha que ainda não terminou
 //   POST /admin/…               área do administrador (ADMIN_EMAILS): ver admin.js
 //
 // Cada corretor usa o próprio app da Meta (não precisa de Tech Provider): cada conta tem
@@ -42,6 +46,9 @@ import {
 } from "./cobranca.js";
 import { rotaAdmin } from "./admin.js";
 import { prepararConexao, conectarWhatsApp } from "./conexao.js";
+import {
+  criarCampanha, rodarCampanhas, atualizarStatusEnvios, tratarResposta, extrairStatus, publicoDa, saudeDoNumero,
+} from "./campanhas.js";
 import { aderir, resumoDoParceiro, linkDoParceiro } from "./parceiros.js";
 import {
   assinaturaValida, extrairMensagens, enviarTexto, enviarImagem, enviarDocumento, marcarLida,
@@ -90,7 +97,12 @@ async function conexaoDaConta(db, contaId) {
 
 export default {
   // Autoteste diário das IAs (cron em wrangler.toml): avisa por email se alguma caiu ou trocou de modelo
-  async scheduled(_evento, env, ctx) {
+  // A cada 5 min: aprovação e envio das campanhas. Uma vez por dia: autoteste das IAs e pausas da cobrança.
+  async scheduled(evento, env, ctx) {
+    if (evento.cron === "*/5 * * * *") {
+      ctx.waitUntil(rodarCampanhas(env, banco(env)).then((r) => console.log("campanhas", JSON.stringify(r)), (e) => console.error("campanhas", e)));
+      return;
+    }
     ctx.waitUntil(avisarAutoteste(env));
     ctx.waitUntil(atualizarPausas(env, banco(env)).catch((e) => console.error("pausas", e)));
   },
@@ -127,8 +139,11 @@ export default {
           const { data: segredo } = await db.from("whatsapp_segredos").select("app_secret").eq("conta_id", conexao.conta_id).maybeSingle();
           if (!(await assinaturaValida(segredo?.app_secret, bruto, req.headers.get("x-hub-signature-256"))))
             return new Response("assinatura inválida", { status: 401 });
-          const msgs = extrairMensagens(JSON.parse(bruto))
+          const payload = JSON.parse(bruto);
+          const msgs = extrairMensagens(payload)
             .filter((m) => !conexao.phone_number_id || m.phoneNumberId === conexao.phone_number_id);
+          const statuses = extrairStatus(payload);
+          if (statuses.length) ctx.waitUntil(atualizarStatusEnvios(db, statuses).catch((e) => console.error("status", e)));
           if (msgs.length) {
             ctx.waitUntil(Promise.all([
               db.from("whatsapp_conexoes").update({ ultima_mensagem_em: new Date().toISOString() }).eq("conta_id", conexao.conta_id),
@@ -252,6 +267,30 @@ export default {
         } catch (e) {
           await db.from("whatsapp_conexoes").update({ status: "erro", detalhe: e.message }).eq("conta_id", conta.id);
           return json(env, { ...base, conectado: false, erro: `O token parou de funcionar: ${e.message}` });
+        }
+      }
+      if (rota.startsWith("POST /campanhas/")) {
+        const conexao = await conexaoDaConta(db, conta.id);
+        if (rota === "POST /campanhas/listar") {
+          const [{ data: campanhas }, publico, saude] = await Promise.all([
+            db.from("campanhas").select("*").eq("conta_id", conta.id).order("criado_em", { ascending: false }).limit(50),
+            publicoDa(db, conta.id, {}),
+            conexao ? saudeDoNumero(env, conexao) : null,
+          ]);
+          return json(env, { campanhas: campanhas || [], aceitaram: publico.contatos.length + publico.recentes, disponiveis: publico.contatos.length, conectado: !!conexao, saude });
+        }
+        if (rota === "POST /campanhas/publico") {
+          const p = await publicoDa(db, conta.id, corpo.filtro || {});
+          return json(env, { disponiveis: p.contatos.length, recentes: p.recentes });
+        }
+        if (rota === "POST /campanhas/criar") {
+          const r = await criarCampanha(env, db, conta, conexao, corpo);
+          return r.erro ? json(env, { error: r.erro }, 400) : json(env, r);
+        }
+        if (rota === "POST /campanhas/cancelar") {
+          const r = await db.from("campanhas").update({ status: "cancelada", atualizado_em: new Date().toISOString() })
+            .eq("id", String(corpo.id || "")).eq("conta_id", conta.id).in("status", ["aguardando aprovação", "agendada", "enviando"]).select();
+          return r.data?.length ? json(env, { ok: true }) : json(env, { error: "Essa campanha não pode mais ser cancelada." }, 400);
         }
       }
       if (rota === "POST /whatsapp/pedido") {
@@ -497,6 +536,14 @@ export class Conversa {
       enviarFoto: (u, legenda) => enviarImagem(env, conexao, telefone, u, legenda),
       enviarArquivo: (u, nomeArquivo, legenda) => enviarDocumento(env, conexao, telefone, u, nomeArquivo, legenda),
     };
+    // Resposta a campanha: "SAIR" tira da lista (sem IA); senão a IA sabe de qual campanha a pessoa veio
+    const campanha = await tratarResposta(db, contaId, telefone, textos).catch(() => ({}));
+    if (campanha.sair) {
+      await marcarLida(env, conexao, fila[fila.length - 1].id, false);
+      await enviarTexto(env, conexao, telefone, "Pronto, você não vai mais receber novidades por aqui. Se precisar de alguma coisa, é só chamar! 🙂").catch(() => {});
+      return registrarSemResponder(ctx, textos);
+    }
+    ctx.contexto = campanha.contexto || null;
     const { data: conversa } = await db.from("conversas").select("precisa_corretor")
       .eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
     // com o corretor no comando, só marca como lida (sem "digitando…")

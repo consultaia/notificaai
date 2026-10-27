@@ -7,6 +7,19 @@ import { PROVEDORES, provedoresAtivos } from "./ia.js";
 const LIMITE_TEXTO = 60_000;   // caracteres de texto do PDF enviados para a IA
 const LIMITE_IMAGENS = 12;
 
+// Os mesmos nomes dos botões de características do painel (web/app.html)
+const CARACTERISTICAS_PADRAO = ["piscina", "piscina infantil", "playground", "brinquedoteca", "churrasqueira", "espaço gourmet",
+  "salão de festas", "salão de jogos", "academia", "quadra poliesportiva", "quadra de areia", "sauna", "espaço pet", "pista de cooper",
+  "rooftop", "cinema", "coworking", "bicicletário", "portaria 24h", "câmeras de segurança", "elevador", "gerador", "minimercado",
+  "lavanderia", "vaga para visitantes", "carregador de carro elétrico", "coleta seletiva", "varanda", "varanda gourmet", "suíte master",
+  "closet", "armários planejados", "área de serviço", "dependência completa", "nascente", "vista mar", "mobiliado", "ar-condicionado", "aceita pet"];
+
+// "Bicicletários", "Coleta seletiva de lixo" → nome do botão; repetidos saem
+function padronizarCaracteristica(c) {
+  const b = c.toLowerCase().replace(/\s+/g, " ");
+  return CARACTERISTICAS_PADRAO.find((p) => b === p || b === `${p}s` || b === `${p} de lixo`) || c;
+}
+
 // Campos sempre presentes (vazio = "" ou 0), para a saída estruturada ficar simples
 const ESQUEMA = {
   type: "object", additionalProperties: false,
@@ -49,6 +62,7 @@ const INSTRUCOES = `Você recebe o conteúdo de um book (PDF de divulgação) de
 Extraia os dados para cadastro. Regras:
 - Use só o que está no book. Não invente preço, área, endereço ou data. Campo sem informação: "" ou 0.
 - "Imagem meramente ilustrativa" e textos legais não são características.
+- Características: quando o item for um destes, ou equivaler a um deles, use exatamente o nome da lista (ex.: "espaço fitness" → "academia", "play kids" → "playground", "salão de festas gourmet" → "salão de festas"): ${CARACTERISTICAS_PADRAO.join(", ")}. Não repita o mesmo item com outro nome. O que não tiver equivalente entra com nome curto. Itens técnicos (lâmpadas LED, economizadores de água) não entram.
 - Cada planta/tipologia diferente vira um item em "plantas", com a página onde a planta aparece.
 - Responda em português do Brasil.`;
 
@@ -76,7 +90,7 @@ function normalizar(d, totalPaginas) {
     situacao: ["lançamento", "na planta", "em obras", "pronto"].includes(d.situacao) ? d.situacao : null,
     previsao_entrega: txt(d.previsao_entrega), programa: txt(d.programa),
     preco_a_partir: num(d.preco_a_partir), descricao: txt(d.descricao),
-    caracteristicas: (d.caracteristicas || []).map(txt).filter(Boolean).slice(0, 30),
+    caracteristicas: [...new Set((d.caracteristicas || []).map(txt).filter(Boolean).map(padronizarCaracteristica))].slice(0, 30),
     vagas: Number.isInteger(d.vagas) && d.vagas > 0 ? d.vagas : null,
     plantas: (d.plantas || []).slice(0, 20).map((p) => ({
       nome: txt(p.nome) || "Planta", quartos: Number.isInteger(p.quartos) && p.quartos > 0 ? p.quartos : null,

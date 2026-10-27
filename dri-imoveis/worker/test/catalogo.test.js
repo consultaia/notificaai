@@ -32,7 +32,7 @@ const respostaBoa = {
   empreendimento: "Residencial Jardim Exemplo", construtora: "Construtora Exemplo", finalidade: "venda", tipo: "apartamento",
   bairro: "Imbuí", cidade: "Salvador, BA", endereco: "Rua das Flores, 100 - Imbuí", situacao: "lançamento", previsao_entrega: "",
   programa: "", preco_a_partir: 0, descricao: "Apartamentos de 2 e 3 quartos com suíte e varanda no Imbuí.",
-  caracteristicas: ["piscina com borda infinita", "academia", "  ", "portaria 24h"], vagas: 0,
+  caracteristicas: ["piscina com borda infinita", "academia", "  ", "portaria 24h", "Bicicletários", "Coleta seletiva de lixo", "Academia"], vagas: 0,
   plantas: [
     { nome: "3/4 com suíte e varanda (Tipo A)", quartos: 3, suites: 1, area_m2: 70, varanda: true, pagina: 25 },
     { nome: "2/4 com suíte e varanda (Tipo B)", quartos: 2, suites: 1, area_m2: 60, varanda: true, pagina: 99 },
@@ -49,7 +49,9 @@ test("lê o book com a Claude em saída estruturada e limpa o resultado", async 
   assert.equal(d.empreendimento, "Residencial Jardim Exemplo");
   assert.equal(d.preco_a_partir, null, "sem preço no book: fica vazio, não zero");
   assert.equal(d.previsao_entrega, null);
-  assert.deepEqual(d.caracteristicas, ["piscina com borda infinita", "academia", "portaria 24h"]);
+  assert.deepEqual(d.caracteristicas, ["piscina com borda infinita", "academia", "portaria 24h", "bicicletário", "coleta seletiva"],
+    "plural e variações viram o nome do botão do painel, sem repetir");
+  assert.match(pedidoClaude.system, /"espaço fitness" → "academia"/);
   assert.equal(d.plantas[1].pagina, null, "página que não existe no PDF é descartada");
   assert.deepEqual(d.paginas_fotos, [1, 5], "páginas repetidas e fora do PDF somem");
 });

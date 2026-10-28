@@ -1,2 +1,10 @@
 node_modules
 dist/
+
+# Editor de video: gravacoes e saidas nao vao para o Git
+video/projetos/**/*.mp4
+video/projetos/**/*.mov
+video/projetos/**/*.wav
+video/projetos/**/*.mp3
+video/projetos/**/*.m4a
+video/projetos/**/saida/

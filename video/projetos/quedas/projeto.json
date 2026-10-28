@@ -1,0 +1,25 @@
+{
+  "titulo": "Prevenção de quedas",
+  "subtitulo": "Dicas para pacientes e acompanhantes",
+  "rotulo": "Segurança do paciente",
+  "titulo_capa": "Como evitar quedas",
+  "instituicao": "Hospital Naval de Salvador · Núcleo de Segurança do Paciente",
+  "apresentador": {"nome": "Seu nome", "cargo": "Núcleo de Segurança do Paciente"},
+  "link": "notificaai.ia.br/hnsa",
+  "qr": "https://notificaai.ia.br/hnsa",
+  "chamada_final": "Viu algo errado? Notifique.",
+  "cor": "#0D9488",
+  "cor_destaque": "#FFD400",
+  "cor_fundo": "#06101F",
+  "cor_fundo2": "#0D3B66",
+  "trilha": "",
+  "volume_trilha": 0.15,
+  "formatos": ["horizontal", "vertical"],
+  "blocos": [
+    {"arquivo": "01.mp4", "texto": "Uma queda no hospital pode causar fratura e atrasar a sua alta. A boa notícia: ela pode ser evitada."},
+    {"arquivo": "02.mp4", "texto": "Na internação, a equipe avalia seu risco de queda. A cor da pulseira mostra o resultado: verde, risco baixo; amarela, risco moderado; vermelha, risco alto.", "apoio": [{"arquivo": "apoio-pulseiras.mp4", "inicio": 3.0, "duracao": 4.0}]},
+    {"arquivo": "03.mp4", "texto": "Para levantar, sente primeiro na beira da cama e espere alguns segundos. Use a campainha para pedir ajuda, principalmente à noite e para ir ao banheiro. Use calçado fechado e antiderrapante."},
+    {"arquivo": "04.mp4", "texto": "Acompanhante: mantenha as grades da cama elevadas, deixe os objetos ao alcance e não deixe o paciente com risco levantar sozinho. Ao sair do quarto, avise a enfermagem."},
+    {"arquivo": "05.mp4", "texto": "A cor da pulseira não é rótulo: é cuidado personalizado. Viu uma situação de risco, como piso molhado? Notifique."}
+  ]
+}

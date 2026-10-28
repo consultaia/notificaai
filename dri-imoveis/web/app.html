@@ -100,6 +100,10 @@ const parceiroDoLink = ()=>{ try{ return localStorage.getItem("dri_parceiro")||u
 const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const DIAS = ["Domingo","Segunda","Terça","Quarta","Quinta","Sexta","Sábado"];
+// "a Dri" / "o Pedro": artigos e pronomes conforme o gênero escolhido para a assistente no perfil
+const G = (c)=> c?.genero_assistente==="masculino"
+  ? { a:"o", A:"O", da:"do", na:"no", "à":"ao", pela:"pelo", ela:"ele", Ela:"Ele", x:"o" }
+  : { a:"a", A:"A", da:"da", na:"na", "à":"à", pela:"pela", ela:"ela", Ela:"Ela", x:"a" };
 const brl = (v)=> v==null||v==="" ? "—" : Number(v).toLocaleString("pt-BR",{style:"currency",currency:"BRL",maximumFractionDigits:0});
 const fmtDT = (iso)=> new Date(iso).toLocaleString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:"America/Bahia"});
 const fmtTel = (t)=>{ const d=String(t||"").replace(/\D/g,""); if(d.length===13) return `(${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`; if(d.length===12) return `(${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
@@ -196,15 +200,15 @@ function NovaSenha({fim}){
 // ======================================================================== perfil
 function Perfil({conta, salvo, botao="Salvar"}){
   const [f,setF]=useState(()=>({ nome:"", tipo:"corretor", creci:"", cidade:"", whatsapp_pessoal:"", email_notificacao:"",
-    nome_assistente:"Dri", apresentacao:"", duracao_visita_min:60, antecedencia_min_horas:2, avisar_capacidade:true, ...(conta||{}) }));
+    nome_assistente:"Dri", genero_assistente:"feminino", apresentacao:"", duracao_visita_min:60, antecedencia_min_horas:2, avisar_capacidade:true, ...(conta||{}) }));
   const [msg,setMsg]=useState(null); const [ocupado,setOcupado]=useState(false);
   const set=(k)=>(e)=>setF({...f,[k]:e.target.value});
   async function salvar(e){
     e.preventDefault(); setOcupado(true); setMsg(null);
     const { data:{ user } } = await sb.auth.getUser();
     const linha = { nome:f.nome.trim(), tipo:f.tipo, creci:f.creci||null, cidade:f.cidade||null,
-      whatsapp_pessoal:f.whatsapp_pessoal.replace(/\D/g,"")||null, email_notificacao:f.email_notificacao||user.email,
-      nome_assistente:f.nome_assistente.trim()||"Dri", apresentacao:f.apresentacao||null,
+      whatsapp_pessoal:String(f.whatsapp_pessoal||"").replace(/\D/g,"")||null, email_notificacao:f.email_notificacao||user.email,
+      nome_assistente:String(f.nome_assistente||"").trim()||"Dri", genero_assistente:f.genero_assistente==="masculino"?"masculino":"feminino", apresentacao:f.apresentacao||null,
       duracao_visita_min:Number(f.duracao_visita_min)||60, antecedencia_min_horas:Number(f.antecedencia_min_horas)||0,
       avisar_capacidade: f.avisar_capacidade!==false };
     const r = conta ? await sb.from("contas").update(linha).eq("id",conta.id).select().single()
@@ -226,6 +230,7 @@ function Perfil({conta, salvo, botao="Salvar"}){
         <div><label>Seu WhatsApp pessoal (avisos)</label><input value={f.whatsapp_pessoal||""} onChange={set("whatsapp_pessoal")} placeholder="71 99999-0000"/></div>
         <div><label>Email para avisos</label><input type="email" value={f.email_notificacao||""} onChange={set("email_notificacao")} placeholder="o mesmo do login"/></div>
         <div><label>Nome da assistente</label><input value={f.nome_assistente} onChange={set("nome_assistente")}/></div>
+        <div><label>O nome é</label><select value={f.genero_assistente||"feminino"} onChange={set("genero_assistente")}><option value="feminino">Feminino (a Dri, a Ana)</option><option value="masculino">Masculino (o Pedro, o Léo)</option></select></div>
         <div><label>Duração da visita (min)</label><input type="number" min={15} max={240} step={15} value={f.duracao_visita_min} onChange={set("duracao_visita_min")}/></div>
         <div><label>Antecedência mínima (horas)</label><input type="number" min={0} max={72} value={f.antecedencia_min_horas} onChange={set("antecedencia_min_horas")}/></div>
       </div>
@@ -584,7 +589,7 @@ function ImportarBook({conta, fechar, pronto}){
       <div className="between"><h3>Importar book (PDF)</h3><button className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       {fase==="escolher" ? <>
-        <p className="small muted" style={{marginTop:0}}>Mande o book do empreendimento (o PDF de divulgação). A IA lê as páginas, separa as plantas e escolhe as melhores imagens. Depois você confere e completa preços e vagas. O PDF é lido aqui no seu aparelho; até 50 MB ele também fica guardado para a {conta.nome_assistente} mandar aos clientes.</p>
+        <p className="small muted" style={{marginTop:0}}>Mande o book do empreendimento (o PDF de divulgação). A IA lê as páginas, separa as plantas e escolhe as melhores imagens. Depois você confere e completa preços e vagas. O PDF é lido aqui no seu aparelho; até 50 MB ele também fica guardado para {G(conta).a} {conta.nome_assistente} mandar aos clientes.</p>
         <label className="btn btn-primary" style={{margin:0}}>Escolher PDF<input type="file" accept="application/pdf" hidden onChange={ler}/></label>
       </> : <p className="muted">{prog}</p>}
     </div>
@@ -672,13 +677,13 @@ function Captacoes({conta, aoContar}){
   return (
     <div className="card">
       <h3>Captações</h3>
-      <p className="small muted" style={{marginTop:0}}>Proprietários que procuraram você para vender ou alugar. A {conta.nome_assistente} conversa, anota os dados, guarda as fotos que a pessoa manda e te avisa.</p>
+      <p className="small muted" style={{marginTop:0}}>Proprietários que procuraram você para vender ou alugar. {G(conta).A} {conta.nome_assistente} conversa, anota os dados, guarda as fotos que a pessoa manda e te avisa.</p>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       <div className="tabs" style={{marginBottom:10}}>
         {[["abertas",`Em aberto (${abertas.length})`],...STATUS_CAP.map(x=>[x,`${x[0].toUpperCase()+x.slice(1)} (${(lista||[]).filter(c=>c.status===x).length})`])].map(([k,n])=>
           <button key={k} className={filtro===k?"on":""} onClick={()=>setFiltro(k)}>{n}</button>)}
       </div>
-      {lista===null ? <p className="muted">Carregando…</p> : !mostradas.length ? <p className="muted">{filtro==="abertas" ? `Nenhuma captação em aberto. Quando um proprietário escrever querendo vender ou alugar, a ${conta.nome_assistente} anota tudo aqui.` : "Nada nesta situação."}</p> :
+      {lista===null ? <p className="muted">Carregando…</p> : !mostradas.length ? <p className="muted">{filtro==="abertas" ? `Nenhuma captação em aberto. Quando um proprietário escrever querendo vender ou alugar, ${G(conta).a} ${conta.nome_assistente} anota tudo aqui.` : "Nada nesta situação."}</p> :
       <div className="list">{mostradas.map(c=>(
         <div key={c.id}>
           <div className="between">
@@ -803,8 +808,8 @@ function Simulador({conta}){
   async function reiniciar(){ await worker("/simular/reiniciar"); setMsgs([]); }
   return (
     <div className="card">
-      <div className="between"><h3>Testar a {conta.nome_assistente}</h3><button className="btn btn-ghost btn-sm" onClick={reiniciar}>Recomeçar conversa</button></div>
-      <p className="small muted" style={{marginTop:0}}>Converse como se fosse um cliente. Ela usa seus imóveis e sua agenda de verdade. Visitas marcadas aqui aparecem como <b>teste</b> e não bloqueiam a agenda.</p>
+      <div className="between"><h3>Testar {G(conta).a} {conta.nome_assistente}</h3><button className="btn btn-ghost btn-sm" onClick={reiniciar}>Recomeçar conversa</button></div>
+      <p className="small muted" style={{marginTop:0}}>Converse como se fosse um cliente. {G(conta).Ela} usa seus imóveis e sua agenda de verdade. Visitas marcadas aqui aparecem como <b>teste</b> e não bloqueiam a agenda.</p>
       <div className="phone">
         <div className="hd">{conta.nome_assistente} · {conta.nome}</div>
         <div className="bd">{msgs.length===0 && <div className="small muted">Tente: "Oi, procuro apartamento de 3 quartos para comprar, até 700 mil"</div>}
@@ -828,8 +833,8 @@ function Capacidade({cap, conta, curto}){
       <div style={{height:10,borderRadius:99,background:"var(--surface)",border:"1px solid var(--line)",overflow:"hidden",marginTop:6}}>
         <div style={{width:pct+"%",height:"100%",background:cor}}/></div>
       {!curto && <p className="small muted" style={{margin:"6px 0 0"}}>Conta cada mensagem de cliente respondida pela IA incluída. Renova todo dia 1º.
-        {pct>=100 ? ` A capacidade do mês acabou: a ${conta.nome_assistente} está usando suas chaves gratuitas (ou a reserva compartilhada, se você não tiver nenhuma).`
-         : pct>=80 ? " Está acabando: cadastre suas chaves gratuitas abaixo para ela continuar sem interrupção." : ""}</p>}
+        {pct>=100 ? ` A capacidade do mês acabou: ${G(conta).a} ${conta.nome_assistente} está usando suas chaves gratuitas (ou a reserva compartilhada, se você não tiver nenhuma).`
+         : pct>=80 ? ` Está acabando: cadastre suas chaves gratuitas abaixo para ${G(conta).ela} continuar sem interrupção.` : ""}</p>}
     </div>
   );
 }
@@ -871,10 +876,10 @@ function IA({conta}){
   const total = st?.chaves?.length||0;
   return (
     <div className="card">
-      <h3>A inteligência da {conta.nome_assistente}</h3>
+      <h3>A inteligência {G(conta).da} {conta.nome_assistente}</h3>
       {st?.ia_inclusa
-        ? <p className="small muted" style={{marginTop:0}}>A inteligência da {conta.nome_assistente} já vem incluída, com uma capacidade por mês. Para <b>ampliar</b> essa capacidade, cadastre suas chaves gratuitas abaixo (opcional, uns 5 minutos): quando a capacidade incluída acabar, ela continua com as suas. A do <b>Groq</b> também ajuda a {conta.nome_assistente} a entender os áudios dos clientes.</p>
-        : <p className="small muted" style={{marginTop:0}}>A {conta.nome_assistente} usa IAs com plano gratuito. Criando as suas chaves (grátis, sem cartão), o limite de uso é só seu: o movimento de outros corretores não atrapalha o seu atendimento. Se uma IA atingir o limite, a próxima responde no lugar.</p>}
+        ? <p className="small muted" style={{marginTop:0}}>A inteligência {G(conta).da} {conta.nome_assistente} já vem incluída, com uma capacidade por mês. Para <b>ampliar</b> essa capacidade, cadastre suas chaves gratuitas abaixo (opcional, uns 5 minutos): quando a capacidade incluída acabar, {G(conta).ela} continua com as suas. A do <b>Groq</b> também ajuda {G(conta).a} {conta.nome_assistente} a entender os áudios dos clientes.</p>
+        : <p className="small muted" style={{marginTop:0}}>{G(conta).A} {conta.nome_assistente} usa IAs com plano gratuito. Criando as suas chaves (grátis, sem cartão), o limite de uso é só seu: o movimento de outros corretores não atrapalha o seu atendimento. Se uma IA atingir o limite, a próxima responde no lugar.</p>}
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       {st && (st.ia_inclusa
         ? <><div className="msg ok" style={{cursor:"default"}}>✓ IA incluída e funcionando.{total>0 && ` Reserva própria: ${total} de 3.`}</div><Capacidade cap={st.capacidade} conta={conta}/></>
@@ -974,7 +979,7 @@ function WhatsApp({conta, conectado}){
       <p className="small muted" style={{margin:0}}>Número {fmtTel(pedido.numero)} · melhor horário: {pedido.melhor_horario||"—"}{pedido.portfolio_convidado?"":" · lembre de convidar o suporte no portfólio da Meta"}</p>
       <div className="row" style={{marginTop:10}}><button className="btn btn-ghost btn-sm" onClick={()=>setModo("ajuda")}>Editar pedido</button></div></div>}
     {!pedido && <div className="card"><h3>Conectar o WhatsApp</h3>
-      <p className="small muted" style={{marginTop:0}}>A {conta.nome_assistente} atende pelo seu número usando a API oficial do WhatsApp (Meta). Escolha como prefere fazer:</p>
+      <p className="small muted" style={{marginTop:0}}>{G(conta).A} {conta.nome_assistente} atende pelo seu número usando a API oficial do WhatsApp (Meta). Escolha como prefere fazer:</p>
       <div className="grid" style={{gap:12}}>
         <div className="card" style={{margin:0}}><h3 style={{fontSize:15}}>Façam para mim <span className="pill ok">recomendado</span></h3>
           <p className="small muted">Você faz 2 passos de 5 minutos na Meta, manda os dados e a gente conecta junto com você.</p>
@@ -989,7 +994,7 @@ function WhatsApp({conta, conectado}){
   return (<>
     <div className="card">
       <h3>Conectar o WhatsApp</h3>
-      <p className="small muted" style={{marginTop:0}}>Você mesmo liga seu número à {conta.nome_assistente}, pela API oficial do WhatsApp (Meta), sem risco de bloqueio. Leva uns 30 minutos, no computador. Os nomes dos botões no site da Meta podem variar um pouco.</p>
+      <p className="small muted" style={{marginTop:0}}>Você mesmo liga seu número {G(conta)["à"]} {conta.nome_assistente}, pela API oficial do WhatsApp (Meta), sem risco de bloqueio. Leva uns 30 minutos, no computador. Os nomes dos botões no site da Meta podem variar um pouco.</p>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       <b>Situação</b>
       <ul className="small" style={{lineHeight:1.9,marginTop:4}}>
@@ -998,7 +1003,7 @@ function WhatsApp({conta, conectado}){
         <Item ok={!!st?.ultima_mensagem_em}>Primeira mensagem de cliente recebida (etapa F) {st?.ultima_mensagem_em && <span className="muted">· última em {fmtDT(st.ultima_mensagem_em)}</span>}</Item>
       </ul>
       {st?.erro && <div className="msg bad" style={{cursor:"default"}}>{st.erro}</div>}
-      {tudoPronto && <div className="msg ok" style={{cursor:"default"}}>Tudo certo! A {conta.nome_assistente} está atendendo esse número.</div>}
+      {tudoPronto && <div className="msg ok" style={{cursor:"default"}}>Tudo certo! {G(conta).A} {conta.nome_assistente} está atendendo esse número.</div>}
     </div>
 
     <div className="card"><h3>Antes de começar</h3>
@@ -1050,7 +1055,7 @@ function WhatsApp({conta, conectado}){
         <button className="btn btn-primary" disabled={ocupado}>{ocupado?"Conferindo com a Meta…":"Conectar"}</button>
       </form></div>
 
-    <div className="card"><h3>E. Ligar as mensagens à {conta.nome_assistente} (webhook)</h3>
+    <div className="card"><h3>E. Ligar as mensagens {G(conta)["à"]} {conta.nome_assistente} (webhook)</h3>
       <ol className="passo small" start={15}>
         <li>No app: <b>WhatsApp → Configuração</b>. Em <b>Webhook</b>, clique em <b>Editar</b>.</li>
         <li>Em <b>URL de callback</b>, cole:<Copiar valor={st?.webhook_url}/></li>
@@ -1062,7 +1067,7 @@ function WhatsApp({conta, conectado}){
     <div className="card"><h3>F. Publicar e testar</h3>
       <ol className="passo small" start={20}>
         <li>No topo da página do app, mude o modo de <b>Desenvolvimento</b> para <b>Ao vivo</b> (ou clique em <b>Publicar</b>). Sem isso a Meta não entrega as mensagens dos clientes.</li>
-        <li>De outro celular, mande um "oi" para o seu número. Em alguns segundos a {conta.nome_assistente} responde e o terceiro item fica ✅.</li>
+        <li>De outro celular, mande um "oi" para o seu número. Em alguns segundos {G(conta).a} {conta.nome_assistente} responde e o terceiro item fica ✅.</li>
         <li>Opcional: no <a href="https://business.facebook.com/wa/manage/" target="_blank" rel="noreferrer">Gerenciador do WhatsApp</a>, em Pagamentos, cadastre um cartão. Responder clientes é grátis; a Meta só cobra centavos quando a empresa escreve primeiro.</li>
       </ol>
       <p className="small muted" style={{marginBottom:0}}>Travou em algum passo? A Situação lá em cima mostra o que falta. Se aparecer erro da Meta ao conectar, a mensagem diz qual dado conferir.</p></div>
@@ -1080,7 +1085,7 @@ function Conversas({conta, aoContar}){
     setLista(data||[]); aoContar && aoContar((data||[]).filter(c=>c.precisa_corretor).length);
     if(aberta) setAberta((data||[]).find(c=>c.id===aberta.id)||null); }
   useEffect(()=>{ carregar(); const t=setInterval(carregar,15000); return ()=>clearInterval(t); },[aberta?.id]);
-  async function resolver(c){ const { error } = await sb.from("conversas").update({precisa_corretor:false,motivo:null}).eq("id",c.id); if(error) setMsg({t:"bad",x:error.message}); else { setMsg({t:"ok",x:`Pronto: a ${conta.nome_assistente} volta a responder esse cliente.`}); carregar(); } }
+  async function resolver(c){ const { error } = await sb.from("conversas").update({precisa_corretor:false,motivo:null}).eq("id",c.id); if(error) setMsg({t:"bad",x:error.message}); else { setMsg({t:"ok",x:`Pronto: ${G(conta).a} ${conta.nome_assistente} volta a responder esse cliente.`}); carregar(); } }
   async function assumir(c){ await sb.from("conversas").update({precisa_corretor:true,motivo:"Corretor assumiu a conversa"}).eq("id",c.id); carregar(); }
   async function responder(e){ e.preventDefault(); if(!txt.trim()) return; setEnviando(true);
     try{ await worker("/responder",{telefone:aberta.telefone,texto:txt}); setTxt(""); carregar(); }catch(err){ setMsg({t:"bad",x:err.message}); } setEnviando(false); }
@@ -1124,11 +1129,11 @@ function Inicio({conta, irPara}){
     {capPct>=0.8 && <div className="card" style={{borderColor:capPct>=1?"var(--bad)":"var(--warn)"}}>
       <h3>{capPct>=1 ? "A capacidade de IA do mês acabou" : "A capacidade de IA do mês está acabando"}</h3>
       <Capacidade cap={cap} conta={conta} curto/>
-      <p className="small" style={{margin:"0 0 10px"}}>Cadastre suas chaves gratuitas para a {conta.nome_assistente} continuar atendendo sem interrupção. Leva uns 5 minutos.</p>
+      <p className="small" style={{margin:"0 0 10px"}}>Cadastre suas chaves gratuitas para {G(conta).a} {conta.nome_assistente} continuar atendendo sem interrupção. Leva uns 5 minutos.</p>
       <button className="btn btn-primary btn-sm" onClick={()=>irPara("ia")}>Ampliar capacidade</button></div>}
     <div className="tiles">
       <div className="tile"><div className="l">Conversas nos últimos 30 dias</div><div className="v">{n.conversas}</div></div>
-      <div className="tile"><div className="l">Visitas marcadas pela {conta.nome_assistente} (30 dias)</div><div className="v">{n.marcadasDri}</div></div>
+      <div className="tile"><div className="l">Visitas marcadas {G(conta).pela} {conta.nome_assistente} (30 dias)</div><div className="v">{n.marcadasDri}</div></div>
       <div className="tile"><div className="l">Próximas visitas</div><div className="v">{n.proximas}</div></div>
       <div className="tile" style={{cursor:"pointer"}} onClick={()=>irPara("conversas")}><div className="l">Clientes esperando você</div><div className="v" style={{color:n.pendentes?"var(--bad)":undefined}}>{n.pendentes}</div></div>
       <div className="tile" style={{cursor:"pointer"}} onClick={()=>irPara("captacoes")}><div className="l">Imóveis novos para captar</div><div className="v" style={{color:n.captacoes?"var(--brand)":undefined}}>{n.captacoes}</div></div>
@@ -1211,8 +1216,8 @@ function NovaCampanha({conta, fechar, criada}){
       </div>
       <ul className="small muted" style={{lineHeight:1.6,paddingLeft:18}}>
         <li>A Meta aprova cada campanha antes do envio (de minutos a algumas horas). Os envios acontecem das 8h às 20h.</li>
-        <li>Só recebe quem disse para a {conta.nome_assistente} que aceita novidades. Quem responder "SAIR" sai da lista na hora.</li>
-        <li>Quem responder cai na {conta.nome_assistente}, que continua a conversa sabendo de qual campanha a pessoa veio.</li>
+        <li>Só recebe quem disse para {G(conta).a} {conta.nome_assistente} que aceita novidades. Quem responder "SAIR" sai da lista na hora.</li>
+        <li>Quem responder cai {G(conta).na} {conta.nome_assistente}, que continua a conversa sabendo de qual campanha a pessoa veio.</li>
         <li>A Meta cobra alguns centavos por mensagem entregue, no cartão cadastrado na sua conta do WhatsApp (Gerenciador do WhatsApp → Pagamentos).</li>
       </ul>
       <button className="btn btn-primary" disabled={!!ocupado || !qtd?.disponiveis}>{ocupado || "Criar campanha"}</button>
@@ -1231,7 +1236,7 @@ function Campanhas({conta}){
     <div className="card">
       <div className="between"><h3>Campanhas no WhatsApp</h3>{d.conectado && <button className="btn btn-primary btn-sm" disabled={!d.disponiveis} onClick={()=>setNova(true)}>Nova campanha</button>}</div>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
-      <p className="small muted" style={{marginTop:0}}>Mande uma imagem com mensagem para os clientes que aceitaram receber novidades: lançamento, imóvel novo na carteira, condição especial. Quem responder continua a conversa com a {conta.nome_assistente}.</p>
+      <p className="small muted" style={{marginTop:0}}>Mande uma imagem com mensagem para os clientes que aceitaram receber novidades: lançamento, imóvel novo na carteira, condição especial. Quem responder continua a conversa com {G(conta).a} {conta.nome_assistente}.</p>
       {!d.conectado ? <div className="msg warn" style={{cursor:"default"}}>Conecte o WhatsApp (aba WhatsApp) para usar as campanhas.</div> : <>
         <div className="tiles" style={{marginBottom:0}}>
           <div className="tile"><div className="l">Aceitaram novidades</div><div className="v">{d.aceitaram}</div></div>
@@ -1239,7 +1244,7 @@ function Campanhas({conta}){
           {d.saude?.limite && <div className="tile"><div className="l">Limite do número (pessoas/dia)</div><div className="v">{LIMITE[d.saude.limite]||d.saude.limite}</div></div>}
         </div>
         {q && <div className={"msg "+q[0]} style={{cursor:"default",marginTop:12}}>Qualidade do seu número: {q[1]}.</div>}
-        {!d.aceitaram && <p className="small muted">Ninguém aceitou ainda: a {conta.nome_assistente} pergunta aos clientes no fim do atendimento se querem receber novidades.</p>}
+        {!d.aceitaram && <p className="small muted">Ninguém aceitou ainda: {G(conta).a} {conta.nome_assistente} pergunta aos clientes no fim do atendimento se querem receber novidades.</p>}
       </>}
     </div>
     {d.campanhas.length>0 && <div className="card"><h3>Suas campanhas</h3>
@@ -1279,7 +1284,8 @@ function Assinar({st, fechar}){
 }
 
 // Faixa no topo do painel: teste grátis, pagamento recusado, pausada
-function FaixaAssinatura(){
+function FaixaAssinatura({conta}){
+  const g=G(conta), nome=`${g.a} ${conta.nome_assistente}`, Nome=`${g.A} ${conta.nome_assistente}`;
   const voltouDoPagamento = /preapproval_id=/.test(location.search);
   const [st,setSt]=useState(null); const [abrir,setAbrir]=useState(false);
   useEffect(()=>{ let n=0, vivo=true;
@@ -1298,10 +1304,10 @@ function FaixaAssinatura(){
   if(st.status==="teste") return st.tem_cartao
     ? faixa("ok",<span>✓ Assinatura registrada. Seu teste grátis vai até {fmtDia(st.teste_ate)}; depois a cobrança é de {reais(st.preco_mensal)} por mês no cartão.</span>)
     : faixa("ok",<><span><b>Teste grátis:</b> {st.dias_restantes===1?"falta 1 dia":`faltam ${st.dias_restantes} dias`} (até {fmtDia(st.teste_ate)}). Depois, {reais(st.preco_mensal)} por mês.</span>{botao("Assinar agora")}</>);
-  if(st.status==="atrasada") return faixa("bad",<><span><b>O pagamento da assinatura não foi aprovado.</b> A assistente pausa em {fmtDT(st.pausa_em)} se não for regularizado.</span>{botao("Atualizar pagamento")}</>);
-  if(st.status==="pausada" && st.motivo==="teste_acabou") return faixa("bad",<><span><b>Seu teste grátis terminou e a assistente está pausada.</b> As mensagens dos clientes continuam chegando em Conversas. Assine para ela voltar a responder.</span>{botao("Assinar e reativar")}</>);
-  if(st.status==="cancelada") return faixa("bad",<><span><b>Assinatura cancelada:</b> a assistente está pausada. As mensagens dos clientes continuam chegando em Conversas.</span>{botao("Assinar de novo")}</>);
-  return faixa("bad",<><span><b>A assistente está pausada por falta de pagamento.</b> As mensagens dos clientes continuam chegando em Conversas. Ela volta assim que o Mercado Pago aprovar.</span>{botao("Atualizar pagamento")}</>);
+  if(st.status==="atrasada") return faixa("bad",<><span><b>O pagamento da assinatura não foi aprovado.</b> {Nome} pausa em {fmtDT(st.pausa_em)} se não for regularizado.</span>{botao("Atualizar pagamento")}</>);
+  if(st.status==="pausada" && st.motivo==="teste_acabou") return faixa("bad",<><span><b>Seu teste grátis terminou e {nome} está pausad{g.x}.</b> As mensagens dos clientes continuam chegando em Conversas. Assine para {g.ela} voltar a responder.</span>{botao("Assinar e reativar")}</>);
+  if(st.status==="cancelada") return faixa("bad",<><span><b>Assinatura cancelada:</b> {nome} está pausad{g.x}. As mensagens dos clientes continuam chegando em Conversas.</span>{botao("Assinar de novo")}</>);
+  return faixa("bad",<><span><b>{Nome} está pausad{g.x} por falta de pagamento.</b> As mensagens dos clientes continuam chegando em Conversas. {g.Ela} volta assim que o Mercado Pago aprovar.</span>{botao("Atualizar pagamento")}</>);
 }
 
 // ======================================================================== indique e ganhe
@@ -1619,7 +1625,7 @@ function App(){
         <div className="row">{admin && <a className="btn btn-ghost btn-sm" href={verAdmin?"#":"#admin"}>{verAdmin?"Meu painel":"Administração"}</a>}
           <button className="btn btn-ghost btn-sm" onClick={()=>sb.auth.signOut()}>Sair</button></div></div>
       {admin && verAdmin ? <Admin/> : <>
-        {conta && <FaixaAssinatura/>}
+        {conta && <FaixaAssinatura conta={conta}/>}
         {pronto ? <Painel conta={conta} setConta={setConta}/> : <Onboarding conta={conta} setConta={setConta}/>}</>}
     </div>
   );

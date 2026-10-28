@@ -11,6 +11,7 @@
 //
 // Segredos: MERCADOPAGO_ACCESS_TOKEN, MERCADOPAGO_WEBHOOK_SECRET. Variável: ADMIN_EMAILS.
 import { enviarTexto } from "./whatsapp.js";
+import { generoDa } from "./genero.js";
 
 const MP = "https://api.mercadopago.com";
 const DIA = 24 * 3600e3;
@@ -279,13 +280,14 @@ export async function avisarAdmin(env, db, assunto, texto) {
 }
 
 export function textoAvisoCobranca(conta, sit) {
+  const g = generoDa(conta);
   const painel = "o painel do Toc Toc";
   if (sit.status === "atrasada")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. A cobrança da sua assinatura não foi aprovada pelo cartão. Para a ${conta.nome_assistente} continuar atendendo seus clientes, atualize o pagamento em ${painel} até ${dataBR(sit.pausa_em)}. Qualquer dúvida, é só responder.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. A cobrança da sua assinatura não foi aprovada pelo cartão. Para ${g.a} ${conta.nome_assistente} continuar atendendo seus clientes, atualize o pagamento em ${painel} até ${dataBR(sit.pausa_em)}. Qualquer dúvida, é só responder.`;
   if (sit.status === "pausada" || sit.status === "cancelada")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. A ${conta.nome_assistente} está pausada por falta de pagamento. As mensagens dos seus clientes continuam chegando no painel. Para reativar, atualize o pagamento em ${painel}: ela volta a atender assim que o Mercado Pago aprovar.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. ${g.A} ${conta.nome_assistente} está pausad${g.x} por falta de pagamento. As mensagens dos seus clientes continuam chegando no painel. Para reativar, atualize o pagamento em ${painel}: ${g.ela} volta a atender assim que o Mercado Pago aprovar.`;
   if (sit.status === "teste")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. Seu teste grátis termina em ${sit.dias_restantes} dia(s). Para a ${conta.nome_assistente} continuar atendendo, assine em ${painel}.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. Seu teste grátis termina em ${sit.dias_restantes} dia(s). Para ${g.a} ${conta.nome_assistente} continuar atendendo, assine em ${painel}.`;
   return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. Passando para lembrar de conferir sua assinatura em ${painel}.`;
 }
 

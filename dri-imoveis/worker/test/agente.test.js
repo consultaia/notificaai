@@ -215,3 +215,14 @@ test("limite de um corretor não atrapalha outro", async () => {
   assert.deepEqual(pedidos.map((p) => p.chave), ["gemini-B"]);
   assert.ok(_teste.pausados.has("conta:c1:gemini") && !_teste.pausados.has("conta:c2:gemini"));
 });
+
+test("assistente com nome masculino: o prompt usa o masculino", async () => {
+  const { promptSistema } = await import("../src/agente.js");
+  const p = promptSistema({ nome: "Carlos Imóveis", nome_assistente: "Pedro", genero_assistente: "masculino", tipo: "corretor" });
+  assert.match(p, /como um corretor simpático e atencioso/);
+  assert.match(p, /é o assistente virtual do corretor/);
+  assert.match(p, /masculino \(obrigado/);
+  const f = promptSistema({ nome: "Carlos Imóveis", nome_assistente: "Dri", tipo: "corretor" });
+  assert.match(f, /como uma corretora simpática/);
+  assert.match(f, /é a assistente virtual/);
+});

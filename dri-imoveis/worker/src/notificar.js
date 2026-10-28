@@ -3,10 +3,12 @@
 // fora da janela de 24 h a Meta só aceita modelo aprovado, configurado em TEMPLATE_AVISO).
 import { descreverHorario } from "./agenda.js";
 import { enviarTexto } from "./whatsapp.js";
+import { generoDa } from "./genero.js";
 
 const soDigitos = (t) => String(t || "").replace(/\D/g, "");
 
 function montar(tipo, ctx, dados) {
+  const g = generoDa(ctx.conta);
   const cliente = `${ctx.nome || "Cliente"} (+${ctx.telefone})`;
   if (tipo === "visita") {
     const v = dados.visita;
@@ -38,17 +40,17 @@ function montar(tipo, ctx, dados) {
     if (nivel === 100) return {
       assunto: `${nome}: a capacidade incluída do mês acabou`,
       texto: temChavesProprias
-        ? `⚡ ${nome} já respondeu ${usadas} mensagens este mês e usou toda a capacidade incluída no plano.\n\nTudo certo: ela continua atendendo com as suas chaves gratuitas. Se quiser mais garantia, cadastre as que faltam na aba IA do painel.`
-        : `⚠️ ${nome} já respondeu ${usadas} mensagens este mês e usou toda a capacidade incluída no plano.\n\nAgora ela está usando uma reserva compartilhada, que pode falhar nos horários de pico. Para continuar sem interrupção, cadastre suas chaves gratuitas (Groq e Gemini) na aba IA do painel: leva uns 5 minutos.`,
+        ? `⚡ ${nome} já respondeu ${usadas} mensagens este mês e usou toda a capacidade incluída no plano.\n\nTudo certo: ${g.ela} continua atendendo com as suas chaves gratuitas. Se quiser mais garantia, cadastre as que faltam na aba IA do painel.`
+        : `⚠️ ${nome} já respondeu ${usadas} mensagens este mês e usou toda a capacidade incluída no plano.\n\nAgora ${g.ela} está usando uma reserva compartilhada, que pode falhar nos horários de pico. Para continuar sem interrupção, cadastre suas chaves gratuitas (Groq e Gemini) na aba IA do painel: leva uns 5 minutos.`,
     };
     return {
       assunto: `${nome}: 80% da capacidade do mês usada`,
-      texto: `📈 ${nome} já respondeu ${usadas} de ${cota} mensagens incluídas este mês.${temChavesProprias ? " Quando acabar, ela continua com as suas chaves gratuitas." : `\n\nPara ela não parar quando acabar, cadastre suas chaves gratuitas (Groq e Gemini) na aba IA do painel: leva uns 5 minutos.`}`,
+      texto: `📈 ${nome} já respondeu ${usadas} de ${cota} mensagens incluídas este mês.${temChavesProprias ? ` Quando acabar, ${g.ela} continua com as suas chaves gratuitas.` : `\n\nPara ${g.ela} não parar quando acabar, cadastre suas chaves gratuitas (Groq e Gemini) na aba IA do painel: leva uns 5 minutos.`}`,
     };
   }
   return {
     assunto: `Cliente pedindo atendimento: ${cliente}`,
-    texto: `🙋 Um cliente precisa de você\n${cliente}\nMotivo: ${dados.motivo}\n\nResponda pelo painel da ${ctx.conta.nome_assistente}. Ela fica em silêncio nessa conversa até você marcar como resolvida.`,
+    texto: `🙋 Um cliente precisa de você\n${cliente}\nMotivo: ${dados.motivo}\n\nResponda pelo painel ${g.da} ${ctx.conta.nome_assistente}. ${g.Ela} fica em silêncio nessa conversa até você marcar como resolvida.`,
   };
 }
 

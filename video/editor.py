@@ -443,6 +443,72 @@ def expr_zoom(fases, z):
     return e
 
 
+# ── fundo trocado: apresentador recortado por IA sobre foto do hospital ─────────
+MODELO_RVM = 'https://github.com/PeterL1n/RobustVideoMatting/releases/download/v1.0.0/rvm_mobilenetv3_fp32.onnx'
+
+
+def baixar_modelo_rvm():
+    destino = Path.home() / '.cache' / 'notificaai' / 'rvm_mobilenetv3_fp32.onnx'
+    if destino.exists() and destino.stat().st_size > 10_000_000:
+        return destino
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    log('baixando o modelo de recorte (15 MB, so na primeira vez)')
+    import urllib.request
+    urllib.request.urlretrieve(MODELO_RVM, destino)
+    return destino
+
+
+def preparar_fundo(foto, W, H, desfoque, escurecer):
+    """Foto do hospital em tamanho maior que o quadro (para o movimento lento), desfocada como profundidade de campo."""
+    img = Image.open(foto).convert('RGB')
+    M = 1.10
+    r = max(W * M / img.width, H * M / img.height)
+    img = img.resize((int(img.width * r) + 1, int(img.height * r) + 1), Image.LANCZOS)
+    if desfoque:
+        img = img.filter(ImageFilter.GaussianBlur(desfoque))
+    if escurecer:
+        img = Image.blend(img, Image.new('RGB', img.size, (6, 16, 31)), escurecer)
+    return img
+
+
+def trocar_fundo(entrada, saida, foto, W, H, desfoque=8, escurecer=0.12):
+    """Recorta a pessoa quadro a quadro (Robust Video Matting) e compoe sobre a foto, com movimento lento."""
+    try:
+        import numpy as np
+        import onnxruntime as ort
+    except ImportError:
+        raise RuntimeError('troca de fundo precisa de: pip install onnxruntime numpy')
+    sess = ort.InferenceSession(str(baixar_modelo_rvm()), providers=['CPUExecutionProvider'])
+    bg = np.asarray(preparar_fundo(foto, W, H, desfoque, escurecer), dtype=np.float32)
+    bh, bw = bg.shape[:2]
+    dur = probe(entrada)['dur']
+    total = max(1, int(dur * FPS))
+    rec = [np.zeros((1, 1, 1, 1), np.float32)] * 4
+    ratio = np.array([0.25 if max(W, H) >= 1280 else 0.4], np.float32)
+    leitor = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', str(entrada), '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], stdout=subprocess.PIPE)
+    escritor = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
+                                 '-c:v', 'libx264', '-preset', 'medium', '-crf', '17', '-pix_fmt', 'yuv420p', str(saida)], stdin=subprocess.PIPE)
+    n = 0
+    while True:
+        buf = leitor.stdout.read(W * H * 3)
+        if len(buf) < W * H * 3:
+            break
+        fr = np.frombuffer(buf, np.uint8).reshape(H, W, 3).astype(np.float32) / 255.0
+        fgr, pha, *rec = sess.run(None, {'src': fr.transpose(2, 0, 1)[None], 'r1i': rec[0], 'r2i': rec[1], 'r3i': rec[2], 'r4i': rec[3], 'downsample_ratio': ratio})
+        a = pha[0, 0][..., None]
+        f = n / total  # movimento lento da foto (da esquerda para a direita)
+        x0, y0 = int((bw - W) * f), int((bh - H) * 0.5)
+        fundo = bg[y0:y0 + H, x0:x0 + W]
+        comp = fgr[0].transpose(1, 2, 0) * 255.0 * a + fundo * (1 - a)
+        escritor.stdin.write(np.clip(comp, 0, 255).astype(np.uint8).tobytes())
+        n += 1
+    escritor.stdin.close()
+    escritor.wait()
+    leitor.wait()
+    if n == 0:
+        raise RuntimeError('troca de fundo: nenhum quadro processado')
+
+
 def processar_bloco(i, bloco, pasta_proj, W, H, estilo, cfg, tmp, args):
     src = (pasta_proj / bloco['arquivo']).resolve()
     if not src.exists():
@@ -461,6 +527,18 @@ def processar_bloco(i, bloco, pasta_proj, W, H, estilo, cfg, tmp, args):
     falas_c = [(mapear(a, seg), mapear(b, seg)) for a, b in falas]
     sel = '+'.join(f'between(t,{a:.3f},{b:.3f})' for a, b in seg)
     filtro_enq, desfocado = enquadrar(W, H, info['w'], info['h'], 'm')
+    foto = bloco.get('fundo') or cfg.get('fundo')
+    if foto:
+        foto = (pasta_proj / foto).resolve()
+        if not foto.exists():
+            raise FileNotFoundError(f'bloco {i + 1}: foto de fundo nao encontrada: {foto}')
+        pos = bloco.get('posicao') or cfg.get('posicao') or ('direita' if W > H else 'centro')
+        if abs(info['w'] / max(1, info['h']) - W / H) / (W / H) < 0.35:
+            filtro_enq = f'scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}'
+        else:  # proporcao diferente: pessoa inteira, encostada no lado escolhido; o resto vira foto
+            xpos = {'esquerda': f'{int(W * 0.04)}', 'direita': f'ow-iw-{int(W * 0.04)}', 'centro': '(ow-iw)/2'}.get(pos, '(ow-iw)/2')
+            filtro_enq = f"scale={W}:{H}:force_original_aspect_ratio=decrease,pad={W}:{H}:x='{xpos}':y=(oh-ih):color=black"
+        desfocado = False
 
     # legendas do bloco (tempo ja cortado)
     e = ESTILOS[estilo]
@@ -485,9 +563,20 @@ def processar_bloco(i, bloco, pasta_proj, W, H, estilo, cfg, tmp, args):
     zoom = f"scale=w='trunc({W}*({expr_zoom(fases, z)})/2)*2':h='trunc({H}*({expr_zoom(fases, z)})/2)*2':eval=frame,crop={W}:{H}" if z != 1 else 'null'
 
     saida = tmp / f'b{i}.mp4'
-    entradas = ['-i', str(src)]
-    fc = (f"[0:v]select='{sel}',setpts=N/FRAME_RATE/TB,fps={FPS},{filtro_enq},{zoom},setsar=1[v0];"
-          f"[0:a]{FILTRO_VOZ},aselect='{sel}',asetpts=N/SR/TB,aresample=48000[a0]")
+    if foto:
+        corte = tmp / f'b{i}_corte.mp4'
+        run(['ffmpeg', '-y', '-v', 'error', '-i', str(src), '-filter_complex',
+             f"[0:v]select='{sel}',setpts=N/FRAME_RATE/TB,fps={FPS},{filtro_enq},setsar=1[v];[0:a]{FILTRO_VOZ},aselect='{sel}',asetpts=N/SR/TB,aresample=48000[a]",
+             '-map', '[v]', '-map', '[a]', *VENC, '-t', f'{dur_corte:.3f}', str(corte)])
+        log(f'    recortando o apresentador e aplicando o fundo ({foto.name})')
+        recortado = tmp / f'b{i}_fundo.mp4'
+        trocar_fundo(corte, recortado, foto, W, H, float(cfg.get('fundo_desfoque', 8)), float(cfg.get('fundo_escurecer', 0.12)))
+        entradas = ['-i', str(recortado), '-i', str(corte)]
+        fc = f"[0:v]fps={FPS},{zoom},setsar=1[v0];[1:a]anull[a0]"
+    else:
+        entradas = ['-i', str(src)]
+        fc = (f"[0:v]select='{sel}',setpts=N/FRAME_RATE/TB,fps={FPS},{filtro_enq},{zoom},setsar=1[v0];"
+              f"[0:a]{FILTRO_VOZ},aselect='{sel}',asetpts=N/SR/TB,aresample=48000[a0]")
     ultimo = 'v0'
     for k, ap in enumerate(bloco.get('apoio', []) or []):
         arq = (pasta_proj / ap['arquivo']).resolve()

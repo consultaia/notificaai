@@ -74,7 +74,7 @@ export async function criarAssinatura(env, db, { conta, email, voltarPara, agora
   // Ainda no teste: a primeira cobrança fica para o fim do teste
   const fimTeste = assinatura?.status === "teste" && new Date(assinatura.teste_ate) > agora ? new Date(assinatura.teste_ate) : null;
   const r = await mp(env, "POST", "/preapproval", {
-    reason: `Dri Imóveis · assistente de WhatsApp (${conta.nome})`.slice(0, 250),
+    reason: `Toc Toc · assistente de WhatsApp (${conta.nome})`.slice(0, 250),
     external_reference: conta.id,
     payer_email: email,
     back_url: voltarPara,
@@ -275,18 +275,18 @@ async function email(env, para, assunto, texto) {
 export async function avisarAdmin(env, db, assunto, texto) {
   await db.from("avisos_admin").insert({ assunto, texto }).then(() => {}, () => {});
   const para = String(env.ADMIN_EMAILS || "").split(",").map((s) => s.trim()).filter(Boolean);
-  return email(env, para, `Dri Imóveis: ${assunto}`, `${texto}\n\nÁrea do administrador: ${env.PAINEL_URL || ""}#admin`);
+  return email(env, para, `Toc Toc: ${assunto}`, `${texto}\n\nÁrea do administrador: ${env.PAINEL_URL || ""}#admin`);
 }
 
 export function textoAvisoCobranca(conta, sit) {
-  const painel = "o painel da Dri";
+  const painel = "o painel do Toc Toc";
   if (sit.status === "atrasada")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é da Dri Imóveis. A cobrança da sua assinatura não foi aprovada pelo cartão. Para a ${conta.nome_assistente} continuar atendendo seus clientes, atualize o pagamento em ${painel} até ${dataBR(sit.pausa_em)}. Qualquer dúvida, é só responder.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. A cobrança da sua assinatura não foi aprovada pelo cartão. Para a ${conta.nome_assistente} continuar atendendo seus clientes, atualize o pagamento em ${painel} até ${dataBR(sit.pausa_em)}. Qualquer dúvida, é só responder.`;
   if (sit.status === "pausada" || sit.status === "cancelada")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é da Dri Imóveis. A ${conta.nome_assistente} está pausada por falta de pagamento. As mensagens dos seus clientes continuam chegando no painel. Para reativar, atualize o pagamento em ${painel}: ela volta a atender assim que o Mercado Pago aprovar.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. A ${conta.nome_assistente} está pausada por falta de pagamento. As mensagens dos seus clientes continuam chegando no painel. Para reativar, atualize o pagamento em ${painel}: ela volta a atender assim que o Mercado Pago aprovar.`;
   if (sit.status === "teste")
-    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é da Dri Imóveis. Seu teste grátis termina em ${sit.dias_restantes} dia(s). Para a ${conta.nome_assistente} continuar atendendo, assine em ${painel}.`;
-  return `Olá, ${conta.nome.split(" ")[0]}! Aqui é da Dri Imóveis. Passando para lembrar de conferir sua assinatura em ${painel}.`;
+    return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. Seu teste grátis termina em ${sit.dias_restantes} dia(s). Para a ${conta.nome_assistente} continuar atendendo, assine em ${painel}.`;
+  return `Olá, ${conta.nome.split(" ")[0]}! Aqui é do Toc Toc. Passando para lembrar de conferir sua assinatura em ${painel}.`;
 }
 
 // Botão "Enviar aviso" do administrador: email e WhatsApp pessoal do corretor (pelo número dele, se conectado).
@@ -295,7 +295,7 @@ export async function enviarAvisoCobranca(env, db, conta, sit, { conexao, emailL
   const msg = texto || textoAvisoCobranca(conta, sit);
   const canais = [];
   const para = [conta.email_notificacao || emailLogin].filter(Boolean);
-  if (await email(env, para, "Dri Imóveis: sua assinatura", `${msg}\n\nPainel: ${env.PAINEL_URL || ""}`)) canais.push("email");
+  if (await email(env, para, "Toc Toc: sua assinatura", `${msg}\n\nPainel: ${env.PAINEL_URL || ""}`)) canais.push("email");
   const pessoal = String(conta.whatsapp_pessoal || "").replace(/\D/g, "");
   if (conexao && pessoal) {
     const numero = pessoal.length <= 11 ? `55${pessoal}` : pessoal;

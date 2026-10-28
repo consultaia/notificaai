@@ -1,5 +1,5 @@
 // ============================================================
-// Dri Imóveis — Cloudflare Worker
+// Toc Toc (antes Dri Imóveis) — Cloudflare Worker
 //   GET  /                      diagnóstico (quais segredos estão configurados)
 //   GET  /webhook/<chave>       verificação do webhook pela Meta (app do corretor)
 //   POST /webhook/<chave>       mensagens do WhatsApp -> Durable Object da conversa

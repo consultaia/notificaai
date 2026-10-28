@@ -5,8 +5,8 @@ export const normalizarCodigo = (v) => String(v || "").toLowerCase().normalize("
   .replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
 
 // Nomes que confundiriam com a própria plataforma
-const RESERVADOS = new Set(["dri", "dri-imoveis", "admin", "app", "painel", "suporte", "oficial", "privacidade", "parceiro", "parceiros"]);
-export const codigoReservado = (c) => RESERVADOS.has(c) || c.startsWith("dri-");
+const RESERVADOS = new Set(["dri", "dri-imoveis", "admin", "app", "painel", "suporte", "oficial", "privacidade", "parceiro", "parceiros", "toc-toc", "toctoc"]);
+export const codigoReservado = (c) => RESERVADOS.has(c) || c.startsWith("dri-") || c.startsWith("toc-toc") || c.startsWith("toctoc");
 
 export const linkDoParceiro = (site, codigo) => `${String(site || "").replace(/\/$/, "")}/?p=${codigo}`;
 

@@ -4,33 +4,33 @@ Supabase → projeto `dri-imoveis` → Authentication → Emails (Templates). Co
 
 ## Confirm signup
 
-Assunto: `Confirme seu e-mail na Dri Imóveis`
+Assunto: `Confirme seu e-mail no Toc Toc`
 
 ```html
 <h2>Falta só confirmar seu e-mail</h2>
-<p>Olá! Clique no botão abaixo para confirmar seu e-mail e começar a usar a Dri Imóveis.</p>
+<p>Olá! Clique no botão abaixo para confirmar seu e-mail e começar a usar o Toc Toc.</p>
 <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 20px;background:#2a9d8f;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">Confirmar meu e-mail</a></p>
 <p style="color:#666;font-size:13px">Se não foi você que criou a conta, é só ignorar este e-mail.</p>
 ```
 
 ## Reset password
 
-Assunto: `Crie uma senha nova na Dri Imóveis`
+Assunto: `Crie uma senha nova no Toc Toc`
 
 ```html
 <h2>Senha nova</h2>
-<p>Recebemos um pedido para trocar a senha da sua conta na Dri Imóveis.</p>
+<p>Recebemos um pedido para trocar a senha da sua conta no Toc Toc.</p>
 <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 20px;background:#2a9d8f;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">Criar senha nova</a></p>
 <p style="color:#666;font-size:13px">Se não foi você, ignore este e-mail: sua senha continua a mesma.</p>
 ```
 
 ## Change email address
 
-Assunto: `Confirme seu novo e-mail na Dri Imóveis`
+Assunto: `Confirme seu novo e-mail no Toc Toc`
 
 ```html
 <h2>Confirme o novo e-mail</h2>
-<p>Clique abaixo para passar a usar {{ .NewEmail }} na sua conta da Dri Imóveis.</p>
+<p>Clique abaixo para passar a usar {{ .NewEmail }} na sua conta do Toc Toc.</p>
 <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 20px;background:#2a9d8f;color:#fff;border-radius:8px;text-decoration:none;font-weight:bold">Confirmar novo e-mail</a></p>
 ```
 

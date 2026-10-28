@@ -1,4 +1,6 @@
-# Dri Imóveis
+# Toc Toc (antes Dri Imóveis)
+
+Seu corretor de bolso no WhatsApp. A assistente padrão se chama Dri (cada corretor pode trocar o nome no perfil).
 
 Assistente de WhatsApp para corretores e imobiliárias. O corretor se cadastra sozinho pelo link,
 cadastra os imóveis e os horários de visita, testa a assistente e conecta o WhatsApp oficial

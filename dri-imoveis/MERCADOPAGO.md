@@ -9,7 +9,7 @@ Use a conta que vai **receber** o dinheiro (pessoa física ou CNPJ), com cadastr
 
 ## 2. Criar a aplicação
 1. Entre em <https://www.mercadopago.com.br/developers> com essa conta → **Suas integrações** → **Criar aplicação**.
-2. Nome: `Dri` (ou o nome novo da plataforma).
+2. Nome: `Toc Toc`.
 3. Tipo de solução: **Pagamentos online**. Plataforma de e-commerce: **não**.
 4. Produto: **Assinaturas** (se pedir um modelo, escolha "assinatura sem plano associado").
 5. Confirme e crie.

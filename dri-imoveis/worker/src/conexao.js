@@ -41,7 +41,7 @@ export async function conectarWhatsApp(env, db, contaId, corpo) {
     phone_number_id, waba_id, numero_exibicao: numero.display_phone_number || null, detalhe: numero.verified_name || null,
     status: "conectado", conectado_em: new Date().toISOString(),
   }).eq("conta_id", contaId);
-  if (r1.error) return { erro: r1.error.code === "23505" ? "Esse número já está ligado a outra conta da Dri." : r1.error.message };
+  if (r1.error) return { erro: r1.error.code === "23505" ? "Esse número já está ligado a outra conta do Toc Toc." : r1.error.message };
   const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: contaId, access_token, app_secret, atualizado_em: new Date().toISOString() });
   if (r2.error) throw new Error(r2.error.message);
   return { ok: true, numero: numero.display_phone_number, nome: numero.verified_name };

@@ -19,13 +19,13 @@ Se o pedido diz "ainda não convidou você", mande uma mensagem pedindo o convit
 1. **Aceite o convite**: chega no seu email ("convite para o portfólio …"). Abra e aceite com o seu Facebook.
 2. Em **developers.facebook.com** (a primeira vez, clique em Começar para virar desenvolvedor) →
    **Meus apps → Criar app** → caso de uso **Conectar-se com clientes pelo WhatsApp** (ou Outro → Empresa) →
-   nome `Dri <nome do corretor>` → **portfólio empresarial: o do corretor** (não o seu). Conclua.
+   nome `Toc Toc <nome do corretor>` → **portfólio empresarial: o do corretor** (não o seu). Conclua.
 3. No app: **WhatsApp → Configuração da API → Adicionar número de telefone**:
    nome de exibição (o do pedido), categoria **Imóveis**, número. Ligue para o corretor e peça o código.
    Depois, no campo **De**, escolha o número novo e copie **ID do número de telefone** e
    **ID da conta do WhatsApp Business**.
 4. **Token permanente**: business.facebook.com → (portfólio do corretor) **Configurações → Usuários do sistema →
-   Adicionar** (nome Dri, função Administrador) → **Atribuir ativos**: o app (controle total) e a conta do WhatsApp
+   Adicionar** (nome Toc Toc, função Administrador) → **Atribuir ativos**: o app (controle total) e a conta do WhatsApp
    (controle total) → **Gerar token**: app do corretor, validade **Nunca**, permissões
    `whatsapp_business_messaging` e `whatsapp_business_management`. Copie (só aparece uma vez).
 5. No app: **Configurações do app → Básico**: copie a **Chave secreta do aplicativo** e, em

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dri Imóveis · Painel</title>
+<title>Toc Toc · Painel</title>
 <!-- ==========================================================================
      DRI IMÓVEIS — painel do corretor (cadastro sozinho, sem depender de ninguém)
        • Criar conta e passo a passo: perfil → imóveis → horários → testar → WhatsApp
@@ -165,7 +165,7 @@ function Login(){
   }
   return (
     <div className="wrap" style={{maxWidth:440}}>
-      <div className="brand" style={{marginBottom:18}}><h1>Dri Imóveis</h1><p>A assistente que atende seus clientes no WhatsApp, apresenta os imóveis e marca a visita na sua agenda.</p></div>
+      <div className="brand" style={{marginBottom:18}}><h1>Toc Toc</h1><p>Seu corretor de bolso: a assistente que atende seus clientes no WhatsApp, apresenta os imóveis e marca a visita na sua agenda.</p></div>
       <form className="card" onSubmit={enviar}>
         <h3>{modo==="criar"?"Criar minha conta":modo==="entrar"?"Entrar":"Esqueci a senha"}</h3>
         <Aviso msg={msg} limpar={()=>setMsg(null)}/>
@@ -841,7 +841,7 @@ const IAS = [
       <>Clique em <b>Sign in</b> e escolha <b>Continue with Google</b> (ou use seu email).</>,
       <>Se aparecerem termos de uso, aceite.</>,
       <>Na página <b>API Keys</b>, clique em <b>Create API Key</b>.</>,
-      <>Em nome, escreva <i>Dri</i> e clique em <b>Submit</b>.</>,
+      <>Em nome, escreva <i>Toc Toc</i> e clique em <b>Submit</b>.</>,
       <>Clique no ícone de copiar ao lado da chave. Ela começa com <code>gsk_</code> e <b>só aparece uma vez</b>.</>,
       <>Volte aqui, cole no campo e clique em <b>Salvar</b>.</> ] },
   { id:"gemini", nome:"Gemini (Google)", link:"https://aistudio.google.com/apikey", prefixo:"AIza", tempo:"2 min", recomendada:true,
@@ -1013,7 +1013,7 @@ function WhatsApp({conta, conectado}){
         <li>Entre em <a href="https://developers.facebook.com" target="_blank" rel="noreferrer">developers.facebook.com</a> com seu Facebook e clique em <b>Começar</b> para virar desenvolvedor (confirma email e telefone).</li>
         <li>Clique em <b>Meus apps → Criar app</b>.</li>
         <li>No caso de uso, escolha <b>Conectar-se com clientes pelo WhatsApp</b>. Se não aparecer, escolha <b>Outro</b> e depois o tipo <b>Empresa</b>.</li>
-        <li>Nome do app: <i>Dri {conta.nome}</i>. Quando pedir o <b>portfólio empresarial</b>, crie um com o nome do seu negócio (se ainda não tiver). Conclua.</li>
+        <li>Nome do app: <i>Toc Toc {conta.nome}</i>. Quando pedir o <b>portfólio empresarial</b>, crie um com o nome do seu negócio (se ainda não tiver). Conclua.</li>
         <li>Se o app ainda não tiver o WhatsApp, procure <b>WhatsApp</b> na lista de produtos e clique em <b>Configurar</b>.</li>
       </ol></div>
 
@@ -1027,7 +1027,7 @@ function WhatsApp({conta, conectado}){
     <div className="card"><h3>C. Criar a chave permanente (token)</h3>
       <p className="small muted" style={{marginTop:0}}>O token que aparece na Configuração da API vence em 24 horas. Este não vence.</p>
       <ol className="passo small" start={9}>
-        <li>Abra <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">Configurações do negócio → Usuários do sistema</a> e clique em <b>Adicionar</b>. Nome: <i>Dri</i>. Função: <b>Administrador</b>.</li>
+        <li>Abra <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noreferrer">Configurações do negócio → Usuários do sistema</a> e clique em <b>Adicionar</b>. Nome: <i>Toc Toc</i>. Função: <b>Administrador</b>.</li>
         <li>Clique no usuário criado → <b>Atribuir ativos</b>. Em <b>Apps</b>, marque o seu app com <b>controle total</b>. Em <b>Contas do WhatsApp</b>, marque a sua conta com <b>controle total</b>. Salve.</li>
         <li>Clique em <b>Gerar token</b>: escolha o app, validade <b>Nunca</b>, e marque as permissões <code>whatsapp_business_messaging</code> e <code>whatsapp_business_management</code>. Copie o token (ele só aparece uma vez).</li>
       </ol></div>
@@ -1266,8 +1266,8 @@ function Assinar({st, fechar}){
     catch(err){ setMsg({t:"bad",x:err.message}); setOcupado(false); } }
   return (
     <form className="card" onSubmit={ir}>
-      <div className="between"><h3>Assinar a Dri · {reais(st.preco_mensal)} por mês</h3><button type="button" className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
-      <p className="small muted" style={{marginTop:0}}>Cobrança no cartão pelo Mercado Pago, renovada todo mês. Você digita o cartão na página do Mercado Pago: a Dri não vê os dados do cartão.
+      <div className="between"><h3>Assinar o Toc Toc · {reais(st.preco_mensal)} por mês</h3><button type="button" className="btn btn-ghost btn-sm" onClick={fechar}>Fechar</button></div>
+      <p className="small muted" style={{marginTop:0}}>Cobrança no cartão pelo Mercado Pago, renovada todo mês. Você digita o cartão na página do Mercado Pago: o Toc Toc não vê os dados do cartão.
         {st.status==="teste" && st.teste_ate && <> A primeira cobrança só acontece quando o teste grátis terminar ({fmtDia(st.teste_ate)}).</>} Dá para cancelar quando quiser.</p>
       <Aviso msg={msg} limpar={()=>setMsg(null)}/>
       <label>Email da sua conta do Mercado Pago</label>
@@ -1298,7 +1298,7 @@ function FaixaAssinatura(){
   if(st.status==="teste") return st.tem_cartao
     ? faixa("ok",<span>✓ Assinatura registrada. Seu teste grátis vai até {fmtDia(st.teste_ate)}; depois a cobrança é de {reais(st.preco_mensal)} por mês no cartão.</span>)
     : faixa("ok",<><span><b>Teste grátis:</b> {st.dias_restantes===1?"falta 1 dia":`faltam ${st.dias_restantes} dias`} (até {fmtDia(st.teste_ate)}). Depois, {reais(st.preco_mensal)} por mês.</span>{botao("Assinar agora")}</>);
-  if(st.status==="atrasada") return faixa("bad",<><span><b>O pagamento da assinatura não foi aprovado.</b> A {"Dri"} pausa em {fmtDT(st.pausa_em)} se não for regularizado.</span>{botao("Atualizar pagamento")}</>);
+  if(st.status==="atrasada") return faixa("bad",<><span><b>O pagamento da assinatura não foi aprovado.</b> A assistente pausa em {fmtDT(st.pausa_em)} se não for regularizado.</span>{botao("Atualizar pagamento")}</>);
   if(st.status==="pausada" && st.motivo==="teste_acabou") return faixa("bad",<><span><b>Seu teste grátis terminou e a assistente está pausada.</b> As mensagens dos clientes continuam chegando em Conversas. Assine para ela voltar a responder.</span>{botao("Assinar e reativar")}</>);
   if(st.status==="cancelada") return faixa("bad",<><span><b>Assinatura cancelada:</b> a assistente está pausada. As mensagens dos clientes continuam chegando em Conversas.</span>{botao("Assinar de novo")}</>);
   return faixa("bad",<><span><b>A assistente está pausada por falta de pagamento.</b> As mensagens dos clientes continuam chegando em Conversas. Ela volta assim que o Mercado Pago aprovar.</span>{botao("Atualizar pagamento")}</>);
@@ -1317,7 +1317,7 @@ function Parceiro({conta}){
   if(!st) return <div className="card muted">Carregando…</div>;
   const valor = reais(st.comissao_adesao);
   const p = st.parceiro, r = st.resumo;
-  const convite = p && `Conheça a Dri: uma assistente que atende seus clientes no WhatsApp, mostra os imóveis e marca as visitas na sua agenda. Teste grátis: ${p.link}`;
+  const convite = p && `Conheça o Toc Toc: uma assistente que atende seus clientes no WhatsApp, mostra os imóveis e marca as visitas na sua agenda. Teste grátis: ${p.link}`;
   return (
     <div className="card">
       <h3>Indique e ganhe</h3>
@@ -1337,13 +1337,13 @@ function Parceiro({conta}){
         </div>
         <p className="small muted" style={{margin:0}}>PIX cadastrado: {p.pix}</p>
       </> : <form onSubmit={salvar}>
-        {!p && <><p style={{marginTop:0}}>Ganhe <b>{valor} por PIX</b> para cada corretor que chegar pelo seu link <b>e assinar</b> a Dri.</p>
+        {!p && <><p style={{marginTop:0}}>Ganhe <b>{valor} por PIX</b> para cada corretor que chegar pelo seu link <b>e assinar</b> o Toc Toc.</p>
           <ul className="small" style={{lineHeight:1.6,paddingLeft:18}}>
             <li>Você recebe um link só seu para divulgar.</li>
             <li>Quem cria a conta pelo seu link fica ligado a você.</li>
             <li><b>Só há comissão se a pessoa indicada assinar:</b> os {valor} são gerados quando o primeiro pagamento dela é aprovado. Criar conta ou usar o teste grátis, sozinho, não gera comissão.</li>
             <li>Vale uma vez por conta indicada. A sua própria conta não conta.</li>
-            <li>O pagamento é feito pela Dri Imóveis na chave PIX que você informar.</li>
+            <li>O pagamento é feito pelo Toc Toc na chave PIX que você informar.</li>
           </ul></>}
         <div className="grid">
           <div><label>Chave PIX para receber *</label><input required value={pix} onChange={e=>setPix(e.target.value)} placeholder="CPF, email, celular ou chave aleatória"/></div>
@@ -1423,9 +1423,9 @@ function AdminPedido({p, chamar}){
       {aberto && <div className="card" style={{marginTop:10,background:"var(--surface)"}}>
         <ol className="passo small">
           <li>Aceite o convite que chegou no seu email e entre no portfólio de <b>{p.conta}</b> em <a href="https://business.facebook.com" target="_blank" rel="noreferrer">business.facebook.com</a> (troque de portfólio no menu do canto).</li>
-          <li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com</a>: <b>Criar app</b> → caso de uso <b>WhatsApp</b> → escolha o portfólio do corretor. Nome: <i>Dri {p.conta}</i>.</li>
+          <li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noreferrer">developers.facebook.com</a>: <b>Criar app</b> → caso de uso <b>WhatsApp</b> → escolha o portfólio do corretor. Nome: <i>Toc Toc {p.conta}</i>.</li>
           <li><b>WhatsApp → Configuração da API → Adicionar número</b>: nome "{p.nome_exibicao}", categoria Imóveis, número {fmtTel(p.numero)}. Ligue para o corretor e peça o código. Copie o <b>ID do número</b> e o <b>ID da conta do WhatsApp Business</b>.</li>
-          <li><b>Usuários do sistema</b> (no portfólio do corretor) → Adicionar "Dri" administrador → Atribuir ativos (app e conta do WhatsApp, controle total) → <b>Gerar token</b>, validade Nunca, permissões <code>whatsapp_business_messaging</code> e <code>whatsapp_business_management</code>.</li>
+          <li><b>Usuários do sistema</b> (no portfólio do corretor) → Adicionar "Toc Toc" administrador → Atribuir ativos (app e conta do WhatsApp, controle total) → <b>Gerar token</b>, validade Nunca, permissões <code>whatsapp_business_messaging</code> e <code>whatsapp_business_management</code>.</li>
           <li>App → <b>Configurações → Básico</b>: copie a <b>chave secreta</b> e cole a política de privacidade:{dados && <Copiar valor={dados.privacidade}/>}</li>
           <li>Preencha e clique em Conectar (o PIN de 6 números ativa o número; anote e passe ao corretor).</li>
         </ol>
@@ -1615,7 +1615,7 @@ function App(){
   const pronto = conta && conta.onboarding_etapa>=7;
   return (
     <div className="wrap">
-      <div className="top"><div className="brand"><h1>{admin && verAdmin ? "Dri Imóveis · Administração" : `${conta?.nome_assistente||"Dri"} · ${conta?.nome||"Imóveis"}`}</h1><p>{admin && verAdmin ? "Corretores, cobrança e parceiros" : "Sua assistente de WhatsApp para imóveis"}</p></div>
+      <div className="top"><div className="brand"><h1>{admin && verAdmin ? "Toc Toc · Administração" : conta ? `${conta.nome_assistente} · ${conta.nome}` : "Toc Toc"}</h1><p>{admin && verAdmin ? "Corretores, cobrança e parceiros" : "Sua assistente de WhatsApp para imóveis"}</p></div>
         <div className="row">{admin && <a className="btn btn-ghost btn-sm" href={verAdmin?"#":"#admin"}>{verAdmin?"Meu painel":"Administração"}</a>}
           <button className="btn btn-ghost btn-sm" onClick={()=>sb.auth.signOut()}>Sair</button></div></div>
       {admin && verAdmin ? <Admin/> : <>

@@ -8,3 +8,4 @@ video/projetos/**/*.wav
 video/projetos/**/*.mp3
 video/projetos/**/*.m4a
 video/projetos/**/saida/
+__pycache__/

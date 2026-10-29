@@ -104,7 +104,7 @@
     DB.capacitacao_participantes = [];
     ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves'].forEach(function (n, i) {
       DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: i % 4 === 3 ? 'Medicina' : 'Divisão de Enfermagem',
-        progresso: i % 3 === 0 ? { lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 } } } : { queda: { etapa: 'resultado', pct: 88, cert: { pct: 88, data: '01/10/2026' } } } });
+        progresso: [{ lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 }, pre: { pct: 50 } } }, { queda: { etapa: 'resultado', pct: 88, pre: { pct: 50 }, cert: { pct: 88, data: '01/10/2026' } } }, { ccih: { etapa: 'pre', preResp: { maos_1: 0 } } }, { medicamentos: { etapa: 'conteudo', atual: 's2', pre: { pct: 33 } } }][i % 4] });
     });
     DB.videos_educacao = [
       { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
@@ -130,11 +130,22 @@
     var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62, med_9: 0.5, lpp_10: 0.48, com_10: 0.55, ident_11: 0.7, queda_10: 0.66, cir_11: 0.72, maos_9: 0.52 };
     var profs = ['Divisão de Enfermagem', 'Divisão de Enfermagem', 'Divisão de Enfermagem', 'Medicina', 'Farmácia', 'Odontologia', 'Fisioterapia'];
     var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
+    var pids = nomes.map(function () { return uuid(); });
+    // diagnostico inicial: 2 primeiras questoes de cada nivel (mesma regra do app)
+    var PRE = {"identificacao":["ident_1","ident_2","ident_3","ident_5","ident_9","ident_10"],"medicamentos":["med_3","med_4","med_1","med_2","med_9","med_10"],"queda":["queda_2","queda_3","queda_1","queda_5","queda_9","queda_10"],"lpp":["lpp_1","lpp_2","lpp_3","lpp_5","lpp_9","lpp_10"],"cirurgia":["cir_1","cir_4","cir_2","cir_3","cir_9","cir_10"],"comunicacao":["com_1","com_4","com_2","com_3","com_9","com_10"],"ccih":["maos_1","maos_2","maos_4","maos_5","maos_9","maos_10"]};
+    var vistos = {};
     for (var i = 0; i < 64; i++) {
-      var mod = pick(Object.keys(mods)), pre = mods[mod], nome = pick(nomes), resp = {}, ac = 0, setor = SETORES[nomes.indexOf(nome) % SETORES.length];
+      var mod = pick(Object.keys(mods)), pre = mods[mod], ni = Math.floor(rnd() * nomes.length), nome = nomes[ni], resp = {}, ac = 0, setor = SETORES[ni % SETORES.length], prof = profs[ni % profs.length];
       for (var q = 1; q <= 11; q++) { var id = pre + '_' + q, p = dificeis[id] || (q > 8 ? 0.74 : 0.88), c = rnd() < p; if (c) ac++; resp[id] = { e: c ? 0 : 1 + Math.floor(rnd() * 3), c: c }; }
-      DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 200)).toISOString(), hospital_id: HID, modulo: mod, nome: nome, setor: setor, profissao: profs[nomes.indexOf(nome) % profs.length],
-        acertos: ac, total: 11, percentual: Math.round(ac / 11 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.2' });
+      var dt = Math.floor(rnd() * 200), chave = pids[ni] + mod, prePct = null;
+      if (!vistos[chave] && rnd() < 0.8) {
+        vistos[chave] = 1; var pr = {}, pac = 0, ids = PRE[mod];
+        ids.forEach(function (id) { var p0 = (dificeis[id] || (/_(9|10|11)$/.test(id) ? 0.74 : 0.88)) - 0.3 - (prof === 'Divisão de Enfermagem' ? 0 : 0.05), c0 = rnd() < p0; if (c0) pac++; pr[id] = { e: c0 ? 0 : 1 + Math.floor(rnd() * 3), c: c0 }; });
+        prePct = Math.round(pac / ids.length * 100);
+        DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(dt + 1).toISOString(), hospital_id: HID, modulo: mod, participante_id: pids[ni], nome: nome, setor: setor, profissao: prof, acertos: pac, total: ids.length, percentual: prePct, respostas: pr, duracao_seg: null, versao: '2026.2', tipo: 'pre' });
+      }
+      DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(dt).toISOString(), hospital_id: HID, modulo: mod, participante_id: pids[ni], nome: nome, setor: setor, profissao: prof,
+        acertos: ac, total: 11, percentual: Math.round(ac / 11 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.2', tipo: 'pos', pre_percentual: prePct });
     }
   }
 

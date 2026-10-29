@@ -6130,9 +6130,14 @@ function resumoExperiencia(lista){
 const N_MIN_EXP=5; // grupos menores que isso nao aparecem separados (anonimato)
 
 function imprimirCartazExperiencia(h){
+  imprimirCartazQR(h,{link:linkExperiencia(h),titulo:'Como foi seu<br/><span>atendimento?</span>',aba:'Como foi seu atendimento?',sub:'Pacientes e acompanhantes: avalie em 1 minuto.<br/>Sua opinião deixa o cuidado mais seguro.',pills:['anônimo','1 minuto','pelo celular']});
+}
+function imprimirCartazCapacitacao(h){
+  imprimirCartazQR(h,{link:linkH(h)+'?view=capacitacao',titulo:'Capacitação<br/><span>online</span>',aba:'Capacitação online',sub:'Protocolos de segurança do paciente do '+siglaH(h)+'.<br/>Trilha interativa, desafio final e certificado.<br/>Saia quando quiser e continue de onde parou.',pills:['sem login','pelo celular','certificado']});
+}
+function imprimirCartazQR(h,{link,titulo,aba,sub,pills}){
   const w=window.open('','_blank');if(!w) return;
-  const link=linkExperiencia(h);
-  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - Como foi seu atendimento?</title>
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - ${aba}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 portrait;margin:0}
@@ -6150,11 +6155,11 @@ h1{font-size:58px;line-height:1.05;margin:8mm 0 0;font-weight:900}h1 span{color:
 </style></head><body>
 <div class="noprint"><button onclick="window.print()">Imprimir</button></div>
 <div class="p">
-<h1>Como foi seu<br/><span>atendimento?</span></h1>
-<div class="sub">Pacientes e acompanhantes: avalie em 1 minuto.<br/>Sua opinião deixa o cuidado mais seguro.</div>
+<h1>${titulo}</h1>
+<div class="sub">${sub}</div>
 <div class="qr"><div id="qr"></div></div>
 <div class="url">${link.replace('https://','')}</div>
-<div style="margin-top:7mm"><span class="pill">anônimo</span><span class="pill">1 minuto</span><span class="pill">pelo celular</span></div>
+<div style="margin-top:7mm">${pills.map(x=>'<span class="pill">'+x+'</span>').join('')}</div>
 <div class="ft">${nomeH(h)} — Núcleo de Segurança do Paciente</div>
 </div>
 <script>new QRCode(document.getElementById('qr'),{text:'${link}',width:230,height:230,correctLevel:QRCode.CorrectLevel.M});<\/script>
@@ -7993,6 +7998,14 @@ function montarTrilha(m,temVideo){
   p.push({k:'quiz',tipo:'quiz',rot:'Desafio final',ic:String.fromCodePoint(127942)});
   return p;
 }
+// Pre-teste: 6 questoes fixas (2 de cada nivel), repetidas no desafio final para medir o quanto a pessoa aprendeu
+function questoesPre(m){const out=[];['facil','medio','dificil'].forEach(nv=>out.push(...m.questoes.filter(q=>(q.nivel||'medio')===nv).slice(0,2)));return out;}
+const pctLocal=(qs,resp)=>qs.length?Math.round(qs.filter(q=>resp&&resp[q.id]===0).length/qs.length*100):null;
+const nomeChave=n=>semAcento(n).replace(/\s+/g,' ').trim();
+async function hashSenhaCapac(pin,hid,nome){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+':'+hid+':capacitacao:'+nomeChave(nome)));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
 function porNivelResp(m,resp){
   return ['facil','medio','dificil'].map(nv=>{const qs=m.questoes.filter(q=>(q.nivel||'medio')===nv);return {nv,total:qs.length,ac:qs.filter(q=>resp[q.id]===0).length};}).filter(x=>x.total);
 }
@@ -8008,6 +8021,9 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   const [cad,setCad]=useState(()=>{const a=ler('nai_participante_'+h.id,{});const lista=divisoesDe(h);const conhecida=lista.includes(a.profissao);
     return {nome:a.nome||'',setor:a.setor||'',divisao:a.profissao?(conhecida?a.profissao:'outros'):'',outra:a.profissao&&!conhecida?a.profissao:''};});
   const [codigoDig,setCodigoDig]=useState('');
+  const [modoVolta,setModoVolta]=useState('nome');
+  const [volta,setVolta]=useState({nome:'',pin:''});
+  const [pinNovo,setPinNovo]=useState('');
   const [modId,setModId]=useState(()=>{try{return new URLSearchParams(location.search).get('modulo')||null;}catch{return null;}});
   const [videos,setVideos]=useState([]);
   const [cfg,setCfg]=useState({});
@@ -8038,12 +8054,33 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     const divisao=cad.divisao==='outros'?cad.outra.trim().replace(/\s+/g,' ').slice(0,60):cad.divisao;
     if(!divisao){toast(cad.divisao==='outros'?'Escreva a sua especialidade ou área':'Escolha a sua especialidade','error');return;}
     if(!cad.setor){toast('Escolha o setor onde trabalha','error');return;}
+    if(!/^\d{4}$/.test(pinNovo)){toast('Crie um PIN de 4 números: com ele e o seu nome você volta de onde parou','error');return;}
     setOcupado(true);
     const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
-    try{if(sbUrl&&sbKey){const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,...p,progresso:prog});if(r&&r[0])p.id=r[0].id;}}
+    try{if(sbUrl&&sbKey){
+      const base={hospital_id:h.id,...p,progresso:prog};
+      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:await hashSenhaCapac(pinNovo,h.id,p.nome)});}
+      catch(e){if(!/nome_chave|senha_hash|PGRST204/.test(e.message))throw e;r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',base);}
+      if(r&&r[0])p.id=r[0].id;}}
     catch(e){if(!faltaSQL004(e)&&!/capacitacao_participantes/.test(e.message)) toast('Sem conexão: seu progresso fica salvo só neste aparelho por enquanto.','error');}
     setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify({nome:p.nome,setor:p.setor,profissao:p.profissao}));}catch{}
     setMostrarCodigo(true);setOcupado(false);topo();
+  };
+  const assumir=(x)=>{const p={id:x.id,codigo:x.codigo,nome:x.nome,setor:x.setor,profissao:x.profissao};
+    setPart(p);const pr=x.progresso||{};setProg(pr);
+    try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem(kProg,JSON.stringify(pr));}catch{}
+    toast('Bem-vindo(a) de volta, '+p.nome.split(' ')[0]+'!','success');};
+  const entrarComNome=async()=>{
+    if(volta.nome.trim().split(/\s+/).length<2){toast('Digite seu nome completo, como no cadastro','error');return;}
+    if(!/^\d{4}$/.test(volta.pin)){toast('O PIN tem 4 números','error');return;}
+    setOcupado(true);
+    try{
+      const hs=await hashSenhaCapac(volta.pin,h.id,volta.nome);
+      const r=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(volta.nome))}&senha_hash=eq.${hs}&select=*`);
+      const x=(r||[]).sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''))[0];
+      if(!x) toast('Nome ou PIN não conferem. Confira como escreveu o nome no cadastro, ou use o código.','error'); else assumir(x);
+    }catch(e){toast('Não foi possível buscar agora. Tente pelo código.','error');}
+    setOcupado(false);
   };
   const entrarComCodigo=async()=>{
     const cod=codigoDig.toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -8052,10 +8089,7 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     try{
       const r=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&codigo=eq.${cod}&select=*`);
       if(!r||!r[0]){toast('Código não encontrado. Confira as letras.','error');setOcupado(false);return;}
-      const x=r[0];const p={id:x.id,codigo:x.codigo,nome:x.nome,setor:x.setor,profissao:x.profissao};
-      setPart(p);const pr=x.progresso||{};setProg(pr);
-      try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem(kProg,JSON.stringify(pr));}catch{}
-      toast('Bem-vindo(a) de volta, '+p.nome.split(' ')[0]+'!','success');
+      assumir(r[0]);
     }catch(e){toast('Não foi possível buscar o código agora.','error');}
     setOcupado(false);
   };
@@ -8068,12 +8102,12 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     const det={};let acertos=0;
     m.questoes.forEach(q=>{const c=resp[q.id]===0;if(c)acertos++;det[q.id]={e:resp[q.id],c};});
     const pct=Math.round(acertos/m.questoes.length*100);
-    const reg={hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos,total:m.questoes.length,percentual:pct,respostas:det,duracao_seg:pm.inicio?Math.round((Date.now()-new Date(pm.inicio).getTime())/1000):null,versao:window.CAPACITACAO_VERSAO||null};
+    const reg={hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos,total:m.questoes.length,percentual:pct,respostas:det,duracao_seg:pm.inicio?Math.round((Date.now()-new Date(pm.inicio).getTime())/1000):null,versao:window.CAPACITACAO_VERSAO||null,tipo:'pos',pre_percentual:pm.pre?pm.pre.pct:null};
     let codigo=null;
     try{if(sbUrl&&sbKey){const r=await sbInsert(sbUrl,sbKey,'capacitacao_respostas',reg);codigo=r&&r[0]&&r[0].id?String(r[0].id).slice(0,8).toUpperCase():null;}}
     catch(e){toast(faltaSQL004(e)||/capacitacao_/.test(e.message)?'Resultado não registrado: a capacitação ainda não foi ativada no banco. Avise o NSP.':'Resultado não registrado (sem conexão). Tente enviar de novo.','error');setOcupado(false);return;}
     const melhor=Math.max(pct,pm.melhor||0);
-    setPm({etapa:'resultado',pct,acertos,codigo:codigo||('LOCAL'+Date.now().toString(36).toUpperCase()),data:new Date().toLocaleDateString('pt-BR'),melhor,
+    setPm({etapa:'resultado',pct,acertos,posMesmas:pctLocal(questoesPre(m),resp),codigo:codigo||('LOCAL'+Date.now().toString(36).toUpperCase()),data:new Date().toLocaleDateString('pt-BR'),melhor,
       ...(pct>=NOTA_APROVACAO&&!(pm.cert&&pm.cert.pct>=pct)?{cert:{pct,codigo,data:new Date().toLocaleDateString('pt-BR')}}:{})});
     setOcupado(false);topo();
   };
@@ -8101,15 +8135,24 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
         {[...divisoesDe(h),'outros'].map(x=>{const sel=cad.divisao===x;return(<button key={x} onClick={()=>setCad({...cad,divisao:x})} style={{flex:'1 1 45%',padding:'11px 8px',borderRadius:10,border:'1.5px solid '+(sel?C.teal:C.border),background:sel?C.teal+'22':C.surface,color:sel?C.teal:C.text,fontSize:13,fontWeight:sel?800:600,cursor:'pointer'}}>{x==='outros'?'Outros':x}</button>);})}
       </div>
       {cad.divisao==='outros'&&<input value={cad.outra} onChange={e=>setCad({...cad,outra:e.target.value})} placeholder="Escreva a sua especialidade ou área (ex.: Fisioterapia, Nutrição)" style={inp} maxLength={60} autoFocus/>}
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 4px'}}>Crie um PIN de 4 números</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8,lineHeight:1.5}}>Para voltar de onde parou, em qualquer celular ou computador: basta o seu nome e este PIN.</div>
+      <input value={pinNovo} onChange={e=>setPinNovo(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="Ex.: 2580" inputMode="numeric" type="password" autoComplete="new-password" aria-label="PIN de 4 números" style={{...inp,letterSpacing:6,fontWeight:800,fontSize:16}} maxLength={4}/>
       <button onClick={cadastrar} disabled={ocupado} style={btnP}>{ocupado?'Cadastrando...':'Começar'}</button>
     </div>
     <div style={{...cardSt,marginTop:12}}>
-      <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:4}}>Já começou em outro aparelho?</div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Digite o código de 6 caracteres que apareceu no seu cadastro.</div>
-      <div style={{display:'flex',gap:8}}>
+      <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:4}}>Já começou? Continue de onde parou</div>
+      <div style={{display:'flex',gap:6,margin:'8px 0 10px'}}>{[['nome','Nome e PIN'],['codigo','Código de 6 caracteres']].map(([k,l])=><button key={k} onClick={()=>setModoVolta(k)} style={{flex:1,padding:'8px',borderRadius:8,fontSize:12,fontWeight:800,cursor:'pointer',border:'1px solid '+(modoVolta===k?C.teal:C.border),background:modoVolta===k?C.teal+'20':'transparent',color:modoVolta===k?C.teal:C.muted}}>{l}</button>)}</div>
+      {modoVolta==='nome'?<>
+        <input value={volta.nome} onChange={e=>setVolta({...volta,nome:e.target.value})} placeholder="Seu nome completo, como no cadastro" style={inp} maxLength={120}/>
+        <div style={{display:'flex',gap:8}}>
+          <input value={volta.pin} onChange={e=>setVolta({...volta,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="PIN" inputMode="numeric" type="password" aria-label="Seu PIN" maxLength={4} style={{...inp,marginBottom:0,letterSpacing:6,fontWeight:800}}/>
+          <button onClick={entrarComNome} disabled={ocupado} style={{background:C.surface,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'0 16px',color:C.teal,fontWeight:800,fontSize:13,cursor:'pointer'}}>Continuar</button>
+        </div>
+      </>:<div style={{display:'flex',gap:8}}>
         <input value={codigoDig} onChange={e=>setCodigoDig(e.target.value.toUpperCase())} placeholder="Ex.: K7Q4M2" maxLength={8} style={{...inp,marginBottom:0,letterSpacing:3,fontWeight:800,textTransform:'uppercase'}}/>
         <button onClick={entrarComCodigo} disabled={ocupado} style={{background:C.surface,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'0 16px',color:C.teal,fontWeight:800,fontSize:13,cursor:'pointer'}}>Continuar</button>
-      </div>
+      </div>}
     </div>
   </div>);
 
@@ -8123,14 +8166,14 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   if(!m) return(<div style={{padding:'20px 16px 80px',maxWidth:720,margin:'0 auto',display:'flex',flexDirection:'column',gap:10}}>
     <div style={{fontSize:19,fontWeight:900,color:C.text}}>Capacitação online</div>
     {mostrarCodigo&&<div style={{...cardSt,background:C.teal+'14',borderColor:C.teal+'55',fontSize:12.5,color:C.text,lineHeight:1.6}}>
-      Cadastro feito! Seu código é <b style={{color:C.teal,letterSpacing:2,fontSize:15}}>{part.codigo}</b>. Anote ou tire um print: com ele você continua em outro aparelho. Neste aparelho, é só voltar a este link.
+      Cadastro feito! Neste aparelho, é só voltar a este link. Em outro aparelho, entre com o seu <b>nome e o PIN</b> que você criou, ou com o código <b style={{color:C.teal,letterSpacing:2,fontSize:15}}>{part.codigo}</b> (tire um print).
       <div><button onClick={()=>setMostrarCodigo(false)} style={{marginTop:8,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'7px 14px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Entendi</button></div>
     </div>}
     {cabecalhoPessoa}
     {mods.map(x=>{const s=modInfo(x.id);const p=prog[x.id]||{};const nResp=Object.keys(p.resp||{}).length;
-      const status=p.cert?{t:'Concluído · '+p.cert.pct+'%',c:C.green}:p.etapa==='resultado'?{t:'Refazer · '+p.pct+'%',c:C.yellow}:p.etapa==='quiz'?{t:'Continuar · questão '+Math.min(nResp+1,x.questoes.length)+'/'+x.questoes.length,c:C.blue}:p.etapa?{t:'Continuar a trilha · '+Math.round(Object.keys(p.vistos||{}).length/Math.max(1,montarTrilha(x,false).length-1)*100)+'%',c:C.blue}:null;
+      const status=p.cert?{t:'Concluído · '+p.cert.pct+'%',c:C.green}:p.etapa==='resultado'?{t:'Refazer · '+p.pct+'%',c:C.yellow}:p.etapa==='pre'?{t:'Continuar · diagnóstico inicial',c:C.blue}:p.etapa==='quiz'?{t:'Continuar · questão '+Math.min(nResp+1,x.questoes.length)+'/'+x.questoes.length,c:C.blue}:p.etapa?{t:'Continuar a trilha · '+Math.round(Object.keys(p.vistos||{}).length/Math.max(1,montarTrilha(x,false).length-1)*100)+'%',c:C.blue}:null;
       return(<div key={x.id} style={{...cardSt,borderLeft:'3px solid '+s.color,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
-        <button onClick={()=>{setModId(x.id);if(!p.etapa)salvarProg({...prog,[x.id]:{etapa:'conteudo',inicio:new Date().toISOString()}});topo();}} style={{all:'unset',cursor:'pointer',display:'flex',alignItems:'center',gap:12,flex:1,minWidth:200}}>
+        <button onClick={()=>{setModId(x.id);if(!p.etapa)salvarProg({...prog,[x.id]:{etapa:'pre',inicio:new Date().toISOString()}});topo();}} style={{all:'unset',cursor:'pointer',display:'flex',alignItems:'center',gap:12,flex:1,minWidth:200}}>
           <div style={{width:44,height:44,borderRadius:12,background:s.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{s.icon}</div>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>{x.titulo}</div><div style={{fontSize:11,color:status?status.c:C.muted,marginTop:2,fontWeight:status?700:400}}>{status?status.t:x.carga+' · trilha interativa · '+x.questoes.length+' questões'}</div></div>
           <IconChev size={16} color={C.muted}/>
@@ -8144,7 +8187,7 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   const passos=montarTrilha(m,videos.length>0);
   const vistos=pm.vistos||{};
   const inter=pm.int||{};
-  const atualK=etapa==='conteudo'?(passos.some(x=>x.k===pm.atual)?pm.atual:'inicio'):'quiz';
+  const atualK=etapa==='pre'?'inicio':etapa==='conteudo'?(passos.some(x=>x.k===pm.atual)?pm.atual:'inicio'):'quiz';
   const idx=passos.findIndex(x=>x.k===atualK);
   const passo=passos[idx];
   const nVistos=passos.filter(x=>vistos[x.k]).length;
@@ -8219,11 +8262,48 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   };
   const precisaResponder=passo&&((passo.tipo==='vf')||(passo.tipo==='secao'&&passo.cena&&m.apostila[passo.i].caixa&&m.apostila[passo.i].caixa.tipo==='cena'))&&inter[atualK]===undefined;
 
-  // desafio final: uma questao por vez, agrupadas por nivel
-  const nResp=m.questoes.filter(q=>resp[q.id]!==undefined).length;
-  const qi=Math.min(pm.qi!==undefined?pm.qi:Math.max(0,m.questoes.findIndex(q=>resp[q.id]===undefined)),m.questoes.length-1);
-  const qAt=m.questoes[qi];
-  const irQ=i=>setPm({qi:i});
+  // questionarios (diagnostico inicial e desafio final): uma questao por vez, agrupadas por nivel
+  const preQs=questoesPre(m);
+  const preResp=pm.preResp||{};
+  const qiDe=(lista,rs,salvo)=>Math.min(salvo!==undefined?salvo:Math.max(0,lista.findIndex(q=>rs[q.id]===undefined)),lista.length-1);
+  const blocoQuiz=({lista,rs,qiv,campoResp,campoQi,titulo,onEnviar,onVoltarInicio,mostrarTema})=>{
+    const q=lista[qiv];if(!q)return null;
+    const n=lista.filter(x=>rs[x.id]!==undefined).length;
+    const irI=i=>setPm({[campoQi]:i});
+    return(<>
+      <div style={{...cardSt,padding:'10px 14px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11,color:C.muted,fontWeight:700,marginBottom:8}}><span>{titulo} · {n} de {lista.length} respondidas</span><span>Fácil → Médio → Difícil</span></div>
+        <div style={{display:'flex',gap:4}}>{lista.map((x,i)=>{const nv=nivelQ(x);const r=rs[x.id]!==undefined;return <button key={x.id} onClick={()=>irI(i)} aria-label={'Questão '+(i+1)} style={{flex:1,height:i===qiv?10:8,borderRadius:4,border:'none',padding:0,cursor:'pointer',background:r?nv.cor:nv.cor+'33',outline:i===qiv?'2px solid '+C.text:'none',outlineOffset:1}}/>;})}</div>
+      </div>
+      {(qiv===0||lista[qiv-1].nivel!==q.nivel)&&<div style={{padding:'10px 14px',borderRadius:12,background:nivelQ(q).cor+'16',border:'1px solid '+nivelQ(q).cor+'44',fontSize:12.5,color:C.text}}>
+        <b style={{color:nivelQ(q).cor}}>Nível {nivelQ(q).rotulo.toLowerCase()}.</b> {nivelQ(q).frase}</div>}
+      <div key={q.id} style={{...cardSt,padding:18,borderRadius:16,animation:'naiEntra .3s ease'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}><span style={{fontSize:12,fontWeight:900,color:C.muted,whiteSpace:'nowrap'}}>Questão {qiv+1} de {lista.length}</span><SeloNivel q={q}/>{mostrarTema&&<span style={{fontSize:11,color:C.muted,marginLeft:'auto',textAlign:'right'}}>{q.tema}</span>}</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.text,lineHeight:1.55,marginBottom:12}}>{q.p}</div>
+        {ordemAlternativas(q).map((oi,j)=>{const sel=rs[q.id]===oi;return(<button key={oi} onClick={()=>setPm({[campoResp]:{...rs,[q.id]:oi},[campoQi]:qiv})} style={{display:'flex',gap:10,alignItems:'flex-start',width:'100%',textAlign:'left',background:sel?C.teal+'18':C.surface,border:'1.5px solid '+(sel?C.teal:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8,cursor:'pointer',color:C.text,fontSize:13.5,lineHeight:1.45,fontFamily:'inherit'}}>
+          <span style={{minWidth:24,height:24,borderRadius:12,border:'2px solid '+(sel?C.teal:C.muted),background:sel?C.teal:'transparent',color:sel?'#06101F':C.muted,fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{'ABCD'[j]}</span>{q.ops[oi]}
+        </button>);})}
+      </div>
+      <div style={{display:'flex',gap:10}}>
+        {(qiv>0||onVoltarInicio)&&<button onClick={()=>qiv>0?irI(qiv-1):onVoltarInicio()} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px 18px',color:C.muted,fontWeight:700,fontSize:13,cursor:'pointer'}}>←</button>}
+        {qiv<lista.length-1?<button onClick={()=>irI(qiv+1)} style={{...btnP,flex:1}}>{rs[q.id]===undefined?'Pular por enquanto →':'Próxima →'}</button>
+          :<button onClick={onEnviar} disabled={ocupado} style={{...btnP,flex:1}}>{ocupado?'Enviando...':'Enviar respostas ('+n+'/'+lista.length+')'}</button>}
+      </div>
+      {n===lista.length&&qiv<lista.length-1&&<button onClick={onEnviar} disabled={ocupado} style={{...btnP,background:C.green}}>{ocupado?'Enviando...':'Todas respondidas: enviar agora'}</button>}
+    </>);
+  };
+  const enviarPre=async()=>{
+    if(preQs.some(q=>preResp[q.id]===undefined)){toast('Responda as '+preQs.length+' perguntas do diagnóstico','error');return;}
+    setOcupado(true);
+    const det={};let ac=0;
+    preQs.forEach(q=>{const c=preResp[q.id]===0;if(c)ac++;det[q.id]={e:preResp[q.id],c};});
+    const pct=Math.round(ac/preQs.length*100);
+    // o diagnostico nao bloqueia o curso: se falhar o envio, a pessoa segue normalmente
+    try{if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos:ac,total:preQs.length,percentual:pct,respostas:det,versao:window.CAPACITACAO_VERSAO||null,tipo:'pre'});}catch(e){}
+    setPm({etapa:'conteudo',atual:'inicio',pre:{pct,acertos:ac,total:preQs.length,data:new Date().toISOString()}});
+    toast('Diagnóstico registrado! No final você vai ver o quanto evoluiu.','success');
+    setOcupado(false);topo();
+  };
   const medalha=pct=>pct>=90?{t:'Medalha de ouro',ic:String.fromCodePoint(129351),c:'#D4A017'}:pct>=NOTA_APROVACAO?{t:'Medalha de prata',ic:String.fromCodePoint(129352),c:'#94A3B8'}:{t:'Quase lá',ic:String.fromCodePoint(128170),c:C.yellow};
 
   return(<div>
@@ -8236,14 +8316,14 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
         <button onClick={voltar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Sair</button>
       </div>
       <div style={{display:'flex',alignItems:'center',overflowX:'auto',gap:0,marginTop:10,paddingBottom:4}}>
-        {passos.map((x,i)=>{const feito=vistos[x.k]||(x.k==='quiz'&&etapa==='resultado');const atual=x.k===atualK&&etapa!=='resultado';const livre=feito||atual||i===0||vistos[passos[i-1].k];
+        {passos.map((x,i)=>{const feito=vistos[x.k]||(x.k==='quiz'&&etapa==='resultado');const atual=x.k===atualK&&etapa!=='resultado'&&etapa!=='pre';const livre=feito||atual||i===0||vistos[passos[i-1].k];
           return(<React.Fragment key={x.k}>
             {i>0&&<div style={{flex:'1 0 10px',height:3,background:vistos[passos[i-1].k]?C.teal:C.border,minWidth:10}}/>}
-            <button ref={el=>{if(el&&atual&&el.parentElement){const pai=el.parentElement;pai.scrollLeft=el.offsetLeft-pai.clientWidth/2+el.offsetWidth/2;}}} onClick={()=>livre&&etapa!=='resultado'&&irPara(x.k)} title={x.rot} aria-label={'Passo '+(i+1)+': '+x.rot} style={{width:atual?34:28,height:atual?34:28,flexShrink:0,borderRadius:'50%',fontSize:x.ic.length>2?14:12,fontWeight:900,cursor:livre?'pointer':'default',padding:0,fontFamily:'inherit',
+            <button ref={el=>{if(el&&atual&&el.parentElement){const pai=el.parentElement;pai.scrollLeft=el.offsetLeft-pai.clientWidth/2+el.offsetWidth/2;}}} onClick={()=>livre&&etapa!=='resultado'&&etapa!=='pre'&&irPara(x.k)} title={x.rot} aria-label={'Passo '+(i+1)+': '+x.rot} style={{width:atual?34:28,height:atual?34:28,flexShrink:0,borderRadius:'50%',fontSize:x.ic.length>2?14:12,fontWeight:900,cursor:livre?'pointer':'default',padding:0,fontFamily:'inherit',
               border:'2px solid '+(atual?s.color:feito?C.teal:C.border),background:feito?C.teal:atual?s.color+'26':C.card,color:feito?'#06101F':atual?s.color:C.muted,boxShadow:atual?'0 0 0 4px '+s.color+'22':'none'}}>{feito&&x.tipo!=='quiz'?'✓':x.ic}</button>
           </React.Fragment>);})}
       </div>
-      <div style={{fontSize:10.5,color:C.muted,marginTop:4}}>{etapa==='resultado'?'Trilha concluída':'Passo '+(idx+1)+' de '+passos.length+' · '+passo.rot}</div>
+      <div style={{fontSize:10.5,color:C.muted,marginTop:4}}>{etapa==='resultado'?'Trilha concluída':etapa==='pre'?'Diagnóstico inicial · a trilha começa logo depois':'Passo '+(idx+1)+' de '+passos.length+' · '+passo.rot}</div>
     </div>
     <div style={{padding:16,maxWidth:720,margin:'0 auto',display:'flex',flexDirection:'column',gap:12}}>
       {etapa==='conteudo'&&<>
@@ -8254,27 +8334,15 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
             {precisaResponder?'Responda para continuar':passos[idx+1]&&passos[idx+1].k==='quiz'?'Ir para o desafio final '+String.fromCodePoint(127942):'Continuar →'}</button>
         </div>
       </>}
-      {etapa==='quiz'&&qAt&&<>
-        <div style={{...cardSt,padding:'10px 14px'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11,color:C.muted,fontWeight:700,marginBottom:8}}><span>Desafio final · {nResp} de {m.questoes.length} respondidas</span><span>Fácil → Médio → Difícil</span></div>
-          <div style={{display:'flex',gap:4}}>{m.questoes.map((q,i)=>{const n=nivelQ(q);const r=resp[q.id]!==undefined;return <button key={q.id} onClick={()=>irQ(i)} aria-label={'Questão '+(i+1)} style={{flex:1,height:i===qi?10:8,borderRadius:4,border:'none',padding:0,cursor:'pointer',background:r?n.cor:n.cor+'33',outline:i===qi?'2px solid '+C.text:'none',outlineOffset:1}}/>;})}</div>
-        </div>
-        {(qi===0||m.questoes[qi-1].nivel!==qAt.nivel)&&<div style={{padding:'10px 14px',borderRadius:12,background:nivelQ(qAt).cor+'16',border:'1px solid '+nivelQ(qAt).cor+'44',fontSize:12.5,color:C.text}}>
-          <b style={{color:nivelQ(qAt).cor}}>Nível {nivelQ(qAt).rotulo.toLowerCase()}.</b> {nivelQ(qAt).frase}</div>}
-        <div key={qAt.id} style={{...cardSt,padding:18,borderRadius:16,animation:'naiEntra .3s ease'}}>
-          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}><span style={{fontSize:12,fontWeight:900,color:C.muted,whiteSpace:'nowrap'}}>Questão {qi+1} de {m.questoes.length}</span><SeloNivel q={qAt}/><span style={{fontSize:11,color:C.muted,marginLeft:'auto',textAlign:'right'}}>{qAt.tema}</span></div>
-          <div style={{fontSize:15,fontWeight:700,color:C.text,lineHeight:1.55,marginBottom:12}}>{qAt.p}</div>
-          {ordemAlternativas(qAt).map((oi,j)=>{const sel=resp[qAt.id]===oi;return(<button key={oi} onClick={()=>setPm({resp:{...resp,[qAt.id]:oi},qi})} style={{display:'flex',gap:10,alignItems:'flex-start',width:'100%',textAlign:'left',background:sel?C.teal+'18':C.surface,border:'1.5px solid '+(sel?C.teal:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8,cursor:'pointer',color:C.text,fontSize:13.5,lineHeight:1.45,fontFamily:'inherit'}}>
-            <span style={{minWidth:24,height:24,borderRadius:12,border:'2px solid '+(sel?C.teal:C.muted),background:sel?C.teal:'transparent',color:sel?'#06101F':C.muted,fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{'ABCD'[j]}</span>{qAt.ops[oi]}
-          </button>);})}
-        </div>
-        <div style={{display:'flex',gap:10}}>
-          <button onClick={()=>qi>0?irQ(qi-1):irPara(passos[passos.length-2].k)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px 18px',color:C.muted,fontWeight:700,fontSize:13,cursor:'pointer'}}>←</button>
-          {qi<m.questoes.length-1?<button onClick={()=>irQ(qi+1)} style={{...btnP,flex:1}}>{resp[qAt.id]===undefined?'Pular por enquanto →':'Próxima →'}</button>
-            :<button onClick={enviar} disabled={ocupado} style={{...btnP,flex:1}}>{ocupado?'Enviando...':'Enviar respostas ('+nResp+'/'+m.questoes.length+')'}</button>}
-        </div>
-        {nResp===m.questoes.length&&qi<m.questoes.length-1&&<button onClick={enviar} disabled={ocupado} style={{...btnP,background:C.green}}>{ocupado?'Enviando...':'Todas respondidas: enviar agora'}</button>}
+      {etapa==='pre'&&<>
+        {Object.keys(preResp).length===0&&<div style={{...cardSt,padding:18,borderRadius:16,borderTop:'4px solid '+s.color}}>
+          <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:1}}>Antes de começar</div>
+          <div style={{fontSize:18,fontWeight:900,color:C.text,margin:'4px 0 8px'}}>Diagnóstico rápido: {preQs.length} perguntas</div>
+          <div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>Responda com o que você sabe hoje. <b>Não vale nota</b> e não aparece no certificado: serve para você e o NSP verem o quanto o curso fez diferença. As mesmas perguntas voltam no desafio final.</div>
+        </div>}
+        {blocoQuiz({lista:preQs,rs:preResp,qiv:qiDe(preQs,preResp,pm.pqi),campoResp:'preResp',campoQi:'pqi',titulo:'Diagnóstico inicial',onEnviar:enviarPre})}
       </>}
+      {etapa==='quiz'&&blocoQuiz({lista:m.questoes,rs:resp,qiv:qiDe(m.questoes,resp,pm.qi),campoResp:'resp',campoQi:'qi',titulo:'Desafio final',onEnviar:enviar,onVoltarInicio:()=>irPara(passos[passos.length-2].k),mostrarTema:true})}
       {etapa==='resultado'&&pm.pct!==undefined&&(()=>{const md=medalha(pm.pct);const niv=porNivelResp(m,resp);return(<>
         <div style={{...cardSt,textAlign:'center',padding:20,borderRadius:16,borderColor:md.c+'88',animation:'naiEntra .4s ease'}}>
           <div style={{fontSize:52,lineHeight:1}}>{md.ic}</div>
@@ -8283,6 +8351,12 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
           <div style={{fontSize:13,color:C.text,fontWeight:700}}>{pm.acertos} de {m.questoes.length} questões corretas · {String.fromCodePoint(11088)} {pontos} pontos na trilha</div>
           <div style={{display:'flex',gap:8,justifyContent:'center',margin:'14px 0 4px',flexWrap:'wrap'}}>{niv.map(x=>{const n=NIVEIS_Q[x.nv];return(<div key={x.nv} style={{minWidth:90,padding:'8px 10px',borderRadius:12,background:n.cor+'14',border:'1px solid '+n.cor+'44'}}>
             <div style={{fontSize:10,fontWeight:800,color:n.cor,textTransform:'uppercase'}}>{n.rotulo}</div><div style={{fontSize:18,fontWeight:900,color:C.text}}>{x.ac}/{x.total}</div></div>);})}</div>
+          {pm.pre&&(()=>{const depois=pm.posMesmas!==undefined?pm.posMesmas:pctLocal(preQs,resp);const dif=depois-pm.pre.pct;return(<div style={{margin:'12px auto 0',maxWidth:380,padding:'12px 14px',borderRadius:12,background:C.surface,border:'1px solid '+C.border,textAlign:'left'}}>
+            <div style={{fontSize:12,fontWeight:900,color:C.text,marginBottom:8}}>{String.fromCodePoint(128200)} Sua evolução nas {preQs.length} perguntas do diagnóstico</div>
+            {[['Antes do curso',pm.pre.pct,C.muted],['Depois do curso',depois,dif>0?C.green:C.teal]].map(([l,v,cor])=><div key={l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{width:104,fontSize:11.5,color:C.muted}}>{l}</span><div style={{flex:1,height:10,borderRadius:5,background:C.border,overflow:'hidden'}}><div style={{width:v+'%',height:'100%',background:cor}}/></div><b style={{width:40,textAlign:'right',fontSize:12.5,color:C.text}}>{v}%</b></div>)}
+            <div style={{fontSize:12,color:dif>0?C.green:C.muted,fontWeight:800,marginTop:2}}>{dif>0?'+'+dif+' pontos percentuais. Você aprendeu!':dif===0?'Mesmo resultado do diagnóstico: vale rever a trilha.':'Abaixo do diagnóstico: revise a trilha com calma.'}</div>
+          </div>);})()}
           <div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.6}}>{pm.pct>=NOTA_APROVACAO?'Parabéns, '+part.nome.split(' ')[0]+'! Capacitação concluída.':'Revise a trilha e tente de novo: são necessários '+NOTA_APROVACAO+'% para o certificado.'}</div>
           <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12,flexWrap:'wrap'}}>
             {pm.cert&&<button onClick={()=>certificado({m,...pm.cert,codigo:pm.cert.codigo||pm.codigo})} style={{background:C.green,color:'#06101F',border:'none',borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Baixar certificado</button>}
@@ -8315,8 +8389,8 @@ function CertificadoVerificarView({sbUrl,sbKey,hospital}){
     if(k.length!==8){setRes({erro:'O código do certificado tem 8 caracteres (letras A–F e números).'});return;}
     setRes({carregando:true});
     try{
-      const d=await sbSelect(sbUrl,sbKey,'capacitacao_respostas',`hospital_id=eq.${h.id}&id=gte.${k}-0000-0000-0000-000000000000&id=lte.${k}-ffff-ffff-ffff-ffffffffffff&select=id,created_at,modulo,nome,profissao,setor,percentual`);
-      const r=(d||[])[0];setRes(r?{ok:r}:{erro:'Certificado não encontrado para este código.'});
+      const d=await sbSelect(sbUrl,sbKey,'capacitacao_respostas',`hospital_id=eq.${h.id}&id=gte.${k}-0000-0000-0000-000000000000&id=lte.${k}-ffff-ffff-ffff-ffffffffffff&select=id,created_at,modulo,nome,profissao,setor,percentual,tipo`);
+      const r=(d||[]).filter(x=>x.tipo!=='pre')[0];setRes(r?{ok:r}:{erro:'Certificado não encontrado para este código.'});
     }catch(e){setRes({erro:'Não foi possível verificar agora.'});}
   };
   useEffect(()=>{if(!mods) carregarCapacitacao().then(setMods).catch(()=>{});if(cod&&sbUrl&&sbKey) verificar(cod);},[sbUrl,sbKey]);
@@ -8408,6 +8482,86 @@ function resumoCapacitacao(lista,mods){
   return {n:lista.length,pessoas:pessoas.size,media,aprov,porModulo:agrupar('modulo'),porSetor:agrupar('setor'),porProf:agrupar('profissao'),questoes,porNivel};
 }
 
+// Pre x pos: compara as mesmas questoes do diagnostico inicial no desafio final (primeira tentativa de cada pessoa)
+function resumoPrePos(pos,pre,mods){
+  const preIdx={};
+  pre.forEach(r=>{if(!r.participante_id)return;const k=r.participante_id+'|'+r.modulo;if(!preIdx[k]||(r.created_at||'')<(preIdx[k].created_at||''))preIdx[k]=r;});
+  const usados=new Set(),pares=[];
+  pos.slice().sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||'')).forEach(r=>{
+    const k=r.participante_id+'|'+r.modulo,p=preIdx[k];if(!r.participante_id||!p||usados.has(k))return;
+    const m=(mods||[]).find(x=>x.id===r.modulo);if(!m)return;
+    const qs=questoesPre(m).filter(q=>p.respostas&&p.respostas[q.id]&&r.respostas&&r.respostas[q.id]);if(!qs.length)return;
+    usados.add(k);
+    pares.push({r,p,m,qs,pre:Math.round(qs.filter(q=>p.respostas[q.id].c).length/qs.length*100),pos:Math.round(qs.filter(q=>r.respostas[q.id].c).length/qs.length*100)});
+  });
+  const med=xs=>xs.length?Math.round(xs.reduce((s,x)=>s+x,0)/xs.length):null;
+  const grupo=campo=>{const g={};pares.forEach(x=>{const k=campo==='modulo'?x.m.id:(x.r[campo]||'—');(g[k]=g[k]||[]).push(x);});
+    return Object.entries(g).map(([k,xs])=>{const a=med(xs.map(x=>x.pre)),d=med(xs.map(x=>x.pos));return {k,n:xs.length,pre:a,pos:d,ganho:d-a};}).sort((a,b)=>b.n-a.n);};
+  const itens={};
+  pares.forEach(x=>x.qs.forEach(q=>{const it=itens[q.id]||(itens[q.id]={q,m:x.m,n:0,a:0,d:0});it.n++;if(x.p.respostas[q.id].c)it.a++;if(x.r.respostas[q.id].c)it.d++;}));
+  const lista=Object.values(itens).map(i=>({...i,pre:Math.round(i.a/i.n*100),pos:Math.round(i.d/i.n*100)})).map(i=>({...i,ganho:i.pos-i.pre}));
+  return {n:pares.length,nPre:pre.length,pre:med(pares.map(x=>x.pre)),pos:med(pares.map(x=>x.pos)),
+    melhoraram:pares.length?Math.round(pares.filter(x=>x.pos>x.pre).length/pares.length*100):null,
+    porModulo:grupo('modulo'),porSetor:grupo('setor'),porProf:grupo('profissao'),itens:lista};
+}
+// Funil de adesao a partir do progresso salvo de cada pessoa (onde as pessoas param)
+function funilCapacitacao(parts,modulo){
+  const f={iniciaram:0,diagnostico:0,trilha:0,desafio:0,certificado:0},parados=[],onde={};
+  const limite=Date.now()-7*864e5;
+  parts.forEach(x=>Object.entries(x.progresso||{}).forEach(([mod,v])=>{
+    if(!v||!v.etapa||(modulo!=='todos'&&mod!==modulo))return;
+    f.iniciaram++;
+    if(v.etapa!=='pre')f.diagnostico++;
+    if(v.etapa==='quiz'||v.etapa==='resultado')f.trilha++;
+    if(v.etapa==='resultado')f.desafio++;
+    if(v.cert)f.certificado++;
+    if(!v.cert){
+      const local=v.etapa==='pre'?'Diagnóstico inicial':v.etapa==='conteudo'?'Trilha de conteúdo':v.etapa==='quiz'?'Desafio final':'Abaixo de '+NOTA_APROVACAO+'%';
+      onde[local]=(onde[local]||0)+1;
+      const quando=new Date(v.atualizado||x.updated_at||x.created_at).getTime();
+      if(quando<limite)parados.push({nome:x.nome,setor:x.setor,mod,local,dias:Math.floor((Date.now()-quando)/864e5)});
+    }
+  }));
+  return {f,parados:parados.sort((a,b)=>b.dias-a.dias),onde};
+}
+// Analise automatica: transforma os numeros em frases para decidir o proximo treinamento
+function analiseCapacitacao({R,PP,F,h,nomeMod,filtrada}){
+  const out=[];const add=(tipo,t)=>out.push({tipo,t});
+  if(!R.n&&!F.f.iniciaram){add('info','Ainda não há participação no período. Divulgue o link ou o cartaz com QR code nos setores e nas passagens de plantão.');return out;}
+  if(PP.n>=3){
+    const g=PP.pos-PP.pre;
+    if(g>=15) add('ok','O curso está funcionando: nas mesmas perguntas, o acerto subiu de '+PP.pre+'% para '+PP.pos+'% (+'+g+' pontos) entre '+PP.n+' pessoas que fizeram o pré e o pós-teste.');
+    else if(g>=5) add('info','Ganho moderado com o curso: de '+PP.pre+'% para '+PP.pos+'% (+'+g+' pontos). Vale reforçar os pontos ainda fracos listados abaixo.');
+    else add('alerta','Ganho pequeno com o curso (de '+PP.pre+'% para '+PP.pos+'%). Revise o material e considere uma atividade presencial ou simulação.');
+    const mods=PP.porModulo.filter(x=>x.n>=3).sort((a,b)=>b.ganho-a.ganho);
+    if(mods.length>1){add('ok','Maior aprendizado em "'+nomeMod(mods[0].k)+'" (+'+mods[0].ganho+' pontos).');
+      const pior=mods[mods.length-1];if(pior.ganho<10)add('alerta','"'+nomeMod(pior.k)+'" teve o menor ganho (+'+pior.ganho+' pontos): o conteúdo ou o vídeo deste protocolo precisa de revisão.');}
+    const fracosPos=PP.itens.filter(i=>i.n>=5&&i.pos<60).sort((a,b)=>a.pos-b.pos);
+    fracosPos.slice(0,3).forEach(i=>add('alerta','Mesmo depois do curso, só '+i.pos+'% acertam "'+i.q.tema+'" ('+nomeMod(i.m.id)+'). Tema prioritário para treinamento presencial.'));
+    const dominados=PP.itens.filter(i=>i.n>=5&&i.pre>=90);
+    if(dominados.length) add('info',dominados.length+' tema(s) já eram dominados antes do curso (ex.: "'+dominados[0].q.tema+'", '+dominados[0].pre+'% no pré-teste): podem ser abordados mais rápido.');
+  } else if(R.n) add('info','O pré e pós-teste aparece aqui quando pelo menos 3 pessoas tiverem feito o diagnóstico inicial e o desafio final do mesmo módulo.');
+  const nv={};(R.porNivel||[]).forEach(x=>nv[x.nv]=x.pct);
+  if(nv.facil!=null&&nv.facil<NOTA_APROVACAO) add('alerta','Acerto nas questões fáceis abaixo de '+NOTA_APROVACAO+'% ('+nv.facil+'%): o conceito básico do protocolo ainda não chegou à equipe.');
+  else if(nv.dificil!=null&&nv.dificil<60) add('info','A equipe conhece o protocolo (fáceis: '+(nv.facil??'—')+'%), mas erra os casos práticos (difíceis: '+nv.dificil+'%). Treinamento com casos e simulação à beira do leito tende a render mais que aula expositiva.');
+  const setores=R.porSetor.filter(x=>x.n>=3).sort((a,b)=>a.media-b.media);
+  if(setores.length&&setores[0].media<NOTA_APROVACAO) add('alerta','Setor com menor desempenho: '+setores[0].k+' (média '+setores[0].media+'%, '+setores[0].pessoas+' pessoas). Priorize uma ação educativa lá.');
+  const profs=R.porProf.filter(x=>x.n>=3).sort((a,b)=>a.media-b.media);
+  if(profs.length>1&&profs[profs.length-1].media-profs[0].media>=15) add('info','Diferença entre especialidades: '+profs[profs.length-1].k+' com '+profs[profs.length-1].media+'% e '+profs[0].k+' com '+profs[0].media+'%. Considere material dirigido.');
+  const semNinguem=(h.sectors||[]).filter(s=>!filtrada.some(r=>r.setor===s));
+  if(semNinguem.length&&R.n>=5) add('info','Setores sem nenhuma participação: '+semNinguem.slice(0,5).join(', ')+(semNinguem.length>5?' e mais '+(semNinguem.length-5):'')+'. Leve o cartaz com QR code até eles.');
+  const ff=F.f;
+  if(ff.iniciaram>=5){
+    const etapas=[['diagnóstico inicial',ff.iniciaram,ff.diagnostico],['trilha de conteúdo',ff.diagnostico,ff.trilha],['desafio final',ff.trilha,ff.desafio]].map(([l,a,b])=>({l,perda:a?Math.round((a-b)/a*100):0}));
+    const pior=etapas.sort((a,b)=>b.perda-a.perda)[0];
+    if(pior.perda>=30) add('alerta','Onde mais se desiste: '+pior.l+' ('+pior.perda+'% param nessa etapa).');
+  }
+  if(F.parados.length) add('info',F.parados.length+' pessoa(s) começaram e estão paradas há mais de 7 dias. A lista está abaixo: um lembrete com o link costuma trazer de volta.');
+  const tempos=filtrada.map(r=>r.duracao_seg).filter(x=>x>0).sort((a,b)=>a-b);
+  if(tempos.length>=5){const md=Math.round(tempos[Math.floor(tempos.length/2)]/60);add('info','Tempo típico para concluir um módulo: cerca de '+md+' minutos.');}
+  return out;
+}
+
 function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,perfil,setView}){
   const h=hospital||DEFAULT_HOSPITAL;
   const [lista,setLista]=useState([]);
@@ -8427,26 +8581,26 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
       .catch(e=>setErro(/HTTP 40[04]/.test(e.message)||faltaSQL004(e)?'sql':e.message)).finally(()=>setLoading(false));
   },[sbUrl,sbKey]);
   const anos=[...new Set(lista.map(r=>(r.created_at||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const listaPre=lista.filter(r=>r.tipo==='pre');
   const filtrada=lista.filter(r=>{
+    if(r.tipo==='pre') return false;
     if(modulo!=='todos'&&r.modulo!==modulo) return false;
     if(/^\d{4}$/.test(periodo)) return (r.created_at||'').startsWith(periodo);
     return new Date(r.created_at)>=new Date(Date.now()-Number(periodo)*864e5);
   });
   const R=resumoCapacitacao(filtrada,mods);
+  const PP=resumoPrePos(filtrada,listaPre,mods);
   const noPeriodo=dt=>{if(!dt)return false;if(/^\d{4}$/.test(periodo))return dt.startsWith(periodo);return new Date(dt)>=new Date(Date.now()-Number(periodo)*864e5);};
   const partsPer=parts.filter(x=>noPeriodo(x.updated_at||x.created_at)&&(!travado||(x.progresso&&x.progresso[travado])));
+  const F=funilCapacitacao(partsPer,modulo);
   const emAndamento=partsPer.filter(x=>{const pr=x.progresso||{};return Object.entries(pr).some(([k,v])=>(modulo==='todos'||k===modulo)&&v&&v.etapa&&!v.cert);}).length;
   const nomeMod=id=>(mods&&mods.find(m=>m.id===id)||{}).titulo||modInfo(id).label;
   const fortes=R.questoes.filter(x=>x.pct>=85).sort((a,b)=>b.pct-a.pct);
   const fracos=R.questoes.filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct);
-  const sugestoes=[];
-  fracos.slice(0,6).forEach(x=>sugestoes.push('Reforçar "'+x.q.tema+'" em '+nomeMod(x.m.id)+' ('+x.pct+'% de acerto): '+x.q.exp));
-  R.porSetor.filter(x=>x.n>=3&&x.media<NOTA_APROVACAO).forEach(x=>sugestoes.push('Priorizar treinamento presencial no setor '+x.k+' (média '+x.media+'%).'));
-  R.porProf.filter(x=>x.n>=3&&x.media<NOTA_APROVACAO).forEach(x=>sugestoes.push('Ação educativa dirigida à especialidade '+x.k+' (média '+x.media+'%).'));
-  if(mods&&modulo==='todos') mods.filter(m=>!filtrada.some(r=>r.modulo===m.id)).forEach(m=>sugestoes.push('Divulgar o módulo "'+m.titulo+'": nenhuma participação no período.'));
+  const analise=analiseCapacitacao({R,PP,F,h,nomeMod,filtrada});
   const link=linkH(h)+'?view=capacitacao';
   const exportar=()=>{
-    const linhas=filtrada.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(r=>({Data:new Date(r.created_at).toLocaleString('pt-BR'),Nome:r.nome,Setor:r.setor,Especialidade:r.profissao,Modulo:nomeMod(r.modulo),Acertos:r.acertos+'/'+r.total,Percentual:r.percentual,Situacao:(r.percentual||0)>=NOTA_APROVACAO?'Concluído':'Abaixo de '+NOTA_APROVACAO+'%',Codigo:String(r.id||'').slice(0,8).toUpperCase()}));
+    const linhas=filtrada.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(r=>({Data:new Date(r.created_at).toLocaleString('pt-BR'),Nome:r.nome,Setor:r.setor,Especialidade:r.profissao,Modulo:nomeMod(r.modulo),Acertos:r.acertos+'/'+r.total,Percentual:r.percentual,Pre_teste:r.pre_percentual??'',Situacao:(r.percentual||0)>=NOTA_APROVACAO?'Concluído':'Abaixo de '+NOTA_APROVACAO+'%',Codigo:String(r.id||'').slice(0,8).toUpperCase()}));
     if(!linhas.length){showToast('Nenhum registro no período','error');return;}
     const nome='capacitacao-online-'+siglaH(h)+'-'+new Date().toISOString().slice(0,10);
     if(window.XLSX){const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(linhas),'Participantes');window.XLSX.writeFile(wb,nome+'.xlsx');}
@@ -8471,7 +8625,8 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
       <div style={{...card,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
         <div style={{flex:1,minWidth:220}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>Divulgue para a equipe</div>
           <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Cada profissional acessa pelo celular, sem login: <span style={{color:C.teal,wordBreak:'break-all'}}>{link.replace('https://','')}</span></div></div>
-        <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Copiar link</button>
+        <button onClick={()=>imprimirCartazCapacitacao(h)} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Cartaz com QR code</button>
+        <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Copiar link</button>
         {setView&&<button onClick={()=>setView('capacitacao')} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver o curso</button>}
       </div>
       {!travado&&!erro&&<AssinaturasCertificado sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
@@ -8490,6 +8645,46 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
           {kpi('Média de acerto',R.media===null?'—':R.media+'%','nos questionários',corPct(R.media))}
           {kpi('Concluíram',R.aprov===null?'—':R.aprov+'%','com '+NOTA_APROVACAO+'% ou mais',corPct(R.aprov))}
         </div>
+        <div style={{...card,borderColor:C.teal+'55',background:'linear-gradient(135deg,'+C.teal+'10,'+C.blue+'0c)'}}>
+          <div style={{fontSize:14,fontWeight:900,color:C.text,marginBottom:2}}>{String.fromCodePoint(129504)} Análise inteligente</div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Leitura automática dos resultados do período, para decidir o próximo treinamento</div>
+          {analise.map((x,i)=>{const cor=x.tipo==='alerta'?C.red:x.tipo==='ok'?C.green:C.blue;const ic=x.tipo==='alerta'?String.fromCodePoint(9888):x.tipo==='ok'?String.fromCodePoint(9989):String.fromCodePoint(128161);
+            return <div key={i} style={{display:'flex',gap:10,padding:'9px 10px',marginBottom:6,borderRadius:10,background:cor+'12',borderLeft:'3px solid '+cor,fontSize:12.5,color:C.text,lineHeight:1.55}}><span>{ic}</span><span>{x.t}</span></div>;})}
+        </div>
+        <div style={card}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text}}>Pré-teste × pós-teste</div>
+          <div style={{fontSize:11,color:C.muted,margin:'2px 0 10px',lineHeight:1.5}}>As mesmas {mods&&mods[0]?questoesPre(mods[0]).length:6} perguntas (2 fáceis, 2 médias e 2 difíceis) respondidas antes da trilha e de novo no desafio final.</div>
+          {PP.n?<>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:10}}>
+              {kpi('Antes do curso',PP.pre+'%',PP.n+' pessoas com pré e pós',C.muted)}
+              {kpi('Depois do curso',PP.pos+'%','nas mesmas perguntas',corPct(PP.pos))}
+              {kpi('Ganho',(PP.pos-PP.pre>0?'+':'')+(PP.pos-PP.pre)+' p.p.','pontos percentuais',PP.pos-PP.pre>=10?C.green:C.yellow)}
+              {kpi('Melhoraram',PP.melhoraram+'%','acertaram mais no pós',PP.melhoraram>=60?C.green:C.yellow)}
+            </div>
+            {[['Por módulo',PP.porModulo,'Módulo'],['Por setor',PP.porSetor,'Setor'],['Por especialidade',PP.porProf,'Especialidade']].filter(([t,l])=>l.length&&!(t==='Por módulo'&&(travado||modulo!=='todos'))).map(([t,l,rot])=><div key={t} style={{overflowX:'auto',marginBottom:10}}>
+              <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:4}}>{t}</div>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}><thead><tr style={{color:C.muted,textAlign:'left'}}><th style={{padding:'4px 6px'}}>{rot}</th><th style={{padding:'4px 6px'}}>Pessoas</th><th style={{padding:'4px 6px'}}>Pré</th><th style={{padding:'4px 6px'}}>Pós</th><th style={{padding:'4px 6px'}}>Ganho</th></tr></thead>
+              <tbody>{l.map(x=><tr key={x.k} style={{borderTop:'1px solid '+C.border}}><td style={{padding:'6px',color:C.text}}>{rot==='Módulo'?nomeMod(x.k):x.k}</td><td style={{padding:'6px',color:C.text}}>{x.n}</td><td style={{padding:'6px',color:C.muted,fontWeight:700}}>{x.pre}%</td><td style={{padding:'6px',color:corPct(x.pos),fontWeight:800}}>{x.pos}%</td><td style={{padding:'6px',fontWeight:900,color:x.ganho>=10?C.green:x.ganho>0?C.yellow:C.red}}>{x.ganho>0?'+':''}{x.ganho}</td></tr>)}</tbody></table>
+            </div>)}
+            {(()=>{const top=PP.itens.filter(i=>i.n>=2).sort((a,b)=>b.ganho-a.ganho).slice(0,5);return top.length?<div>
+              <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:4}}>Questão a questão (maior ganho primeiro)</div>
+              {top.concat(PP.itens.filter(i=>i.n>=2&&!top.includes(i)).sort((a,b)=>a.pos-b.pos).slice(0,5)).map(i=><div key={i.q.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderTop:'1px solid '+C.border,fontSize:12}}>
+                <span style={{flex:1,color:C.text}}>{i.q.tema}<span style={{color:C.muted}}> · {nomeMod(i.m.id)}</span></span><SeloNivel q={i.q}/>
+                <span style={{color:C.muted,minWidth:34,textAlign:'right'}}>{i.pre}%</span><span style={{color:C.muted}}>→</span><b style={{color:corPct(i.pos),minWidth:34}}>{i.pos}%</b></div>)}
+            </div>:null;})()}
+          </>:<div style={{fontSize:11,color:C.muted}}>Ainda não há pessoas com diagnóstico inicial e desafio final no período.</div>}
+        </div>
+        <div style={card}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Adesão: onde as pessoas estão</div>
+          {F.f.iniciaram?<>
+            {[['Iniciaram',F.f.iniciaram],['Fizeram o diagnóstico',F.f.diagnostico],['Concluíram a trilha',F.f.trilha],['Enviaram o desafio final',F.f.desafio],['Receberam o certificado',F.f.certificado]].map(([l,v])=><div key={l} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+              <span style={{width:160,fontSize:12,color:C.text}}>{l}</span><div style={{flex:1,height:14,borderRadius:7,background:C.border,overflow:'hidden'}}><div style={{width:Math.round(v/F.f.iniciaram*100)+'%',height:'100%',background:C.teal}}/></div><b style={{width:70,textAlign:'right',fontSize:12,color:C.text}}>{v} <span style={{color:C.muted,fontWeight:600}}>({Math.round(v/F.f.iniciaram*100)}%)</span></b></div>)}
+            {F.parados.length>0&&<div style={{marginTop:10}}>
+              <div style={{fontSize:12,fontWeight:800,color:C.yellow,marginBottom:4}}>Paradas há mais de 7 dias ({F.parados.length})</div>
+              {F.parados.slice(0,10).map((x,i)=><div key={i} style={{display:'flex',gap:8,padding:'5px 0',borderTop:'1px solid '+C.border,fontSize:12}}><span style={{flex:1,color:C.text}}>{x.nome}<span style={{color:C.muted}}> · {x.setor}</span></span><span style={{color:C.muted}}>{nomeMod(x.mod)} · {x.local} · {x.dias} dias</span></div>)}
+            </div>}
+          </>:<div style={{fontSize:11,color:C.muted}}>Ninguém iniciou módulos no período.</div>}
+        </div>
         {R.n>0&&<div style={card}><div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Acerto por nível de dificuldade</div>
           {R.porNivel.map(x=>{const n=NIVEIS_Q[x.nv];return(<div key={x.nv} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
             <span style={{width:56,fontSize:12,fontWeight:800,color:n.cor}}>{n.rotulo}</span>
@@ -8502,9 +8697,6 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
         {tabela('Por especialidade',R.porProf,'Especialidade')}
         <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.green,marginBottom:4}}>Pontos fortes (85% de acerto ou mais)</div>{listaQ(fortes,C.green)}</div>
         <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.red,marginBottom:4}}>Pontos fracos (menos de 60% de acerto)</div>{listaQ(fracos,C.red)}</div>
-        <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:6}}>Sugestões para os próximos treinamentos</div>
-          {sugestoes.length?<ul style={{margin:'0 0 0 18px',padding:0}}>{sugestoes.map((t,i)=><li key={i} style={{fontSize:12,color:C.text,lineHeight:1.55,marginBottom:6}}>{t}</li>)}</ul>:<div style={{fontSize:11,color:C.muted}}>{R.n?'Nenhum ponto crítico no período.':'Ainda não há respostas no período.'}</div>}
-        </div>
       </>}
     </div>
   </div>);
@@ -8585,6 +8777,7 @@ async function gerarBackupCompleto({sbUrl,sbKey,h,onProgresso}){
     try{
       let rows=await sbTodos(sbUrl,sbKey,tab,filtro);
       if(tab==='nsp_usuarios') rows=rows.filter(u=>!u.hospital_id||u.hospital_id===h.id).map(({pin_hash,...u})=>u); // sem os codigos
+      if(tab==='capacitacao_participantes') rows=rows.map(({senha_hash,...x})=>x); // sem o PIN de retorno
       if(tab==='notivisa_analise'||tab==='acao_comentarios'){const ids=new Set((dados.notifications||[]).map(n=>n.id));const idsAc=new Set((dados.plano_acoes||[]).map(a=>a.id));rows=rows.filter(r=>ids.has(r.notification_id)||idsAc.has(r.acao_id)||r.hospital_id===h.id);}
       dados[tab]=rows;
     }catch(e){dados[tab]=[];faltou.push(nome);}
@@ -8989,6 +9182,10 @@ function NotificaAI() {
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
+        {view==='notificar'&&!profileMode&&<button onClick={()=>setView('capacitacao')} style={{display:'flex',alignItems:'center',gap:12,width:'calc(100% - 32px)',margin:'14px 16px 0',padding:'12px 14px',borderRadius:14,border:'1px solid '+C.teal+'55',background:'linear-gradient(135deg,'+C.teal+'1c,'+C.blue+'14)',cursor:'pointer',textAlign:'left'}}>
+          <span style={{fontSize:26}}>{String.fromCodePoint(127891)}</span>
+          <span style={{flex:1}}><span style={{display:'block',fontSize:13.5,fontWeight:800,color:C.text}}>Capacitação online dos protocolos</span><span style={{display:'block',fontSize:11.5,color:C.muted,marginTop:2}}>Para profissionais: trilha interativa e certificado. Continue de onde parou.</span></span>
+          <IconChev size={16} color={C.teal}/></button>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel onConfig={()=>setShowConfig(true)} sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}

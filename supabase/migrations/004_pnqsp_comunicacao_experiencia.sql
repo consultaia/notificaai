@@ -3,7 +3,7 @@
 --
 -- Somente ADITIVO, seguro com o sistema em uso:
 --   * nao apaga nem altera nenhum dado existente;
---   * so acrescenta 4 colunas em notifications e cria as tabelas experiencia_paciente,
+--   * so acrescenta colunas (4 em notifications) e cria as tabelas experiencia_paciente,
 --     videos_educacao, capacitacao_respostas, capacitacao_participantes e capacitacao_config;
 --   * pode ser executado mais de uma vez.
 --
@@ -85,6 +85,9 @@ create table if not exists public.capacitacao_respostas (
   participante_id uuid
 );
 alter table public.capacitacao_respostas add column if not exists participante_id uuid;
+-- tipo: 'pre' = diagnostico inicial (antes da trilha) | 'pos' = desafio final
+alter table public.capacitacao_respostas add column if not exists tipo text default 'pos';
+alter table public.capacitacao_respostas add column if not exists pre_percentual smallint;
 create index if not exists capacitacao_hosp_idx on public.capacitacao_respostas (hospital_id, modulo, created_at);
 -- Qualquer profissional envia pelo link; ninguem altera ou apaga pela chave publica.
 alter table public.capacitacao_respostas enable row level security;
@@ -106,6 +109,10 @@ create table if not exists public.capacitacao_participantes (
   progresso jsonb              -- {modulo: {etapa, resp, pct, cert...}}
 );
 create unique index if not exists capacitacao_part_codigo_idx on public.capacitacao_participantes (hospital_id, codigo);
+-- retorno pelo nome + PIN de 4 numeros (guardado so como hash; nao entra no backup)
+alter table public.capacitacao_participantes add column if not exists nome_chave text;
+alter table public.capacitacao_participantes add column if not exists senha_hash text;
+create index if not exists capacitacao_part_nome_idx on public.capacitacao_participantes (hospital_id, nome_chave);
 alter table public.capacitacao_participantes enable row level security;
 drop policy if exists capacitacao_part_tudo on public.capacitacao_participantes;
 create policy capacitacao_part_tudo on public.capacitacao_participantes for all using (true) with check (true);

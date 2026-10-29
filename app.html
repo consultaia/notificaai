@@ -67,6 +67,9 @@
         showBootError('Falha ao CARREGAR um recurso externo (nao e erro de codigo):\n\n'+srcFalha+'\n\nIsso costuma ser bloqueio de rede/firewall da instituicao para o dominio acima, CDN fora do ar, ou falta de internet no dispositivo. Teste: (1) abrir o link acima direto no navegador; (2) testar em outra rede (dados moveis); (3) verificar se o firewall do HNSA libera cdnjs.cloudflare.com, cdn.jsdelivr.net.');
         return;
       }
+      // Imagem/video/iframe que nao carregou (capa do YouTube, logo, foto) nao e erro do app:
+      // antes isso cobria a tela inteira com "Erro desconhecido".
+      if(tgt && tgt!==window && tgt.tagName) return;
       var msg=ev.message||'Erro desconhecido';
       var loc=ev.filename?(' \n'+ev.filename+':'+ev.lineno+':'+ev.colno):'';
       var stack=(ev.error&&ev.error.stack)?('\n\n'+ev.error.stack):'';
@@ -104,6 +107,7 @@ html,body{background:#06101F;height:100%}
 @keyframes splashFadeOut{from{opacity:1}to{opacity:0}}
 @keyframes splashLogoAnim{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 @keyframes sentinelaPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+@keyframes naiEntra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .splash-in{animation:splashFadeIn .45s ease forwards}
 .splash-out{animation:splashFadeOut .4s ease forwards}
 input::placeholder{color:#5A7AA0}
@@ -201,6 +205,7 @@ const IconChev=mkIco(`<polyline points="9 18 15 12 9 6"/>`);
 const IconTrash=mkIco(`<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>`);
 const IconShield=mkIco(`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>`);
 const IconTool=mkIco(`<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`);
+const IconHeart=mkIco(`<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>`);
 const IconAudit=mkIco(`<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M9 11l1.5 1.5L14 9"/>`);
 const IconGear=mkIco(`<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>`);
 
@@ -2318,7 +2323,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
   const setoresComDados=dados?setores.filter(s=>dados.porSetor[s]):[];
 
   return(<div style={{paddingBottom:80}}>
-    {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 - Metas OMS - por setor'/>}
+    {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 · PNQSP 2026 · Metas OMS · por setor'/>}
     {subInfo&&subCfg&&<div style={{background:(subInfo.color||C.teal)+'15',border:'1px solid '+(subInfo.color||C.teal)+'55',borderLeft:'4px solid '+(subInfo.color||C.teal),borderRadius:10,padding:'10px 14px',marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:subInfo.color||C.teal}}>Visao do subnucleo: {subInfo.label}</div>
       <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Preencha o paciente-dia dos seus setores, lance os casos do controle manual e clique em Calcular para ver a taxa de incidencia por setor. Apenas os indicadores da sua area sao exibidos.</div>
@@ -2694,6 +2699,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const [filtroGravidade,setFiltroGravidade]=useState(filtroInicial==='sentinela'?'Evento sentinela':'');
   const [filtroSemRCA,setFiltroSemRCA]=useState(filtroInicial==='semRCA');
   const [filtroTriagem,setFiltroTriagem]=useState(filtroInicial==='triagem');
+  const [filtroSemComunic,setFiltroSemComunic]=useState(filtroInicial==='semComunicacao');
   React.useEffect(()=>{if(filtroInicial&&onClearFiltro)onClearFiltro();},[]);
   const [pagina,setPagina]=useState(1);
   const POR_PAGINA=20;
@@ -2795,6 +2801,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(filtroGravidade&&n.gravidade!==filtroGravidade) return false;
     if(filtroSemRCA&&n.rca_gerado) return false;
     if(filtroTriagem&&!(n.event_subtype||'').startsWith('Outro')) return false;
+    if(filtroSemComunic&&!(eventoComDano(n)&&!n.comunicado_paciente)) return false;
     if(filtroNotivisa==='sim'&&!n.notivisa_enviado) return false;
     if(filtroNotivisa==='nao'&&n.notivisa_enviado) return false;
     if(filtroPeriodo){const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);const ds=d.toISOString().slice(0,7);if(ds!==filtroPeriodo)return false;}
@@ -2813,9 +2820,9 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const sel={background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,appearance:'none',cursor:'pointer'};
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    {(filtroGravidade||filtroSemRCA||filtroTriagem)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'Sem Analise - RCA pendente':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
-      <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);setFiltroTriagem(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
+    {(filtroGravidade||filtroSemRCA||filtroTriagem||filtroSemComunic)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'Sem Analise - RCA pendente':filtroSemComunic?'Eventos com dano sem comunicação ao paciente/família (PNQSP)':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
+      <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);setFiltroTriagem(false);setFiltroSemComunic(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
     </div>}
     {/* Modal de edicao */}
     {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
@@ -2909,8 +2916,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
       <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder='Buscar...' style={{...sel,flex:1}}/>
       <input type='month' value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}} style={{...sel,width:140}}/>
-      {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA)&&
-        <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
+      {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA||filtroSemComunic)&&
+        <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setFiltroSemComunic(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
           Limpar filtros
         </button>}
     </div>
@@ -2968,6 +2975,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                   <div style={{display:'flex',gap:3,marginBottom:5,flexWrap:'wrap'}}>
                     {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}} title={n.rca_gerado&&n.rca_autor?'RCA por: '+n.rca_autor+(n.rca_concluido_em?' em '+new Date(n.rca_concluido_em).toLocaleDateString('pt-BR'):''):'Sem analise de causa raiz'}>{n.rca_gerado?'RCA feito':'Sem RCA'}</span>}
                     {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa OK':'Notivisa pendente'}</span>}
+                    {isSP&&eventoComDano(n)&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:(n.comunicado_paciente?C.green:C.yellow)+'20',color:n.comunicado_paciente?C.green:C.yellow,fontWeight:700}} title='Comunicação do evento ao paciente/família (PNQSP)'>{n.comunicado_paciente?'Comunicação registrada':'Comunicar paciente'}</span>}
                     {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
                   </div>
                   <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
@@ -2982,6 +2990,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                     {n.ai_summary&&<div style={{marginBottom:8,background:C.teal+'10',borderRadius:6,padding:'6px 8px'}}><div style={{fontSize:9,color:C.teal,fontWeight:700,marginBottom:2}}>Resumo IA</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.ai_summary}</div></div>}
                     {n.admission_reason&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Paciente / NIP</div><div style={{fontSize:11,color:C.text}}>{n.admission_reason}</div></div>}
                     {n.patient_admission&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Data de admissao</div><div style={{fontSize:11,color:C.text}}>{new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')}</div></div>}
+                    {isSP&&<ComunicacaoPacienteBox n={n} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onSaved={()=>setDetalhe(d=>d?{...d}:d)}/>}
                     {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
                       <button onClick={ev=>{ev.stopPropagation();setEditForm({notification_type:n.notification_type,event_subtype:n.event_subtype||n.occurrence_subtype||'',sector:n.sector||''});setEditTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:6,cursor:'pointer',fontWeight:700}}>Corrigir tipo</button>
@@ -4044,7 +4053,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           <button onClick={()=>{setAnvisaModoAno(false);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(!anvisaModoAno?C.teal:C.border),background:!anvisaModoAno?C.teal+'22':'transparent',color:!anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:!anvisaModoAno?700:500,cursor:'pointer'}}>Semestre</button>
           <button onClick={()=>{setAnvisaModoAno(true);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaModoAno?C.teal:C.border),background:anvisaModoAno?C.teal+'22':'transparent',color:anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:anvisaModoAno?700:500,cursor:'pointer'}}>Ano completo</button>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013 · PNQSP (Portaria GM/MS n. 11.527/2026)</div>
         {/* Card de documentos institucionais — status direto na aba ANVISA */}
         <div style={{background:C.card,border:'1px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 14px',borderLeft:'3px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -5058,11 +5067,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       const efetPendentes=(planos||[]).filter(p=>p.status==='concluido'&&!p.efetividade_verificada&&naoFechada(p));
       const rcaPendentes=(data||[]).filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave'));
       const triagemPendentes=(data||[]).filter(n=>(n.event_subtype||'').startsWith('Outro'));
+      const lim90=new Date(Date.now()-90*864e5).toISOString();
+      const semComunicacao=(data||[]).filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&eventoComDano(n)&&!n.comunicado_paciente&&(n.created_at||'')>=lim90);
       const cfg=(cfgArr&&cfgArr[0])||{};const docsInst=[];
       if(!cfg.data_atualizacao_psp&&!cfg.link_psp) docsInst.push('Plano de Segurança do Paciente (PSP) não cadastrado');
       else if(cfg.data_atualizacao_psp&&vencimentoPadrao(cfg.data_atualizacao_psp)<hoje) docsInst.push('PSP vencido em '+new Date(vencimentoPadrao(cfg.data_atualizacao_psp)+'T12:00:00').toLocaleDateString('pt-BR'));
       if(!cfg.link_portaria_nsp&&!cfg.numero_portaria_nsp) docsInst.push('Portaria do NSP não cadastrada');
-      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById});
+      setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById,semComunicacao});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -5127,7 +5138,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     {gestorMode&&!loading&&(()=>{ 
       const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
       const backupAtrasado=!ultBackup||(Date.now()-new Date(ultBackup).getTime())>30*86400000;
-      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0);
+      const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0)+((alertas.semComunicacao||[]).length>0?1:0);
       const abrirPlano=p=>{const n=alertas.notsById[p.notification_id]||{id:p.notification_id,hospital_id:(hospital||DEFAULT_HOSPITAL).id,description:p.acao};setPlanoTarget(n);};
       const prazo72=n=>{
         const dl=new Date(n.created_at).getTime()+72*3600000;
@@ -5172,6 +5183,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
           <button onClick={()=>abrirPlano(p)} style={btn(C.blue)}>Verificar</button>
         </div>))}
         {alertas.efetPendentes.length>3&&<div style={{fontSize:10,color:C.muted,marginBottom:6,textAlign:'right'}}>+{alertas.efetPendentes.length-3} verificação(ões) pendente(s)</div>}
+        {(alertas.semComunicacao||[]).length>0&&<div style={row}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.text}}>{alertas.semComunicacao.length} evento(s) com dano sem registro de comunicação ao paciente</div>
+            <div style={{fontSize:10,color:C.muted}}>Comunicação transparente — PNQSP 2026 (últimos 90 dias)</div>
+          </div>
+          <button onClick={()=>{setFiltroNotif('semComunicacao');setView('notificacoes');}} style={btn(C.teal)}>Registrar</button>
+        </div>}
         {backupAtrasado&&<div style={row}>
           <div style={{fontSize:12,fontWeight:700,color:C.text}}>{ultBackup?'Último backup há mais de 30 dias':'Nenhum backup feito neste aparelho'}</div>
           <button onClick={()=>setView('admin')} style={btn(C.teal)}>Fazer backup</button>
@@ -5948,6 +5966,405 @@ const SAQ_DOMINIOS=[
 ];
 const SAQ_CATEGORIAS=['Enfermagem','Medicina','Tecnico de Enfermagem','Fisioterapia','Farmacia','Outro'];
 function saqCicloAtual(){const d=new Date();return d.getMonth()<6?`${d.getFullYear()}-1`:`${d.getFullYear()}-2`;}
+
+// ── PNQSP (Portaria GM/MS nº 11.527/2026) ─────────────────────────────────────
+// Comunicacao do evento ao paciente/familia, pesquisa de experiencia do paciente e
+// painel de indicadores de estrutura, processo e resultado. As colunas/tabela novas
+// vem do supabase/migrations/004_pnqsp_comunicacao_experiencia.sql; sem ele as telas
+// avisam o que falta em vez de quebrar.
+const PNQSP_REF='PNQSP · Portaria GM/MS nº 11.527/2026';
+const SQL_004='supabase/migrations/004_pnqsp_comunicacao_experiencia.sql';
+const semAcento=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+function eventoComDano(n){
+  return /dano leve|dano moderado|dano grave|obito|sentinela|evento adverso/.test(semAcento((n.gravidade||'')+' | '+(n.patient_outcome||'')));
+}
+const faltaSQL004=e=>/comunicado_|experiencia_paciente|videos_educacao|capacitacao_|PGRST204|PGRST205|42703|42P01|does not exist|schema cache/i.test(String(e&&e.message||e));
+const COMUNICACAO_OPCOES=[
+  {v:'comunicado',l:'Comunicado ao paciente/família'},
+  {v:'pendente',l:'Ainda não comunicado'},
+  {v:'sem_contato',l:'Não foi possível (alta, transferência, sem contato)'},
+  {v:'recusou',l:'Paciente/família não quis conversar'},
+  {v:'nao_aplicavel',l:'Não se aplica (não atingiu o paciente)'},
+];
+const corComunicacao=v=>v==='comunicado'?C.green:v==='nao_aplicavel'?C.muted:v==='sem_contato'||v==='recusou'?C.blue:C.yellow;
+
+function ComunicacaoPacienteBox({n,sbUrl,sbKey,showToast,onSaved}){
+  const comDano=eventoComDano(n);
+  const [editando,setEditando]=useState(false);
+  const [f,setF]=useState({comunicado_paciente:n.comunicado_paciente||(comDano?'comunicado':''),comunicado_em:n.comunicado_em||new Date().toISOString().slice(0,10),comunicado_por:n.comunicado_por||'',comunicado_obs:n.comunicado_obs||''});
+  const [salvando,setSalvando]=useState(false);
+  const op=COMUNICACAO_OPCOES.find(o=>o.v===n.comunicado_paciente);
+  const salvar=async()=>{
+    if(!f.comunicado_paciente){showToast('Escolha a situação da comunicação','error');return;}
+    setSalvando(true);
+    const d={comunicado_paciente:f.comunicado_paciente,comunicado_em:f.comunicado_paciente==='comunicado'?(f.comunicado_em||null):null,comunicado_por:f.comunicado_por.trim()||null,comunicado_obs:f.comunicado_obs.trim()||null};
+    try{
+      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${n.id}`,d);
+      sbAuditLog(sbUrl,sbKey,n.hospital_id,n.id,'COMUNICACAO_PACIENTE','comunicado_paciente',n.comunicado_paciente||null,d.comunicado_paciente,null,'gestor').catch(()=>{});
+      Object.assign(n,d);setEditando(false);showToast('Comunicação registrada','success');onSaved&&onSaved();
+    }catch(e){
+      showToast(faltaSQL004(e)?'Falta preparar o banco: rode o arquivo '+SQL_004+' no Supabase (SQL Editor). É só uma vez.':'Erro ao salvar: '+e.message,'error');
+    }
+    setSalvando(false);
+  };
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:8,fontFamily:'inherit'};
+  return(<div onClick={ev=>ev.stopPropagation()} style={{marginTop:6,marginBottom:4,border:'1px solid '+(op?corComunicacao(n.comunicado_paciente)+'55':comDano?C.yellow+'66':C.border),borderRadius:8,padding:'8px 10px',background:C.surface,cursor:'default'}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+      <div>
+        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Comunicação ao paciente/família</div>
+        {op?<div style={{fontSize:11,fontWeight:700,color:corComunicacao(n.comunicado_paciente),marginTop:2}}>{op.l}{n.comunicado_em?' · '+new Date(n.comunicado_em+'T12:00:00').toLocaleDateString('pt-BR'):''}{n.comunicado_por?' · '+n.comunicado_por:''}</div>
+          :<div style={{fontSize:11,color:comDano?C.yellow:C.muted,marginTop:2,lineHeight:1.4}}>{comDano?'Evento com dano: registre se o paciente ou a família foi informado.':'Não registrada.'}</div>}
+      </div>
+      {!editando&&<button onClick={()=>setEditando(true)} style={{fontSize:10,padding:'5px 10px',background:C.teal+'20',color:C.teal,border:'1px solid '+C.teal+'44',borderRadius:6,cursor:'pointer',fontWeight:700,flexShrink:0}}>{op?'Editar':'Registrar'}</button>}
+    </div>
+    {n.comunicado_obs&&!editando&&<div style={{fontSize:11,color:C.text,marginTop:4,lineHeight:1.4}}>{n.comunicado_obs}</div>}
+    {editando&&<div style={{marginTop:8}}>
+      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginBottom:8}}>Conversa honesta com o paciente ou a família: o que aconteceu, o que foi feito e o que muda para não se repetir (comunicação aberta e transparente — {PNQSP_REF}).</div>
+      <select value={f.comunicado_paciente} onChange={e=>setF({...f,comunicado_paciente:e.target.value})} style={{...inp,appearance:'none'}}>
+        <option value="">Situação...</option>
+        {COMUNICACAO_OPCOES.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
+      {f.comunicado_paciente==='comunicado'&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+        <input type="date" value={f.comunicado_em} onChange={e=>setF({...f,comunicado_em:e.target.value})} style={inp}/>
+        <input value={f.comunicado_por} onChange={e=>setF({...f,comunicado_por:e.target.value})} placeholder="Quem comunicou (função)" style={inp}/>
+      </div>}
+      <textarea value={f.comunicado_obs} onChange={e=>setF({...f,comunicado_obs:e.target.value})} rows={2} placeholder="Observação (opcional, sem nome do paciente)" style={{...inp,resize:'none'}}/>
+      <div style={{display:'flex',gap:6}}>
+        <button onClick={()=>setEditando(false)} style={{flex:1,fontSize:11,padding:'7px',background:'transparent',color:C.muted,border:'1px solid '+C.border,borderRadius:6,cursor:'pointer',fontWeight:700}}>Cancelar</button>
+        <button onClick={salvar} disabled={salvando} style={{flex:2,fontSize:11,padding:'7px',background:C.teal,color:'#06101F',border:'none',borderRadius:6,cursor:'pointer',fontWeight:800}}>{salvando?'Salvando...':'Salvar'}</button>
+      </div>
+    </div>}
+  </div>);
+}
+
+const EXP_PERGUNTAS=[
+  {k:'q_identificacao',t:'Antes de remédios, exames ou procedimentos, a equipe confirmou seu nome ou conferiu sua pulseira?'},
+  {k:'q_maos',t:'Você viu os profissionais higienizarem as mãos antes de tocar em você?'},
+  {k:'q_informacao',t:'Você recebeu explicações claras sobre seu tratamento e seus medicamentos?'},
+  {k:'q_escuta',t:'Você se sentiu à vontade para fazer perguntas e foi ouvido(a)?'},
+  {k:'q_seguranca',t:'Você se sentiu seguro(a) durante o atendimento?'},
+];
+const EXP_OPCOES=[{v:2,l:'Sim'},{v:1,l:'Em parte'},{v:0,l:'Não'},{v:'ns',l:'Não sei'}];
+const linkExperiencia=h=>linkH(h)+'?view=experiencia';
+
+function ExperienciaPublicoView({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [etapa,setEtapa]=useState('form');
+  const [perfil,setPerfil]=useState('');
+  const [setor,setSetor]=useState('');
+  const [resp,setResp]=useState({});
+  const [nota,setNota]=useState(null);
+  const [comentario,setComentario]=useState('');
+  const [enviando,setEnviando]=useState(false);
+  const respondidas=EXP_PERGUNTAS.filter(p=>resp[p.k]!==undefined).length;
+  const completo=perfil&&respondidas===EXP_PERGUNTAS.length&&nota!==null;
+  const reiniciar=()=>{setPerfil('');setSetor('');setResp({});setNota(null);setComentario('');setEtapa('form');window.scrollTo&&window.scrollTo(0,0);};
+  const enviar=async()=>{
+    if(!completo||enviando) return;
+    setEnviando(true);
+    const d={hospital_id:h.id,perfil,setor:setor||null,nota,comentario:comentario.trim().slice(0,600)||null};
+    EXP_PERGUNTAS.forEach(p=>{d[p.k]=resp[p.k]==='ns'?null:resp[p.k];});
+    try{
+      if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'experiencia_paciente',d);
+      setEtapa('obrigado');window.scrollTo&&window.scrollTo(0,0);
+    }catch(e){
+      showToast(faltaSQL004(e)?'A pesquisa ainda não foi ativada por esta instituição. Avise a equipe do NSP.':'Erro ao enviar. Verifique a conexão e tente novamente.','error');
+    }
+    setEnviando(false);
+  };
+  const chip=(ativo,cor)=>({flex:1,minWidth:0,padding:'10px 4px',borderRadius:10,border:'1.5px solid '+(ativo?cor:C.border),background:ativo?cor+'22':C.card,color:ativo?cor:C.text,fontSize:12,fontWeight:ativo?800:600,cursor:'pointer'});
+  const corOp=v=>v===2?C.green:v===1?C.yellow:v===0?C.red:C.muted;
+  if(etapa==='obrigado') return(<div style={{padding:'48px 24px',textAlign:'center',maxWidth:480,margin:'0 auto'}}>
+    <div style={{fontSize:52,marginBottom:14}}>{String.fromCodePoint(128153)}</div>
+    <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:8}}>Obrigado por avaliar!</div>
+    <div style={{fontSize:13,color:C.muted,marginBottom:24,lineHeight:1.6}}>Sua opinião ajuda o {siglaH(h)} a deixar o cuidado mais seguro. As respostas são anônimas e analisadas em conjunto pelo Núcleo de Segurança do Paciente.</div>
+    <div style={{fontSize:12,color:C.muted,marginBottom:20,lineHeight:1.6}}>Viu algum erro ou situação de risco? Você também pode <a href="?view=notificar" style={{color:C.teal,fontWeight:700}}>notificar aqui</a>.</div>
+    <button onClick={reiniciar} style={{background:C.teal,border:'none',borderRadius:12,padding:'13px 24px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Outra pessoa quer avaliar</button>
+  </div>);
+  return(<div style={{padding:'24px 16px 32px',maxWidth:520,margin:'0 auto'}}>
+    <div style={{fontSize:20,fontWeight:900,color:C.text,marginBottom:4}}>Como foi seu atendimento?</div>
+    <div style={{fontSize:12,color:C.muted,lineHeight:1.6,marginBottom:20}}>Pesquisa rápida e anônima (1 minuto) para pacientes e acompanhantes do {nomeH(h)}. Não informe nomes.</div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Você é</div>
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {[['paciente','Paciente'],['acompanhante','Acompanhante ou familiar']].map(([v,l])=><button key={v} onClick={()=>setPerfil(v)} style={chip(perfil===v,C.teal)}>{l}</button>)}
+    </div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Setor <span style={{fontWeight:500,color:C.muted}}>(opcional)</span></div>
+    <select value={setor} onChange={e=>setSetor(e.target.value)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:20,appearance:'none'}}>
+      <option value="">Não sei / prefiro não dizer</option>
+      {(h.sectors||[]).map(s=><option key={s} value={s}>{s}</option>)}
+    </select>
+    {EXP_PERGUNTAS.map((p,i)=><div key={p.k} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px',marginBottom:10}}>
+      <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.45,marginBottom:10}}>{(i+1)+'. '+p.t}</div>
+      <div style={{display:'flex',gap:6}}>
+        {EXP_OPCOES.map(o=><button key={o.v} onClick={()=>setResp(r=>({...r,[p.k]:o.v}))} style={chip(resp[p.k]===o.v,corOp(o.v))}>{o.l}</button>)}
+      </div>
+    </div>)}
+    <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px',marginBottom:10}}>
+      <div style={{fontSize:13,color:C.text,fontWeight:600,lineHeight:1.45,marginBottom:10}}>{(EXP_PERGUNTAS.length+1)+'. De 0 a 10, quanto você recomendaria este hospital a um amigo ou familiar?'}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(11,1fr)',gap:3}}>
+        {Array.from({length:11},(_,v)=><button key={v} onClick={()=>setNota(v)} style={{padding:'9px 0',borderRadius:8,border:'1.5px solid '+(nota===v?(v>=9?C.green:v>=7?C.yellow:C.red):C.border),background:nota===v?(v>=9?C.green:v>=7?C.yellow:C.red)+'22':C.surface,color:C.text,fontSize:12,fontWeight:nota===v?800:600,cursor:'pointer'}}>{v}</button>)}
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:C.muted,marginTop:4}}><span>Não recomendaria</span><span>Recomendaria muito</span></div>
+    </div>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'10px 0 8px'}}>Quer deixar um elogio ou sugestão? <span style={{fontWeight:500,color:C.muted}}>(opcional)</span></div>
+    <textarea value={comentario} onChange={e=>setComentario(e.target.value)} maxLength={600} rows={3} placeholder="Sem nomes de pessoas, por favor." style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:16,resize:'none',fontFamily:'inherit'}}/>
+    <button onClick={enviar} disabled={!completo||enviando} style={{width:'100%',background:completo?C.teal:C.border,border:'none',borderRadius:12,padding:'14px',color:completo?'#06101F':C.muted,fontWeight:800,fontSize:14,cursor:completo?'pointer':'default'}}>{enviando?'Enviando...':completo?'Enviar avaliação':'Responda as perguntas acima ('+(respondidas+(nota!==null?1:0))+'/'+(EXP_PERGUNTAS.length+1)+')'}</button>
+  </div>);
+}
+
+// Resumo da pesquisa de experiencia (usado no painel da experiencia e no painel PNQSP)
+function resumoExperiencia(lista){
+  const n=lista.length;
+  if(!n) return {n:0,nps:null,media:null,perguntas:EXP_PERGUNTAS.map(p=>({...p,sim:null,parte:null,nao:null,validas:0})),pctSim:null};
+  const notas=lista.map(r=>r.nota).filter(v=>v!==null&&v!==undefined);
+  const prom=notas.filter(v=>v>=9).length,detr=notas.filter(v=>v<=6).length;
+  const perguntas=EXP_PERGUNTAS.map(p=>{
+    const vs=lista.map(r=>r[p.k]).filter(v=>v===0||v===1||v===2);
+    const pc=x=>vs.length?Math.round(vs.filter(v=>v===x).length/vs.length*100):null;
+    return {...p,sim:pc(2),parte:pc(1),nao:pc(0),validas:vs.length};
+  });
+  const comSim=perguntas.filter(p=>p.sim!==null);
+  return {n,nps:notas.length?Math.round((prom-detr)/notas.length*100):null,media:notas.length?(notas.reduce((a,b)=>a+b,0)/notas.length):null,perguntas,
+    pctSim:comSim.length?Math.round(comSim.reduce((a,p)=>a+p.sim,0)/comSim.length):null};
+}
+const N_MIN_EXP=5; // grupos menores que isso nao aparecem separados (anonimato)
+
+function imprimirCartazExperiencia(h){
+  imprimirCartazQR(h,{link:linkExperiencia(h),titulo:'Como foi seu<br/><span>atendimento?</span>',aba:'Como foi seu atendimento?',sub:'Pacientes e acompanhantes: avalie em 1 minuto.<br/>Sua opinião deixa o cuidado mais seguro.',pills:['anônimo','1 minuto','pelo celular']});
+}
+function imprimirCartazCapacitacao(h){
+  imprimirCartazQR(h,{link:linkH(h)+'?view=capacitacao',titulo:'Capacitação<br/><span>online</span>',aba:'Capacitação online',sub:'Protocolos de segurança do paciente do '+siglaH(h)+'.<br/>Trilha interativa, desafio final e certificado.<br/>Saia quando quiser e continue de onde parou.',pills:['sem login','pelo celular','certificado']});
+}
+function imprimirCartazQR(h,{link,titulo,aba,sub,pills}){
+  const w=window.open('','_blank');if(!w) return;
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - ${aba}</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<style>
+@page{size:A4 portrait;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{margin:0;background:#0D3B66}body{font-family:Calibri,Arial,sans-serif}
+.p{width:210mm;height:296mm;background:#0D3B66;color:#fff;padding:20mm 16mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+h1{font-size:58px;line-height:1.05;margin:8mm 0 0;font-weight:900}h1 span{color:#7FE3D6}
+.sub{font-size:22px;margin-top:8mm;line-height:1.4;color:#D6E6F5}
+.qr{background:#fff;border-radius:16px;padding:9mm;margin:12mm 0 6mm;box-shadow:0 0 0 3mm #7FE3D6}
+.url{font-size:17px;font-weight:800;color:#7FE3D6;word-break:break-all}
+.pill{display:inline-block;border:1.5px solid #7FE3D6;color:#7FE3D6;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:800;margin:4px}
+.ft{margin-top:auto;font-size:12px;color:#D6E6F5}
+@media print{.noprint{display:none}}
+.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#7FE3D6;color:#0D3B66;border:none;border-radius:8px;padding:10px 20px;font-weight:900;cursor:pointer;font-size:13px}
+</style></head><body>
+<div class="noprint"><button onclick="window.print()">Imprimir</button></div>
+<div class="p">
+<h1>${titulo}</h1>
+<div class="sub">${sub}</div>
+<div class="qr"><div id="qr"></div></div>
+<div class="url">${link.replace('https://','')}</div>
+<div style="margin-top:7mm">${pills.map(x=>'<span class="pill">'+x+'</span>').join('')}</div>
+<div class="ft">${nomeH(h)} — Núcleo de Segurança do Paciente</div>
+</div>
+<script>new QRCode(document.getElementById('qr'),{text:'${link}',width:230,height:230,correctLevel:QRCode.CorrectLevel.M});<\/script>
+</body></html>`);
+  w.document.close();
+}
+
+function ExperienciaDashboardView({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [lista,setLista]=useState([]);
+  const [erro,setErro]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [periodo,setPeriodo]=useState('90');
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);setErro(null);
+    sbSelect(sbUrl,sbKey,'experiencia_paciente',`hospital_id=eq.${h.id}&order=created_at.desc&limit=5000&select=*`)
+      .then(d=>setLista(d||[])).catch(e=>setErro(faltaSQL004(e)?'sql':e.message)).finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+  const anos=[...new Set(lista.map(r=>(r.created_at||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const doPeriodo=lista.filter(r=>{
+    if(/^\d{4}$/.test(periodo)) return (r.created_at||'').startsWith(periodo);
+    return new Date(r.created_at)>=new Date(Date.now()-Number(periodo)*864e5);
+  });
+  const R=resumoExperiencia(doPeriodo);
+  const porSetor=(h.sectors||[]).map(s=>({s,r:resumoExperiencia(doPeriodo.filter(x=>x.setor===s))})).filter(x=>x.r.n>=N_MIN_EXP);
+  const comentarios=doPeriodo.filter(r=>r.comentario).slice(0,30);
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px'};
+  const kpi=(t,v,s,cor)=>(<div style={{...card,flex:1,minWidth:130}}><div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>{t}</div><div style={{fontSize:26,fontWeight:900,color:cor||C.text,marginTop:4}}>{v}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>{s}</div></div>);
+  const link=linkExperiencia(h);
+  return(<div>
+    <BackHeader title='Experiência do paciente' subtitle={'Pacientes e acompanhantes avaliam o cuidado · '+PNQSP_REF}/>
+    <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{...card,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:220}}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text}}>Divulgue a pesquisa</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Cartaz com QR code para quartos e recepção, ou mande o link por WhatsApp: <span style={{color:C.teal,wordBreak:'break-all'}}>{link.replace('https://','')}</span></div>
+        </div>
+        <button onClick={()=>imprimirCartazExperiencia(h)} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Imprimir cartaz A4</button>
+        <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Copiar link</button>
+      </div>
+      {erro==='sql'&&<div style={{...card,borderColor:C.yellow+'66',color:C.yellow,fontSize:12,lineHeight:1.6}}>A pesquisa ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run). Nada do que já existe é alterado.</div>}
+      {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {[['30','30 dias'],['90','3 meses'],['365','12 meses'],...anos.map(a=>[a,a])].map(([v,l])=><button key={v} onClick={()=>setPeriodo(v)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(periodo===v?C.teal:C.border),background:periodo===v?C.teal+'20':'transparent',color:periodo===v?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l}</button>)}
+      </div>
+      {loading?<div style={{color:C.muted,fontSize:12}}>Carregando...</div>:<>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {kpi('Respostas',R.n,'no período')}
+          {kpi('Respostas "sim"',R.pctSim===null?'—':R.pctSim+'%','média das 5 perguntas',R.pctSim===null?null:R.pctSim>=85?C.green:R.pctSim>=70?C.yellow:C.red)}
+          {kpi('Recomendação (NPS)',R.nps===null?'—':R.nps,'de -100 a 100 · nota média '+(R.media===null?'—':R.media.toFixed(1)),R.nps===null?null:R.nps>=50?C.green:R.nps>=0?C.yellow:C.red)}
+        </div>
+        {R.n===0?<div style={{...card,fontSize:12,color:C.muted,lineHeight:1.6}}>Nenhuma resposta no período. Imprima o cartaz e deixe nos quartos e na recepção; acompanhantes costumam responder bem.</div>:<>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Por pergunta</div>
+            {R.perguntas.map(p=><div key={p.k} style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:C.text,lineHeight:1.4,marginBottom:4}}>{p.t}</div>
+              {p.validas?<><div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden',background:C.border}}>
+                <div style={{width:p.sim+'%',background:C.green}}/><div style={{width:p.parte+'%',background:C.yellow}}/><div style={{width:p.nao+'%',background:C.red}}/>
+              </div>
+              <div style={{fontSize:10,color:C.muted,marginTop:3}}>Sim {p.sim}% · Em parte {p.parte}% · Não {p.nao}% · {p.validas} respostas</div></>
+              :<div style={{fontSize:10,color:C.muted}}>Sem respostas válidas</div>}
+            </div>)}
+          </div>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:4}}>Por setor</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:8}}>Só aparecem setores com {N_MIN_EXP} ou mais respostas, para preservar o anonimato.</div>
+            {porSetor.length?porSetor.map(({s,r})=><div key={s} style={{display:'flex',justifyContent:'space-between',fontSize:12,padding:'6px 0',borderBottom:'1px solid '+C.border}}>
+              <span style={{color:C.text}}>{s}</span><span style={{color:C.muted}}>{r.n} resp. · "sim" {r.pctSim===null?'—':r.pctSim+'%'} · NPS {r.nps===null?'—':r.nps}</span>
+            </div>):<div style={{fontSize:11,color:C.muted}}>Ainda não há setor com respostas suficientes.</div>}
+          </div>
+          <div style={card}>
+            <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:8}}>Elogios e sugestões</div>
+            {comentarios.length?comentarios.map(r=><div key={r.id} style={{fontSize:12,color:C.text,lineHeight:1.5,padding:'8px 0',borderBottom:'1px solid '+C.border}}>
+              “{r.comentario}”<div style={{fontSize:10,color:C.muted,marginTop:2}}>{new Date(r.created_at).toLocaleDateString('pt-BR')} · {r.perfil==='acompanhante'?'acompanhante':'paciente'} · nota {r.nota}</div>
+            </div>):<div style={{fontSize:11,color:C.muted}}>Nenhum comentário no período.</div>}
+          </div>
+        </>}
+      </>}
+    </div>
+  </div>);
+}
+
+function PainelPNQSPView({sbUrl,sbKey,hospital,showToast,setView}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const anoAtual=new Date().getFullYear();
+  const [ano,setAno]=useState(String(anoAtual));
+  const [d,setD]=useState(null);
+  const [loading,setLoading]=useState(false);
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);
+    const q=(tb,f)=>sbSelect(sbUrl,sbKey,tb,f).catch(()=>null);
+    Promise.all([
+      q('notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=5000&select=*`),
+      q('plano_acoes',`hospital_id=eq.${h.id}&select=*`),
+      q('protocolos',`hospital_id=eq.${h.id}&select=nome,proxima_revisao,subnucleo`),
+      q('config_dsm',`hospital_id=eq.${h.id}&select=*`),
+      q('treinamentos_nsp',`hospital_id=eq.${h.id}&select=tipo,data,subnucleo,participantes`),
+      q('nsp_usuarios',`hospital_id=eq.${h.id}&select=id,subnucleo`),
+      q('saq_respostas',`hospital_id=eq.${h.id}&select=ciclo,created_at`),
+      q('experiencia_paciente',`hospital_id=eq.${h.id}&select=*`),
+      q('capacitacao_respostas',`hospital_id=eq.${h.id}&select=created_at,nome,setor,profissao,percentual`),
+    ]).then(([nots,planos,prots,cfg,treins,usuarios,saq,exp,capac])=>setD({nots:nots||[],planos:planos||[],prots:prots||[],cfg:(cfg&&cfg[0])||{},treins:treins||[],usuarios,saq:saq||[],exp,capac}))
+      .finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+
+  const ini=ano+'-01-01',fim=ano+'-12-31',hoje=new Date().toISOString().slice(0,10);
+  const noAno=s=>s&&s.slice(0,10)>=ini&&s.slice(0,10)<=fim;
+  const pct=(a,b)=>b?Math.round(a/b*100):null;
+  const st=(v,ok,at)=>v===null||v===undefined?'sem':v>=ok?'ok':v>=at?'at':'crit';
+  let grupos=[];
+  if(d){
+    const nots=d.nots.filter(n=>noAno(n.event_date||n.created_at));
+    const sp=nots.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
+    const comDano=sp.filter(eventoComDano);
+    const comunicados=comDano.filter(n=>n.comunicado_paciente==='comunicado'||n.comunicado_paciente==='nao_aplicavel'||n.comunicado_paciente==='sem_contato'||n.comunicado_paciente==='recusou');
+    const comRCA=sp.filter(n=>n.rca_gerado);
+    const dias=comRCA.map(n=>n.rca_concluido_em?(new Date(n.rca_concluido_em)-new Date(n.created_at))/864e5:null).filter(x=>x!==null&&x>=0);
+    const mediaDias=dias.length?Math.round(dias.reduce((a,b)=>a+b,0)/dias.length):null;
+    const idsAno=new Set(sp.map(n=>n.id));
+    const planos=d.planos.filter(p=>idsAno.has(p.notification_id)&&p.status!=='cancelado');
+    const concl=planos.filter(p=>p.status==='concluido');
+    const noPrazo=concl.filter(p=>!p.prazo||!p.concluido_em||p.concluido_em.slice(0,10)<=p.prazo);
+    const notivisa=sp.filter(n=>n.notivisa_enviado);
+    const sentinelas=sp.filter(n=>n.gravidade==='Evento sentinela'||/obito/.test(semAcento(n.patient_outcome)));
+    const nearMiss=sp.filter(n=>/near miss|circunstancia/.test(semAcento((n.gravidade||'')+' '+(n.patient_outcome||'')+' '+(n.event_subtype||''))));
+    const cfg=d.cfg;
+    const pspVenc=cfg.data_atualizacao_psp?vencimentoPadrao(cfg.data_atualizacao_psp):null;
+    const protsVig=d.prots.filter(p=>p.proxima_revisao&&p.proxima_revisao>=hoje);
+    const treinos=d.treins.filter(t=>noAno(t.data)&&t.tipo==='treinamento');
+    const reunioes=d.treins.filter(t=>noAno(t.data)&&(t.tipo||'').startsWith('reuniao'));
+    const subsComAcesso=d.usuarios?SUBNUCLEOS_HNSA.filter(s=>d.usuarios.some(u=>u.subnucleo===s.id)).length:null;
+    const subsComTreino=SUBNUCLEOS_HNSA.filter(s=>treinos.some(t=>t.subnucleo===s.id)).length;
+    const saqAno=d.saq.filter(r=>noAno(r.created_at)||String(r.ciclo||'').startsWith(ano)).length;
+    const expAno=d.exp?d.exp.filter(r=>noAno(r.created_at)):null;
+    const RE=expAno?resumoExperiencia(expAno):null;
+    const pComunic=pct(comunicados.length,comDano.length);
+    const capAno=d.capac?d.capac.filter(r=>noAno(r.created_at)):null;
+    const capPessoas=capAno?new Set(capAno.map(r=>semAcento(r.nome).trim()+'|'+r.setor+'|'+r.profissao)).size:0;
+    const capMedia=capAno&&capAno.length?Math.round(capAno.reduce((a,r)=>a+(r.percentual||0),0)/capAno.length):null;
+    grupos=[
+      {t:'Estrutura',s:'O NSP está instituído e organizado?',itens:[
+        {n:'Portaria/ato de criação do NSP',v:cfg.numero_portaria_nsp||cfg.link_portaria_nsp?'Cadastrada':'Não cadastrada',st:cfg.numero_portaria_nsp||cfg.link_portaria_nsp?'ok':'crit',ir:'protocolos'},
+        {n:'Plano de Segurança do Paciente (PSP)',v:!pspVenc?(cfg.link_psp?'Cadastrado (sem data)':'Não cadastrado'):pspVenc>=hoje?'Vigente até '+new Date(pspVenc+'T12:00:00').toLocaleDateString('pt-BR'):'Vencido',st:!pspVenc?(cfg.link_psp?'at':'crit'):pspVenc>=hoje?'ok':'crit',ir:'protocolos'},
+        {n:'Protocolos dentro da validade',v:d.prots.length?protsVig.length+' de '+d.prots.length+' ('+pct(protsVig.length,d.prots.length)+'%)':'Nenhum cadastrado',st:d.prots.length?st(pct(protsVig.length,d.prots.length),90,70):'crit',ir:'protocolos'},
+        {n:'Subnúcleos com acesso próprio',v:subsComAcesso===null?'—':subsComAcesso+' de '+SUBNUCLEOS_HNSA.length,st:subsComAcesso===null?'sem':st(pct(subsComAcesso,SUBNUCLEOS_HNSA.length),100,60),ir:'admin'},
+        {n:'Reuniões do NSP no ano',v:String(reunioes.length),st:reunioes.length>=Math.min(12,new Date().getFullYear()===Number(ano)?new Date().getMonth():12)*0.8?'ok':reunioes.length?'at':'crit',ir:'treinamentos'},
+      ]},
+      {t:'Processo',s:'O cuidado seguro está acontecendo?',itens:[
+        {n:'Notificações analisadas (RCA)',v:sp.length?comRCA.length+' de '+sp.length+' ('+pct(comRCA.length,sp.length)+'%)':'Sem notificações',st:sp.length?st(pct(comRCA.length,sp.length),80,50):'sem',ir:'notificacoes'},
+        {n:'Tempo médio até a análise',v:mediaDias===null?'—':mediaDias+' dias',st:mediaDias===null?'sem':mediaDias<=30?'ok':mediaDias<=60?'at':'crit',ir:'notificacoes'},
+        {n:'Ações concluídas no prazo',v:planos.length?noPrazo.length+' de '+planos.length+' ('+pct(noPrazo.length,planos.length)+'%)':'Sem planos',st:planos.length?st(pct(noPrazo.length,planos.length),80,50):'sem',ir:'acoes'},
+        {n:'Notificações enviadas ao Notivisa',v:sp.length?notivisa.length+' de '+sp.length+' ('+pct(notivisa.length,sp.length)+'%)':'—',st:sp.length?st(pct(notivisa.length,sp.length),90,60):'sem',ir:'notificacoes'},
+        {n:'Eventos com dano comunicados ao paciente/família',v:comDano.length?comunicados.length+' de '+comDano.length+' ('+pComunic+'%)':'Nenhum evento com dano',st:comDano.length?st(pComunic,90,60):'sem',ir:'notificacoes',novo:true},
+        {n:'Subnúcleos com treinamento no ano',v:subsComTreino+' de '+SUBNUCLEOS_HNSA.length+' · '+treinos.length+' treinamentos',st:st(pct(subsComTreino,SUBNUCLEOS_HNSA.length),100,60),ir:'treinamentos'},
+        {n:'Capacitação online nos protocolos',v:!capAno?'Ative a capacitação (SQL 004)':capAno.length?capPessoas+' profissionais · média '+capMedia+'% de acerto':'Nenhuma participação no ano',st:!capAno?'sem':!capAno.length?'at':st(capMedia,85,70),ir:'capacitacao_dash',novo:true},
+        {n:'Pesquisa de cultura de segurança',v:saqAno?saqAno+' respostas':'Não aplicada no ano',st:saqAno>=30?'ok':saqAno?'at':'crit',ir:'saq_dashboard'},
+      ]},
+      {t:'Resultado',s:'O que mudou para o paciente?',itens:[
+        {n:'Notificações de segurança do paciente',v:String(sp.length),st:sp.length?'ok':'at',info:'Mais notificações costuma indicar cultura de notificação, não mais erros.',ir:'analytics'},
+        {n:'Eventos com dano',v:String(comDano.length)+(sp.length?' ('+pct(comDano.length,sp.length)+'% das notificações)':''),st:'info',ir:'analytics'},
+        {n:'Eventos sentinela / óbitos',v:String(sentinelas.length),st:sentinelas.length?'crit':'ok',ir:'notificacoes'},
+        {n:'Quase-erros e circunstâncias de risco',v:String(nearMiss.length),st:'info',info:'Notificar o que quase aconteceu mostra equipe atenta.',ir:'analytics'},
+        {n:'Experiência do paciente ("sim" nas perguntas)',v:!RE?'Ative a pesquisa (SQL 004)':RE.n?RE.pctSim+'% · '+RE.n+' respostas':'Sem respostas',st:!RE?'sem':RE.n?st(RE.pctSim,85,70):'at',ir:'experiencia_dash',novo:true},
+        {n:'Recomendação do hospital (NPS)',v:!RE||!RE.n||RE.nps===null?'—':String(RE.nps),st:!RE||!RE.n||RE.nps===null?'sem':RE.nps>=50?'ok':RE.nps>=0?'at':'crit',ir:'experiencia_dash',novo:true},
+      ]},
+    ];
+  }
+  const COR={ok:C.green,at:C.yellow,crit:C.red,sem:C.muted,info:C.blue};
+  const ROT={ok:'Bom',at:'Atenção',crit:'Crítico',sem:'Sem dado',info:'Acompanhar'};
+  const imprimir=()=>{
+    const w=window.open('','_blank');if(!w) return;
+    const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    w.document.write(`<html><head><meta charset="UTF-8"/><title>Painel PNQSP ${ano} - ${esc(siglaH(h))}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#1a1a1a;font-size:12px}h1{font-size:18px;margin:0}h2{font-size:14px;margin:18px 0 6px;color:#0D3B66}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:6px 4px}td.s{font-weight:700;width:90px}.m{color:#666;font-size:11px}</style></head><body>
+<h1>Painel de Qualidade e Segurança do Paciente — ${ano}</h1><div class="m">${esc(nomeH(h))} · ${esc(PNQSP_REF)} e RDC Anvisa 36/2013 · gerado em ${new Date().toLocaleDateString('pt-BR')} pelo NotificaAI</div>
+${grupos.map(g=>`<h2>${g.t} — ${g.s}</h2><table>${g.itens.map(i=>`<tr><td>${esc(i.n)}</td><td>${esc(i.v)}</td><td class="s">${ROT[i.st]}</td></tr>`).join('')}</table>`).join('')}
+</body></html>`);
+    w.document.close();setTimeout(()=>w.print(),300);
+  };
+  const anos=[];for(let a=anoAtual;a>=anoAtual-3;a--) anos.push(String(a));
+  return(<div>
+    <BackHeader title='Painel PNQSP' subtitle={'Estrutura · processo · resultado — '+PNQSP_REF}
+      right={d&&<button onClick={imprimir} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Imprimir</button>}/>
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>A Política Nacional de Qualidade e Segurança do Paciente (2026) acompanha os serviços por indicadores de <b style={{color:C.text}}>estrutura, processo e resultado</b>, valoriza a <b style={{color:C.text}}>experiência do paciente</b> e a <b style={{color:C.text}}>comunicação transparente</b> dos eventos adversos. Ela não substitui a RDC 36/2013: o NSP, a notificação e o PSP continuam obrigatórios. Toque em um indicador para ir à tela correspondente.</div>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {anos.map(a=><button key={a} onClick={()=>setAno(a)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(ano===a?C.teal:C.border),background:ano===a?C.teal+'20':'transparent',color:ano===a?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{a}</button>)}
+      </div>
+      {loading||!d?<div style={{color:C.muted,fontSize:12}}>{loading?'Carregando...':'Configure o banco de dados para ver o painel.'}</div>:grupos.map(g=><div key={g.t} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px'}}>
+        <div style={{fontSize:14,fontWeight:900,color:C.text}}>{g.t}</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{g.s}</div>
+        {g.itens.map(i=><div key={i.n} onClick={()=>i.ir&&setView&&setView(i.ir)} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 0',borderTop:'1px solid '+C.border,cursor:i.ir?'pointer':'default'}}>
+          <div style={{width:8,height:8,borderRadius:'50%',background:COR[i.st],flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,color:C.text,fontWeight:600}}>{i.n}{i.novo&&<span style={{fontSize:8,background:C.teal+'22',color:C.teal,borderRadius:4,padding:'1px 5px',marginLeft:6,fontWeight:800,verticalAlign:'middle'}}>PNQSP</span>}</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>{i.v}</div>
+            {i.info&&<div style={{fontSize:10,color:C.muted,marginTop:1,fontStyle:'italic'}}>{i.info}</div>}
+          </div>
+          <span style={{fontSize:10,fontWeight:800,color:COR[i.st],flexShrink:0}}>{ROT[i.st]}</span>
+        </div>)}
+      </div>)}
+    </div>
+  </div>);
+}
 
 function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
   const h=hospital||DEFAULT_HOSPITAL;
@@ -7342,11 +7759,1056 @@ html,body{margin:0;background:#000066}body{font-family:Calibri,Arial,sans-serif}
     </div>
   </div>);
 }
-function CentralView({sbUrl,sbKey,hospital,profileMode}) {
+// ── Videos de educacao em saude do proprio hospital (YouTube) ─────────────────
+// Tabela videos_educacao (SQL 004). Gestor cadastra para qualquer subnucleo; o
+// membro de subnucleo cadastra para o seu. Publico ve tudo que estiver ativo.
+const ytId=url=>{const m=String(url||'').match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/))([A-Za-z0-9_-]{11})/);return m?m[1]:null;};
+const PUBLICO_VIDEO={todos:'Pacientes e equipe',pacientes:'Pacientes e acompanhantes',equipe:'Equipe'};
+
+function VideoYoutube({url,titulo}){
+  const id=ytId(url);const [tocar,setTocar]=useState(false);
+  if(!id) return null;
+  return(<div style={{borderRadius:12,overflow:'hidden',background:'#000',aspectRatio:'16/9',position:'relative'}}>
+    {tocar?<iframe width="100%" height="100%" src={'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0'} title={titulo||'Vídeo'} frameBorder="0" allow="accelerometer;autoplay;encrypted-media;gyroscope;picture-in-picture" allowFullScreen style={{display:'block'}}/>
+      :<button onClick={()=>setTocar(true)} aria-label={'Assistir: '+(titulo||'vídeo')} style={{all:'unset',cursor:'pointer',position:'absolute',inset:0,display:'block'}}>
+        <img src={'https://img.youtube.com/vi/'+id+'/hqdefault.jpg'} alt="" loading="lazy" style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
+        <span style={{position:'absolute',left:'50%',top:'50%',transform:'translate(-50%,-50%)',width:64,height:44,borderRadius:12,background:'#FF0000',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="#fff"><polygon points="8,5 19,12 8,19"/></svg>
+        </span>
+      </button>}
+  </div>);
+}
+
+function VideosEducacaoView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,showToast,onBack}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const podeEditar=profileMode==='gestor'||profileMode==='membro_nsp';
+  const travado=profileMode==='membro_nsp'&&userSubnucleo?userSubnucleo:null;
+  const [lista,setLista]=useState([]);
+  const [erro,setErro]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [filtro,setFiltro]=useState('todos');
+  const [form,setForm]=useState(null);
+  const [salvando,setSalvando]=useState(false);
+  const toast=(m,t)=>showToast?showToast(m,t):alert(m);
+  const grupos=[...SUBNUCLEOS_HNSA,{id:'geral',label:'Segurança do paciente (geral)',icon:String.fromCodePoint(127973),color:C.teal}];
+  const load=()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);setErro(null);
+    sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${h.id}&order=ordem.asc,created_at.desc&select=*`)
+      .then(d=>setLista(d||[])).catch(e=>setErro(faltaSQL004(e)||/videos_educacao/.test(e.message)?'sql':e.message)).finally(()=>setLoading(false));
+  };
+  useEffect(load,[sbUrl,sbKey]);
+  const visiveis=lista.filter(v=>(v.ativo!==false||podeEditar)&&(filtro==='todos'||v.subnucleo===filtro));
+  const novo=()=>setForm({titulo:'',url:'',descricao:'',subnucleo:travado||(filtro!=='todos'?filtro:'geral'),publico:'todos',ativo:true});
+  const salvar=async()=>{
+    if(!form.titulo.trim()){toast('Informe o título do vídeo','error');return;}
+    if(!ytId(form.url)){toast('Cole um link válido do YouTube (youtube.com/watch?v=... ou youtu.be/...)','error');return;}
+    setSalvando(true);
+    const d={hospital_id:h.id,titulo:form.titulo.trim(),url:form.url.trim(),descricao:form.descricao.trim()||null,subnucleo:travado||form.subnucleo,publico:form.publico,ativo:form.ativo!==false};
+    try{
+      if(form.id) await sbPatch(sbUrl,sbKey,'videos_educacao',`id=eq.${form.id}`,d);
+      else await sbInsert(sbUrl,sbKey,'videos_educacao',{...d,criado_por:profileMode==='membro_nsp'?(userSubnucleo||'subnucleo'):'gestor'});
+      toast(form.id?'Vídeo atualizado':'Vídeo publicado na Central de Conhecimento','success');setForm(null);load();
+    }catch(e){toast(faltaSQL004(e)||/videos_educacao/.test(e.message)?'Falta preparar o banco: rode o arquivo '+SQL_004+' no Supabase (SQL Editor). É só uma vez.':'Erro ao salvar: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const excluir=async v=>{
+    if(!window.confirm('Remover o vídeo "'+v.titulo+'" da plataforma? (O vídeo continua no YouTube.)')) return;
+    try{await sbDelete(sbUrl,sbKey,'videos_educacao',`id=eq.${v.id}`);toast('Vídeo removido','success');load();}catch(e){toast('Erro ao remover: '+e.message,'error');}
+  };
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10,fontFamily:'inherit'};
+  const lab={fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4};
+  const podeMexer=v=>profileMode==='gestor'||(travado&&v.subnucleo===travado);
+  return(<div>
+    <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
+      <button onClick={onBack} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}>←</button>
+      <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:C.text}}>{String.fromCodePoint(127916)+' Vídeos de educação em saúde'}</div><div style={{fontSize:11,color:C.muted}}>Produzidos pelo {siglaH(h)} · por protocolo</div></div>
+      {podeEditar&&!form&&!erro&&<button onClick={novo} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>+ Vídeo</button>}
+    </div>
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:12}}>
+      {erro==='sql'&&<div style={{background:C.card,border:'1px solid '+C.yellow+'66',borderRadius:12,padding:14,color:C.yellow,fontSize:12,lineHeight:1.6}}>{podeEditar?<>A área de vídeos ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run).</>:'Em breve, vídeos de educação em saúde do hospital.'}</div>}
+      {erro&&erro!=='sql'&&<div style={{color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
+      {form&&<div style={{background:C.card,border:'1px solid '+C.teal+'55',borderRadius:12,padding:14}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>{form.id?'Editar vídeo':'Novo vídeo'}</div>
+        <label style={lab}>Link do YouTube *</label>
+        <input value={form.url} onChange={e=>setForm({...form,url:e.target.value})} placeholder="https://youtu.be/..." style={inp}/>
+        {ytId(form.url)&&<div style={{marginBottom:10}}><VideoYoutube url={form.url} titulo={form.titulo}/></div>}
+        <label style={lab}>Título *</label>
+        <input value={form.titulo} onChange={e=>setForm({...form,titulo:e.target.value})} placeholder="Ex.: Como prevenir quedas no hospital" style={inp} maxLength={120}/>
+        <label style={lab}>Descrição (opcional)</label>
+        <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} style={{...inp,resize:'none'}} maxLength={400}/>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+          <div><label style={lab}>Protocolo / subnúcleo</label>
+            <select value={travado||form.subnucleo} disabled={!!travado} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+              {grupos.map(g=><option key={g.id} value={g.id}>{g.label}</option>)}
+            </select></div>
+          <div><label style={lab}>Para quem</label>
+            <select value={form.publico} onChange={e=>setForm({...form,publico:e.target.value})} style={{...inp,appearance:'none'}}>
+              {Object.entries(PUBLICO_VIDEO).map(([v,l])=><option key={v} value={v}>{l}</option>)}
+            </select></div>
+        </div>
+        {form.id&&<label style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:C.text,marginBottom:10}}><input type="checkbox" checked={form.ativo!==false} onChange={e=>setForm({...form,ativo:e.target.checked})}/> Visível na Central de Conhecimento</label>}
+        <div style={{display:'flex',gap:8}}>
+          <button onClick={()=>setForm(null)} style={{flex:1,background:'transparent',border:'1px solid '+C.border,borderRadius:8,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando} style={{flex:2,background:C.teal,border:'none',borderRadius:8,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':form.id?'Salvar':'Publicar'}</button>
+        </div>
+        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Dica: no YouTube, publique como "Não listado" se o vídeo for só para o hospital; ele toca aqui normalmente.</div>
+      </div>}
+      {!erro&&<div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}} className="abas-sub">
+        {[{id:'todos',label:'Todos'},...grupos].filter(g=>g.id==='todos'||lista.some(v=>v.subnucleo===g.id)).map(g=><button key={g.id} onClick={()=>setFiltro(g.id)} style={{flexShrink:0,fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(filtro===g.id?C.teal:C.border),background:filtro===g.id?C.teal+'20':'transparent',color:filtro===g.id?C.teal:C.muted,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>{g.icon?g.icon+' ':''}{g.label}</button>)}
+      </div>}
+      {loading&&<div style={{color:C.muted,fontSize:12}}>Carregando...</div>}
+      {!loading&&!erro&&!visiveis.length&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:16,fontSize:12,color:C.muted,lineHeight:1.6,textAlign:'center'}}>{podeEditar?'Nenhum vídeo ainda. Publique o vídeo no YouTube, toque em "+ Vídeo" e cole o link.':'Em breve, vídeos de educação em saúde do hospital.'}</div>}
+      {visiveis.map(v=>{const g=grupos.find(x=>x.id===v.subnucleo)||grupos[grupos.length-1];return(<div key={v.id} style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+g.color,borderRadius:12,padding:12,opacity:v.ativo===false?.55:1}}>
+        <VideoYoutube url={v.url} titulo={v.titulo}/>
+        <div style={{fontSize:14,fontWeight:800,color:C.text,marginTop:10}}>{v.titulo}</div>
+        <div style={{fontSize:10,color:g.color,fontWeight:700,marginTop:2}}>{g.icon} {g.label} · {PUBLICO_VIDEO[v.publico]||PUBLICO_VIDEO.todos}{v.ativo===false?' · oculto':''}</div>
+        {v.descricao&&<div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.5}}>{v.descricao}</div>}
+        {podeEditar&&podeMexer(v)&&<div style={{display:'flex',gap:6,marginTop:8}}>
+          <button onClick={()=>{setForm({...v,descricao:v.descricao||''});window.scrollTo&&window.scrollTo(0,0);}} style={{fontSize:10,padding:'5px 10px',background:C.teal+'20',color:C.teal,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Editar</button>
+          <button onClick={()=>excluir(v)} style={{fontSize:10,padding:'5px 10px',background:C.red+'15',color:C.red,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Remover</button>
+        </div>}
+      </div>);})}
+    </div>
+  </div>);
+}
+
+// ── Capacitacao online: video + apostila + questionario por protocolo ─────────
+// Conteudo em assets/capacitacao.js (carregado sob demanda). Resultados em
+// capacitacao_respostas (SQL 004): nome, setor, profissao, % de acerto e cada resposta.
+// Especialidade/divisao escolhida no cadastro (fica no campo 'profissao'); 'Outros' abre um campo livre.
+// A instituicao pode ter a propria lista em hospitals.divisoes (["...", ...]).
+const DIVISOES_PADRAO=['Enfermeiro(a)','Técnico(a) de enfermagem','Médico(a)','Dentista','Técnico(a) de radiologia','Farmacêutico(a)','Fisioterapeuta','Nutricionista','Fonoaudiólogo(a)','Psicólogo(a)','Recepcionista','Setor administrativo'];
+const divisoesDe=h=>(h&&Array.isArray(h.divisoes)&&h.divisoes.length?h.divisoes:DIVISOES_PADRAO);
+const NOTA_APROVACAO=70;
+let _capacPromise=null;
+function carregarCapacitacao(){
+  if(window.CAPACITACAO_MODULOS) return Promise.resolve(window.CAPACITACAO_MODULOS);
+  if(!_capacPromise) _capacPromise=new Promise((ok,falha)=>{const s=document.createElement('script');s.src='/assets/capacitacao.js?v=2026.3';s.onload=()=>window.CAPACITACAO_MODULOS?ok(window.CAPACITACAO_MODULOS):falha(new Error('conteúdo vazio'));s.onerror=()=>{_capacPromise=null;falha(new Error('Não foi possível carregar o conteúdo. Verifique a internet.'));};document.head.appendChild(s);});
+  return _capacPromise;
+}
+// Ordem das alternativas embaralhada de forma fixa por questao (a correta e o indice 0 no conteudo)
+function ordemAlternativas(q){
+  const h=s=>{let x=2166136261;for(let i=0;i<s.length;i++){x^=s.charCodeAt(i);x=Math.imul(x,16777619);}return x>>>0;};
+  return q.ops.map((_,i)=>i).sort((a,b)=>h(q.id+':'+a)-h(q.id+':'+b));
+}
+const modInfo=id=>SUBNUCLEOS_HNSA.find(s=>s.id===id)||{icon:String.fromCodePoint(128218),color:C.teal,label:id};
+
+const CAIXAS_APOSTILA={
+  cena:{rotulo:'Imagine a cena',icone:String.fromCodePoint(127916),cor:'#2563EB',fundo:'#EFF4FF'},
+  sabia:{rotulo:'Você sabia?',icone:String.fromCodePoint(128161),cor:'#B45309',fundo:'#FFF7E6'},
+  pratica:{rotulo:'Na prática',icone:String.fromCodePoint(9989),cor:'#0D9488',fundo:'#E6F6F4'},
+  pense:{rotulo:'Pare e pense',icone:String.fromCodePoint(129300),cor:'#7C3AED',fundo:'#F3EEFF'},
+  atencao:{rotulo:'Atenção',icone:String.fromCodePoint(9888),cor:'#DC2626',fundo:'#FEF0F0'},
+};
+function imprimirApostila(m,h){
+  const w=window.open('','_blank');if(!w) return;
+  const paras=p=>(Array.isArray(p)?p:p?[p]:[]).map(x=>`<p>${escHtml(x)}</p>`).join('');
+  const cx=c=>{if(!c)return '';const k=CAIXAS_APOSTILA[c.tipo]||CAIXAS_APOSTILA.pratica;return `<div class="cx" style="border-color:${k.cor};background:${k.fundo}"><b style="color:${k.cor}">${k.icone} ${escHtml(c.titulo||k.rotulo)}</b><p>${escHtml(c.texto)}</p></div>`;};
+  const sec=(m.abertura?`<div class="ab">${paras(m.abertura)}</div>`:'')+m.apostila.map(s=>`<h2>${escHtml(s.t)}</h2>${paras(s.p)}${s.itens?`<ul>${s.itens.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul>`:''}${cx(s.caixa)}`).join('')
+    +(m.resumo?`<div class="res"><b>Resumo de bolso</b><ul>${m.resumo.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul></div>`:'');
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Apostila - ${escHtml(m.titulo)} - ${escHtml(siglaH(h))}</title><style>
+@page{size:A4;margin:16mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a1a;font-size:12.5px;line-height:1.55;max-width:760px;margin:0 auto;padding:16px}
+.cab{border-bottom:3px solid #0D9488;padding-bottom:10px;margin-bottom:14px}.cab small{color:#0D9488;font-weight:700;letter-spacing:1px;text-transform:uppercase}h1{font-size:22px;margin:4px 0}
+.obj{background:#E6F6F4;border-left:4px solid #0D9488;padding:10px 12px;border-radius:4px;margin:12px 0}h2{font-size:15px;color:#0D3B66;margin:18px 0 6px}ul{margin:4px 0 0 18px;padding:0}li{margin-bottom:4px}
+.ref{margin-top:22px;border-top:1px solid #ccc;padding-top:8px;font-size:10.5px;color:#555}
+p{margin:6px 0}.ab{font-size:13.5px;color:#222;margin-bottom:6px}.cx{border-left:4px solid;border-radius:6px;padding:9px 12px;margin:10px 0;page-break-inside:avoid}.cx p{margin:4px 0 0}
+.res{background:#0D3B66;color:#fff;border-radius:8px;padding:12px 16px;margin-top:18px;page-break-inside:avoid}.res b{color:#FFD400;font-size:14px}.res li{margin-bottom:3px}@media print{.noprint{display:none}}.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#0D9488;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}
+</style></head><body><div class="noprint"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
+<div class="cab"><small>${escHtml(nomeH(h))} · Núcleo de Segurança do Paciente · Capacitação online</small><h1>${escHtml(m.titulo)}</h1>Carga horária sugerida: ${escHtml(m.carga)}</div>
+<div class="obj"><b>Objetivo:</b> ${escHtml(m.objetivo)}</div>${sec}
+<div class="ref"><b>Referências</b><br/>${(window.CAPACITACAO_REFS||[]).map(escHtml).join('<br/>')}<br/>Ao final, responda o questionário na plataforma: ${escHtml(linkH(h).replace('https://',''))}?view=capacitacao</div>
+</body></html>`);
+  w.document.close();
+}
+
+// Certificado do curso completo (todos os modulos), emitido pelo gestor do NSP e assinado a caneta
+const CARGA_CURSO='8 horas';
+const TITULO_CURSO='Capacitação em Protocolos de Segurança do Paciente';
+const ASSINANTE_PADRAO={hnsa:{nome:'CC (S) Mari Stella',cargo:'Núcleo de Segurança do Paciente'}};
+function assinantesCert(cfg,h){
+  cfg=cfg||{};const pad=ASSINANTE_PADRAO[h.id]||{nome:'',cargo:'Núcleo de Segurança do Paciente'};
+  const lista=[[cfg.assinatura,cfg.assinante_nome||pad.nome,cfg.assinante_cargo||pad.cargo]];
+  if(cfg.assinatura2||cfg.assinante2_nome) lista.push([cfg.assinatura2,cfg.assinante2_nome,cfg.assinante2_cargo]);
+  return lista;
+}
+// Situacao de cada pessoa no curso a partir do progresso salvo
+function situacaoCurso(x,mods){
+  const pr=x.progresso||{};const feitos=(mods||[]).filter(m=>pr[m.id]&&pr[m.id].cert);
+  const dataBr=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||'');return m?m[3]+'-'+m[2]+'-'+m[1]:'';};
+  const datas=feitos.map(m=>dataBr(pr[m.id].cert.data)).filter(Boolean).sort();
+  return {feitos:feitos.length,total:(mods||[]).length,completo:!!mods&&mods.length>0&&feitos.length===mods.length,
+    media:feitos.length?Math.round(feitos.reduce((s,m)=>s+(pr[m.id].cert.pct||0),0)/feitos.length):null,
+    concluidoEm:datas.length?datas[datas.length-1]:null,modulos:feitos.map(m=>({titulo:m.titulo,pct:pr[m.id].cert.pct}))};
+}
+function imprimirCertificado({h,nome,setor,profissao,modulos,media,data,codigo,cfg}){
+  const w=window.open('','_blank');if(!w) return;
+  const blocoAss=assinantesCert(cfg,h).map(([img,n,c])=>`<div class="a">${img?`<img src="${img}" alt=""/>`:'<div class="sp"></div>'}<div class="ln"></div><b>${escHtml(n||'')}</b><span>${escHtml(c||'')}</span><span>${escHtml(nomeH(h))}</span></div>`).join('');
+  const verif=linkH(h)+'?view=certificado&codigo='+codigo;
+  const dataTxt=data?new Date(data+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'}):'';
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Certificado - ${escHtml(nome)}</title><style>
+@page{size:A4 landscape;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{margin:0;background:#fff}body{font-family:Georgia,'Times New Roman',serif}
+.c{width:297mm;height:209mm;padding:12mm;display:flex}.b{flex:1;border:3px solid #0D3B66;outline:1.5px solid #0D9488;outline-offset:-9px;padding:12mm 18mm 8mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+.t{font-size:13px;letter-spacing:4px;color:#0D9488;font-family:Arial,sans-serif;font-weight:700;text-transform:uppercase}h1{font-size:44px;color:#0D3B66;margin:6px 0 2px;font-weight:400}
+.n{font-size:30px;margin:10px 0 6px;border-bottom:1px solid #999;padding:0 30px 6px}.d{font-size:16px;line-height:1.65;max-width:230mm;color:#333}
+.mods{font-family:Arial,sans-serif;font-size:11px;color:#444;margin-top:6px;line-height:1.6;max-width:230mm}
+.ass{display:flex;gap:26mm;justify-content:center;margin-top:auto}.a{display:flex;flex-direction:column;align-items:center;min-width:80mm;font-family:Arial,sans-serif;line-height:1.4}
+.a img{height:20mm;max-width:75mm;object-fit:contain;margin-bottom:-3mm}.sp{height:18mm}.ln{width:80mm;border-top:1px solid #333;margin-bottom:4px}.a b{font-size:12.5px;color:#111}.a span{font-size:11px;color:#444}
+.m{margin-top:5mm;display:flex;justify-content:space-between;width:100%;font-family:Arial,sans-serif;font-size:10px;color:#555}
+@media print{.noprint{display:none}}.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#0D3B66;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:Arial}
+</style></head><body><div class="noprint"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
+<div class="c"><div class="b"><div class="t">${escHtml(nomeH(h))} · Núcleo de Segurança do Paciente</div><h1>Certificado</h1><div class="d">Certificamos que</div>
+<div class="n">${escHtml(nome)}</div><div class="d">${escHtml(profissao||'')}${setor?' · '+escHtml(setor):''}<br/>concluiu a <b>${TITULO_CURSO}</b>, na modalidade online,<br/>com carga horária de <b>${CARGA_CURSO}</b>${media!=null?' e aproveitamento médio de <b>'+media+'%</b>':''}.</div>
+<div class="mods">Conteúdo: ${(modulos||[]).map(x=>escHtml(x.titulo)).join(' · ')}.</div>
+<div class="ass">${blocoAss}</div>
+<div class="m"><span>${dataTxt?'Concluído em '+escHtml(dataTxt):''}</span><span>Código ${escHtml(codigo)} · verifique em ${escHtml(verif.replace('https://',''))}</span><span>Emitido pelo NotificaAI</span></div></div></div></body></html>`);
+  w.document.close();
+}
+
+// Assinatura enviada como foto/escaneada: remove o fundo claro, recorta e reduz (PNG transparente)
+function processarAssinatura(file){
+  return new Promise((ok,falha)=>{
+    if(!file||!/^image\//.test(file.type)) return falha(new Error('Envie uma imagem (foto ou PNG) da assinatura.'));
+    const fr=new FileReader();
+    fr.onload=()=>{const img=new Image();img.onload=()=>{
+      const W=Math.min(img.width,1400),H=Math.round(img.height*W/img.width);
+      const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.drawImage(img,0,0,W,H);
+      const d=x.getImageData(0,0,W,H),p=d.data;const lums=[];
+      for(let i=0;i<p.length;i+=16) if(p[i+3]>20) lums.push(0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]);
+      lums.sort((a,b)=>a-b);const fundo=lums.length?lums[Math.floor(lums.length*0.9)]:255;const lim=Math.max(60,fundo-45);
+      let minX=W,minY=H,maxX=-1,maxY=-1;
+      for(let i=0;i<p.length;i+=4){
+        const lum=0.299*p[i]+0.587*p[i+1]+0.114*p[i+2];
+        if(p[i+3]<20||lum>=lim){p[i+3]=0;continue;}
+        p[i+3]=Math.min(p[i+3],Math.round(Math.min(1,(lim-lum)/lim*2.2)*255));
+        const px=(i>>2)%W,py=Math.floor((i>>2)/W);if(px<minX)minX=px;if(px>maxX)maxX=px;if(py<minY)minY=py;if(py>maxY)maxY=py;
+      }
+      if(maxX<0) return falha(new Error('Não encontrei a assinatura. Use uma foto com fundo branco e boa luz.'));
+      x.putImageData(d,0,0);
+      const pad=10,cw=maxX-minX+1+pad*2,ch=maxY-minY+1+pad*2,esc=Math.min(1,700/cw);
+      const c2=document.createElement('canvas');c2.width=Math.round(cw*esc);c2.height=Math.round(ch*esc);
+      c2.getContext('2d').drawImage(c,minX-pad,minY-pad,cw,ch,0,0,c2.width,c2.height);
+      ok(c2.toDataURL('image/png'));
+    };img.onerror=()=>falha(new Error('Imagem inválida.'));img.src=fr.result;};
+    fr.readAsDataURL(file);
+  });
+}
+const novoCodigoParticipante=()=>{const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';const r=crypto.getRandomValues(new Uint8Array(6));r.forEach(v=>{s+=a[v%a.length];});return s;};
+
+// Niveis das questoes e trilha de aprendizado (a apostila vira cartoes curtos com interacao)
+const NIVEIS_Q={facil:{rotulo:'Fácil',cor:'#16A34A',frase:'Para aquecer: o essencial do protocolo.'},medio:{rotulo:'Médio',cor:'#D97706',frase:'Agora é a aplicação no dia a dia do setor.'},dificil:{rotulo:'Difícil',cor:'#DC2626',frase:'Casos reais, em que é preciso decidir o que fazer.'}};
+const nivelQ=q=>NIVEIS_Q[q&&q.nivel]||NIVEIS_Q.medio;
+function SeloNivel({q}){const n=nivelQ(q);return <span style={{fontSize:10,fontWeight:800,color:n.cor,background:n.cor+'1c',border:'1px solid '+n.cor+'55',borderRadius:10,padding:'2px 8px',whiteSpace:'nowrap'}}>{n.rotulo}</span>;}
+const PONTOS_TRILHA={passo:10,acerto:20};
+function montarTrilha(m,temVideo){
+  const it=(window.CAPACITACAO_INTERATIVO||{})[m.id]||{};
+  const vf=it.vf||[],cenas=it.cenas||[];
+  const p=[{k:'inicio',tipo:'inicio',rot:'Começo',ic:String.fromCodePoint(128681)}];
+  if(temVideo) p.push({k:'video',tipo:'video',rot:'Vídeo',ic:String.fromCodePoint(127916)});
+  let nCena=0,nVf=0;
+  const addVf=()=>{p.push({k:'vf'+nVf,tipo:'vf',vf:vf[nVf],rot:'Verdadeiro ou falso',ic:'?'});nVf++;};
+  m.apostila.forEach((sec,i)=>{
+    const cena=sec.caixa&&sec.caixa.tipo==='cena'?cenas[nCena++]||null:null;
+    p.push({k:'s'+i,tipo:'secao',i,cena,rot:sec.t,ic:String(i+1)});
+    if(i%2===1&&nVf<vf.length) addVf();
+  });
+  while(nVf<vf.length) addVf();
+  if(m.resumo) p.push({k:'resumo',tipo:'resumo',rot:'Resumo de bolso',ic:String.fromCodePoint(127890)});
+  p.push({k:'quiz',tipo:'quiz',rot:'Desafio final',ic:String.fromCodePoint(127942)});
+  return p;
+}
+// Pre-teste: 6 questoes fixas (2 de cada nivel), repetidas no desafio final para medir o quanto a pessoa aprendeu
+function questoesPre(m){const out=[];['facil','medio','dificil'].forEach(nv=>out.push(...m.questoes.filter(q=>(q.nivel||'medio')===nv).slice(0,2)));return out;}
+const pctLocal=(qs,resp)=>qs.length?Math.round(qs.filter(q=>resp&&resp[q.id]===0).length/qs.length*100):null;
+const nomeChave=n=>semAcento(n).replace(/\s+/g,' ').trim();
+async function hashSenhaCapac(pin,hid,nome){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+':'+hid+':capacitacao:'+nomeChave(nome)));
+  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function porNivelResp(m,resp){
+  return ['facil','medio','dificil'].map(nv=>{const qs=m.questoes.filter(q=>(q.nivel||'medio')===nv);return {nv,total:qs.length,ac:qs.filter(q=>resp[q.id]===0).length};}).filter(x=>x.total);
+}
+
+function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const kPart='nai_capac_part_'+h.id,kProg='nai_capac_prog_'+h.id;
+  const ler=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'null')||d;}catch{return d;}};
+  const [mods,setMods]=useState(window.CAPACITACAO_MODULOS||null);
+  const [erroCont,setErroCont]=useState(null);
+  const [part,setPart]=useState(()=>ler(kPart,null));
+  const [prog,setProg]=useState(()=>ler(kProg,{}));
+  const [cad,setCad]=useState(()=>{const a=ler('nai_participante_'+h.id,{});const lista=divisoesDe(h);const conhecida=lista.includes(a.profissao);
+    return {nome:a.nome||'',setor:a.setor||'',divisao:a.profissao?(conhecida?a.profissao:'outros'):'',outra:a.profissao&&!conhecida?a.profissao:''};});
+  const [codigoDig,setCodigoDig]=useState('');
+  const [modoVolta,setModoVolta]=useState('nome');
+  const [volta,setVolta]=useState({nome:'',pin:''});
+  const [pinNovo,setPinNovo]=useState('');
+  const [modId,setModId]=useState(()=>{try{return new URLSearchParams(location.search).get('modulo')||null;}catch{return null;}});
+  const [videos,setVideos]=useState([]);
+  const [cfg,setCfg]=useState({});
+  const [ocupado,setOcupado]=useState(false);
+  const [mostrarCodigo,setMostrarCodigo]=useState(false);
+  const [statusCert,setStatusCert]=useState(null);
+  useEffect(()=>{if(part&&part.id&&sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${part.id}&select=certificado_emitido_em,certificado_entregue_em`).then(d=>setStatusCert((d&&d[0])||null)).catch(()=>{});},[part&&part.id,sbUrl,sbKey]);
+  const toast=(m,t)=>showToast?showToast(m,t):alert(m);
+  const timer=React.useRef(null);
+  useEffect(()=>{if(!mods) carregarCapacitacao().then(setMods).catch(e=>setErroCont(e.message));},[]);
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_config',`hospital_id=eq.${h.id}&select=*`).then(d=>setCfg((d&&d[0])||{})).catch(()=>{});},[sbUrl,sbKey]);
+  useEffect(()=>{
+    if(!modId||!sbUrl||!sbKey) return;
+    sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${h.id}&subnucleo=eq.${modId}&ativo=eq.true&order=ordem.asc,created_at.desc&select=*`).then(d=>setVideos(d||[])).catch(()=>setVideos([]));
+  },[modId,sbUrl,sbKey]);
+  // progresso: salvo no aparelho na hora e no banco (para continuar em outro aparelho com o codigo)
+  const salvarProg=novo=>{
+    setProg(novo);try{localStorage.setItem(kProg,JSON.stringify(novo));}catch{}
+    if(part&&part.id&&sbUrl&&sbKey){clearTimeout(timer.current);timer.current=setTimeout(()=>{sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${part.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});},800);}
+  };
+  const pm=(modId&&prog[modId])||{};
+  const setPm=patch=>salvarProg({...prog,[modId]:{...pm,...patch,atualizado:new Date().toISOString()}});
+  const m=mods&&mods.find(x=>x.id===modId);
+  const etapa=pm.etapa||'conteudo';
+  const resp=pm.resp||{};
+  const topo=()=>window.scrollTo&&window.scrollTo(0,0);
+
+  const cadastrar=async()=>{
+    if(!cad.nome.trim()||cad.nome.trim().split(/\s+/).length<2){toast('Informe seu nome completo (como deve sair no certificado)','error');return;}
+    const divisao=cad.divisao==='outros'?cad.outra.trim().replace(/\s+/g,' ').slice(0,60):cad.divisao;
+    if(!divisao){toast(cad.divisao==='outros'?'Escreva a sua especialidade ou área':'Escolha a sua especialidade','error');return;}
+    if(!cad.setor){toast('Escolha o setor onde trabalha','error');return;}
+    if(!/^\d{4}$/.test(pinNovo)){toast('Crie um PIN de 4 números: com ele e o seu nome você volta de onde parou','error');return;}
+    setOcupado(true);
+    const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
+    try{if(sbUrl&&sbKey){
+      const base={hospital_id:h.id,...p,progresso:prog};
+      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:await hashSenhaCapac(pinNovo,h.id,p.nome)});}
+      catch(e){if(!/nome_chave|senha_hash|PGRST204/.test(e.message))throw e;r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',base);}
+      if(r&&r[0])p.id=r[0].id;}}
+    catch(e){if(!faltaSQL004(e)&&!/capacitacao_participantes/.test(e.message)) toast('Sem conexão: seu progresso fica salvo só neste aparelho por enquanto.','error');}
+    setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify({nome:p.nome,setor:p.setor,profissao:p.profissao}));}catch{}
+    setMostrarCodigo(true);setOcupado(false);topo();
+  };
+  const assumir=(x)=>{const p={id:x.id,codigo:x.codigo,nome:x.nome,setor:x.setor,profissao:x.profissao};
+    setPart(p);const pr=x.progresso||{};setProg(pr);
+    try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem(kProg,JSON.stringify(pr));}catch{}
+    toast('Bem-vindo(a) de volta, '+p.nome.split(' ')[0]+'!','success');};
+  const entrarComNome=async()=>{
+    if(volta.nome.trim().split(/\s+/).length<2){toast('Digite seu nome completo, como no cadastro','error');return;}
+    if(!/^\d{4}$/.test(volta.pin)){toast('O PIN tem 4 números','error');return;}
+    setOcupado(true);
+    try{
+      const hs=await hashSenhaCapac(volta.pin,h.id,volta.nome);
+      const r=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(volta.nome))}&senha_hash=eq.${hs}&select=*`);
+      const x=(r||[]).sort((a,b)=>(b.updated_at||'').localeCompare(a.updated_at||''))[0];
+      if(!x) toast('Nome ou PIN não conferem. Confira como escreveu o nome no cadastro, ou use o código.','error'); else assumir(x);
+    }catch(e){toast('Não foi possível buscar agora. Tente pelo código.','error');}
+    setOcupado(false);
+  };
+  const entrarComCodigo=async()=>{
+    const cod=codigoDig.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(cod.length!==6){toast('O código tem 6 letras e números','error');return;}
+    setOcupado(true);
+    try{
+      const r=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&codigo=eq.${cod}&select=*`);
+      if(!r||!r[0]){toast('Código não encontrado. Confira as letras.','error');setOcupado(false);return;}
+      assumir(r[0]);
+    }catch(e){toast('Não foi possível buscar o código agora.','error');}
+    setOcupado(false);
+  };
+  const trocarPessoa=()=>{if(!window.confirm('Sair do cadastro de '+part.nome+' neste aparelho? Para voltar depois, use o código '+part.codigo+'.'))return;
+    try{localStorage.removeItem(kPart);localStorage.removeItem(kProg);}catch{}setPart(null);setProg({});setModId(null);};
+
+  const enviar=async()=>{
+    if(m.questoes.some(q=>resp[q.id]===undefined)){toast('Responda todas as questões','error');return;}
+    setOcupado(true);
+    const det={};let acertos=0;
+    m.questoes.forEach(q=>{const c=resp[q.id]===0;if(c)acertos++;det[q.id]={e:resp[q.id],c};});
+    const pct=Math.round(acertos/m.questoes.length*100);
+    const reg={hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos,total:m.questoes.length,percentual:pct,respostas:det,duracao_seg:pm.inicio?Math.round((Date.now()-new Date(pm.inicio).getTime())/1000):null,versao:window.CAPACITACAO_VERSAO||null,tipo:'pos',pre_percentual:pm.pre?pm.pre.pct:null};
+    let codigo=null;
+    try{if(sbUrl&&sbKey){const r=await sbInsert(sbUrl,sbKey,'capacitacao_respostas',reg);codigo=r&&r[0]&&r[0].id?String(r[0].id).slice(0,8).toUpperCase():null;}}
+    catch(e){toast(faltaSQL004(e)||/capacitacao_/.test(e.message)?'Resultado não registrado: a capacitação ainda não foi ativada no banco. Avise o NSP.':'Resultado não registrado (sem conexão). Tente enviar de novo.','error');setOcupado(false);return;}
+    const melhor=Math.max(pct,pm.melhor||0);
+    setPm({etapa:'resultado',pct,acertos,posMesmas:pctLocal(questoesPre(m),resp),codigo:codigo||('LOCAL'+Date.now().toString(36).toUpperCase()),data:new Date().toLocaleDateString('pt-BR'),melhor,
+      ...(pct>=NOTA_APROVACAO&&!(pm.cert&&pm.cert.pct>=pct)?{cert:{pct,codigo,data:new Date().toLocaleDateString('pt-BR')}}:{})});
+    setOcupado(false);topo();
+  };
+
+  const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12,fontFamily:'inherit'};
+  const cardSt={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14};
+  const btnP={background:C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer',width:'100%'};
+
+  if(erroCont) return(<div style={{padding:24,color:C.red,fontSize:13}}>{erroCont}</div>);
+  if(!mods) return(<div style={{padding:24,color:C.muted,fontSize:13}}>Carregando a capacitação...</div>);
+
+  // 1. Cadastro (uma vez por pessoa)
+  if(!part) return(<div style={{padding:'20px 16px 80px',maxWidth:560,margin:'0 auto'}}>
+    <div style={{fontSize:19,fontWeight:900,color:C.text}}>Capacitação online</div>
+    <div style={{fontSize:12,color:C.muted,margin:'4px 0 18px',lineHeight:1.6}}>Protocolos de segurança do paciente do {siglaH(h)}: vídeo, apostila e questionário em cada módulo. Com {NOTA_APROVACAO}% de acerto você recebe o certificado. Você pode sair e continuar depois de onde parou.</div>
+    <div style={cardSt}>
+      <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:10}}>Faça seu cadastro</div>
+      <input value={cad.nome} onChange={e=>setCad({...cad,nome:e.target.value})} placeholder="Nome completo (sai assim no certificado)" style={inp} maxLength={120}/>
+      <select value={cad.setor} onChange={e=>setCad({...cad,setor:e.target.value})} style={{...inp,appearance:'none'}}>
+        <option value="">Setor onde trabalha...</option>{[...(h.sectors||[]),'Outro'].map(x=><option key={x} value={x}>{x}</option>)}
+      </select>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 8px'}}>Qual a sua especialidade / função?</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:cad.divisao==='outros'?8:14}}>
+        {[...divisoesDe(h),'outros'].map(x=>{const sel=cad.divisao===x;return(<button key={x} onClick={()=>setCad({...cad,divisao:x})} style={{flex:'1 1 40%',padding:'10px 6px',borderRadius:10,border:'1.5px solid '+(sel?C.teal:C.border),background:sel?C.teal+'22':C.surface,color:sel?C.teal:C.text,fontSize:13,fontWeight:sel?800:600,cursor:'pointer'}}>{x==='outros'?'Outros':x}</button>);})}
+      </div>
+      {cad.divisao==='outros'&&<input value={cad.outra} onChange={e=>setCad({...cad,outra:e.target.value})} placeholder="Escreva a sua especialidade ou área (ex.: Fisioterapia, Nutrição)" style={inp} maxLength={60} autoFocus/>}
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 4px'}}>Crie um PIN de 4 números</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8,lineHeight:1.5}}>Para voltar de onde parou, em qualquer celular ou computador: basta o seu nome e este PIN.</div>
+      <input value={pinNovo} onChange={e=>setPinNovo(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="Ex.: 2580" inputMode="numeric" type="password" autoComplete="new-password" aria-label="PIN de 4 números" style={{...inp,letterSpacing:6,fontWeight:800,fontSize:16}} maxLength={4}/>
+      <button onClick={cadastrar} disabled={ocupado} style={btnP}>{ocupado?'Cadastrando...':'Começar'}</button>
+    </div>
+    <div style={{...cardSt,marginTop:12}}>
+      <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:4}}>Já começou? Continue de onde parou</div>
+      <div style={{display:'flex',gap:6,margin:'8px 0 10px'}}>{[['nome','Nome e PIN'],['codigo','Código de 6 caracteres']].map(([k,l])=><button key={k} onClick={()=>setModoVolta(k)} style={{flex:1,padding:'8px',borderRadius:8,fontSize:12,fontWeight:800,cursor:'pointer',border:'1px solid '+(modoVolta===k?C.teal:C.border),background:modoVolta===k?C.teal+'20':'transparent',color:modoVolta===k?C.teal:C.muted}}>{l}</button>)}</div>
+      {modoVolta==='nome'?<>
+        <input value={volta.nome} onChange={e=>setVolta({...volta,nome:e.target.value})} placeholder="Seu nome completo, como no cadastro" style={inp} maxLength={120}/>
+        <div style={{display:'flex',gap:8}}>
+          <input value={volta.pin} onChange={e=>setVolta({...volta,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="PIN" inputMode="numeric" type="password" aria-label="Seu PIN" maxLength={4} style={{...inp,marginBottom:0,letterSpacing:6,fontWeight:800}}/>
+          <button onClick={entrarComNome} disabled={ocupado} style={{background:C.surface,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'0 16px',color:C.teal,fontWeight:800,fontSize:13,cursor:'pointer'}}>Continuar</button>
+        </div>
+      </>:<div style={{display:'flex',gap:8}}>
+        <input value={codigoDig} onChange={e=>setCodigoDig(e.target.value.toUpperCase())} placeholder="Ex.: K7Q4M2" maxLength={8} style={{...inp,marginBottom:0,letterSpacing:3,fontWeight:800,textTransform:'uppercase'}}/>
+        <button onClick={entrarComCodigo} disabled={ocupado} style={{background:C.surface,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'0 16px',color:C.teal,fontWeight:800,fontSize:13,cursor:'pointer'}}>Continuar</button>
+      </div>}
+    </div>
+  </div>);
+
+  const cabecalhoPessoa=<div style={{...cardSt,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'10px 14px'}}>
+    <div style={{flex:1,minWidth:180}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{part.nome}</div><div style={{fontSize:11,color:C.muted}}>{part.profissao} · {part.setor}</div></div>
+    <div style={{textAlign:'right'}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Seu código</div><div style={{fontSize:15,fontWeight:900,color:C.teal,letterSpacing:2}}>{part.codigo}</div></div>
+    <button onClick={trocarPessoa} style={{background:'none',border:'none',color:C.muted,fontSize:11,cursor:'pointer',textDecoration:'underline'}}>Não é você?</button>
+  </div>;
+
+  // 2. Lista de modulos com o progresso de cada um
+  if(!m) return(<div style={{padding:'20px 16px 80px',maxWidth:720,margin:'0 auto',display:'flex',flexDirection:'column',gap:10}}>
+    <div style={{fontSize:19,fontWeight:900,color:C.text}}>Capacitação online</div>
+    {mostrarCodigo&&<div style={{...cardSt,background:C.teal+'14',borderColor:C.teal+'55',fontSize:12.5,color:C.text,lineHeight:1.6}}>
+      Cadastro feito! Neste aparelho, é só voltar a este link. Em outro aparelho, entre com o seu <b>nome e o PIN</b> que você criou, ou com o código <b style={{color:C.teal,letterSpacing:2,fontSize:15}}>{part.codigo}</b> (tire um print).
+      <div><button onClick={()=>setMostrarCodigo(false)} style={{marginTop:8,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'7px 14px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Entendi</button></div>
+    </div>}
+    {cabecalhoPessoa}
+    {(()=>{const sc=situacaoCurso({progresso:prog},mods);const pronto=statusCert&&statusCert.certificado_emitido_em,entregue=statusCert&&statusCert.certificado_entregue_em;
+      return(<div style={{...cardSt,borderColor:(sc.completo?C.green:C.teal)+'55',background:(sc.completo?C.green:C.teal)+'10'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{String.fromCodePoint(127891)} {TITULO_CURSO}</div><b style={{fontSize:12,color:sc.completo?C.green:C.teal,whiteSpace:'nowrap'}}>{sc.feitos} de {sc.total}</b></div>
+        <div style={{height:8,borderRadius:4,background:C.border,overflow:'hidden',margin:'8px 0'}}><div style={{width:Math.round(sc.feitos/Math.max(1,sc.total)*100)+'%',height:'100%',background:sc.completo?C.green:C.teal}}/></div>
+        <div style={{fontSize:12,color:C.text,lineHeight:1.55}}>{entregue?'Certificado entregue. Parabéns pela conclusão!':pronto?<><b style={{color:C.green}}>Seu certificado está pronto!</b> Retire na sala do Núcleo de Segurança do Paciente.</>:sc.completo?'Curso concluído ('+CARGA_CURSO+'). O NSP vai emitir e assinar o seu certificado; quando estiver pronto, o aviso aparece aqui.':'Conclua os '+sc.total+' módulos (com '+NOTA_APROVACAO+'% de acerto) para receber o certificado de '+CARGA_CURSO+', assinado pelo NSP.'}</div>
+      </div>);})()}
+    {mods.map(x=>{const s=modInfo(x.id);const p=prog[x.id]||{};const nResp=Object.keys(p.resp||{}).length;
+      const status=p.cert?{t:'Concluído · '+p.cert.pct+'%',c:C.green}:p.etapa==='resultado'?{t:'Refazer · '+p.pct+'%',c:C.yellow}:p.etapa==='pre'?{t:'Continuar · diagnóstico inicial',c:C.blue}:p.etapa==='quiz'?{t:'Continuar · questão '+Math.min(nResp+1,x.questoes.length)+'/'+x.questoes.length,c:C.blue}:p.etapa?{t:'Continuar a trilha · '+Math.round(Object.keys(p.vistos||{}).length/Math.max(1,montarTrilha(x,false).length-1)*100)+'%',c:C.blue}:null;
+      return(<div key={x.id} style={{...cardSt,borderLeft:'3px solid '+s.color,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+        <button onClick={()=>{setModId(x.id);if(!p.etapa)salvarProg({...prog,[x.id]:{etapa:'pre',inicio:new Date().toISOString()}});topo();}} style={{all:'unset',cursor:'pointer',display:'flex',alignItems:'center',gap:12,flex:1,minWidth:200}}>
+          <div style={{width:44,height:44,borderRadius:12,background:s.color+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>{s.icon}</div>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>{x.titulo}</div><div style={{fontSize:11,color:status?status.c:C.muted,marginTop:2,fontWeight:status?700:400}}>{status?status.t:x.carga+' · trilha interativa · '+x.questoes.length+' questões'}</div></div>
+          <IconChev size={16} color={C.muted}/>
+        </button>
+        {p.cert&&<span style={{background:C.green+'22',color:C.green,border:'1px solid '+C.green+'55',borderRadius:8,padding:'6px 10px',fontSize:11,fontWeight:800}}>✓ Concluído</span>}
+      </div>);})}
+  </div>);
+
+  // 3. Dentro do modulo: trilha de aprendizado em cartoes + desafio final por nivel
+  const s=modInfo(m.id);
+  const passos=montarTrilha(m,videos.length>0);
+  const vistos=pm.vistos||{};
+  const inter=pm.int||{};
+  const atualK=etapa==='pre'?'inicio':etapa==='conteudo'?(passos.some(x=>x.k===pm.atual)?pm.atual:'inicio'):'quiz';
+  const idx=passos.findIndex(x=>x.k===atualK);
+  const passo=passos[idx];
+  const nVistos=passos.filter(x=>vistos[x.k]).length;
+  const pontos=pm.pontos||0;
+  const irPara=k=>{setPm(k==='quiz'?{etapa:'quiz',atual:k}:{etapa:'conteudo',atual:k});topo();};
+  const avancar=()=>{const ganho=vistos[atualK]?0:PONTOS_TRILHA.passo;const prox=passos[idx+1];
+    setPm({vistos:{...vistos,[atualK]:true},pontos:pontos+ganho,atual:prox.k,...(prox.k==='quiz'?{etapa:'quiz'}:{})});topo();};
+  const responder=(k,valor,certo)=>{if(inter[k]!==undefined)return;setPm({int:{...inter,[k]:valor},pontos:pontos+(certo?PONTOS_TRILHA.acerto:0)});};
+  const voltar=()=>{setModId(null);topo();};
+  const paras=p=>(Array.isArray(p)?p:p?[p]:[]);
+  const txt={fontSize:14,color:C.text,lineHeight:1.75,margin:0};
+  const opcaoSt=(estado)=>({display:'block',width:'100%',textAlign:'left',padding:'12px 14px',marginBottom:8,borderRadius:12,cursor:estado==='livre'?'pointer':'default',fontSize:13,lineHeight:1.5,color:C.text,fontFamily:'inherit',
+    border:'1.5px solid '+(estado==='certo'?C.green:estado==='errado'?C.red:C.border),background:estado==='certo'?C.green+'1c':estado==='errado'?C.red+'14':C.surface});
+  const caixa=(c,conteudo)=>{const k=CAIXAS_APOSTILA[c.tipo]||CAIXAS_APOSTILA.pratica;return(<div style={{marginTop:14,borderLeft:'4px solid '+k.cor,background:k.cor+'18',borderRadius:10,padding:'12px 14px'}}>
+    <div style={{fontSize:12,fontWeight:800,color:k.cor,marginBottom:6}}>{k.icone} {c.titulo||k.rotulo}</div>{conteudo||<div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>{c.texto}</div>}</div>);};
+  const feedback=(ok,t)=><div style={{marginTop:6,padding:'10px 12px',borderRadius:10,background:(ok?C.green:C.yellow)+'1a',border:'1px solid '+(ok?C.green:C.yellow)+'55',fontSize:13,color:C.text,lineHeight:1.55}}>
+    <b style={{color:ok?C.green:C.yellow}}>{ok?'Boa! +'+PONTOS_TRILHA.acerto+' pontos. ':'Quase. '}</b>{t}</div>;
+
+  const cartao=()=>{
+    if(!passo) return null;
+    if(passo.tipo==='inicio') return(<>
+      <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:1}}>Bem-vindo(a) à trilha</div>
+      <div style={{fontSize:20,fontWeight:900,color:C.text,margin:'4px 0 12px'}}>{m.titulo}</div>
+      {paras(m.abertura).map((x,j)=><p key={j} style={{...txt,marginTop:j?10:0}}>{x}</p>)}
+      <div style={{marginTop:14,padding:'12px 14px',borderRadius:10,background:C.teal+'14',border:'1px solid '+C.teal+'44',fontSize:13,color:C.text,lineHeight:1.6}}><b>Ao final você vai:</b> {m.objetivo}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:12}}>
+        {[[String.fromCodePoint(128214),passos.filter(x=>x.tipo==='secao').length+' cartões de conteúdo'],[String.fromCodePoint(127919),'Casos e verdadeiro ou falso pelo caminho'],[String.fromCodePoint(127942),m.questoes.length+' questões no desafio final'],[String.fromCodePoint(11088),'Pontos a cada passo']].map(([i,t])=>
+          <span key={t} style={{fontSize:11.5,color:C.text,background:C.surface,border:'1px solid '+C.border,borderRadius:20,padding:'6px 10px'}}>{i} {t}</span>)}
+      </div>
+    </>);
+    if(passo.tipo==='video') return(<>
+      <div style={{fontSize:16,fontWeight:900,color:C.text,marginBottom:10}}>{String.fromCodePoint(127916)} Assista ao vídeo do {siglaH(h)}</div>
+      {videos.map(v=><div key={v.id} style={{marginBottom:10}}><VideoYoutube url={v.url} titulo={v.titulo}/><div style={{fontSize:12,fontWeight:700,color:C.text,marginTop:6}}>{v.titulo}</div></div>)}
+    </>);
+    if(passo.tipo==='secao'){const sec=m.apostila[passo.i];const c=sec.caixa;const rev=inter[passo.k];
+      return(<>
+        <div style={{fontSize:11,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:1}}>Parte {passo.i+1} de {m.apostila.length}</div>
+        <div style={{fontSize:18,fontWeight:900,color:C.text,margin:'4px 0 12px'}}>{sec.t}</div>
+        {paras(sec.p).map((x,j)=><p key={j} style={{...txt,marginTop:j?10:0}}>{x}</p>)}
+        {sec.itens&&<div style={{marginTop:12,display:'flex',flexDirection:'column',gap:6}}>{sec.itens.map((it,j)=><div key={j} style={{display:'flex',gap:10,alignItems:'flex-start',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'9px 12px'}}>
+          <span style={{minWidth:22,height:22,borderRadius:11,background:s.color+'26',color:s.color,fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{j+1}</span><span style={{fontSize:13.5,color:C.text,lineHeight:1.55}}>{it}</span></div>)}</div>}
+        {c&&c.tipo==='cena'&&passo.cena?caixa(c,<>
+          <div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>{c.texto}</div>
+          <div style={{fontSize:13.5,fontWeight:800,color:C.text,margin:'12px 0 8px'}}>{passo.cena.pergunta}</div>
+          {passo.cena.opcoes.map((o,j)=>{const est=rev===undefined?'livre':o.ok?'certo':rev===j?'errado':'neutro';
+            return <button key={j} onClick={()=>responder(passo.k,j,!!o.ok)} style={opcaoSt(est)}>{o.t}</button>;})}
+          {rev!==undefined&&feedback(!!passo.cena.opcoes[rev].ok,passo.cena.opcoes[rev].fb+(passo.cena.opcoes[rev].ok?'':' '+passo.cena.opcoes.find(o=>o.ok).fb))}
+        </>)
+        :c&&c.tipo==='sabia'?caixa(c,rev?<div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>{c.texto}</div>
+          :<button onClick={()=>setPm({int:{...inter,[passo.k]:1}})} style={{width:'100%',padding:'14px',borderRadius:10,border:'1.5px dashed '+CAIXAS_APOSTILA.sabia.cor,background:'transparent',color:CAIXAS_APOSTILA.sabia.cor,fontWeight:800,fontSize:13,cursor:'pointer'}}>Toque para descobrir a curiosidade</button>)
+        :c?caixa(c):null}
+      </>);}
+    if(passo.tipo==='vf'){const r=inter[passo.k];const ok=r!==undefined&&r===passo.vf.v;
+      return(<>
+        <div style={{fontSize:11,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:1}}>Teste rápido</div>
+        <div style={{fontSize:18,fontWeight:900,color:C.text,margin:'4px 0 14px'}}>Verdadeiro ou falso?</div>
+        <div style={{fontSize:16,fontWeight:700,color:C.text,lineHeight:1.55,padding:'18px 16px',borderRadius:14,background:C.surface,border:'1px solid '+C.border,textAlign:'center'}}>{passo.vf.a}</div>
+        <div style={{display:'flex',gap:10,marginTop:14}}>
+          {[[true,'Verdadeiro',C.green],[false,'Falso',C.red]].map(([v,l,cor])=>{const marcado=r===v;const certo=r!==undefined&&v===passo.vf.v;
+            return <button key={l} onClick={()=>responder(passo.k,v,v===passo.vf.v)} style={{flex:1,padding:'16px 8px',borderRadius:14,fontSize:15,fontWeight:900,cursor:r===undefined?'pointer':'default',fontFamily:'inherit',
+              border:'2px solid '+(certo?C.green:marcado?C.red:cor+'66'),background:certo?C.green+'22':marcado?C.red+'18':'transparent',color:certo?C.green:marcado?C.red:cor}}>{v?'✓ ':'✗ '}{l}</button>;})}
+        </div>
+        {r!==undefined&&<div style={{marginTop:12}}>{feedback(ok,(ok?'':'A afirmação é '+(passo.vf.v?'verdadeira':'falsa')+'. ')+passo.vf.fb)}</div>}
+      </>);}
+    if(passo.tipo==='resumo') return(<div style={{margin:-18,padding:20,borderRadius:16,background:'#0D3B66'}}>
+      <div style={{fontSize:12,fontWeight:800,color:'#FFD400',textTransform:'uppercase',letterSpacing:1}}>Para levar no bolso</div>
+      <div style={{fontSize:18,fontWeight:900,color:'#fff',margin:'4px 0 12px'}}>Resumo de bolso</div>
+      {m.resumo.map((it,j)=><div key={j} style={{display:'flex',gap:10,marginBottom:8,fontSize:13.5,color:'#fff',lineHeight:1.55}}><span style={{color:'#FFD400',fontWeight:900}}>✓</span><span>{it}</span></div>)}
+      <button onClick={()=>imprimirApostila(m,h)} style={{marginTop:8,background:'#FFD400',color:'#0D3B66',border:'none',borderRadius:10,padding:'9px 14px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Baixar a apostila completa (PDF)</button>
+    </div>);
+    return null;
+  };
+  const precisaResponder=passo&&((passo.tipo==='vf')||(passo.tipo==='secao'&&passo.cena&&m.apostila[passo.i].caixa&&m.apostila[passo.i].caixa.tipo==='cena'))&&inter[atualK]===undefined;
+
+  // questionarios (diagnostico inicial e desafio final): uma questao por vez, agrupadas por nivel
+  const preQs=questoesPre(m);
+  const preResp=pm.preResp||{};
+  const qiDe=(lista,rs,salvo)=>Math.min(salvo!==undefined?salvo:Math.max(0,lista.findIndex(q=>rs[q.id]===undefined)),lista.length-1);
+  const blocoQuiz=({lista,rs,qiv,campoResp,campoQi,titulo,onEnviar,onVoltarInicio,mostrarTema})=>{
+    const q=lista[qiv];if(!q)return null;
+    const n=lista.filter(x=>rs[x.id]!==undefined).length;
+    const irI=i=>setPm({[campoQi]:i});
+    return(<>
+      <div style={{...cardSt,padding:'10px 14px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:11,color:C.muted,fontWeight:700,marginBottom:8}}><span>{titulo} · {n} de {lista.length} respondidas</span><span>Fácil → Médio → Difícil</span></div>
+        <div style={{display:'flex',gap:4}}>{lista.map((x,i)=>{const nv=nivelQ(x);const r=rs[x.id]!==undefined;return <button key={x.id} onClick={()=>irI(i)} aria-label={'Questão '+(i+1)} style={{flex:1,height:i===qiv?10:8,borderRadius:4,border:'none',padding:0,cursor:'pointer',background:r?nv.cor:nv.cor+'33',outline:i===qiv?'2px solid '+C.text:'none',outlineOffset:1}}/>;})}</div>
+      </div>
+      {(qiv===0||lista[qiv-1].nivel!==q.nivel)&&<div style={{padding:'10px 14px',borderRadius:12,background:nivelQ(q).cor+'16',border:'1px solid '+nivelQ(q).cor+'44',fontSize:12.5,color:C.text}}>
+        <b style={{color:nivelQ(q).cor}}>Nível {nivelQ(q).rotulo.toLowerCase()}.</b> {nivelQ(q).frase}</div>}
+      <div key={q.id} style={{...cardSt,padding:18,borderRadius:16,animation:'naiEntra .3s ease'}}>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}><span style={{fontSize:12,fontWeight:900,color:C.muted,whiteSpace:'nowrap'}}>Questão {qiv+1} de {lista.length}</span><SeloNivel q={q}/>{mostrarTema&&<span style={{fontSize:11,color:C.muted,marginLeft:'auto',textAlign:'right'}}>{q.tema}</span>}</div>
+        <div style={{fontSize:15,fontWeight:700,color:C.text,lineHeight:1.55,marginBottom:12}}>{q.p}</div>
+        {ordemAlternativas(q).map((oi,j)=>{const sel=rs[q.id]===oi;return(<button key={oi} onClick={()=>setPm({[campoResp]:{...rs,[q.id]:oi},[campoQi]:qiv})} style={{display:'flex',gap:10,alignItems:'flex-start',width:'100%',textAlign:'left',background:sel?C.teal+'18':C.surface,border:'1.5px solid '+(sel?C.teal:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8,cursor:'pointer',color:C.text,fontSize:13.5,lineHeight:1.45,fontFamily:'inherit'}}>
+          <span style={{minWidth:24,height:24,borderRadius:12,border:'2px solid '+(sel?C.teal:C.muted),background:sel?C.teal:'transparent',color:sel?'#06101F':C.muted,fontSize:11,fontWeight:900,display:'flex',alignItems:'center',justifyContent:'center'}}>{'ABCD'[j]}</span>{q.ops[oi]}
+        </button>);})}
+      </div>
+      <div style={{display:'flex',gap:10}}>
+        {(qiv>0||onVoltarInicio)&&<button onClick={()=>qiv>0?irI(qiv-1):onVoltarInicio()} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px 18px',color:C.muted,fontWeight:700,fontSize:13,cursor:'pointer'}}>←</button>}
+        {qiv<lista.length-1?<button onClick={()=>irI(qiv+1)} style={{...btnP,flex:1}}>{rs[q.id]===undefined?'Pular por enquanto →':'Próxima →'}</button>
+          :<button onClick={onEnviar} disabled={ocupado} style={{...btnP,flex:1}}>{ocupado?'Enviando...':'Enviar respostas ('+n+'/'+lista.length+')'}</button>}
+      </div>
+      {n===lista.length&&qiv<lista.length-1&&<button onClick={onEnviar} disabled={ocupado} style={{...btnP,background:C.green}}>{ocupado?'Enviando...':'Todas respondidas: enviar agora'}</button>}
+    </>);
+  };
+  const enviarPre=async()=>{
+    if(preQs.some(q=>preResp[q.id]===undefined)){toast('Responda as '+preQs.length+' perguntas do diagnóstico','error');return;}
+    setOcupado(true);
+    const det={};let ac=0;
+    preQs.forEach(q=>{const c=preResp[q.id]===0;if(c)ac++;det[q.id]={e:preResp[q.id],c};});
+    const pct=Math.round(ac/preQs.length*100);
+    // o diagnostico nao bloqueia o curso: se falhar o envio, a pessoa segue normalmente
+    try{if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos:ac,total:preQs.length,percentual:pct,respostas:det,versao:window.CAPACITACAO_VERSAO||null,tipo:'pre'});}catch(e){}
+    setPm({etapa:'conteudo',atual:'inicio',pre:{pct,acertos:ac,total:preQs.length,data:new Date().toISOString()}});
+    toast('Diagnóstico registrado! No final você vai ver o quanto evoluiu.','success');
+    setOcupado(false);topo();
+  };
+  const medalha=pct=>pct>=90?{t:'Medalha de ouro',ic:String.fromCodePoint(129351),c:'#D4A017'}:pct>=NOTA_APROVACAO?{t:'Medalha de prata',ic:String.fromCodePoint(129352),c:'#94A3B8'}:{t:'Quase lá',ic:String.fromCodePoint(128170),c:C.yellow};
+
+  return(<div>
+    <div style={{padding:'12px 16px',borderBottom:'1px solid '+C.border,background:C.surface,position:'sticky',top:0,zIndex:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button onClick={voltar} style={{background:'none',border:'none',color:C.teal,cursor:'pointer',fontSize:22}}>←</button>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:15,fontWeight:800,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.icon} {m.titulo}</div>
+          <div style={{fontSize:11,color:C.muted}}>{String.fromCodePoint(11088)} {pontos} pontos · progresso salvo automaticamente</div></div>
+        <button onClick={()=>imprimirApostila(m,h)} title="Baixar a apostila em PDF" style={{background:C.card,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'6px 10px',color:C.teal,fontSize:11,fontWeight:800,cursor:'pointer'}}>Apostila PDF</button>
+        <button onClick={voltar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Sair</button>
+      </div>
+      <div style={{display:'flex',alignItems:'center',overflowX:'auto',gap:0,marginTop:10,paddingBottom:4}}>
+        {passos.map((x,i)=>{const feito=vistos[x.k]||(x.k==='quiz'&&etapa==='resultado');const atual=x.k===atualK&&etapa!=='resultado'&&etapa!=='pre';const livre=feito||atual||i===0||vistos[passos[i-1].k];
+          return(<React.Fragment key={x.k}>
+            {i>0&&<div style={{flex:'1 0 10px',height:3,background:vistos[passos[i-1].k]?C.teal:C.border,minWidth:10}}/>}
+            <button ref={el=>{if(el&&atual&&el.parentElement){const pai=el.parentElement;pai.scrollLeft=el.offsetLeft-pai.clientWidth/2+el.offsetWidth/2;}}} onClick={()=>livre&&etapa!=='resultado'&&etapa!=='pre'&&irPara(x.k)} title={x.rot} aria-label={'Passo '+(i+1)+': '+x.rot} style={{width:atual?34:28,height:atual?34:28,flexShrink:0,borderRadius:'50%',fontSize:x.ic.length>2?14:12,fontWeight:900,cursor:livre?'pointer':'default',padding:0,fontFamily:'inherit',
+              border:'2px solid '+(atual?s.color:feito?C.teal:C.border),background:feito?C.teal:atual?s.color+'26':C.card,color:feito?'#06101F':atual?s.color:C.muted,boxShadow:atual?'0 0 0 4px '+s.color+'22':'none'}}>{feito&&x.tipo!=='quiz'?'✓':x.ic}</button>
+          </React.Fragment>);})}
+      </div>
+      <div style={{fontSize:10.5,color:C.muted,marginTop:4}}>{etapa==='resultado'?'Trilha concluída':etapa==='pre'?'Diagnóstico inicial · a trilha começa logo depois':'Passo '+(idx+1)+' de '+passos.length+' · '+passo.rot}</div>
+    </div>
+    <div style={{padding:16,maxWidth:720,margin:'0 auto',display:'flex',flexDirection:'column',gap:12}}>
+      {etapa==='conteudo'&&<>
+        <div key={atualK} style={{...cardSt,padding:18,borderRadius:16,borderTop:'4px solid '+s.color,animation:'naiEntra .35s ease'}}>{cartao()}</div>
+        <div style={{display:'flex',gap:10}}>
+          {idx>0&&<button onClick={()=>irPara(passos[idx-1].k)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'14px 18px',color:C.muted,fontWeight:700,fontSize:13,cursor:'pointer'}}>←</button>}
+          <button onClick={avancar} disabled={precisaResponder} style={{...btnP,flex:1,opacity:precisaResponder?.5:1,cursor:precisaResponder?'default':'pointer'}}>
+            {precisaResponder?'Responda para continuar':passos[idx+1]&&passos[idx+1].k==='quiz'?'Ir para o desafio final '+String.fromCodePoint(127942):'Continuar →'}</button>
+        </div>
+      </>}
+      {etapa==='pre'&&<>
+        {Object.keys(preResp).length===0&&<div style={{...cardSt,padding:18,borderRadius:16,borderTop:'4px solid '+s.color}}>
+          <div style={{fontSize:12,fontWeight:800,color:s.color,textTransform:'uppercase',letterSpacing:1}}>Antes de começar</div>
+          <div style={{fontSize:18,fontWeight:900,color:C.text,margin:'4px 0 8px'}}>Diagnóstico rápido: {preQs.length} perguntas</div>
+          <div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>Responda com o que você sabe hoje. <b>Não vale nota</b> e não aparece no certificado: serve para você e o NSP verem o quanto o curso fez diferença. As mesmas perguntas voltam no desafio final.</div>
+        </div>}
+        {blocoQuiz({lista:preQs,rs:preResp,qiv:qiDe(preQs,preResp,pm.pqi),campoResp:'preResp',campoQi:'pqi',titulo:'Diagnóstico inicial',onEnviar:enviarPre})}
+      </>}
+      {etapa==='quiz'&&blocoQuiz({lista:m.questoes,rs:resp,qiv:qiDe(m.questoes,resp,pm.qi),campoResp:'resp',campoQi:'qi',titulo:'Desafio final',onEnviar:enviar,onVoltarInicio:()=>irPara(passos[passos.length-2].k),mostrarTema:true})}
+      {etapa==='resultado'&&pm.pct!==undefined&&(()=>{const md=medalha(pm.pct);const niv=porNivelResp(m,resp);return(<>
+        <div style={{...cardSt,textAlign:'center',padding:20,borderRadius:16,borderColor:md.c+'88',animation:'naiEntra .4s ease'}}>
+          <div style={{fontSize:52,lineHeight:1}}>{md.ic}</div>
+          <div style={{fontSize:13,fontWeight:900,color:md.c,marginTop:4,textTransform:'uppercase',letterSpacing:1}}>{md.t}</div>
+          <div style={{fontSize:44,fontWeight:900,color:pm.pct>=NOTA_APROVACAO?C.green:C.yellow}}>{pm.pct}%</div>
+          <div style={{fontSize:13,color:C.text,fontWeight:700}}>{pm.acertos} de {m.questoes.length} questões corretas · {String.fromCodePoint(11088)} {pontos} pontos na trilha</div>
+          <div style={{display:'flex',gap:8,justifyContent:'center',margin:'14px 0 4px',flexWrap:'wrap'}}>{niv.map(x=>{const n=NIVEIS_Q[x.nv];return(<div key={x.nv} style={{minWidth:90,padding:'8px 10px',borderRadius:12,background:n.cor+'14',border:'1px solid '+n.cor+'44'}}>
+            <div style={{fontSize:10,fontWeight:800,color:n.cor,textTransform:'uppercase'}}>{n.rotulo}</div><div style={{fontSize:18,fontWeight:900,color:C.text}}>{x.ac}/{x.total}</div></div>);})}</div>
+          {pm.pre&&(()=>{const depois=pm.posMesmas!==undefined?pm.posMesmas:pctLocal(preQs,resp);const dif=depois-pm.pre.pct;return(<div style={{margin:'12px auto 0',maxWidth:380,padding:'12px 14px',borderRadius:12,background:C.surface,border:'1px solid '+C.border,textAlign:'left'}}>
+            <div style={{fontSize:12,fontWeight:900,color:C.text,marginBottom:8}}>{String.fromCodePoint(128200)} Sua evolução nas {preQs.length} perguntas do diagnóstico</div>
+            {[['Antes do curso',pm.pre.pct,C.muted],['Depois do curso',depois,dif>0?C.green:C.teal]].map(([l,v,cor])=><div key={l} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <span style={{width:104,fontSize:11.5,color:C.muted}}>{l}</span><div style={{flex:1,height:10,borderRadius:5,background:C.border,overflow:'hidden'}}><div style={{width:v+'%',height:'100%',background:cor}}/></div><b style={{width:40,textAlign:'right',fontSize:12.5,color:C.text}}>{v}%</b></div>)}
+            <div style={{fontSize:12,color:dif>0?C.green:C.muted,fontWeight:800,marginTop:2}}>{dif>0?'+'+dif+' pontos percentuais. Você aprendeu!':dif===0?'Mesmo resultado do diagnóstico: vale rever a trilha.':'Abaixo do diagnóstico: revise a trilha com calma.'}</div>
+          </div>);})()}
+          <div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.6}}>{pm.pct>=NOTA_APROVACAO?'Parabéns, '+part.nome.split(' ')[0]+'! Módulo concluído. '+(situacaoCurso({progresso:prog},mods).completo?'Você concluiu todos os módulos: o NSP vai emitir o seu certificado de '+CARGA_CURSO+'.':'Conclua os demais módulos para receber o certificado de '+CARGA_CURSO+'.'):'Revise a trilha e tente de novo: são necessários '+NOTA_APROVACAO+'% para o certificado.'}</div>
+          <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12,flexWrap:'wrap'}}>
+            <button onClick={()=>imprimirApostila(m,h)} style={{background:C.card,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Apostila PDF</button>
+            <button onClick={()=>{setPm(pm.pct>=NOTA_APROVACAO?{etapa:'quiz',atual:'quiz',resp:{},qi:0,pct:undefined,inicio:new Date().toISOString()}:{etapa:'conteudo',atual:'inicio',resp:{},qi:0,pct:undefined,inicio:new Date().toISOString()});topo();}} style={{background:C.card,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Refazer</button>
+            <button onClick={voltar} style={{background:C.card,color:C.muted,border:'1px solid '+C.border,borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Outros módulos</button>
+          </div>
+        </div>
+        <div style={{fontSize:14,fontWeight:900,color:C.text,marginTop:4}}>Gabarito comentado</div>
+        {m.questoes.map((q,i)=>{const ok=resp[q.id]===0;return(<div key={q.id} style={{...cardSt,borderLeft:'3px solid '+(ok?C.green:C.red)}}>
+          <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:4}}><span style={{fontSize:11,fontWeight:900,color:ok?C.green:C.red}}>{ok?'✓':'✗'} Questão {i+1}</span><SeloNivel q={q}/></div>
+          <div style={{fontSize:12.5,fontWeight:700,color:C.text,lineHeight:1.5}}>{q.p}</div>
+          {!ok&&resp[q.id]!==undefined&&<div style={{fontSize:12,color:C.red,marginTop:6}}>Sua resposta: {q.ops[resp[q.id]]}</div>}
+          <div style={{fontSize:12,color:C.green,marginTop:4,fontWeight:700}}>Correta: {q.ops[0]}</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:4,lineHeight:1.5}}>{q.exp}</div>
+        </div>);})}
+      </>);})()}
+    </div>
+  </div>);
+}
+
+// Pagina publica de verificacao do certificado (?view=certificado&codigo=XXXXXXXX)
+function CertificadoVerificarView({sbUrl,sbKey,hospital}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [cod,setCod]=useState(()=>{try{return (new URLSearchParams(location.search).get('codigo')||'').toUpperCase();}catch{return '';}});
+  const [res,setRes]=useState(null);
+  const [mods,setMods]=useState(window.CAPACITACAO_MODULOS||null);
+  const verificar=async c=>{
+    const k6=(c||cod).toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(k6.length===6){
+      setRes({carregando:true});
+      try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&codigo=eq.${k6}&select=nome,setor,profissao,progresso,certificado_emitido_em`);
+        const x=(d||[])[0];const ms=mods||await carregarCapacitacao().catch(()=>null);const sc=x&&situacaoCurso(x,ms);
+        setRes(x?{curso:{x,sc}}:{erro:'Certificado não encontrado para este código.'});}
+      catch(e){setRes({erro:'Não foi possível verificar agora.'});}
+      return;
+    }
+    const k=(c||cod).toLowerCase().replace(/[^0-9a-f]/g,'');
+    if(k.length!==8){setRes({erro:'Digite o código impresso no certificado (6 ou 8 caracteres).'});return;}
+    setRes({carregando:true});
+    try{
+      const d=await sbSelect(sbUrl,sbKey,'capacitacao_respostas',`hospital_id=eq.${h.id}&id=gte.${k}-0000-0000-0000-000000000000&id=lte.${k}-ffff-ffff-ffff-ffffffffffff&select=id,created_at,modulo,nome,profissao,setor,percentual,tipo`);
+      const r=(d||[]).filter(x=>x.tipo!=='pre')[0];setRes(r?{ok:r}:{erro:'Certificado não encontrado para este código.'});
+    }catch(e){setRes({erro:'Não foi possível verificar agora.'});}
+  };
+  useEffect(()=>{if(!mods) carregarCapacitacao().then(setMods).catch(()=>{});if(cod&&sbUrl&&sbKey) verificar(cod);},[sbUrl,sbKey]);
+  const r=res&&res.ok;const tit=r&&((mods||[]).find(m=>m.id===r.modulo)||{}).titulo;
+  return(<div style={{padding:'24px 16px',maxWidth:520,margin:'0 auto'}}>
+    <div style={{fontSize:19,fontWeight:900,color:C.text}}>Verificar certificado</div>
+    <div style={{fontSize:12,color:C.muted,margin:'4px 0 16px'}}>Capacitação online · {nomeH(h)}</div>
+    <div style={{display:'flex',gap:8,marginBottom:14}}>
+      <input value={cod} onChange={e=>setCod(e.target.value.toUpperCase())} placeholder="Código do certificado" maxLength={8} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:14,letterSpacing:2,fontWeight:800,outline:'none'}}/>
+      <button onClick={()=>verificar()} style={{background:C.teal,border:'none',borderRadius:10,padding:'0 16px',color:'#06101F',fontWeight:800,cursor:'pointer'}}>Verificar</button>
+    </div>
+    {res&&res.carregando&&<div style={{color:C.muted,fontSize:12}}>Verificando...</div>}
+    {res&&res.erro&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'55',borderRadius:12,padding:14,color:C.red,fontSize:13}}>{res.erro}</div>}
+    {res&&res.curso&&(()=>{const {x,sc}=res.curso;const ok=sc.completo;return(<div style={{background:(ok?C.green:C.yellow)+'12',border:'1px solid '+(ok?C.green:C.yellow)+'55',borderRadius:12,padding:16}}>
+      <div style={{fontSize:14,fontWeight:900,color:ok?C.green:C.yellow,marginBottom:8}}>{ok?'Certificado válido':'Curso ainda não concluído'}</div>
+      {[['Nome',x.nome],['Especialidade / função',x.profissao],['Setor',x.setor],['Curso',TITULO_CURSO+' · '+CARGA_CURSO],['Módulos concluídos',sc.feitos+' de '+sc.total],['Aproveitamento médio',sc.media!=null?sc.media+'%':'—'],['Concluído em',sc.concluidoEm?new Date(sc.concluidoEm+'T12:00:00').toLocaleDateString('pt-BR'):'—']].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
+    </div>);})()}
+    {r&&<div style={{background:C.green+'12',border:'1px solid '+C.green+'55',borderRadius:12,padding:16}}>
+      <div style={{fontSize:14,fontWeight:900,color:C.green,marginBottom:8}}>{(r.percentual||0)>=NOTA_APROVACAO?'Certificado válido':'Registro encontrado, mas abaixo da nota de aprovação'}</div>
+      {[['Nome',r.nome],['Especialidade',r.profissao],['Setor',r.setor],['Capacitação',tit||r.modulo],['Acerto',r.percentual+'%'],['Data',new Date(r.created_at).toLocaleDateString('pt-BR')]].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
+    </div>}
+  </div>);
+}
+
+// Configuracao das assinaturas do certificado (gestor)
+function AssinaturasCertificado({sbUrl,sbKey,hospital,showToast}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [cfg,setCfg]=useState(null);
+  const [aberto,setAberto]=useState(false);
+  const [salvando,setSalvando]=useState(false);
+  const [erro,setErro]=useState(null);
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_config',`hospital_id=eq.${h.id}&select=*`).then(d=>setCfg((d&&d[0])||{})).catch(e=>{setCfg({});setErro(faltaSQL004(e)||/capacitacao_config/.test(e.message)?'sql':e.message);});},[sbUrl,sbKey]);
+  if(!cfg) return null;
+  const subir=async(campo,file)=>{try{const url=await processarAssinatura(file);setCfg(c=>({...c,[campo]:url}));}catch(e){showToast(e.message,'error');}};
+  const salvar=async()=>{
+    setSalvando(true);
+    try{await sbUpsertDSM(sbUrl,sbKey,'capacitacao_config',{hospital_id:h.id,assinatura:cfg.assinatura||null,assinante_nome:(cfg.assinante_nome||'').trim()||null,assinante_cargo:(cfg.assinante_cargo||'').trim()||null,assinatura2:cfg.assinatura2||null,assinante2_nome:(cfg.assinante2_nome||'').trim()||null,assinante2_cargo:(cfg.assinante2_cargo||'').trim()||null,updated_at:new Date().toISOString()},'hospital_id');
+      showToast('Assinaturas salvas: os próximos certificados já saem assinados','success');setAberto(false);}
+    catch(e){showToast(faltaSQL004(e)||/capacitacao_config/.test(e.message)?'Falta preparar o banco: rode o '+SQL_004+' no Supabase.':'Erro ao salvar: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:8,fontFamily:'inherit'};
+  const bloco=(n,campo,kn,kc,titulo,dica)=>(<div style={{flex:1,minWidth:240,background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:12}}>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:2}}>{titulo}</div>
+    <div style={{fontSize:10,color:C.muted,marginBottom:8}}>{dica}</div>
+    <div style={{background:'#fff',borderRadius:8,height:80,display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8,border:'1px dashed '+C.border}}>
+      {cfg[campo]?<img src={cfg[campo]} alt="Assinatura" style={{maxHeight:70,maxWidth:'90%'}}/>:<span style={{fontSize:11,color:'#888'}}>sem assinatura</span>}
+    </div>
+    <div style={{display:'flex',gap:6,marginBottom:8}}>
+      <label style={{flex:1,textAlign:'center',background:C.teal+'20',color:C.teal,border:'1px solid '+C.teal+'44',borderRadius:8,padding:'7px',fontSize:11,fontWeight:800,cursor:'pointer'}}>
+        {cfg[campo]?'Trocar imagem':'Enviar foto da assinatura'}<input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(f)subir(campo,f);}}/>
+      </label>
+      {cfg[campo]&&<button onClick={()=>setCfg(c=>({...c,[campo]:null}))} style={{background:C.red+'15',color:C.red,border:'none',borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>Remover</button>}
+    </div>
+    <input value={cfg[kn]||''} onChange={e=>setCfg(c=>({...c,[kn]:e.target.value}))} placeholder="Nome (como sai abaixo da assinatura)" style={inp}/>
+    <input value={cfg[kc]||''} onChange={e=>setCfg(c=>({...c,[kc]:e.target.value}))} placeholder="Cargo / função" style={{...inp,marginBottom:0}}/>
+  </div>);
+  const [[,nomeAss,cargoAss]]=assinantesCert(cfg,h);
+  const pronta=!!nomeAss;
+  return(<div style={{background:C.card,border:'1px solid '+(pronta?C.border:C.yellow+'66'),borderRadius:12,padding:14}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <div style={{flex:1,minWidth:200}}>
+        <div style={{fontSize:13,fontWeight:800,color:C.text}}>Assinatura do certificado ({CARGA_CURSO})</div>
+        <div style={{fontSize:11,color:pronta?C.muted:C.yellow,marginTop:2,lineHeight:1.5}}>{pronta?<>Rodapé: <b style={{color:C.text}}>{nomeAss}</b> · {cargoAss} · {nomeH(h)}{cfg.assinatura?' (com imagem da assinatura)':' · espaço em branco para assinar à caneta'}</>:'Informe quem assina o certificado.'}</div>
+      </div>
+      <button onClick={()=>setAberto(!aberto)} style={{background:pronta?C.surface:C.teal,color:pronta?C.teal:'#06101F',border:'1px solid '+C.teal+'55',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>{aberto?'Fechar':pronta?'Editar':'Configurar'}</button>
+    </div>
+    {erro==='sql'&&<div style={{fontSize:11,color:C.yellow,marginTop:8}}>Rode o {SQL_004} no Supabase para ativar.</div>}
+    {aberto&&<div style={{marginTop:12}}>
+      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:10}}>O rodapé sai em 3 linhas: nome, cargo/setor e o nome do hospital. Sem imagem, o certificado sai com o espaço em branco para assinar à caneta depois de impresso. Se preferir a assinatura digitalizada: peça a assinatura em papel branco, com caneta azul ou preta, e tire uma foto de perto com boa luz. O fundo é removido automaticamente. Use apenas com autorização de quem assina: o certificado traz um código que pode ser conferido em {(linkH(h)+'?view=certificado').replace('https://','')}.</div>
+      <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+        {bloco(1,'assinatura','assinante_nome','assinante_cargo','Assinatura principal','Padrão: '+((ASSINANTE_PADRAO[h.id]||{}).nome||'—')+' · Núcleo de Segurança do Paciente')}
+        {bloco(2,'assinatura2','assinante2_nome','assinante2_cargo','Segunda assinatura (opcional)','Ex.: Coordenação do NSP')}
+      </div>
+      <div style={{display:'flex',gap:8,marginTop:10}}>
+        <button onClick={()=>imprimirCertificado({h,nome:'Nome do Profissional',setor:(h.sectors||[])[0]||'',profissao:'Enfermeiro(a)',modulos:(window.CAPACITACAO_MODULOS||[]).map(m=>({titulo:m.titulo})),media:88,data:new Date().toISOString().slice(0,10),codigo:'EXEMPL',cfg})} style={{flex:1,background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'10px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver certificado de exemplo</button>
+        <button onClick={salvar} disabled={salvando} style={{flex:1,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'10px',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
+      </div>
+    </div>}
+  </div>);
+}
+
+// Painel do gestor: quem fez, por setor e especialidade, % de acerto, pontos fortes e fracos
+function resumoCapacitacao(lista,mods){
+  const pessoas=new Set(lista.map(r=>semAcento(r.nome).replace(/\s+/g,' ').trim()+'|'+r.setor+'|'+r.profissao));
+  const media=lista.length?Math.round(lista.reduce((a,r)=>a+(r.percentual||0),0)/lista.length):null;
+  const aprov=lista.length?Math.round(lista.filter(r=>(r.percentual||0)>=NOTA_APROVACAO).length/lista.length*100):null;
+  const agrupar=campo=>{const g={};lista.forEach(r=>{const k=r[campo]||'—';(g[k]=g[k]||[]).push(r);});
+    return Object.entries(g).map(([k,rs])=>({k,n:rs.length,pessoas:new Set(rs.map(r=>semAcento(r.nome).trim()+'|'+r.setor+'|'+r.profissao)).size,media:Math.round(rs.reduce((a,r)=>a+(r.percentual||0),0)/rs.length),aprov:Math.round(rs.filter(r=>(r.percentual||0)>=NOTA_APROVACAO).length/rs.length*100)})).sort((a,b)=>b.n-a.n);};
+  const questoes=[];
+  (mods||[]).forEach(m=>m.questoes.forEach(q=>{const rs=lista.filter(r=>r.modulo===m.id&&r.respostas&&r.respostas[q.id]);if(!rs.length)return;
+    const ac=rs.filter(r=>r.respostas[q.id].c).length;questoes.push({m,q,n:rs.length,ac,pct:Math.round(ac/rs.length*100)});}));
+  const porNivel=['facil','medio','dificil'].map(nv=>{const qs=questoes.filter(x=>(x.q.nivel||'medio')===nv);const n=qs.reduce((t,x)=>t+x.n,0);return {nv,n,pct:n?Math.round(qs.reduce((t,x)=>t+x.ac,0)/n*100):null};});
+  return {n:lista.length,pessoas:pessoas.size,media,aprov,porModulo:agrupar('modulo'),porSetor:agrupar('setor'),porProf:agrupar('profissao'),questoes,porNivel};
+}
+
+// Pre x pos: compara as mesmas questoes do diagnostico inicial no desafio final (primeira tentativa de cada pessoa)
+function resumoPrePos(pos,pre,mods){
+  const preIdx={};
+  pre.forEach(r=>{if(!r.participante_id)return;const k=r.participante_id+'|'+r.modulo;if(!preIdx[k]||(r.created_at||'')<(preIdx[k].created_at||''))preIdx[k]=r;});
+  const usados=new Set(),pares=[];
+  pos.slice().sort((a,b)=>(a.created_at||'').localeCompare(b.created_at||'')).forEach(r=>{
+    const k=r.participante_id+'|'+r.modulo,p=preIdx[k];if(!r.participante_id||!p||usados.has(k))return;
+    const m=(mods||[]).find(x=>x.id===r.modulo);if(!m)return;
+    const qs=questoesPre(m).filter(q=>p.respostas&&p.respostas[q.id]&&r.respostas&&r.respostas[q.id]);if(!qs.length)return;
+    usados.add(k);
+    pares.push({r,p,m,qs,pre:Math.round(qs.filter(q=>p.respostas[q.id].c).length/qs.length*100),pos:Math.round(qs.filter(q=>r.respostas[q.id].c).length/qs.length*100)});
+  });
+  const med=xs=>xs.length?Math.round(xs.reduce((s,x)=>s+x,0)/xs.length):null;
+  const grupo=campo=>{const g={};pares.forEach(x=>{const k=campo==='modulo'?x.m.id:(x.r[campo]||'—');(g[k]=g[k]||[]).push(x);});
+    return Object.entries(g).map(([k,xs])=>{const a=med(xs.map(x=>x.pre)),d=med(xs.map(x=>x.pos));return {k,n:xs.length,pre:a,pos:d,ganho:d-a};}).sort((a,b)=>b.n-a.n);};
+  const itens={};
+  pares.forEach(x=>x.qs.forEach(q=>{const it=itens[q.id]||(itens[q.id]={q,m:x.m,n:0,a:0,d:0});it.n++;if(x.p.respostas[q.id].c)it.a++;if(x.r.respostas[q.id].c)it.d++;}));
+  const lista=Object.values(itens).map(i=>({...i,pre:Math.round(i.a/i.n*100),pos:Math.round(i.d/i.n*100)})).map(i=>({...i,ganho:i.pos-i.pre}));
+  return {n:pares.length,nPre:pre.length,pre:med(pares.map(x=>x.pre)),pos:med(pares.map(x=>x.pos)),
+    melhoraram:pares.length?Math.round(pares.filter(x=>x.pos>x.pre).length/pares.length*100):null,
+    porModulo:grupo('modulo'),porSetor:grupo('setor'),porProf:grupo('profissao'),itens:lista};
+}
+// Funil de adesao a partir do progresso salvo de cada pessoa (onde as pessoas param)
+function funilCapacitacao(parts,modulo){
+  const f={iniciaram:0,diagnostico:0,trilha:0,desafio:0,certificado:0},parados=[],onde={};
+  const limite=Date.now()-7*864e5;
+  parts.forEach(x=>Object.entries(x.progresso||{}).forEach(([mod,v])=>{
+    if(!v||!v.etapa||(modulo!=='todos'&&mod!==modulo))return;
+    f.iniciaram++;
+    if(v.etapa!=='pre')f.diagnostico++;
+    if(v.etapa==='quiz'||v.etapa==='resultado')f.trilha++;
+    if(v.etapa==='resultado')f.desafio++;
+    if(v.cert)f.certificado++;
+    if(!v.cert){
+      const local=v.etapa==='pre'?'Diagnóstico inicial':v.etapa==='conteudo'?'Trilha de conteúdo':v.etapa==='quiz'?'Desafio final':'Abaixo de '+NOTA_APROVACAO+'%';
+      onde[local]=(onde[local]||0)+1;
+      const quando=new Date(v.atualizado||x.updated_at||x.created_at).getTime();
+      if(quando<limite)parados.push({nome:x.nome,setor:x.setor,mod,local,dias:Math.floor((Date.now()-quando)/864e5)});
+    }
+  }));
+  return {f,parados:parados.sort((a,b)=>b.dias-a.dias),onde};
+}
+// Analise automatica: transforma os numeros em frases para decidir o proximo treinamento
+function analiseCapacitacao({R,PP,F,h,nomeMod,filtrada}){
+  const out=[];const add=(tipo,t)=>out.push({tipo,t});
+  if(!R.n&&!F.f.iniciaram){add('info','Ainda não há participação no período. Divulgue o link ou o cartaz com QR code nos setores e nas passagens de plantão.');return out;}
+  if(PP.n>=3){
+    const g=PP.pos-PP.pre;
+    if(g>=15) add('ok','O curso está funcionando: nas mesmas perguntas, o acerto subiu de '+PP.pre+'% para '+PP.pos+'% (+'+g+' pontos) entre '+PP.n+' pessoas que fizeram o pré e o pós-teste.');
+    else if(g>=5) add('info','Ganho moderado com o curso: de '+PP.pre+'% para '+PP.pos+'% (+'+g+' pontos). Vale reforçar os pontos ainda fracos listados abaixo.');
+    else add('alerta','Ganho pequeno com o curso (de '+PP.pre+'% para '+PP.pos+'%). Revise o material e considere uma atividade presencial ou simulação.');
+    const mods=PP.porModulo.filter(x=>x.n>=3).sort((a,b)=>b.ganho-a.ganho);
+    if(mods.length>1){add('ok','Maior aprendizado em "'+nomeMod(mods[0].k)+'" (+'+mods[0].ganho+' pontos).');
+      const pior=mods[mods.length-1];if(pior.ganho<10)add('alerta','"'+nomeMod(pior.k)+'" teve o menor ganho (+'+pior.ganho+' pontos): o conteúdo ou o vídeo deste protocolo precisa de revisão.');}
+    const fracosPos=PP.itens.filter(i=>i.n>=5&&i.pos<60).sort((a,b)=>a.pos-b.pos);
+    fracosPos.slice(0,3).forEach(i=>add('alerta','Mesmo depois do curso, só '+i.pos+'% acertam "'+i.q.tema+'" ('+nomeMod(i.m.id)+'). Tema prioritário para treinamento presencial.'));
+    const dominados=PP.itens.filter(i=>i.n>=5&&i.pre>=90);
+    if(dominados.length) add('info',dominados.length+' tema(s) já eram dominados antes do curso (ex.: "'+dominados[0].q.tema+'", '+dominados[0].pre+'% no pré-teste): podem ser abordados mais rápido.');
+  } else if(R.n) add('info','O pré e pós-teste aparece aqui quando pelo menos 3 pessoas tiverem feito o diagnóstico inicial e o desafio final do mesmo módulo.');
+  const nv={};(R.porNivel||[]).forEach(x=>nv[x.nv]=x.pct);
+  if(nv.facil!=null&&nv.facil<NOTA_APROVACAO) add('alerta','Acerto nas questões fáceis abaixo de '+NOTA_APROVACAO+'% ('+nv.facil+'%): o conceito básico do protocolo ainda não chegou à equipe.');
+  else if(nv.dificil!=null&&nv.dificil<60) add('info','A equipe conhece o protocolo (fáceis: '+(nv.facil??'—')+'%), mas erra os casos práticos (difíceis: '+nv.dificil+'%). Treinamento com casos e simulação à beira do leito tende a render mais que aula expositiva.');
+  const setores=R.porSetor.filter(x=>x.n>=3).sort((a,b)=>a.media-b.media);
+  if(setores.length&&setores[0].media<NOTA_APROVACAO) add('alerta','Setor com menor desempenho: '+setores[0].k+' (média '+setores[0].media+'%, '+setores[0].pessoas+' pessoas). Priorize uma ação educativa lá.');
+  const profs=R.porProf.filter(x=>x.n>=3).sort((a,b)=>a.media-b.media);
+  if(profs.length>1&&profs[profs.length-1].media-profs[0].media>=15) add('info','Diferença entre especialidades: '+profs[profs.length-1].k+' com '+profs[profs.length-1].media+'% e '+profs[0].k+' com '+profs[0].media+'%. Considere material dirigido.');
+  const semNinguem=(h.sectors||[]).filter(s=>!filtrada.some(r=>r.setor===s));
+  if(semNinguem.length&&R.n>=5) add('info','Setores sem nenhuma participação: '+semNinguem.slice(0,5).join(', ')+(semNinguem.length>5?' e mais '+(semNinguem.length-5):'')+'. Leve o cartaz com QR code até eles.');
+  const ff=F.f;
+  if(ff.iniciaram>=5){
+    const etapas=[['diagnóstico inicial',ff.iniciaram,ff.diagnostico],['trilha de conteúdo',ff.diagnostico,ff.trilha],['desafio final',ff.trilha,ff.desafio]].map(([l,a,b])=>({l,perda:a?Math.round((a-b)/a*100):0}));
+    const pior=etapas.sort((a,b)=>b.perda-a.perda)[0];
+    if(pior.perda>=30) add('alerta','Onde mais se desiste: '+pior.l+' ('+pior.perda+'% param nessa etapa).');
+  }
+  if(F.parados.length) add('info',F.parados.length+' pessoa(s) começaram e estão paradas há mais de 7 dias. A lista está abaixo: um lembrete com o link costuma trazer de volta.');
+  const tempos=filtrada.map(r=>r.duracao_seg).filter(x=>x>0).sort((a,b)=>a-b);
+  if(tempos.length>=5){const md=Math.round(tempos[Math.floor(tempos.length/2)]/60);add('info','Tempo típico para concluir um módulo: cerca de '+md+' minutos.');}
+  return out;
+}
+
+function ConcluintesCurso({sbUrl,sbKey,hospital,parts,setParts,mods,showToast,usuario}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [filtro,setFiltro]=useState('aguardando');
+  const [cfg,setCfg]=useState({});
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_config',`hospital_id=eq.${h.id}&select=*`).then(d=>setCfg((d&&d[0])||{})).catch(()=>{});},[sbUrl,sbKey]);
+  if(!mods) return null;
+  const todos=parts.map(x=>({x,sc:situacaoCurso(x,mods)}));
+  const concl=todos.filter(t=>t.sc.completo).sort((a,b)=>(b.sc.concluidoEm||'').localeCompare(a.sc.concluidoEm||''));
+  const andamento=todos.filter(t=>!t.sc.completo&&t.sc.feitos>0).length;
+  const grupos={aguardando:concl.filter(t=>!t.x.certificado_emitido_em),emitidos:concl.filter(t=>t.x.certificado_emitido_em&&!t.x.certificado_entregue_em),entregues:concl.filter(t=>t.x.certificado_entregue_em)};
+  const atualizar=async(x,patch,msg)=>{
+    try{await sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${x.id}`,patch);setParts(ps=>ps.map(p=>p.id===x.id?{...p,...patch}:p));if(msg)showToast(msg,'success');}
+    catch(e){showToast(faltaSQL004(e)||/certificado_/.test(e.message)?'Falta atualizar o banco: rode o '+SQL_004+' no Supabase.':'Erro ao salvar: '+e.message,'error');}
+  };
+  const emitir=t=>{
+    imprimirCertificado({h,nome:t.x.nome,setor:t.x.setor,profissao:t.x.profissao,modulos:t.sc.modulos,media:t.sc.media,data:t.sc.concluidoEm,codigo:t.x.codigo,cfg});
+    if(!t.x.certificado_emitido_em) atualizar(t.x,{certificado_emitido_em:new Date().toISOString(),certificado_emitido_por:usuario||null},'Certificado emitido. Depois de assinar, avise '+t.x.nome.split(' ')[0]+' para retirar na sala do NSP.');
+  };
+  const dt=s=>s?new Date(s.length===10?s+'T12:00:00':s).toLocaleDateString('pt-BR'):'—';
+  const lista=grupos[filtro];
+  const btn={border:'none',borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'};
+  return(<div style={{background:C.card,border:'1px solid '+(grupos.aguardando.length?C.teal+'66':C.border),borderRadius:12,padding:14}}>
+    <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
+      <div style={{fontSize:14,fontWeight:900,color:C.text,flex:1}}>{String.fromCodePoint(127891)} Concluíram o curso · certificados de {CARGA_CURSO}</div>
+      <span style={{fontSize:11,color:C.muted}}>{concl.length} concluíram · {andamento} em andamento</span>
+    </div>
+    <div style={{fontSize:11,color:C.muted,margin:'4px 0 10px',lineHeight:1.5}}>Emita, imprima e assine. Depois avise o profissional para retirar na sala do NSP e marque como entregue.</div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+      {[['aguardando','Aguardando emissão'],['emitidos','Emitidos · a retirar'],['entregues','Entregues']].map(([k,l])=><button key={k} onClick={()=>setFiltro(k)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(filtro===k?C.teal:C.border),background:filtro===k?C.teal+'20':'transparent',color:filtro===k?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l} ({grupos[k].length})</button>)}
+    </div>
+    {lista.length?lista.map(t=><div key={t.x.id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'9px 0',borderTop:'1px solid '+C.border}}>
+      <div style={{flex:1,minWidth:200}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{t.x.nome}</div>
+        <div style={{fontSize:11,color:C.muted}}>{t.x.profissao} · {t.x.setor} · concluiu em {dt(t.sc.concluidoEm)} · média {t.sc.media}%{t.x.certificado_emitido_em?' · emitido em '+dt(t.x.certificado_emitido_em):''}{t.x.certificado_entregue_em?' · entregue em '+dt(t.x.certificado_entregue_em):''}</div></div>
+      <button onClick={()=>emitir(t)} style={{...btn,background:t.x.certificado_emitido_em?C.surface:C.teal,color:t.x.certificado_emitido_em?C.teal:'#06101F',border:t.x.certificado_emitido_em?'1px solid '+C.teal+'55':'none'}}>{t.x.certificado_emitido_em?'Reimprimir':'Emitir certificado'}</button>
+      {t.x.certificado_emitido_em&&!t.x.certificado_entregue_em&&<button onClick={()=>atualizar(t.x,{certificado_entregue_em:new Date().toISOString()},'Marcado como entregue')} style={{...btn,background:C.green+'22',color:C.green,border:'1px solid '+C.green+'55'}}>Marcar entregue</button>}
+      {t.x.certificado_entregue_em&&<button onClick={()=>atualizar(t.x,{certificado_entregue_em:null},null)} style={{...btn,background:'transparent',color:C.muted,textDecoration:'underline'}}>desfazer</button>}
+    </div>):<div style={{fontSize:11,color:C.muted,padding:'6px 0'}}>{filtro==='aguardando'?'Nenhum certificado aguardando emissão.':'Ninguém nesta lista.'}</div>}
+  </div>);
+}
+
+function VideosPorProtocolo({sbUrl,sbKey,hospital,mods,setView}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [vs,setVs]=useState(null);
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${h.id}&ativo=eq.true&select=subnucleo`).then(d=>setVs(d||[])).catch(()=>setVs([]));},[sbUrl,sbKey]);
+  if(!mods||!vs) return null;
+  const n=id=>vs.filter(v=>v.subnucleo===id).length;
+  const com=mods.filter(m=>n(m.id)>0).length;
+  return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <div style={{flex:1,minWidth:200}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{String.fromCodePoint(127916)} Vídeos da trilha · {com} de {mods.length} protocolos</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>Cada vídeo publicado em Central de Conhecimento → Vídeos, no protocolo correspondente, entra sozinho como passo da trilha daquele módulo.</div></div>
+      {setView&&<button onClick={()=>setView('central')} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Publicar vídeo</button>}
+    </div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10}}>{mods.map(m=>{const k=n(m.id),s=modInfo(m.id);return <span key={m.id} style={{fontSize:11,padding:'5px 10px',borderRadius:14,border:'1px solid '+(k?C.green+'66':C.border),background:k?C.green+'14':'transparent',color:k?C.green:C.muted,fontWeight:700}}>{s.icon} {s.label||m.titulo}{k?' · '+k:' · sem vídeo'}</span>;})}</div>
+  </div>);
+}
+
+function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,perfil,setView}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [lista,setLista]=useState([]);
+  const [mods,setMods]=useState(window.CAPACITACAO_MODULOS||null);
+  const [erro,setErro]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [periodo,setPeriodo]=useState('365');
+  const travado=perfil==='membro_nsp'&&userSubnucleo?userSubnucleo:null;
+  const [modulo,setModulo]=useState(travado||'todos');
+  const [parts,setParts]=useState([]);
+  useEffect(()=>{if(!mods) carregarCapacitacao().then(setMods).catch(()=>{});},[]);
+  useEffect(()=>{
+    if(!sbUrl||!sbKey) return;
+    setLoading(true);setErro(null);
+    sbTodos(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}`).then(d=>setParts(d||[])).catch(()=>setParts([]));
+    sbTodos(sbUrl,sbKey,'capacitacao_respostas',`hospital_id=eq.${h.id}`).then(d=>setLista(d||[]))
+      .catch(e=>setErro(/HTTP 40[04]/.test(e.message)||faltaSQL004(e)?'sql':e.message)).finally(()=>setLoading(false));
+  },[sbUrl,sbKey]);
+  const anos=[...new Set(lista.map(r=>(r.created_at||'').slice(0,4)).filter(Boolean))].sort().reverse();
+  const listaPre=lista.filter(r=>r.tipo==='pre');
+  const filtrada=lista.filter(r=>{
+    if(r.tipo==='pre') return false;
+    if(modulo!=='todos'&&r.modulo!==modulo) return false;
+    if(/^\d{4}$/.test(periodo)) return (r.created_at||'').startsWith(periodo);
+    return new Date(r.created_at)>=new Date(Date.now()-Number(periodo)*864e5);
+  });
+  const R=resumoCapacitacao(filtrada,mods);
+  const PP=resumoPrePos(filtrada,listaPre,mods);
+  const noPeriodo=dt=>{if(!dt)return false;if(/^\d{4}$/.test(periodo))return dt.startsWith(periodo);return new Date(dt)>=new Date(Date.now()-Number(periodo)*864e5);};
+  const partsPer=parts.filter(x=>noPeriodo(x.updated_at||x.created_at)&&(!travado||(x.progresso&&x.progresso[travado])));
+  const F=funilCapacitacao(partsPer,modulo);
+  const emAndamento=partsPer.filter(x=>{const pr=x.progresso||{};return Object.entries(pr).some(([k,v])=>(modulo==='todos'||k===modulo)&&v&&v.etapa&&!v.cert);}).length;
+  const nomeMod=id=>(mods&&mods.find(m=>m.id===id)||{}).titulo||modInfo(id).label;
+  const fortes=R.questoes.filter(x=>x.pct>=85).sort((a,b)=>b.pct-a.pct);
+  const fracos=R.questoes.filter(x=>x.pct<60).sort((a,b)=>a.pct-b.pct);
+  const analise=analiseCapacitacao({R,PP,F,h,nomeMod,filtrada});
+  const link=linkH(h)+'?view=capacitacao';
+  const exportar=()=>{
+    const linhas=filtrada.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(r=>({Data:new Date(r.created_at).toLocaleString('pt-BR'),Nome:r.nome,Setor:r.setor,Especialidade:r.profissao,Modulo:nomeMod(r.modulo),Acertos:r.acertos+'/'+r.total,Percentual:r.percentual,Pre_teste:r.pre_percentual??'',Situacao:(r.percentual||0)>=NOTA_APROVACAO?'Concluído':'Abaixo de '+NOTA_APROVACAO+'%',Codigo:String(r.id||'').slice(0,8).toUpperCase()}));
+    if(!linhas.length){showToast('Nenhum registro no período','error');return;}
+    const nome='capacitacao-online-'+siglaH(h)+'-'+new Date().toISOString().slice(0,10);
+    if(window.XLSX){const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(linhas),'Participantes');window.XLSX.writeFile(wb,nome+'.xlsx');}
+    else{const cols=Object.keys(linhas[0]);const csv='﻿'+[cols.join(';'),...linhas.map(l=>cols.map(c=>'"'+String(l[c]).replace(/"/g,'""')+'"').join(';'))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=nome+'.csv';a.click();}
+  };
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14};
+  const kpi=(t,v,s,cor)=>(<div style={{...card,flex:1,minWidth:120}}><div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>{t}</div><div style={{fontSize:26,fontWeight:900,color:cor||C.text,marginTop:4}}>{v}</div><div style={{fontSize:10,color:C.muted,marginTop:2}}>{s}</div></div>);
+  const corPct=p=>p===null?C.muted:p>=85?C.green:p>=NOTA_APROVACAO?C.yellow:C.red;
+  const tabela=(titulo,linhas,rotulo)=>(<div style={card}>
+    <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:8}}>{titulo}</div>
+    {linhas.length?<div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+      <thead><tr style={{color:C.muted,textAlign:'left'}}><th style={{padding:'4px 6px'}}>{rotulo}</th><th style={{padding:'4px 6px'}}>Pessoas</th><th style={{padding:'4px 6px'}}>Média</th><th style={{padding:'4px 6px'}}>Concluíram</th></tr></thead>
+      <tbody>{linhas.map(x=><tr key={x.k} style={{borderTop:'1px solid '+C.border}}><td style={{padding:'6px',color:C.text}}>{rotulo==='Módulo'?nomeMod(x.k):x.k}</td><td style={{padding:'6px',color:C.text}}>{x.pessoas}</td><td style={{padding:'6px',color:corPct(x.media),fontWeight:800}}>{x.media}%</td><td style={{padding:'6px',color:C.text}}>{x.aprov}%</td></tr>)}</tbody>
+    </table></div>:<div style={{fontSize:11,color:C.muted}}>Sem dados no período.</div>}
+  </div>);
+  const listaQ=(itens,cor)=>itens.length?itens.slice(0,8).map(x=><div key={x.m.id+x.q.id} style={{display:'flex',gap:10,padding:'7px 0',borderTop:'1px solid '+C.border,fontSize:12}}>
+    <span style={{fontWeight:900,color:cor,minWidth:38}}>{x.pct}%</span><span style={{color:C.text,flex:1}}>{x.q.tema}<span style={{color:C.muted}}> · {nomeMod(x.m.id)} · {x.n} resp.</span></span></div>):<div style={{fontSize:11,color:C.muted}}>Nenhum item nesta faixa.</div>;
+  return(<div>
+    <BackHeader title='Capacitação online' subtitle='Questionários autoavaliativos por protocolo · quem fez, onde acertam e onde reforçar'
+      right={!erro&&<button onClick={exportar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Baixar lista</button>}/>
+    <div style={{padding:16,display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{...card,display:'flex',gap:12,alignItems:'center',flexWrap:'wrap'}}>
+        <div style={{flex:1,minWidth:220}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>Divulgue para a equipe</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.5}}>Cada profissional acessa pelo celular, sem login: <span style={{color:C.teal,wordBreak:'break-all'}}>{link.replace('https://','')}</span></div></div>
+        <button onClick={()=>imprimirCartazCapacitacao(h)} style={{background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Cartaz com QR code</button>
+        <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Copiar link</button>
+        {setView&&<button onClick={()=>setView('capacitacao')} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver o curso</button>}
+      </div>
+      {!travado&&!erro&&<ConcluintesCurso sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} parts={parts} setParts={setParts} mods={mods} showToast={showToast} usuario={perfil}/>}
+      {!travado&&!erro&&<AssinaturasCertificado sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+      {!erro&&<VideosPorProtocolo sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} mods={mods} setView={setView}/>}
+      {erro==='sql'&&<div style={{...card,borderColor:C.yellow+'66',color:C.yellow,fontSize:12,lineHeight:1.6}}>A capacitação ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run).</div>}
+      {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        {[['30','30 dias'],['90','3 meses'],['365','12 meses'],...anos.map(a=>[a,a])].map(([v,l])=><button key={v} onClick={()=>setPeriodo(v)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(periodo===v?C.teal:C.border),background:periodo===v?C.teal+'20':'transparent',color:periodo===v?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l}</button>)}
+        {!travado&&<select value={modulo} onChange={e=>setModulo(e.target.value)} style={{fontSize:11,padding:'6px 10px',borderRadius:16,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700}}>
+          <option value="todos">Todos os módulos</option>{(mods||[]).map(m=><option key={m.id} value={m.id}>{m.titulo}</option>)}
+        </select>}
+      </div>
+      {loading?<div style={{color:C.muted,fontSize:12}}>Carregando...</div>:<>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          {kpi('Cadastrados',partsPer.length,emAndamento+' com módulo em andamento')}
+          {kpi('Profissionais avaliados',R.pessoas,R.n+' questionários enviados')}
+          {kpi('Média de acerto',R.media===null?'—':R.media+'%','nos questionários',corPct(R.media))}
+          {kpi('Concluíram',R.aprov===null?'—':R.aprov+'%','com '+NOTA_APROVACAO+'% ou mais',corPct(R.aprov))}
+        </div>
+        <div style={{...card,borderColor:C.teal+'55',background:'linear-gradient(135deg,'+C.teal+'10,'+C.blue+'0c)'}}>
+          <div style={{fontSize:14,fontWeight:900,color:C.text,marginBottom:2}}>{String.fromCodePoint(129504)} Análise inteligente</div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:10}}>Leitura automática dos resultados do período, para decidir o próximo treinamento</div>
+          {analise.map((x,i)=>{const cor=x.tipo==='alerta'?C.red:x.tipo==='ok'?C.green:C.blue;const ic=x.tipo==='alerta'?String.fromCodePoint(9888):x.tipo==='ok'?String.fromCodePoint(9989):String.fromCodePoint(128161);
+            return <div key={i} style={{display:'flex',gap:10,padding:'9px 10px',marginBottom:6,borderRadius:10,background:cor+'12',borderLeft:'3px solid '+cor,fontSize:12.5,color:C.text,lineHeight:1.55}}><span>{ic}</span><span>{x.t}</span></div>;})}
+        </div>
+        <div style={card}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text}}>Pré-teste × pós-teste</div>
+          <div style={{fontSize:11,color:C.muted,margin:'2px 0 10px',lineHeight:1.5}}>As mesmas {mods&&mods[0]?questoesPre(mods[0]).length:6} perguntas (2 fáceis, 2 médias e 2 difíceis) respondidas antes da trilha e de novo no desafio final.</div>
+          {PP.n?<>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap',marginBottom:10}}>
+              {kpi('Antes do curso',PP.pre+'%',PP.n+' pessoas com pré e pós',C.muted)}
+              {kpi('Depois do curso',PP.pos+'%','nas mesmas perguntas',corPct(PP.pos))}
+              {kpi('Ganho',(PP.pos-PP.pre>0?'+':'')+(PP.pos-PP.pre)+' p.p.','pontos percentuais',PP.pos-PP.pre>=10?C.green:C.yellow)}
+              {kpi('Melhoraram',PP.melhoraram+'%','acertaram mais no pós',PP.melhoraram>=60?C.green:C.yellow)}
+            </div>
+            {[['Por módulo',PP.porModulo,'Módulo'],['Por setor',PP.porSetor,'Setor'],['Por especialidade',PP.porProf,'Especialidade']].filter(([t,l])=>l.length&&!(t==='Por módulo'&&(travado||modulo!=='todos'))).map(([t,l,rot])=><div key={t} style={{overflowX:'auto',marginBottom:10}}>
+              <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:4}}>{t}</div>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}><thead><tr style={{color:C.muted,textAlign:'left'}}><th style={{padding:'4px 6px'}}>{rot}</th><th style={{padding:'4px 6px'}}>Pessoas</th><th style={{padding:'4px 6px'}}>Pré</th><th style={{padding:'4px 6px'}}>Pós</th><th style={{padding:'4px 6px'}}>Ganho</th></tr></thead>
+              <tbody>{l.map(x=><tr key={x.k} style={{borderTop:'1px solid '+C.border}}><td style={{padding:'6px',color:C.text}}>{rot==='Módulo'?nomeMod(x.k):x.k}</td><td style={{padding:'6px',color:C.text}}>{x.n}</td><td style={{padding:'6px',color:C.muted,fontWeight:700}}>{x.pre}%</td><td style={{padding:'6px',color:corPct(x.pos),fontWeight:800}}>{x.pos}%</td><td style={{padding:'6px',fontWeight:900,color:x.ganho>=10?C.green:x.ganho>0?C.yellow:C.red}}>{x.ganho>0?'+':''}{x.ganho}</td></tr>)}</tbody></table>
+            </div>)}
+            {(()=>{const top=PP.itens.filter(i=>i.n>=2).sort((a,b)=>b.ganho-a.ganho).slice(0,5);return top.length?<div>
+              <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:4}}>Questão a questão (maior ganho primeiro)</div>
+              {top.concat(PP.itens.filter(i=>i.n>=2&&!top.includes(i)).sort((a,b)=>a.pos-b.pos).slice(0,5)).map(i=><div key={i.q.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderTop:'1px solid '+C.border,fontSize:12}}>
+                <span style={{flex:1,color:C.text}}>{i.q.tema}<span style={{color:C.muted}}> · {nomeMod(i.m.id)}</span></span><SeloNivel q={i.q}/>
+                <span style={{color:C.muted,minWidth:34,textAlign:'right'}}>{i.pre}%</span><span style={{color:C.muted}}>→</span><b style={{color:corPct(i.pos),minWidth:34}}>{i.pos}%</b></div>)}
+            </div>:null;})()}
+          </>:<div style={{fontSize:11,color:C.muted}}>Ainda não há pessoas com diagnóstico inicial e desafio final no período.</div>}
+        </div>
+        <div style={card}>
+          <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Adesão: onde as pessoas estão</div>
+          {F.f.iniciaram?<>
+            {[['Iniciaram',F.f.iniciaram],['Fizeram o diagnóstico',F.f.diagnostico],['Concluíram a trilha',F.f.trilha],['Enviaram o desafio final',F.f.desafio],['Aprovados no módulo (≥'+NOTA_APROVACAO+'%)',F.f.certificado]].map(([l,v])=><div key={l} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+              <span style={{width:160,fontSize:12,color:C.text}}>{l}</span><div style={{flex:1,height:14,borderRadius:7,background:C.border,overflow:'hidden'}}><div style={{width:Math.round(v/F.f.iniciaram*100)+'%',height:'100%',background:C.teal}}/></div><b style={{width:70,textAlign:'right',fontSize:12,color:C.text}}>{v} <span style={{color:C.muted,fontWeight:600}}>({Math.round(v/F.f.iniciaram*100)}%)</span></b></div>)}
+            {F.parados.length>0&&<div style={{marginTop:10}}>
+              <div style={{fontSize:12,fontWeight:800,color:C.yellow,marginBottom:4}}>Paradas há mais de 7 dias ({F.parados.length})</div>
+              {F.parados.slice(0,10).map((x,i)=><div key={i} style={{display:'flex',gap:8,padding:'5px 0',borderTop:'1px solid '+C.border,fontSize:12}}><span style={{flex:1,color:C.text}}>{x.nome}<span style={{color:C.muted}}> · {x.setor}</span></span><span style={{color:C.muted}}>{nomeMod(x.mod)} · {x.local} · {x.dias} dias</span></div>)}
+            </div>}
+          </>:<div style={{fontSize:11,color:C.muted}}>Ninguém iniciou módulos no período.</div>}
+        </div>
+        {R.n>0&&<div style={card}><div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Acerto por nível de dificuldade</div>
+          {R.porNivel.map(x=>{const n=NIVEIS_Q[x.nv];return(<div key={x.nv} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+            <span style={{width:56,fontSize:12,fontWeight:800,color:n.cor}}>{n.rotulo}</span>
+            <div style={{flex:1,height:12,borderRadius:6,background:C.border,overflow:'hidden'}}><div style={{width:(x.pct||0)+'%',height:'100%',background:n.cor}}/></div>
+            <span style={{width:44,textAlign:'right',fontSize:12,fontWeight:900,color:x.pct===null?C.muted:corPct(x.pct)}}>{x.pct===null?'—':x.pct+'%'}</span></div>);})}
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>Se o nível fácil estiver baixo, o conceito básico do protocolo não chegou à equipe; se só o difícil estiver baixo, falta treino com casos práticos.</div>
+        </div>}
+        {!travado&&modulo==='todos'&&tabela('Por módulo',R.porModulo,'Módulo')}
+        {tabela('Por setor',R.porSetor,'Setor')}
+        {tabela('Por especialidade',R.porProf,'Especialidade')}
+        <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.green,marginBottom:4}}>Pontos fortes (85% de acerto ou mais)</div>{listaQ(fortes,C.green)}</div>
+        <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.red,marginBottom:4}}>Pontos fracos (menos de 60% de acerto)</div>{listaQ(fracos,C.red)}</div>
+      </>}
+    </div>
+  </div>);
+}
+
+function CentralView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,showToast}) {
   const [selected,setSelected]=useState(null);
+  const [verVideos,setVerVideos]=useState(()=>{try{return new URLSearchParams(location.search).get('secao')==='videos';}catch{return false;}});
+  const [nVideos,setNVideos]=useState(null);
+  useEffect(()=>{if(!sbUrl||!sbKey)return;sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${(hospital||DEFAULT_HOSPITAL).id}&ativo=eq.true&select=id`).then(d=>setNVideos((d||[]).length)).catch(()=>setNVideos(null));},[sbUrl,sbKey,verVideos]);
   const [items,setItems]=useState(KNOWLEDGE);
   const getYtId=url=>{const m=url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);return m?m[1]:null;};
 
+  if(verVideos) return(<VideosEducacaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo} showToast={showToast} onBack={()=>setVerVideos(false)}/>);
   const item=items.find(k=>k.id===selected);
   if(selected&&item) return(<div>
     <div style={{padding:'14px 16px',borderBottom:'1px solid '+C.border,background:C.surface,display:'flex',alignItems:'center',gap:12,position:'sticky',top:0,zIndex:10}}>
@@ -7367,6 +8829,11 @@ function CentralView({sbUrl,sbKey,hospital,profileMode}) {
     <div style={{fontSize:17,fontWeight:900,color:C.text,marginBottom:4}}>Central de Conhecimento</div>
     <div style={{fontSize:12,color:C.muted,marginBottom:20}}>Materiais de apoio, treinamentos e educação em saúde</div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
+      {(nVideos>0||profileMode==='gestor'||profileMode==='membro_nsp')&&<button onClick={()=>setVerVideos(true)} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'18)',border:'1px solid '+C.teal+'55',borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left'}}>
+        <div style={{width:48,height:48,borderRadius:14,background:C.teal+'30',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{String.fromCodePoint(127916)}</div>
+        <div style={{flex:1}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>Vídeos de educação em saúde</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>{nVideos>0?nVideos+' vídeo(s) produzidos pelo '+siglaH(hospital||DEFAULT_HOSPITAL):'Publique aqui os vídeos do hospital, por protocolo'}</div></div>
+        <IconChev size={16} color={C.muted}/>
+      </button>}
       {items.map(item=>(
         <button key={item.id} onClick={()=>setSelected(item.id)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%'}}>
           <div style={{width:48,height:48,borderRadius:14,background:(item.color||C.teal)+'22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{item.icon}</div>
@@ -7385,7 +8852,7 @@ const TABELAS_BACKUP=[
   ['treinamentos_nsp','Treinamentos e reunioes'],['indicadores_dsm','Indicadores DSM'],['indicadores_mensais','Indicadores por setor'],
   ['saq_respostas','Pesquisa de cultura'],['notivisa_analise','Analises Notivisa'],['acao_comentarios','Comentarios de acoes'],
   ['config_dsm','Configuracao DSM'],['semestres_dsm','Semestres DSM'],['setor_emails','Emails por setor'],
-  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],
+  ['nsp_usuarios','Usuarios'],['audit_log','Auditoria'],['experiencia_paciente','Experiencia do paciente'],['videos_educacao','Videos de educacao'],['capacitacao_respostas','Capacitacao online'],['capacitacao_participantes','Capacitacao - cadastros'],
 ];
 async function sbTodos(sbUrl,sbKey,tabela,filtro){
   // pagina de 1000 em 1000 (limite padrao do Supabase por consulta)
@@ -7408,6 +8875,7 @@ async function gerarBackupCompleto({sbUrl,sbKey,h,onProgresso}){
     try{
       let rows=await sbTodos(sbUrl,sbKey,tab,filtro);
       if(tab==='nsp_usuarios') rows=rows.filter(u=>!u.hospital_id||u.hospital_id===h.id).map(({pin_hash,...u})=>u); // sem os codigos
+      if(tab==='capacitacao_participantes') rows=rows.map(({senha_hash,...x})=>x); // sem o PIN de retorno
       if(tab==='notivisa_analise'||tab==='acao_comentarios'){const ids=new Set((dados.notifications||[]).map(n=>n.id));const idsAc=new Set((dados.plano_acoes||[]).map(a=>a.id));rows=rows.filter(r=>ids.has(r.notification_id)||idsAc.has(r.acao_id)||r.hospital_id===h.id);}
       dados[tab]=rows;
     }catch(e){dados[tab]=[];faltou.push(nome);}
@@ -7635,7 +9103,7 @@ function NotificaAI() {
     try{
       const p=new URLSearchParams(window.location.search);
       const v=p.get('view');
-      const permitidas=['notificar','central','saq_publico','acompanhar'];
+      const permitidas=['notificar','central','saq_publico','acompanhar','experiencia','capacitacao','certificado'];
       return (v&&permitidas.includes(v))?v:'notificar';
     }catch{return'notificar';}
   });
@@ -7716,7 +9184,7 @@ function NotificaAI() {
   const handleSaveWebhook=wh=>{setWebhookUrl(wh);saveAll({webhook:wh});};
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
-  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'experiencia',label:'Avaliar atendimento',curto:'Avaliar',icon:IconHeart},{id:'capacitacao',label:'Capacitação online',curto:'Capacitação',icon:IconBook},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const gestorTabs=[
     {id:'home',label:'Painel',icon:IconHome,grupo:'Dia a dia'},
     {id:'notificacoes',label:'Notificações',icon:IconMsg,grupo:'Dia a dia'},
@@ -7725,14 +9193,17 @@ function NotificaAI() {
     {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Documentos'},
     {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Documentos'},
     {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Indicadores e relatórios'},
+    {id:'pnqsp',label:'Painel PNQSP',icon:IconShield,grupo:'Indicadores e relatórios'},
     {id:'relatorio_dsm',label:'Relatório DSM / ANVISA',icon:IconShield,grupo:'Indicadores e relatórios'},
     {id:'analytics',label:'Análises e gráficos',icon:IconBar,grupo:'Indicadores e relatórios'},
     {id:'auditar',label:'Auditoria (dossiê)',icon:IconAudit,grupo:'Indicadores e relatórios'},
     {id:'saq_dashboard',label:'Pesquisa de cultura',icon:IconBar,grupo:'Equipe e cultura'},
+    {id:'experiencia_dash',label:'Experiência do paciente',icon:IconHeart,grupo:'Equipe e cultura'},
+    {id:'capacitacao_dash',label:'Capacitação online',icon:IconBook,grupo:'Equipe e cultura'},
     {id:'central',label:'Central de Conhecimento',icon:IconBook,grupo:'Equipe e cultura'},
     {id:'admin',label:'Admin · usuários e backup',icon:IconGear,grupo:'Administração'},
   ];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'capacitacao_dash',label:'Capacitação',icon:IconBook},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
@@ -7809,10 +9280,14 @@ function NotificaAI() {
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
+        {view==='notificar'&&!profileMode&&<button onClick={()=>setView('capacitacao')} style={{display:'flex',alignItems:'center',gap:12,width:'calc(100% - 32px)',margin:'14px 16px 0',padding:'12px 14px',borderRadius:14,border:'1px solid '+C.teal+'55',background:'linear-gradient(135deg,'+C.teal+'1c,'+C.blue+'14)',cursor:'pointer',textAlign:'left'}}>
+          <span style={{fontSize:26}}>{String.fromCodePoint(127891)}</span>
+          <span style={{flex:1}}><span style={{display:'block',fontSize:13.5,fontWeight:800,color:C.text}}>Capacitação online dos protocolos</span><span style={{display:'block',fontSize:11.5,color:C.muted,marginTop:2}}>Para profissionais: trilha interativa e certificado. Continue de onde parou.</span></span>
+          <IconChev size={16} color={C.teal}/></button>}
         {view==='notificar'&&<NotificarView sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} testMode={testMode} showToast={showToast} hospital={hospital} nspEmail={nspEmail}/>}
         {view==='analytics'&&<AnalyticsView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} profileMode={profileMode} hospital={hospital}/>}
         {view==='admin'    &&<AdminPanel onConfig={()=>setShowConfig(true)} sbUrl={sbUrl} sbKey={sbKey} nspEmail={nspEmail} testMode={testMode} webhookUrl={webhookUrl} onSaveEmail={handleSaveEmail} onToggleTestMode={handleToggleTestMode} onSaveWebhook={handleSaveWebhook} showToast={showToast} hospital={hospital}/>}
-        {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode}/>}
+        {view==='central'  &&<CentralView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo} showToast={showToast}/>}
         {view==='indicadores'&&<IndicadoresHubView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
@@ -7827,6 +9302,12 @@ function NotificaAI() {
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
         {view==='saq_dashboard'&&<SAQDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='experiencia'&&<ExperienciaPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='experiencia_dash'&&<ExperienciaDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='capacitacao'&&<CapacitacaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+        {view==='certificado'&&<CertificadoVerificarView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
+        {view==='capacitacao_dash'&&<CapacitacaoDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} userSubnucleo={userSubnucleo} perfil={profileMode} setView={setView}/>}
+        {view==='pnqsp'&&<PainelPNQSPView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} setView={setView}/>}
       </div></div>
 
       {/* NAV + MENU HAMBURGUER */}

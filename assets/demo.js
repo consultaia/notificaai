@@ -45,7 +45,12 @@
         sector: pick(SETORES), event_date: iso(d), shift: rnd() < 0.55 ? 'Dia' : 'Noite', event_subtype: ev[0], description: ev[1], measures_taken: 'Equipe acionada e paciente avaliado.',
         gravidade: grav, status: 'aberto', rca_gerado: comRCA, rca_concluido_em: comRCA ? diasAtras(Math.max(0, dias - 5)).toISOString() : null, is_test: false,
         patient_age: adm ? null : 25 + Math.floor(rnd() * 60), plano_fechado_em: comRCA && antigo && rnd() < 0.6 ? diasAtras(Math.max(0, dias - 30)).toISOString() : null,
-        risco_probabilidade: comRCA ? 1 + Math.floor(rnd() * 4) : null, notivisa_enviado: comRCA && rnd() < 0.5 });
+        risco_probabilidade: comRCA ? 1 + Math.floor(rnd() * 4) : null, notivisa_enviado: comRCA && rnd() < 0.5,
+        patient_outcome: adm ? null : grav === 'Evento sentinela' ? 'Dano grave' : grav ? 'Near miss - sem dano' : pick(['Sem dano', 'Sem dano', 'Sem dano', 'Dano leve', 'Dano leve', 'Dano moderado']) });
+      var ult = DB.notifications[DB.notifications.length - 1];
+      if (!adm && /Dano|sentinela/.test((ult.patient_outcome || '') + (ult.gravidade || '')) && (antigo ? rnd() < 0.75 : rnd() < 0.3)) {
+        ult.comunicado_paciente = 'comunicado'; ult.comunicado_em = iso(diasAtras(Math.max(0, dias - 2))); ult.comunicado_por = pick(['Enfermeira do setor', 'Médico assistente', 'Coordenação NSP']);
+      }
     }
     // planos de ação das notificações com RCA
     DB.notifications.filter(function (n) { return n.rca_gerado; }).forEach(function (n) {
@@ -92,6 +97,61 @@
         DB.saq_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 60)).toISOString(), hospital_id: HID, setor: pick(SETORES), categoria: pick(['Enfermagem', 'Medicina', 'Técnico de enfermagem', 'Apoio']), ciclo: ciclo, respostas: resp });
       }
     } catch (e) { }
+    experiencia();
+    capacitacao();
+    var svgAss = '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="110" viewBox="0 0 360 110"><path d="M10 78 C 30 20, 55 20, 50 70 S 80 95, 95 50 S 120 20, 128 62 C 133 85, 150 85, 160 55 C 168 32, 180 40, 176 66 C 173 86, 196 84, 210 52 C 222 26, 240 30, 236 64 C 233 88, 262 80, 275 50 C 285 30, 300 34, 305 58 C 309 76, 330 70, 350 40" fill="none" stroke="#1a2a6c" stroke-width="3.2" stroke-linecap="round"/><path d="M40 92 L 320 86" stroke="#1a2a6c" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
+    DB.capacitacao_config = [{ hospital_id: HID, assinatura: 'data:image/svg+xml;base64,' + btoa(svgAss), assinante_nome: 'Dra. Helena Exemplo', assinante_cargo: 'Diretora Técnica', assinatura2: null, assinante2_nome: 'Enf. Coordenação NSP', assinante2_cargo: 'Núcleo de Segurança do Paciente', updated_at: new Date().toISOString() }];
+    DB.capacitacao_participantes = [];
+    var todosMods = ['identificacao', 'medicamentos', 'queda', 'lpp', 'cirurgia', 'comunicacao', 'ccih'];
+    var completo = function (base) { var pr = {}; todosMods.forEach(function (m, k) { var pct = 73 + ((base + k * 7) % 27); pr[m] = { etapa: 'resultado', pct: pct, pre: { pct: 40 + (k * 9) % 30 }, cert: { pct: pct, data: diasAtras(base + k).toLocaleDateString('pt-BR') } }; }); return pr; };
+    var profsP = ['Enfermeiro(a)', 'Técnico(a) de enfermagem', 'Médico(a)', 'Técnico(a) de enfermagem', 'Dentista', 'Farmacêutico(a)', 'Enfermeiro(a)', 'Fisioterapeuta', 'Recepcionista', 'Técnico(a) de radiologia', 'Nutricionista'];
+    ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana'].forEach(function (n, i) {
+      var prog = [{ lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 }, pre: { pct: 50 } } }, { queda: { etapa: 'resultado', pct: 88, pre: { pct: 50 }, cert: { pct: 88, data: '01/10/2026' } } }, { ccih: { etapa: 'pre', preResp: { maos_1: 0 } } }, { medicamentos: { etapa: 'conteudo', atual: 's2', pre: { pct: 33 } } }][i % 4];
+      if (i >= 8) prog = completo(3 + i * 4);
+      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: profsP[i],
+        progresso: prog, certificado_emitido_em: i >= 9 ? diasAtras(2 + i).toISOString() : null, certificado_entregue_em: i === 10 ? diasAtras(1).toISOString() : null });
+    });
+    DB.videos_educacao = [
+      { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
+      { id: uuid(), created_at: diasAtras(10).toISOString(), hospital_id: HID, subnucleo: 'queda', titulo: 'Prevenção de quedas no hospital', url: 'https://www.youtube.com/watch?v=QPADgajXCxg', descricao: 'Para pacientes e acompanhantes.', publico: 'pacientes', ordem: 0, ativo: true, criado_por: 'gestor' }
+    ];
+  }
+
+  // pesquisa de experiência do paciente (PNQSP)
+  function experiencia() {
+    DB.experiencia_paciente = [];
+    var coments = ['Equipe muito atenciosa, sempre conferiam a pulseira.', 'Demoraram para explicar a troca do remédio.', 'Ótimo atendimento da enfermagem no plantão noturno.', 'Gostaria de mais informação sobre a alta.', 'Me senti seguro o tempo todo.'];
+    for (var i = 0; i < 46; i++) {
+      var bom = rnd() < 0.78, r = function () { var x = rnd(); return bom ? (x < 0.82 ? 2 : x < 0.95 ? 1 : 0) : (x < 0.45 ? 2 : x < 0.75 ? 1 : 0); };
+      DB.experiencia_paciente.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 300)).toISOString(), hospital_id: HID, perfil: rnd() < 0.55 ? 'acompanhante' : 'paciente', setor: rnd() < 0.85 ? pick(SETORES.slice(0, 3)) : null,
+        q_identificacao: r(), q_maos: rnd() < 0.1 ? null : r(), q_informacao: r(), q_escuta: r(), q_seguranca: r(), nota: bom ? 8 + Math.floor(rnd() * 3) : 4 + Math.floor(rnd() * 5), comentario: rnd() < 0.3 ? pick(coments) : null });
+    }
+  }
+
+  // capacitação online: respostas fictícias dos questionários (algumas questões mais difíceis)
+  function capacitacao() {
+    DB.capacitacao_respostas = [];
+    var mods = { identificacao: 'ident', medicamentos: 'med', queda: 'queda', lpp: 'lpp', cirurgia: 'cir', comunicacao: 'com', ccih: 'maos' };
+    var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62, med_9: 0.5, lpp_10: 0.48, com_10: 0.55, ident_11: 0.7, queda_10: 0.66, cir_11: 0.72, maos_9: 0.52 };
+    var profs = ['Enfermeiro(a)', 'Técnico(a) de enfermagem', 'Técnico(a) de enfermagem', 'Médico(a)', 'Farmacêutico(a)', 'Dentista', 'Fisioterapeuta'];
+    var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
+    var pids = nomes.map(function () { return uuid(); });
+    // diagnostico inicial: 2 primeiras questoes de cada nivel (mesma regra do app)
+    var PRE = {"identificacao":["ident_1","ident_2","ident_3","ident_5","ident_9","ident_10"],"medicamentos":["med_3","med_4","med_1","med_2","med_9","med_10"],"queda":["queda_2","queda_3","queda_1","queda_5","queda_9","queda_10"],"lpp":["lpp_1","lpp_2","lpp_3","lpp_5","lpp_9","lpp_10"],"cirurgia":["cir_1","cir_4","cir_2","cir_3","cir_9","cir_10"],"comunicacao":["com_1","com_4","com_2","com_3","com_9","com_10"],"ccih":["maos_1","maos_2","maos_4","maos_5","maos_9","maos_10"]};
+    var vistos = {};
+    for (var i = 0; i < 64; i++) {
+      var mod = pick(Object.keys(mods)), pre = mods[mod], ni = Math.floor(rnd() * nomes.length), nome = nomes[ni], resp = {}, ac = 0, setor = SETORES[ni % SETORES.length], prof = profs[ni % profs.length];
+      for (var q = 1; q <= 11; q++) { var id = pre + '_' + q, p = dificeis[id] || (q > 8 ? 0.74 : 0.88), c = rnd() < p; if (c) ac++; resp[id] = { e: c ? 0 : 1 + Math.floor(rnd() * 3), c: c }; }
+      var dt = Math.floor(rnd() * 200), chave = pids[ni] + mod, prePct = null;
+      if (!vistos[chave] && rnd() < 0.8) {
+        vistos[chave] = 1; var pr = {}, pac = 0, ids = PRE[mod];
+        ids.forEach(function (id) { var p0 = (dificeis[id] || (/_(9|10|11)$/.test(id) ? 0.74 : 0.88)) - 0.3 - (/enfermag|Enfermeiro/.test(prof) ? 0 : 0.05), c0 = rnd() < p0; if (c0) pac++; pr[id] = { e: c0 ? 0 : 1 + Math.floor(rnd() * 3), c: c0 }; });
+        prePct = Math.round(pac / ids.length * 100);
+        DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(dt + 1).toISOString(), hospital_id: HID, modulo: mod, participante_id: pids[ni], nome: nome, setor: setor, profissao: prof, acertos: pac, total: ids.length, percentual: prePct, respostas: pr, duracao_seg: null, versao: '2026.2', tipo: 'pre' });
+      }
+      DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(dt).toISOString(), hospital_id: HID, modulo: mod, participante_id: pids[ni], nome: nome, setor: setor, profissao: prof,
+        acertos: ac, total: 11, percentual: Math.round(ac / 11 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.2', tipo: 'pos', pre_percentual: prePct });
+    }
   }
 
   // usuários de demonstração (PIN com o mesmo cálculo local do app)

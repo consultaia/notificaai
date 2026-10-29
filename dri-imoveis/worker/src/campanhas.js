@@ -14,7 +14,9 @@ export const BOTAO_SAIR = "Não quero receber";
 const RODAPE = "Responda SAIR para não receber mais.";
 
 const primeiroNome = (n) => (String(n || "").trim().split(/\s+/)[0] || "tudo bem").slice(0, 30);
-export const pedeParaSair = (texto) => /^\s*(sair|parar|pare|stop|cancelar|descadastrar|n[aã]o quero receber)\s*[.!]*\s*$/i.test(String(texto || ""));
+export const pedeParaSair = (texto) => /^\s*(sair|stop|descadastrar|n[aã]o quero (mais )?receber)\s*[.!]*\s*$/i.test(String(texto || ""));
+// "parar" ou "cancelar" sozinhos só contam como sair da lista logo depois de uma campanha (senão é "cancela a visita")
+const pedeParaSairDaCampanha = (texto) => /^\s*(parar|pare|cancelar)\s*[.!]*\s*$/i.test(String(texto || ""));
 export const horarioPermitido = (agora) => { const h = local(agora).hora; return h >= 8 && h < 20; };
 
 async function meta(env, token, caminho, { metodo = "POST", corpo, headers = {}, bruto } = {}) {
@@ -53,7 +55,7 @@ export function montarModelo(c, nomeModelo, exemploImagem) {
 }
 
 // ---------------------------------------------------------------- público
-export async function publicoDa(db, contaId, filtro = {}, agora = new Date()) {
+export async function publicoDa(db, contaId, filtro = {}, agora = new Date(), ignorarCampanha = null) {
   const { data: conversas } = await db.from("conversas").select("telefone,nome,novidades,atualizado_em")
     .eq("conta_id", contaId).eq("novidades", "sim");
   let lista = (conversas || []).filter((c) => c.telefone !== "simulador");
@@ -69,8 +71,11 @@ export async function publicoDa(db, contaId, filtro = {}, agora = new Date()) {
   }
   // quem recebeu campanha nos últimos 7 dias fica de fora (protege o número contra denúncias)
   const desde = new Date(agora.getTime() - INTERVALO_MINIMO_DIAS * DIA).toISOString();
-  const { data: recentes } = await db.from("campanha_envios").select("telefone,enviado_em").eq("conta_id", contaId).gte("enviado_em", desde);
-  const ocupados = new Set((recentes || []).map((r) => r.telefone));
+  const [{ data: recentes }, { data: naFila }] = await Promise.all([
+    db.from("campanha_envios").select("telefone").eq("conta_id", contaId).gte("enviado_em", desde),
+    db.from("campanha_envios").select("telefone,campanha_id").eq("conta_id", contaId).eq("status", "pendente"),
+  ]);
+  const ocupados = new Set([...(recentes || []), ...(naFila || []).filter((r) => r.campanha_id !== ignorarCampanha)].map((r) => r.telefone));
   return { contatos: lista.filter((c) => !ocupados.has(c.telefone)), recentes: lista.filter((c) => ocupados.has(c.telefone)).length };
 }
 
@@ -154,14 +159,22 @@ export async function rodarCampanhas(env, db, agora = new Date()) {
     if (!conexao || !sit.pode_atender) continue;
     if (c.status === "agendada") {
       // monta a lista na hora de começar (quem aceitou até agora, fora quem recebeu nos últimos 7 dias)
-      const { contatos } = await publicoDa(db, c.conta_id, c.filtro || {}, agora);
+      const { contatos } = await publicoDa(db, c.conta_id, c.filtro || {}, agora, c.id);
       if (contatos.length) await db.from("campanha_envios").upsert(contatos.map((p) => ({ campanha_id: c.id, conta_id: c.conta_id, telefone: p.telefone, nome: p.nome, status: "pendente" })),
         { onConflict: "campanha_id,telefone", ignoreDuplicates: true });
       await db.from("campanhas").update({ status: "enviando", total: contatos.length, atualizado_em: agora.toISOString() }).eq("id", c.id);
     }
     const { data: fila } = await db.from("campanha_envios").select("*").eq("campanha_id", c.id).eq("status", "pendente").limit(restante);
     let enviadas = 0, falhas = 0;
+    const { data: aceitam } = (fila || []).length
+      ? await db.from("conversas").select("telefone").eq("conta_id", c.conta_id).eq("novidades", "sim").in("telefone", fila.map((e) => e.telefone))
+      : { data: [] };
+    const ainda = new Set((aceitam || []).map((x) => x.telefone));
     for (const e of fila || []) {
+      if (!ainda.has(e.telefone)) { // pediu para sair depois que a lista foi montada
+        await db.from("campanha_envios").update({ status: "falhou", erro: "saiu da lista", enviado_em: agora.toISOString() }).eq("id", e.id);
+        falhas++; continue;
+      }
       try {
         const r = await meta(env, conexao.token, `${conexao.phone_number_id}/messages`, { corpo: {
           messaging_product: "whatsapp", to: e.telefone, type: "template",
@@ -180,7 +193,7 @@ export async function rodarCampanhas(env, db, agora = new Date()) {
     await db.from("campanhas").update({
       enviadas: (c.enviadas || 0) + enviadas, falhas: (c.falhas || 0) + falhas, atualizado_em: agora.toISOString(),
       ...(terminou ? { status: "enviada" } : {}),
-    }).eq("id", c.id);
+    }).eq("id", c.id).eq("status", "enviando");
     if (terminou) resumo.concluidas++;
   }
   return resumo;
@@ -191,12 +204,13 @@ const ORDEM = { pendente: 0, enviada: 1, entregue: 2, lida: 3 };
 const DO_STATUS = { sent: "enviada", delivered: "entregue", read: "lida", failed: "falhou" };
 
 // Avisos de entregue/lida/falhou das mensagens enviadas (só as de campanha interessam)
-export async function atualizarStatusEnvios(db, statuses) {
+export async function atualizarStatusEnvios(db, statuses, contaId) {
   for (const s of statuses) {
     const novo = DO_STATUS[s.status];
     if (!novo || !s.id) continue;
-    const { data: e } = await db.from("campanha_envios").select("id,campanha_id,status").eq("wamid", s.id).maybeSingle();
-    if (!e) continue;
+    const { data: e } = await db.from("campanha_envios").select("id,campanha_id,status,conta_id").eq("wamid", s.id).maybeSingle();
+    if (!e || (contaId && e.conta_id !== contaId)) continue;
+    if (novo === e.status) continue; // aviso repetido da Meta
     if (novo !== "falhou" && ORDEM[novo] <= (ORDEM[e.status] ?? 0)) continue;
     if (novo === "falhou" && e.status === "lida") continue;
     await db.from("campanha_envios").update({ status: novo, ...(s.erro ? { erro: s.erro.slice(0, 300) } : {}) }).eq("id", e.id);
@@ -216,7 +230,7 @@ export async function tratarResposta(db, contaId, telefone, textos, agora = new 
   const { data: envios } = await db.from("campanha_envios").select("id,campanha_id,respondeu_em,enviado_em")
     .eq("conta_id", contaId).eq("telefone", telefone).gte("enviado_em", desde);
   const ultimo = (envios || []).sort((a, b) => (a.enviado_em < b.enviado_em ? 1 : -1))[0];
-  if (textos.some(pedeParaSair)) {
+  if (textos.some(pedeParaSair) || (ultimo && textos.some(pedeParaSairDaCampanha))) {
     await db.from("conversas").update({ novidades: "nao", novidades_em: agora.toISOString() }).eq("conta_id", contaId).eq("telefone", telefone);
     return { sair: true };
   }

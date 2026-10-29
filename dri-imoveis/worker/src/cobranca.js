@@ -33,7 +33,8 @@ export function situacao(a, cfg, agora = new Date()) {
   const fim = (iso, dias = 0) => (iso ? new Date(iso).getTime() + dias * DIA : 0);
   if (a.status === "cortesia" || a.status === "ativa") return { status: a.status, pode_atender: true };
   if (a.status === "teste") {
-    const ate = fim(a.teste_ate);
+    // já cadastrou o cartão: a primeira cobrança sai no fim do teste; espera ela (com a tolerância) antes de pausar
+    const ate = fim(a.teste_ate, a.mp_preapproval_id ? cfg.dias_tolerancia : 0);
     return ate > t
       ? { status: "teste", pode_atender: true, teste_ate: a.teste_ate, dias_restantes: Math.ceil((ate - t) / DIA) }
       : { status: "pausada", motivo: "teste_acabou", pode_atender: false };
@@ -44,7 +45,8 @@ export function situacao(a, cfg, agora = new Date()) {
       ? { status: "atrasada", pode_atender: true, pausa_em: new Date(pausa).toISOString() }
       : { status: "pausada", motivo: "pagamento", pode_atender: false };
   }
-  return { status: a.status, motivo: a.status === "cancelada" ? "cancelada" : "pagamento", pode_atender: false };
+  const motivo = a.status === "cancelada" ? "cancelada" : (a.status === "pausada" && !a.assinou_em && !a.mp_preapproval_id) ? "teste_acabou" : "pagamento";
+  return { status: a.status, motivo, pode_atender: false };
 }
 
 export async function situacaoDaConta(db, contaId, cfg, agora) {
@@ -157,6 +159,16 @@ export async function processarAvisoMP(env, db, { tipo, id }, agora = new Date()
     const stPag = pg.payment?.status;
     const aprovado = stPag === "approved";
     const recusado = stPag === "rejected" || stPag === "cancelled" || pg.status === "recycling";
+    // recusa de uma assinatura antiga (o corretor já trocou o cartão) não atrasa a conta
+    if (recusado && a.mp_preapproval_id && pg.preapproval_id && a.mp_preapproval_id !== pg.preapproval_id)
+      return { conta: a.conta_id, ignorado: "assinatura antiga" };
+    if (stPag === "refunded" || stPag === "charged_back") {
+      await db.from("pagamentos").update({ status: stPag === "refunded" ? "estornado" : "contestado" }).eq("mp_id", String(pg.id));
+      await db.from("comissoes").update({ status: "em análise", motivo: "pagamento estornado ou contestado" }).eq("conta_id", a.conta_id).eq("status", "a pagar");
+      await avisarAdmin(env, db, "Pagamento estornado ou contestado",
+        await linhaConta(db, a.conta_id, `teve um pagamento ${stPag === "refunded" ? "estornado" : "contestado no cartão"}. Confira no Mercado Pago; se houver comissão a pagar, ela foi para análise.`));
+      return { conta: a.conta_id, status: stPag };
+    }
     if (!aprovado && !recusado) return { conta: a.conta_id, status: pg.status };
 
     const valor = Number(pg.transaction_amount) || null;

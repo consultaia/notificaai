@@ -240,3 +240,35 @@ test("conexão assistida: corretor pede, administrador vê o pedido e conecta pe
   assert.equal(db.tabelas.pedidos_conexao[0].status, "em andamento");
   assert.equal((await chamar("tok-u1", "/whatsapp/pedido")).j.pedido.status, "em andamento");
 });
+
+test("teste com cartão cadastrado não pausa antes da primeira cobrança; motivo da pausa certo", () => {
+  const comCartao = { status: "teste", teste_ate: dias(-0.1), mp_preapproval_id: "pre-1" };
+  assert.equal(situacao(comCartao, cfg, agora).pode_atender, true, "espera a primeira cobrança");
+  assert.equal(situacao({ ...comCartao, teste_ate: dias(-2.5) }, cfg, agora).pode_atender, false);
+  assert.equal(situacao({ status: "pausada" }, cfg, agora).motivo, "teste_acabou", "nunca assinou");
+  assert.equal(situacao({ status: "pausada", assinou_em: dias(-40) }, cfg, agora).motivo, "pagamento");
+});
+
+test("recusa de assinatura antiga é ignorada; estorno põe a comissão em análise", async () => {
+  const db = montarDb();
+  const env = { MERCADOPAGO_ACCESS_TOKEN: "t" };
+  Object.assign(db.tabelas.assinaturas[0], { status: "ativa", mp_preapproval_id: "pre-nova" });
+  mpRespostas["/authorized_payments/990"] = { id: 990, preapproval_id: "pre-velha", external_reference: "c1", status: "recycling", payment: { status: "rejected" } };
+  const r = await processarAvisoMP(env, db, { tipo: "subscription_authorized_payment", id: "990" }, agora);
+  assert.equal(r.ignorado, "assinatura antiga");
+  assert.equal(db.tabelas.assinaturas[0].status, "ativa");
+
+  db.tabelas.comissoes.push({ id: "k1", parceiro_id: "p1", conta_id: "c1", valor: 100, status: "a pagar" });
+  db.tabelas.pagamentos.push({ mp_id: "991", status: "aprovado" });
+  mpRespostas["/authorized_payments/991"] = { id: 991, preapproval_id: "pre-nova", status: "processed", payment: { status: "charged_back" } };
+  await processarAvisoMP(env, db, { tipo: "subscription_authorized_payment", id: "991" }, agora);
+  assert.equal(db.tabelas.comissoes[0].status, "em análise");
+  assert.equal(db.tabelas.pagamentos[0].status, "contestado");
+});
+
+test("WhatsApp pessoal sem 55 vira número brasileiro", async () => {
+  const { numeroBR } = await import("../src/notificar.js");
+  assert.equal(numeroBR("71 99999-0000"), "5571999990000");
+  assert.equal(numeroBR("(71) 3333-4444"), "557133334444");
+  assert.equal(numeroBR("5571999990000"), "5571999990000");
+});

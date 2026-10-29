@@ -188,6 +188,8 @@ const FERRAMENTAS = [
   },
 ];
 
+const CAMPOS_CAPTACAO = new Set(Object.keys(FERRAMENTAS.find((f) => f.name === "salvar_captacao").input_schema.properties).filter((k) => k !== "finalizar"));
+
 function resumoImovel(i) {
   return {
     id: i.id, codigo: i.codigo, titulo: i.titulo, finalidade: i.finalidade, tipo: i.tipo,
@@ -245,7 +247,8 @@ async function executar(nome, input, ctx) {
     case "horarios_visita": {
       await imovelDaConta(ctx, input.imovel_id);
       const agora = ctx.agora;
-      const ate = new Date(agora.getTime() + 40 * 864e5).toISOString();
+      const inicioBusca = input.a_partir_de && !isNaN(new Date(`${input.a_partir_de}T00:00:00-03:00`)) ? new Date(`${input.a_partir_de}T00:00:00-03:00`) : agora;
+      const ate = new Date(Math.max(agora.getTime(), inicioBusca.getTime()) + (Math.min(input.dias || 7, 30) + 1) * 864e5).toISOString();
       const [disp, vis, bloq] = await Promise.all([
         db.from("disponibilidades").select("imovel_id,dia_semana,hora_inicio,hora_fim").eq("conta_id", conta.id),
         db.from("visitas").select("inicio,fim").eq("conta_id", conta.id).eq("status", "marcada").gte("fim", agora.toISOString()).lte("inicio", ate),
@@ -299,9 +302,12 @@ async function executar(nome, input, ctx) {
       // Confere de novo que o horário segue livre (outra pessoa pode ter pego)
       const l = local(inicio);
       const dataLocal = `${l.ano}-${String(l.mes).padStart(2, "0")}-${String(l.dia).padStart(2, "0")}`;
-      const { data: disp } = await db.from("disponibilidades").select("imovel_id,dia_semana,hora_inicio,hora_fim").eq("conta_id", conta.id);
+      const [{ data: disp }, { data: bloq }] = await Promise.all([
+        db.from("disponibilidades").select("imovel_id,dia_semana,hora_inicio,hora_fim").eq("conta_id", conta.id),
+        db.from("bloqueios").select("inicio,fim").eq("conta_id", conta.id).lte("inicio", fim.toISOString()).gte("fim", inicio.toISOString()),
+      ]);
       const valido = horariosLivres({
-        disponibilidades: disp || [], ocupados: [], imovelId: i.id, agora: ctx.agora,
+        disponibilidades: disp || [], ocupados: bloq || [], imovelId: i.id, agora: ctx.agora,
         dataInicio: dataLocal, dias: 1, duracaoMin: conta.duracao_visita_min,
         antecedenciaHoras: conta.antecedencia_min_horas, passoMin: 30, limite: 200,
       }).some((d) => d.getTime() === inicio.getTime());
@@ -348,7 +354,9 @@ async function executar(nome, input, ctx) {
     }
     case "salvar_captacao": {
       const { finalizar, ...campos } = input;
-      const dados = Object.fromEntries(Object.entries(campos).filter(([, v]) => v !== null && v !== undefined && v !== ""));
+      // só os campos da ferramenta: algumas IAs não respeitam o esquema e um cliente poderia tentar injetar conta_id, status…
+      const dados = Object.fromEntries(Object.entries(campos)
+        .filter(([k, v]) => CAMPOS_CAPTACAO.has(k) && v !== null && v !== undefined && v !== ""));
       const { data: aberta } = await db.from("captacoes").select("*").eq("conta_id", conta.id).eq("telefone", ctx.telefone)
         .in("status", ["nova", "em contato", "avaliação marcada"]).maybeSingle();
       let cap;
@@ -398,8 +406,8 @@ async function imovelDaConta({ db, conta }, id) {
 
 async function salvarLead({ db, conta, telefone }, { nome, perfil }) {
   const linha = { conta_id: conta.id, telefone };
-  if (nome) linha.nome = nome;
-  if (perfil) linha.perfil = perfil;
+  if (nome) linha.nome = String(nome).slice(0, 120);
+  if (perfil) linha.perfil = String(perfil).slice(0, 1000);
   const { data } = await db.from("leads").upsert(linha, { onConflict: "conta_id,telefone" }).select().single();
   return data;
 }

@@ -37,12 +37,12 @@ export async function conectarWhatsApp(env, db, contaId, corpo) {
     try { await registrarNumero(env, access_token, phone_number_id, pin); }
     catch (e) { return { erro: `Não consegui ativar o número na API: ${e.message}. Se o número já tinha verificação em duas etapas, use o mesmo PIN.` }; }
   }
+  const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: contaId, access_token, app_secret, atualizado_em: new Date().toISOString() });
+  if (r2.error) throw new Error(r2.error.message);
   const r1 = await db.from("whatsapp_conexoes").update({
     phone_number_id, waba_id, numero_exibicao: numero.display_phone_number || null, detalhe: numero.verified_name || null,
     status: "conectado", conectado_em: new Date().toISOString(),
   }).eq("conta_id", contaId);
   if (r1.error) return { erro: r1.error.code === "23505" ? "Esse número já está ligado a outra conta do Toc Toc." : r1.error.message };
-  const r2 = await db.from("whatsapp_segredos").upsert({ conta_id: contaId, access_token, app_secret, atualizado_em: new Date().toISOString() });
-  if (r2.error) throw new Error(r2.error.message);
   return { ok: true, numero: numero.display_phone_number, nome: numero.verified_name };
 }

@@ -6,6 +6,8 @@ import { enviarTexto } from "./whatsapp.js";
 import { generoDa } from "./genero.js";
 
 const soDigitos = (t) => String(t || "").replace(/\D/g, "");
+// "71 99999-0000" (como o corretor digita no perfil) -> 5571999990000; sem o 55 a Meta entenderia outro país
+export const numeroBR = (t) => { const d = soDigitos(t); return d.length === 10 || d.length === 11 ? `55${d}` : d; };
 
 function montar(tipo, ctx, dados) {
   const g = generoDa(ctx.conta);
@@ -70,7 +72,7 @@ export async function notificarCorretor(ctx, tipo, dados) {
     }));
   }
 
-  const pessoal = soDigitos(conta.whatsapp_pessoal);
+  const pessoal = numeroBR(conta.whatsapp_pessoal);
   if (ctx.conexao && pessoal && pessoal !== soDigitos(ctx.telefone) && ctx.canal !== "simulador") {
     if (env.TEMPLATE_AVISO) {
       // Modelo de utilidade com uma variável: {{1}} = texto do aviso

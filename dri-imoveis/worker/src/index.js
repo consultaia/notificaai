@@ -47,7 +47,7 @@ import {
 import { rotaAdmin } from "./admin.js";
 import { prepararConexao, conectarWhatsApp } from "./conexao.js";
 import {
-  criarCampanha, rodarCampanhas, atualizarStatusEnvios, tratarResposta, extrairStatus, publicoDa, saudeDoNumero,
+  criarCampanha, rodarCampanhas, atualizarStatusEnvios, tratarResposta, extrairStatus, publicoDa, saudeDoNumero, pedeParaSair,
 } from "./campanhas.js";
 import { aderir, resumoDoParceiro, linkDoParceiro } from "./parceiros.js";
 import {
@@ -143,7 +143,7 @@ export default {
           const msgs = extrairMensagens(payload)
             .filter((m) => !conexao.phone_number_id || m.phoneNumberId === conexao.phone_number_id);
           const statuses = extrairStatus(payload);
-          if (statuses.length) ctx.waitUntil(atualizarStatusEnvios(db, statuses).catch((e) => console.error("status", e)));
+          if (statuses.length) ctx.waitUntil(atualizarStatusEnvios(db, statuses, conexao.conta_id).catch((e) => console.error("status", e)));
           if (msgs.length) {
             ctx.waitUntil(Promise.all([
               db.from("whatsapp_conexoes").update({ ultima_mensagem_em: new Date().toISOString() }).eq("conta_id", conexao.conta_id),
@@ -247,6 +247,7 @@ export default {
           db.from("conversas").delete().eq("conta_id", conta.id).eq("telefone", SIMULADOR),
           db.from("leads").delete().eq("conta_id", conta.id).eq("telefone", SIMULADOR),
           db.from("visitas").delete().eq("conta_id", conta.id).eq("status", "teste"),
+          db.from("captacoes").delete().eq("conta_id", conta.id).eq("telefone", SIMULADOR),
         ]);
         return json(env, { ok: true });
       }
@@ -261,6 +262,7 @@ export default {
         if (rota === "POST /whatsapp/preparar" || c.status !== "conectado") return json(env, { ...base, erro: c.status === "erro" ? c.detalhe : null });
         // confere se o token ainda vale
         const conexao = await conexaoDaConta(db, conta.id);
+        if (!conexao) return json(env, { ...base, conectado: false, erro: "A conexão ficou incompleta. Conecte de novo." });
         try {
           const numero = await lerNumero(env, conexao.token, conexao.phone_number_id);
           return json(env, { ...base, numero: numero.display_phone_number, nome: numero.verified_name });
@@ -319,6 +321,8 @@ export default {
         return r.erro ? json(env, { error: r.erro }, 400) : json(env, r);
       }
       if (rota === "POST /importar/analisar") {
+        if (!(await situacaoDaConta(db, conta.id)).pode_atender)
+          return json(env, { error: "A assinatura está pausada. Regularize para importar books." }, 402);
         const paginas = Array.isArray(corpo.paginas) ? corpo.paginas.slice(0, 300) : [];
         const imagens = Array.isArray(corpo.imagens) ? corpo.imagens.slice(0, 12) : [];
         if (!paginas.length && !imagens.length) return json(env, { error: "Não recebi as páginas do PDF." }, 400);
@@ -431,12 +435,13 @@ async function guardarMidia(db, contaId, telefone, nome, url) {
   if (cap) await db.from("captacoes").update({ fotos: [...(cap.fotos || []), url] }).eq("id", cap.id);
 }
 
+const MOTIVO_PAUSA = "Assistente pausada (assinatura)";
 // Assistente pausada: a mensagem fica na aba Conversas, marcada para o corretor responder
 async function guardarComAssistentePausada(db, contaId, telefone, nome, fila) {
   const em = new Date().toISOString();
   const novas = fila.map((m) => ({ de: "cliente", texto: m.texto || (m.tipo ? `[${m.tipo}]` : "[mensagem]"), em }));
   const { data: conversa } = await db.from("conversas").select("id,transcricao").eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
-  const campos = { precisa_corretor: true, motivo: "Assistente pausada (assinatura)", ultima_cliente_em: em, atualizado_em: em };
+  const campos = { precisa_corretor: true, motivo: MOTIVO_PAUSA, ultima_cliente_em: em, atualizado_em: em };
   if (conversa) await db.from("conversas").update({ ...campos, transcricao: [...(conversa.transcricao || []), ...novas].slice(-200) }).eq("id", conversa.id);
   else await db.from("conversas").insert({ conta_id: contaId, telefone, nome, transcricao: novas, ...campos });
 }
@@ -499,7 +504,11 @@ export class Conversa {
     if (!conta || !conexao) return;
     // Conta pausada (teste acabou ou pagamento atrasado além da tolerância): guarda para o corretor e não responde
     const sit = await situacaoDaConta(db, contaId);
-    if (!sit.pode_atender) return guardarComAssistentePausada(db, contaId, telefone, nome, fila);
+    if (!sit.pode_atender) {
+      // "SAIR" vale mesmo com a assistente pausada (a campanha não pode chegar depois)
+      if (fila.some((m) => pedeParaSair(m.texto))) await tratarResposta(db, contaId, telefone, fila.map((m) => m.texto).filter(Boolean)).catch(() => {});
+      return guardarComAssistentePausada(db, contaId, telefone, nome, fila);
+    }
 
     // Áudio vira texto (Whisper do Groq); se não der, a Dri pede para escrever
     if (fila.some((m) => m.midiaId)) {
@@ -544,8 +553,13 @@ export class Conversa {
       return registrarSemResponder(ctx, textos);
     }
     ctx.contexto = campanha.contexto || null;
-    const { data: conversa } = await db.from("conversas").select("precisa_corretor")
+    const { data: conversa } = await db.from("conversas").select("precisa_corretor,motivo")
       .eq("conta_id", contaId).eq("telefone", telefone).maybeSingle();
+    // conversa que só estava parada porque a assinatura estava pausada: a assistente volta sozinha
+    if (conversa?.precisa_corretor && conversa.motivo === MOTIVO_PAUSA) {
+      await db.from("conversas").update({ precisa_corretor: false, motivo: null }).eq("conta_id", contaId).eq("telefone", telefone);
+      conversa.precisa_corretor = false;
+    }
     // com o corretor no comando, só marca como lida (sem "digitando…")
     await marcarLida(env, conexao, fila[fila.length - 1].id, !conversa?.precisa_corretor);
     if (conversa?.precisa_corretor) return registrarSemResponder(ctx, textos);

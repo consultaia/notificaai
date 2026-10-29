@@ -52,7 +52,8 @@ function montarDb() {
 }
 
 test("sair da lista, horário permitido e modelo da Meta", () => {
-  assert.ok(pedeParaSair("SAIR") && pedeParaSair(" parar! ") && pedeParaSair("Não quero receber"));
+  assert.ok(pedeParaSair("SAIR") && pedeParaSair("Não quero receber") && pedeParaSair("não quero mais receber"));
+  assert.ok(!pedeParaSair("parar") && !pedeParaSair("cancelar"), "sozinhos só valem logo depois de uma campanha");
   assert.ok(!pedeParaSair("quero sair do aluguel"));
   assert.equal(horarioPermitido(agora), true);
   assert.equal(horarioPermitido(new Date("2026-11-10T05:00:00Z")), false, "2h da manhã em Brasília");
@@ -133,4 +134,29 @@ test("não cria campanha sem público, sem WhatsApp ou com chaves no texto", asy
   assert.match((await criarCampanha({}, db, conta, null, { nome: "x", texto: "Texto da campanha aqui" }, agora)).erro, /Conecte o WhatsApp/);
   assert.match((await criarCampanha({}, db, conta, conexao, { nome: "x", texto: "Oi {{1}} tudo bem com você" }, agora)).erro, /chaves/);
   assert.match((await criarCampanha({}, db, conta, conexao, { nome: "x", texto: "Texto da campanha aqui", filtro: { palavra: "cobertura" } }, agora)).erro, /Ninguém/);
+});
+
+test("'cancelar' só tira da lista logo depois de uma campanha; sem campanha é conversa normal", async () => {
+  const db = montarDb();
+  assert.deepEqual(await tratarResposta(db, "c1", "5571922222222", ["cancelar"], agora), {}, "quer cancelar a visita, não sair da lista");
+  assert.equal(db.tabelas.conversas[1].novidades, "sim");
+  db.tabelas.campanhas.push({ id: "k", conta_id: "c1", nome: "x", texto: "y", respostas: 0 });
+  db.tabelas.campanha_envios.push({ id: "e9", campanha_id: "k", conta_id: "c1", telefone: "5571922222222", status: "entregue", enviado_em: dias(-1) });
+  assert.deepEqual(await tratarResposta(db, "c1", "5571922222222", ["Parar"], agora), { sair: true });
+  assert.equal(db.tabelas.conversas[1].novidades, "nao");
+});
+
+test("quem saiu da lista depois de montada não recebe; pendente de outra campanha não entra em duas", async () => {
+  const db = montarDb();
+  db.tabelas.campanha_envios.push({ campanha_id: "A", conta_id: "c1", telefone: "5571911111111", status: "pendente" });
+  const p = await publicoDa(db, "c1", {}, agora);
+  assert.ok(!p.contatos.some((c) => c.telefone === "5571911111111"), "já está na fila de outra campanha");
+  db.tabelas.campanha_envios.length = 0;
+  db.tabelas.campanhas.push({ id: "k", conta_id: "c1", status: "enviando", agendada_para: dias(-1), template_nome: "t", texto: "x", filtro: {}, enviadas: 0, falhas: 0 });
+  db.tabelas.campanha_envios.push({ id: "e1", campanha_id: "k", conta_id: "c1", telefone: "5571911111111", nome: "Ana", status: "pendente" });
+  db.tabelas.conversas[0].novidades = "nao"; // pediu SAIR depois
+  const antes = chamadas.filter((c) => c.caminho === "PN/messages").length;
+  await rodarCampanhas({}, db, agora);
+  assert.equal(chamadas.filter((c) => c.caminho === "PN/messages").length, antes, "não enviou");
+  assert.equal(db.tabelas.campanha_envios[0].erro, "saiu da lista");
 });

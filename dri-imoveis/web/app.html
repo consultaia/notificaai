@@ -723,10 +723,12 @@ function Horarios({conta, salvo, botao="Salvar horários"}){
     const ruins = janelas.filter(j=>!(j.hora_fim>j.hora_inicio));
     if(ruins.length) return setMsg({t:"bad",x:"Em algum dia o horário de fim está antes do início."});
     setOcupado(true); setMsg(null);
-    const del = await sb.from("disponibilidades").delete().eq("conta_id",conta.id).is("imovel_id",null);
+    // grava as novas antes de apagar as antigas: se algo falhar no meio, a agenda não fica vazia
+    const { data: antigas } = await sb.from("disponibilidades").select("id").eq("conta_id",conta.id).is("imovel_id",null);
     const ins = janelas.length ? await sb.from("disponibilidades").insert(janelas.map(j=>({conta_id:conta.id, imovel_id:null, dia_semana:j.dia_semana, hora_inicio:j.hora_inicio, hora_fim:j.hora_fim}))) : {};
+    const del = !ins.error && (antigas||[]).length ? await sb.from("disponibilidades").delete().in("id",antigas.map(a=>a.id)) : {};
     setOcupado(false);
-    const erro = del.error || ins.error; if(erro) return setMsg({t:"bad",x:erro.message});
+    const erro = ins.error || del.error; if(erro) return setMsg({t:"bad",x:erro.message});
     setMsg({t:"ok",x:"Horários salvos."}); salvo && salvo();
   }
   if(!janelas) return <div className="card muted">Carregando…</div>;
@@ -1118,7 +1120,7 @@ function Inicio({conta, irPara}){
   useEffect(()=>{ (async()=>{ const ini=new Date(Date.now()-30*864e5).toISOString(), agora=new Date().toISOString();
     const [c,p,v,m,cap] = await Promise.all([
       sb.from("conversas").select("id",{count:"exact",head:true}).neq("telefone","simulador").gte("atualizado_em",ini),
-      sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true),
+      sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).neq("telefone","simulador"),
       sb.from("visitas").select("id",{count:"exact",head:true}).eq("status","marcada").gte("inicio",agora),
       sb.from("visitas").select("id",{count:"exact",head:true}).eq("origem","dri").neq("status","teste").gte("criado_em",ini),
       sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova")]);
@@ -1582,7 +1584,7 @@ function Admin(){
 // ======================================================================== app
 function Painel({conta, setConta}){
   const [aba,setAba]=useState("inicio"); const [pend,setPend]=useState(0); const [capNovas,setCapNovas]=useState(0);
-  useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).then(r=>setPend(r.count||0));
+  useEffect(()=>{ sb.from("conversas").select("id",{count:"exact",head:true}).eq("precisa_corretor",true).neq("telefone","simulador").then(r=>setPend(r.count||0));
     sb.from("captacoes").select("id",{count:"exact",head:true}).eq("status","nova").then(r=>setCapNovas(r.count||0)); },[aba]);
   const abas=[["inicio","Início"],["conversas","Conversas"],["agenda","Agenda"],["imoveis","Imóveis"],["captacoes","Captações"],["testar","Testar"],["ia","IA"],["whatsapp","WhatsApp"],["campanhas","Campanhas"],["parceiro","Indique e ganhe"],["perfil","Perfil"]];
   return <>

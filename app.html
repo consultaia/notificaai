@@ -242,15 +242,21 @@ async function sbAuditLog(sbUrl,sbKey,hospitalId,notificationId,acao,campo,valor
 
 // O Worker (hash com pepper) as vezes fica fora (erro 500) e o app cai no hash local. Um PIN cadastrado
 // com um dos dois nao batia quando o app calculava o outro. Login e checagens usam os dois candidatos.
+// lista.workerOk=false indica que o Worker nao respondeu (fora do ar ou limite de tentativas):
+// nesse caso um PIN gravado com o hash do Worker nao pode ser conferido e o login nao deve dizer "PIN incorreto".
 async function hashPinCandidatos(pin, hospitalId) {
   const hid = hospitalId || 'hnsa';
-  const lista=[];
-  try {
-    const res = await fetch(WORKER_URL.replace(/\/+$/,'') + '/hashpin', {
-      method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin, hospital_id: hid }),
-    });
-    if (res.ok) { const data = await res.json(); if (data && data.hash) lista.push(data.hash); }
-  } catch (e) {}
+  const lista=[];lista.workerOk=false;
+  for(let tentativa=0;tentativa<2&&!lista.workerOk;tentativa++){
+    try {
+      const res = await fetch(WORKER_URL.replace(/\/+$/,'') + '/hashpin', {
+        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ pin, hospital_id: hid }),
+      });
+      if (res.ok) { const data = await res.json(); if (data && data.hash) { lista.push(data.hash); lista.workerOk=true; } }
+      else if (res.status===429) break;
+    } catch (e) {}
+    if(!lista.workerOk&&tentativa===0) await new Promise(r=>setTimeout(r,1200));
+  }
   const local=await hashPinLocal(pin,hid);
   if(!lista.includes(local)) lista.push(local);
   return lista;
@@ -719,7 +725,7 @@ CREATE TABLE IF NOT EXISTS notivisa_analise (
 const PIN_MAX_FALHAS=5, PIN_BLOQUEIO_MS=30000;
 const PIN_TENTATIVAS={falhas:0,bloqueadoAte:0};
 function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
-  const [pin,setPin]=useState('');
+  const [pinDigitado,setPin]=useState('');
   const [error,setError]=useState(false);
   const [bloqueio,setBloqueio]=useState(0);
   const [perfilDesativado,setPerfilDesativado]=useState(false);
@@ -727,16 +733,19 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
   const ref=useRef(null);
   useEffect(()=>{setTimeout(()=>ref.current?.focus(),100);},[]);
 
+  const [semServidor,setSemServidor]=useState(false);
   const check=async()=>{
+    const pin=String(pinDigitado||'').trim();
     if(loading||!pin) return;
     const espera=PIN_TENTATIVAS.bloqueadoAte-Date.now();
     if(espera>0) { setBloqueio(Math.ceil(espera/1000)); setPin(''); return; }
-    setBloqueio(0); setPerfilDesativado(false);
+    setBloqueio(0); setPerfilDesativado(false); setSemServidor(false);
     setLoading(true);
-    let matched=null;
+    let matched=null,workerFora=false;
     if(sbUrl&&sbKey) {
       try {
         const hs=await hashPinCandidatos(pin, hospital?.id);
+        workerFora=!hs.workerOk;
         const rows=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(hs)}&ativo=eq.true&limit=1`);
         if(rows&&rows[0]&&!PROFILES[rows[0].perfil||'gestor']) {
           // Perfis de chamados (DSG, Motorista, Enfermeiro) foram descontinuados
@@ -767,6 +776,10 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     }
     setLoading(false);
     if(matched) { PIN_TENTATIVAS.falhas=0; onSuccess(matched.key,matched); }
+    else if(workerFora) {
+      // o servidor que confere o codigo nao respondeu: nao e PIN errado e nao conta como tentativa
+      setSemServidor(true); setPin('');
+    }
     else {
       PIN_TENTATIVAS.falhas++;
       if(PIN_TENTATIVAS.falhas>=PIN_MAX_FALHAS) { PIN_TENTATIVAS.bloqueadoAte=Date.now()+PIN_BLOQUEIO_MS; PIN_TENTATIVAS.falhas=0; }
@@ -784,9 +797,10 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
           <div key={k} style={{background:p.color+'15',border:'1px solid '+p.color+'33',borderRadius:6,padding:'3px 8px',fontSize:10,color:p.color,fontWeight:700}}>{p.icon} {p.label}</div>
         ))}
       </div>
-      <input ref={ref} type="password" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
+      <input ref={ref} type="password" value={pinDigitado} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&check()} placeholder="****" maxLength={8}
         style={{width:'100%',background:C.card,border:'1px solid '+(error?C.red:C.border),borderRadius:12,padding:'14px',color:C.text,fontSize:24,textAlign:'center',letterSpacing:'0.4em',outline:'none',marginBottom:8}}/>
       {error&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>PIN incorreto.</div>}
+      {semServidor&&<div style={{fontSize:12,color:C.yellow,marginBottom:8,lineHeight:1.5}}>Não foi possível conferir o código agora (servidor ocupado). Aguarde 1 minuto e tente de novo.</div>}
       {perfilDesativado&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>Este perfil foi desativado. Procure o gestor do NSP.</div>}
       {bloqueio>0&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>Muitas tentativas. Aguarde {bloqueio}s e tente novamente.</div>}
       <div style={{display:'flex',gap:10,marginTop:8}}>

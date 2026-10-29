@@ -113,6 +113,10 @@ create unique index if not exists capacitacao_part_codigo_idx on public.capacita
 alter table public.capacitacao_participantes add column if not exists nome_chave text;
 alter table public.capacitacao_participantes add column if not exists senha_hash text;
 create index if not exists capacitacao_part_nome_idx on public.capacitacao_participantes (hospital_id, nome_chave);
+-- certificado do curso (8 horas): emitido e assinado pelo NSP, retirado na sala do NSP
+alter table public.capacitacao_participantes add column if not exists certificado_emitido_em timestamptz;
+alter table public.capacitacao_participantes add column if not exists certificado_emitido_por text;
+alter table public.capacitacao_participantes add column if not exists certificado_entregue_em timestamptz;
 alter table public.capacitacao_participantes enable row level security;
 drop policy if exists capacitacao_part_tudo on public.capacitacao_participantes;
 create policy capacitacao_part_tudo on public.capacitacao_participantes for all using (true) with check (true);

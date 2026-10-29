@@ -7878,7 +7878,7 @@ function VideosEducacaoView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,show
 // capacitacao_respostas (SQL 004): nome, setor, profissao, % de acerto e cada resposta.
 // Especialidade/divisao escolhida no cadastro (fica no campo 'profissao'); 'Outros' abre um campo livre.
 // A instituicao pode ter a propria lista em hospitals.divisoes (["...", ...]).
-const DIVISOES_PADRAO=['Divisão de Enfermagem','Medicina','Farmácia','Odontologia'];
+const DIVISOES_PADRAO=['Enfermeiro(a)','Técnico(a) de enfermagem','Médico(a)','Dentista','Técnico(a) de radiologia','Farmacêutico(a)','Fisioterapeuta','Nutricionista','Fonoaudiólogo(a)','Psicólogo(a)','Recepcionista','Setor administrativo'];
 const divisoesDe=h=>(h&&Array.isArray(h.divisoes)&&h.divisoes.length?h.divisoes:DIVISOES_PADRAO);
 const NOTA_APROVACAO=70;
 let _capacPromise=null;
@@ -7922,27 +7922,46 @@ p{margin:6px 0}.ab{font-size:13.5px;color:#222;margin-bottom:6px}.cx{border-left
   w.document.close();
 }
 
-function imprimirCertificado({m,h,nome,setor,profissao,pct,data,codigo,cfg}){
+// Certificado do curso completo (todos os modulos), emitido pelo gestor do NSP e assinado a caneta
+const CARGA_CURSO='8 horas';
+const TITULO_CURSO='Capacitação em Protocolos de Segurança do Paciente';
+const ASSINANTE_PADRAO={hnsa:{nome:'CC (S) Mari Stella',cargo:'Núcleo de Segurança do Paciente'}};
+function assinantesCert(cfg,h){
+  cfg=cfg||{};const pad=ASSINANTE_PADRAO[h.id]||{nome:'',cargo:'Núcleo de Segurança do Paciente'};
+  const lista=[[cfg.assinatura,cfg.assinante_nome||pad.nome,cfg.assinante_cargo||pad.cargo]];
+  if(cfg.assinatura2||cfg.assinante2_nome) lista.push([cfg.assinatura2,cfg.assinante2_nome,cfg.assinante2_cargo]);
+  return lista;
+}
+// Situacao de cada pessoa no curso a partir do progresso salvo
+function situacaoCurso(x,mods){
+  const pr=x.progresso||{};const feitos=(mods||[]).filter(m=>pr[m.id]&&pr[m.id].cert);
+  const dataBr=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s||'');return m?m[3]+'-'+m[2]+'-'+m[1]:'';};
+  const datas=feitos.map(m=>dataBr(pr[m.id].cert.data)).filter(Boolean).sort();
+  return {feitos:feitos.length,total:(mods||[]).length,completo:!!mods&&mods.length>0&&feitos.length===mods.length,
+    media:feitos.length?Math.round(feitos.reduce((s,m)=>s+(pr[m.id].cert.pct||0),0)/feitos.length):null,
+    concluidoEm:datas.length?datas[datas.length-1]:null,modulos:feitos.map(m=>({titulo:m.titulo,pct:pr[m.id].cert.pct}))};
+}
+function imprimirCertificado({h,nome,setor,profissao,modulos,media,data,codigo,cfg}){
   const w=window.open('','_blank');if(!w) return;
-  cfg=cfg||{};
-  const assin=[[cfg.assinatura,cfg.assinante_nome,cfg.assinante_cargo],[cfg.assinatura2,cfg.assinante2_nome,cfg.assinante2_cargo]].filter(a=>a[0]||a[1]);
-  const blocoAss=assin.length?assin.map(([img,n,c])=>`<div class="a">${img?`<img src="${img}" alt=""/>`:'<div class="sp"></div>'}<div class="ln"></div><b>${escHtml(n||'')}</b><span>${escHtml(c||'')}</span></div>`).join('')
-    :`<div class="a"><div class="sp"></div><div class="ln"></div><b>Núcleo de Segurança do Paciente</b><span>${escHtml(nomeH(h))}</span></div>`;
+  const blocoAss=assinantesCert(cfg,h).map(([img,n,c])=>`<div class="a">${img?`<img src="${img}" alt=""/>`:'<div class="sp"></div>'}<div class="ln"></div><b>${escHtml(n||'')}</b><span>${escHtml(c||'')}</span><span>${escHtml(nomeH(h))}</span></div>`).join('');
   const verif=linkH(h)+'?view=certificado&codigo='+codigo;
+  const dataTxt=data?new Date(data+'T12:00:00').toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'}):'';
   w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Certificado - ${escHtml(nome)}</title><style>
 @page{size:A4 landscape;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}html,body{margin:0;background:#fff}body{font-family:Georgia,'Times New Roman',serif}
-.c{width:297mm;height:209mm;padding:14mm;display:flex}.b{flex:1;border:3px solid #0D3B66;outline:1.5px solid #0D9488;outline-offset:-9px;padding:14mm 20mm 10mm;display:flex;flex-direction:column;align-items:center;text-align:center}
-.t{font-size:13px;letter-spacing:4px;color:#0D9488;font-family:Arial,sans-serif;font-weight:700;text-transform:uppercase}h1{font-size:44px;color:#0D3B66;margin:8px 0 2px;font-weight:400}
-.n{font-size:30px;margin:14px 0 6px;border-bottom:1px solid #999;padding:0 30px 6px}.d{font-size:16px;line-height:1.7;max-width:210mm;color:#333}
-.ass{display:flex;gap:28mm;justify-content:center;margin-top:auto}.a{display:flex;flex-direction:column;align-items:center;min-width:70mm;font-family:Arial,sans-serif}
-.a img{height:22mm;max-width:75mm;object-fit:contain;margin-bottom:-3mm}.sp{height:19mm}.ln{width:70mm;border-top:1px solid #333;margin-bottom:4px}.a b{font-size:12px;color:#111}.a span{font-size:10.5px;color:#555}
-.m{margin-top:6mm;display:flex;justify-content:space-between;width:100%;font-family:Arial,sans-serif;font-size:10px;color:#555}
+.c{width:297mm;height:209mm;padding:12mm;display:flex}.b{flex:1;border:3px solid #0D3B66;outline:1.5px solid #0D9488;outline-offset:-9px;padding:12mm 18mm 8mm;display:flex;flex-direction:column;align-items:center;text-align:center}
+.t{font-size:13px;letter-spacing:4px;color:#0D9488;font-family:Arial,sans-serif;font-weight:700;text-transform:uppercase}h1{font-size:44px;color:#0D3B66;margin:6px 0 2px;font-weight:400}
+.n{font-size:30px;margin:10px 0 6px;border-bottom:1px solid #999;padding:0 30px 6px}.d{font-size:16px;line-height:1.65;max-width:230mm;color:#333}
+.mods{font-family:Arial,sans-serif;font-size:11px;color:#444;margin-top:6px;line-height:1.6;max-width:230mm}
+.ass{display:flex;gap:26mm;justify-content:center;margin-top:auto}.a{display:flex;flex-direction:column;align-items:center;min-width:80mm;font-family:Arial,sans-serif;line-height:1.4}
+.a img{height:20mm;max-width:75mm;object-fit:contain;margin-bottom:-3mm}.sp{height:18mm}.ln{width:80mm;border-top:1px solid #333;margin-bottom:4px}.a b{font-size:12.5px;color:#111}.a span{font-size:11px;color:#444}
+.m{margin-top:5mm;display:flex;justify-content:space-between;width:100%;font-family:Arial,sans-serif;font-size:10px;color:#555}
 @media print{.noprint{display:none}}.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#0D3B66;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer;font-family:Arial}
 </style></head><body><div class="noprint"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
 <div class="c"><div class="b"><div class="t">${escHtml(nomeH(h))} · Núcleo de Segurança do Paciente</div><h1>Certificado</h1><div class="d">Certificamos que</div>
-<div class="n">${escHtml(nome)}</div><div class="d">${escHtml(profissao||'')}${setor?' · '+escHtml(setor):''}<br/>concluiu a capacitação online <b>${escHtml(m.titulo)}</b>, com carga horária de ${escHtml(m.carga)},<br/>e obteve <b>${pct}%</b> de acerto no questionário autoavaliativo.</div>
+<div class="n">${escHtml(nome)}</div><div class="d">${escHtml(profissao||'')}${setor?' · '+escHtml(setor):''}<br/>concluiu a <b>${TITULO_CURSO}</b>, na modalidade online,<br/>com carga horária de <b>${CARGA_CURSO}</b>${media!=null?' e aproveitamento médio de <b>'+media+'%</b>':''}.</div>
+<div class="mods">Conteúdo: ${(modulos||[]).map(x=>escHtml(x.titulo)).join(' · ')}.</div>
 <div class="ass">${blocoAss}</div>
-<div class="m"><span>Concluído em ${escHtml(data)}</span><span>Código ${escHtml(codigo)} · verifique em ${escHtml(verif.replace('https://',''))}</span><span>Emitido pelo NotificaAI</span></div></div></div></body></html>`);
+<div class="m"><span>${dataTxt?'Concluído em '+escHtml(dataTxt):''}</span><span>Código ${escHtml(codigo)} · verifique em ${escHtml(verif.replace('https://',''))}</span><span>Emitido pelo NotificaAI</span></div></div></div></body></html>`);
   w.document.close();
 }
 
@@ -8029,6 +8048,8 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   const [cfg,setCfg]=useState({});
   const [ocupado,setOcupado]=useState(false);
   const [mostrarCodigo,setMostrarCodigo]=useState(false);
+  const [statusCert,setStatusCert]=useState(null);
+  useEffect(()=>{if(part&&part.id&&sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${part.id}&select=certificado_emitido_em,certificado_entregue_em`).then(d=>setStatusCert((d&&d[0])||null)).catch(()=>{});},[part&&part.id,sbUrl,sbKey]);
   const toast=(m,t)=>showToast?showToast(m,t):alert(m);
   const timer=React.useRef(null);
   useEffect(()=>{if(!mods) carregarCapacitacao().then(setMods).catch(e=>setErroCont(e.message));},[]);
@@ -8111,7 +8132,6 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       ...(pct>=NOTA_APROVACAO&&!(pm.cert&&pm.cert.pct>=pct)?{cert:{pct,codigo,data:new Date().toLocaleDateString('pt-BR')}}:{})});
     setOcupado(false);topo();
   };
-  const certificado=x=>imprimirCertificado({m:x.m,h,nome:part.nome,setor:part.setor,profissao:part.profissao,pct:x.pct,data:x.data,codigo:x.codigo,cfg});
 
   const inp={background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12,fontFamily:'inherit'};
   const cardSt={background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14};
@@ -8130,9 +8150,9 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       <select value={cad.setor} onChange={e=>setCad({...cad,setor:e.target.value})} style={{...inp,appearance:'none'}}>
         <option value="">Setor onde trabalha...</option>{[...(h.sectors||[]),'Outro'].map(x=><option key={x} value={x}>{x}</option>)}
       </select>
-      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 8px'}}>A qual especialidade você pertence?</div>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 8px'}}>Qual a sua especialidade / função?</div>
       <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:cad.divisao==='outros'?8:14}}>
-        {[...divisoesDe(h),'outros'].map(x=>{const sel=cad.divisao===x;return(<button key={x} onClick={()=>setCad({...cad,divisao:x})} style={{flex:'1 1 45%',padding:'11px 8px',borderRadius:10,border:'1.5px solid '+(sel?C.teal:C.border),background:sel?C.teal+'22':C.surface,color:sel?C.teal:C.text,fontSize:13,fontWeight:sel?800:600,cursor:'pointer'}}>{x==='outros'?'Outros':x}</button>);})}
+        {[...divisoesDe(h),'outros'].map(x=>{const sel=cad.divisao===x;return(<button key={x} onClick={()=>setCad({...cad,divisao:x})} style={{flex:'1 1 40%',padding:'10px 6px',borderRadius:10,border:'1.5px solid '+(sel?C.teal:C.border),background:sel?C.teal+'22':C.surface,color:sel?C.teal:C.text,fontSize:13,fontWeight:sel?800:600,cursor:'pointer'}}>{x==='outros'?'Outros':x}</button>);})}
       </div>
       {cad.divisao==='outros'&&<input value={cad.outra} onChange={e=>setCad({...cad,outra:e.target.value})} placeholder="Escreva a sua especialidade ou área (ex.: Fisioterapia, Nutrição)" style={inp} maxLength={60} autoFocus/>}
       <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 4px'}}>Crie um PIN de 4 números</div>
@@ -8170,6 +8190,12 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       <div><button onClick={()=>setMostrarCodigo(false)} style={{marginTop:8,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'7px 14px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Entendi</button></div>
     </div>}
     {cabecalhoPessoa}
+    {(()=>{const sc=situacaoCurso({progresso:prog},mods);const pronto=statusCert&&statusCert.certificado_emitido_em,entregue=statusCert&&statusCert.certificado_entregue_em;
+      return(<div style={{...cardSt,borderColor:(sc.completo?C.green:C.teal)+'55',background:(sc.completo?C.green:C.teal)+'10'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{String.fromCodePoint(127891)} {TITULO_CURSO}</div><b style={{fontSize:12,color:sc.completo?C.green:C.teal,whiteSpace:'nowrap'}}>{sc.feitos} de {sc.total}</b></div>
+        <div style={{height:8,borderRadius:4,background:C.border,overflow:'hidden',margin:'8px 0'}}><div style={{width:Math.round(sc.feitos/Math.max(1,sc.total)*100)+'%',height:'100%',background:sc.completo?C.green:C.teal}}/></div>
+        <div style={{fontSize:12,color:C.text,lineHeight:1.55}}>{entregue?'Certificado entregue. Parabéns pela conclusão!':pronto?<><b style={{color:C.green}}>Seu certificado está pronto!</b> Retire na sala do Núcleo de Segurança do Paciente.</>:sc.completo?'Curso concluído ('+CARGA_CURSO+'). O NSP vai emitir e assinar o seu certificado; quando estiver pronto, o aviso aparece aqui.':'Conclua os '+sc.total+' módulos (com '+NOTA_APROVACAO+'% de acerto) para receber o certificado de '+CARGA_CURSO+', assinado pelo NSP.'}</div>
+      </div>);})()}
     {mods.map(x=>{const s=modInfo(x.id);const p=prog[x.id]||{};const nResp=Object.keys(p.resp||{}).length;
       const status=p.cert?{t:'Concluído · '+p.cert.pct+'%',c:C.green}:p.etapa==='resultado'?{t:'Refazer · '+p.pct+'%',c:C.yellow}:p.etapa==='pre'?{t:'Continuar · diagnóstico inicial',c:C.blue}:p.etapa==='quiz'?{t:'Continuar · questão '+Math.min(nResp+1,x.questoes.length)+'/'+x.questoes.length,c:C.blue}:p.etapa?{t:'Continuar a trilha · '+Math.round(Object.keys(p.vistos||{}).length/Math.max(1,montarTrilha(x,false).length-1)*100)+'%',c:C.blue}:null;
       return(<div key={x.id} style={{...cardSt,borderLeft:'3px solid '+s.color,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
@@ -8178,7 +8204,7 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:800,color:C.text}}>{x.titulo}</div><div style={{fontSize:11,color:status?status.c:C.muted,marginTop:2,fontWeight:status?700:400}}>{status?status.t:x.carga+' · trilha interativa · '+x.questoes.length+' questões'}</div></div>
           <IconChev size={16} color={C.muted}/>
         </button>
-        {p.cert&&<button onClick={()=>certificado({m:x,...p.cert,codigo:p.cert.codigo||p.codigo})} style={{background:C.green+'22',color:C.green,border:'1px solid '+C.green+'55',borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:800,cursor:'pointer'}}>Certificado</button>}
+        {p.cert&&<span style={{background:C.green+'22',color:C.green,border:'1px solid '+C.green+'55',borderRadius:8,padding:'6px 10px',fontSize:11,fontWeight:800}}>✓ Concluído</span>}
       </div>);})}
   </div>);
 
@@ -8357,9 +8383,8 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
               <span style={{width:104,fontSize:11.5,color:C.muted}}>{l}</span><div style={{flex:1,height:10,borderRadius:5,background:C.border,overflow:'hidden'}}><div style={{width:v+'%',height:'100%',background:cor}}/></div><b style={{width:40,textAlign:'right',fontSize:12.5,color:C.text}}>{v}%</b></div>)}
             <div style={{fontSize:12,color:dif>0?C.green:C.muted,fontWeight:800,marginTop:2}}>{dif>0?'+'+dif+' pontos percentuais. Você aprendeu!':dif===0?'Mesmo resultado do diagnóstico: vale rever a trilha.':'Abaixo do diagnóstico: revise a trilha com calma.'}</div>
           </div>);})()}
-          <div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.6}}>{pm.pct>=NOTA_APROVACAO?'Parabéns, '+part.nome.split(' ')[0]+'! Capacitação concluída.':'Revise a trilha e tente de novo: são necessários '+NOTA_APROVACAO+'% para o certificado.'}</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:6,lineHeight:1.6}}>{pm.pct>=NOTA_APROVACAO?'Parabéns, '+part.nome.split(' ')[0]+'! Módulo concluído. '+(situacaoCurso({progresso:prog},mods).completo?'Você concluiu todos os módulos: o NSP vai emitir o seu certificado de '+CARGA_CURSO+'.':'Conclua os demais módulos para receber o certificado de '+CARGA_CURSO+'.'):'Revise a trilha e tente de novo: são necessários '+NOTA_APROVACAO+'% para o certificado.'}</div>
           <div style={{display:'flex',gap:8,justifyContent:'center',marginTop:12,flexWrap:'wrap'}}>
-            {pm.cert&&<button onClick={()=>certificado({m,...pm.cert,codigo:pm.cert.codigo||pm.codigo})} style={{background:C.green,color:'#06101F',border:'none',borderRadius:10,padding:'10px 16px',fontWeight:800,fontSize:12,cursor:'pointer'}}>Baixar certificado</button>}
             <button onClick={()=>imprimirApostila(m,h)} style={{background:C.card,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Apostila PDF</button>
             <button onClick={()=>{setPm(pm.pct>=NOTA_APROVACAO?{etapa:'quiz',atual:'quiz',resp:{},qi:0,pct:undefined,inicio:new Date().toISOString()}:{etapa:'conteudo',atual:'inicio',resp:{},qi:0,pct:undefined,inicio:new Date().toISOString()});topo();}} style={{background:C.card,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Refazer</button>
             <button onClick={voltar} style={{background:C.card,color:C.muted,border:'1px solid '+C.border,borderRadius:10,padding:'10px 16px',fontWeight:700,fontSize:12,cursor:'pointer'}}>Outros módulos</button>
@@ -8385,8 +8410,17 @@ function CertificadoVerificarView({sbUrl,sbKey,hospital}){
   const [res,setRes]=useState(null);
   const [mods,setMods]=useState(window.CAPACITACAO_MODULOS||null);
   const verificar=async c=>{
+    const k6=(c||cod).toUpperCase().replace(/[^A-Z0-9]/g,'');
+    if(k6.length===6){
+      setRes({carregando:true});
+      try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&codigo=eq.${k6}&select=nome,setor,profissao,progresso,certificado_emitido_em`);
+        const x=(d||[])[0];const ms=mods||await carregarCapacitacao().catch(()=>null);const sc=x&&situacaoCurso(x,ms);
+        setRes(x?{curso:{x,sc}}:{erro:'Certificado não encontrado para este código.'});}
+      catch(e){setRes({erro:'Não foi possível verificar agora.'});}
+      return;
+    }
     const k=(c||cod).toLowerCase().replace(/[^0-9a-f]/g,'');
-    if(k.length!==8){setRes({erro:'O código do certificado tem 8 caracteres (letras A–F e números).'});return;}
+    if(k.length!==8){setRes({erro:'Digite o código impresso no certificado (6 ou 8 caracteres).'});return;}
     setRes({carregando:true});
     try{
       const d=await sbSelect(sbUrl,sbKey,'capacitacao_respostas',`hospital_id=eq.${h.id}&id=gte.${k}-0000-0000-0000-000000000000&id=lte.${k}-ffff-ffff-ffff-ffffffffffff&select=id,created_at,modulo,nome,profissao,setor,percentual,tipo`);
@@ -8404,6 +8438,10 @@ function CertificadoVerificarView({sbUrl,sbKey,hospital}){
     </div>
     {res&&res.carregando&&<div style={{color:C.muted,fontSize:12}}>Verificando...</div>}
     {res&&res.erro&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'55',borderRadius:12,padding:14,color:C.red,fontSize:13}}>{res.erro}</div>}
+    {res&&res.curso&&(()=>{const {x,sc}=res.curso;const ok=sc.completo;return(<div style={{background:(ok?C.green:C.yellow)+'12',border:'1px solid '+(ok?C.green:C.yellow)+'55',borderRadius:12,padding:16}}>
+      <div style={{fontSize:14,fontWeight:900,color:ok?C.green:C.yellow,marginBottom:8}}>{ok?'Certificado válido':'Curso ainda não concluído'}</div>
+      {[['Nome',x.nome],['Especialidade / função',x.profissao],['Setor',x.setor],['Curso',TITULO_CURSO+' · '+CARGA_CURSO],['Módulos concluídos',sc.feitos+' de '+sc.total],['Aproveitamento médio',sc.media!=null?sc.media+'%':'—'],['Concluído em',sc.concluidoEm?new Date(sc.concluidoEm+'T12:00:00').toLocaleDateString('pt-BR'):'—']].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
+    </div>);})()}
     {r&&<div style={{background:C.green+'12',border:'1px solid '+C.green+'55',borderRadius:12,padding:16}}>
       <div style={{fontSize:14,fontWeight:900,color:C.green,marginBottom:8}}>{(r.percentual||0)>=NOTA_APROVACAO?'Certificado válido':'Registro encontrado, mas abaixo da nota de aprovação'}</div>
       {[['Nome',r.nome],['Especialidade',r.profissao],['Setor',r.setor],['Capacitação',tit||r.modulo],['Acerto',r.percentual+'%'],['Data',new Date(r.created_at).toLocaleDateString('pt-BR')]].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
@@ -8444,24 +8482,25 @@ function AssinaturasCertificado({sbUrl,sbKey,hospital,showToast}){
     <input value={cfg[kn]||''} onChange={e=>setCfg(c=>({...c,[kn]:e.target.value}))} placeholder="Nome (como sai abaixo da assinatura)" style={inp}/>
     <input value={cfg[kc]||''} onChange={e=>setCfg(c=>({...c,[kc]:e.target.value}))} placeholder="Cargo / função" style={{...inp,marginBottom:0}}/>
   </div>);
-  const pronta=!!(cfg.assinatura&&cfg.assinante_nome);
+  const [[,nomeAss,cargoAss]]=assinantesCert(cfg,h);
+  const pronta=!!nomeAss;
   return(<div style={{background:C.card,border:'1px solid '+(pronta?C.border:C.yellow+'66'),borderRadius:12,padding:14}}>
     <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
       <div style={{flex:1,minWidth:200}}>
-        <div style={{fontSize:13,fontWeight:800,color:C.text}}>Assinatura do certificado</div>
-        <div style={{fontSize:11,color:pronta?C.muted:C.yellow,marginTop:2}}>{pronta?'Certificados assinados por '+cfg.assinante_nome+(cfg.assinante2_nome?' e '+cfg.assinante2_nome:''):'Ainda sem assinatura: os certificados saem só com o nome do NSP.'}</div>
+        <div style={{fontSize:13,fontWeight:800,color:C.text}}>Assinatura do certificado ({CARGA_CURSO})</div>
+        <div style={{fontSize:11,color:pronta?C.muted:C.yellow,marginTop:2,lineHeight:1.5}}>{pronta?<>Rodapé: <b style={{color:C.text}}>{nomeAss}</b> · {cargoAss} · {nomeH(h)}{cfg.assinatura?' (com imagem da assinatura)':' · espaço em branco para assinar à caneta'}</>:'Informe quem assina o certificado.'}</div>
       </div>
       <button onClick={()=>setAberto(!aberto)} style={{background:pronta?C.surface:C.teal,color:pronta?C.teal:'#06101F',border:'1px solid '+C.teal+'55',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>{aberto?'Fechar':pronta?'Editar':'Configurar'}</button>
     </div>
     {erro==='sql'&&<div style={{fontSize:11,color:C.yellow,marginTop:8}}>Rode o {SQL_004} no Supabase para ativar.</div>}
     {aberto&&<div style={{marginTop:12}}>
-      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:10}}>Peça a assinatura em papel branco, com caneta azul ou preta, e tire uma foto de perto com boa luz. O fundo é removido automaticamente. Use apenas com autorização de quem assina: o certificado traz um código que pode ser conferido em {(linkH(h)+'?view=certificado').replace('https://','')}.</div>
+      <div style={{fontSize:11,color:C.muted,lineHeight:1.6,marginBottom:10}}>O rodapé sai em 3 linhas: nome, cargo/setor e o nome do hospital. Sem imagem, o certificado sai com o espaço em branco para assinar à caneta depois de impresso. Se preferir a assinatura digitalizada: peça a assinatura em papel branco, com caneta azul ou preta, e tire uma foto de perto com boa luz. O fundo é removido automaticamente. Use apenas com autorização de quem assina: o certificado traz um código que pode ser conferido em {(linkH(h)+'?view=certificado').replace('https://','')}.</div>
       <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
-        {bloco(1,'assinatura','assinante_nome','assinante_cargo','Assinatura principal','Ex.: Diretor(a) / Comandante')}
+        {bloco(1,'assinatura','assinante_nome','assinante_cargo','Assinatura principal','Padrão: '+((ASSINANTE_PADRAO[h.id]||{}).nome||'—')+' · Núcleo de Segurança do Paciente')}
         {bloco(2,'assinatura2','assinante2_nome','assinante2_cargo','Segunda assinatura (opcional)','Ex.: Coordenação do NSP')}
       </div>
       <div style={{display:'flex',gap:8,marginTop:10}}>
-        <button onClick={()=>imprimirCertificado({m:{titulo:'Prevenção de quedas',carga:'30 min'},h,nome:'Nome do Profissional',setor:(h.sectors||[])[0]||'',profissao:'Divisão de Enfermagem',pct:90,data:new Date().toLocaleDateString('pt-BR'),codigo:'EXEMPLO0',cfg})} style={{flex:1,background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'10px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver certificado de exemplo</button>
+        <button onClick={()=>imprimirCertificado({h,nome:'Nome do Profissional',setor:(h.sectors||[])[0]||'',profissao:'Enfermeiro(a)',modulos:(window.CAPACITACAO_MODULOS||[]).map(m=>({titulo:m.titulo})),media:88,data:new Date().toISOString().slice(0,10),codigo:'EXEMPL',cfg})} style={{flex:1,background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'10px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver certificado de exemplo</button>
         <button onClick={salvar} disabled={salvando} style={{flex:1,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'10px',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
       </div>
     </div>}
@@ -8562,6 +8601,63 @@ function analiseCapacitacao({R,PP,F,h,nomeMod,filtrada}){
   return out;
 }
 
+function ConcluintesCurso({sbUrl,sbKey,hospital,parts,setParts,mods,showToast,usuario}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [filtro,setFiltro]=useState('aguardando');
+  const [cfg,setCfg]=useState({});
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'capacitacao_config',`hospital_id=eq.${h.id}&select=*`).then(d=>setCfg((d&&d[0])||{})).catch(()=>{});},[sbUrl,sbKey]);
+  if(!mods) return null;
+  const todos=parts.map(x=>({x,sc:situacaoCurso(x,mods)}));
+  const concl=todos.filter(t=>t.sc.completo).sort((a,b)=>(b.sc.concluidoEm||'').localeCompare(a.sc.concluidoEm||''));
+  const andamento=todos.filter(t=>!t.sc.completo&&t.sc.feitos>0).length;
+  const grupos={aguardando:concl.filter(t=>!t.x.certificado_emitido_em),emitidos:concl.filter(t=>t.x.certificado_emitido_em&&!t.x.certificado_entregue_em),entregues:concl.filter(t=>t.x.certificado_entregue_em)};
+  const atualizar=async(x,patch,msg)=>{
+    try{await sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${x.id}`,patch);setParts(ps=>ps.map(p=>p.id===x.id?{...p,...patch}:p));if(msg)showToast(msg,'success');}
+    catch(e){showToast(faltaSQL004(e)||/certificado_/.test(e.message)?'Falta atualizar o banco: rode o '+SQL_004+' no Supabase.':'Erro ao salvar: '+e.message,'error');}
+  };
+  const emitir=t=>{
+    imprimirCertificado({h,nome:t.x.nome,setor:t.x.setor,profissao:t.x.profissao,modulos:t.sc.modulos,media:t.sc.media,data:t.sc.concluidoEm,codigo:t.x.codigo,cfg});
+    if(!t.x.certificado_emitido_em) atualizar(t.x,{certificado_emitido_em:new Date().toISOString(),certificado_emitido_por:usuario||null},'Certificado emitido. Depois de assinar, avise '+t.x.nome.split(' ')[0]+' para retirar na sala do NSP.');
+  };
+  const dt=s=>s?new Date(s.length===10?s+'T12:00:00':s).toLocaleDateString('pt-BR'):'—';
+  const lista=grupos[filtro];
+  const btn={border:'none',borderRadius:8,padding:'7px 10px',fontSize:11,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'};
+  return(<div style={{background:C.card,border:'1px solid '+(grupos.aguardando.length?C.teal+'66':C.border),borderRadius:12,padding:14}}>
+    <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
+      <div style={{fontSize:14,fontWeight:900,color:C.text,flex:1}}>{String.fromCodePoint(127891)} Concluíram o curso · certificados de {CARGA_CURSO}</div>
+      <span style={{fontSize:11,color:C.muted}}>{concl.length} concluíram · {andamento} em andamento</span>
+    </div>
+    <div style={{fontSize:11,color:C.muted,margin:'4px 0 10px',lineHeight:1.5}}>Emita, imprima e assine. Depois avise o profissional para retirar na sala do NSP e marque como entregue.</div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+      {[['aguardando','Aguardando emissão'],['emitidos','Emitidos · a retirar'],['entregues','Entregues']].map(([k,l])=><button key={k} onClick={()=>setFiltro(k)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(filtro===k?C.teal:C.border),background:filtro===k?C.teal+'20':'transparent',color:filtro===k?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l} ({grupos[k].length})</button>)}
+    </div>
+    {lista.length?lista.map(t=><div key={t.x.id} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',padding:'9px 0',borderTop:'1px solid '+C.border}}>
+      <div style={{flex:1,minWidth:200}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{t.x.nome}</div>
+        <div style={{fontSize:11,color:C.muted}}>{t.x.profissao} · {t.x.setor} · concluiu em {dt(t.sc.concluidoEm)} · média {t.sc.media}%{t.x.certificado_emitido_em?' · emitido em '+dt(t.x.certificado_emitido_em):''}{t.x.certificado_entregue_em?' · entregue em '+dt(t.x.certificado_entregue_em):''}</div></div>
+      <button onClick={()=>emitir(t)} style={{...btn,background:t.x.certificado_emitido_em?C.surface:C.teal,color:t.x.certificado_emitido_em?C.teal:'#06101F',border:t.x.certificado_emitido_em?'1px solid '+C.teal+'55':'none'}}>{t.x.certificado_emitido_em?'Reimprimir':'Emitir certificado'}</button>
+      {t.x.certificado_emitido_em&&!t.x.certificado_entregue_em&&<button onClick={()=>atualizar(t.x,{certificado_entregue_em:new Date().toISOString()},'Marcado como entregue')} style={{...btn,background:C.green+'22',color:C.green,border:'1px solid '+C.green+'55'}}>Marcar entregue</button>}
+      {t.x.certificado_entregue_em&&<button onClick={()=>atualizar(t.x,{certificado_entregue_em:null},null)} style={{...btn,background:'transparent',color:C.muted,textDecoration:'underline'}}>desfazer</button>}
+    </div>):<div style={{fontSize:11,color:C.muted,padding:'6px 0'}}>{filtro==='aguardando'?'Nenhum certificado aguardando emissão.':'Ninguém nesta lista.'}</div>}
+  </div>);
+}
+
+function VideosPorProtocolo({sbUrl,sbKey,hospital,mods,setView}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [vs,setVs]=useState(null);
+  useEffect(()=>{if(sbUrl&&sbKey) sbSelect(sbUrl,sbKey,'videos_educacao',`hospital_id=eq.${h.id}&ativo=eq.true&select=subnucleo`).then(d=>setVs(d||[])).catch(()=>setVs([]));},[sbUrl,sbKey]);
+  if(!mods||!vs) return null;
+  const n=id=>vs.filter(v=>v.subnucleo===id).length;
+  const com=mods.filter(m=>n(m.id)>0).length;
+  return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14}}>
+    <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+      <div style={{flex:1,minWidth:200}}><div style={{fontSize:13,fontWeight:800,color:C.text}}>{String.fromCodePoint(127916)} Vídeos da trilha · {com} de {mods.length} protocolos</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:2,lineHeight:1.5}}>Cada vídeo publicado em Central de Conhecimento → Vídeos, no protocolo correspondente, entra sozinho como passo da trilha daquele módulo.</div></div>
+      {setView&&<button onClick={()=>setView('central')} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'8px 12px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Publicar vídeo</button>}
+    </div>
+    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:10}}>{mods.map(m=>{const k=n(m.id),s=modInfo(m.id);return <span key={m.id} style={{fontSize:11,padding:'5px 10px',borderRadius:14,border:'1px solid '+(k?C.green+'66':C.border),background:k?C.green+'14':'transparent',color:k?C.green:C.muted,fontWeight:700}}>{s.icon} {s.label||m.titulo}{k?' · '+k:' · sem vídeo'}</span>;})}</div>
+  </div>);
+}
+
 function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,perfil,setView}){
   const h=hospital||DEFAULT_HOSPITAL;
   const [lista,setLista]=useState([]);
@@ -8629,7 +8725,9 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
         <button onClick={()=>{try{navigator.clipboard.writeText(link);showToast('Link copiado','success');}catch{showToast(link,'success');}}} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Copiar link</button>
         {setView&&<button onClick={()=>setView('capacitacao')} style={{background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'9px 14px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver o curso</button>}
       </div>
+      {!travado&&!erro&&<ConcluintesCurso sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} parts={parts} setParts={setParts} mods={mods} showToast={showToast} usuario={perfil}/>}
       {!travado&&!erro&&<AssinaturasCertificado sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
+      {!erro&&<VideosPorProtocolo sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} mods={mods} setView={setView}/>}
       {erro==='sql'&&<div style={{...card,borderColor:C.yellow+'66',color:C.yellow,fontSize:12,lineHeight:1.6}}>A capacitação ainda não está ativada no banco. Rode uma vez o arquivo <b>{SQL_004}</b> no Supabase (SQL Editor → New query → colar → Run).</div>}
       {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
@@ -8677,7 +8775,7 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
         <div style={card}>
           <div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:10}}>Adesão: onde as pessoas estão</div>
           {F.f.iniciaram?<>
-            {[['Iniciaram',F.f.iniciaram],['Fizeram o diagnóstico',F.f.diagnostico],['Concluíram a trilha',F.f.trilha],['Enviaram o desafio final',F.f.desafio],['Receberam o certificado',F.f.certificado]].map(([l,v])=><div key={l} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+            {[['Iniciaram',F.f.iniciaram],['Fizeram o diagnóstico',F.f.diagnostico],['Concluíram a trilha',F.f.trilha],['Enviaram o desafio final',F.f.desafio],['Aprovados no módulo (≥'+NOTA_APROVACAO+'%)',F.f.certificado]].map(([l,v])=><div key={l} style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
               <span style={{width:160,fontSize:12,color:C.text}}>{l}</span><div style={{flex:1,height:14,borderRadius:7,background:C.border,overflow:'hidden'}}><div style={{width:Math.round(v/F.f.iniciaram*100)+'%',height:'100%',background:C.teal}}/></div><b style={{width:70,textAlign:'right',fontSize:12,color:C.text}}>{v} <span style={{color:C.muted,fontWeight:600}}>({Math.round(v/F.f.iniciaram*100)}%)</span></b></div>)}
             {F.parados.length>0&&<div style={{marginTop:10}}>
               <div style={{fontSize:12,fontWeight:800,color:C.yellow,marginBottom:4}}>Paradas há mais de 7 dias ({F.parados.length})</div>

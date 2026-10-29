@@ -102,9 +102,14 @@
     var svgAss = '<svg xmlns="http://www.w3.org/2000/svg" width="360" height="110" viewBox="0 0 360 110"><path d="M10 78 C 30 20, 55 20, 50 70 S 80 95, 95 50 S 120 20, 128 62 C 133 85, 150 85, 160 55 C 168 32, 180 40, 176 66 C 173 86, 196 84, 210 52 C 222 26, 240 30, 236 64 C 233 88, 262 80, 275 50 C 285 30, 300 34, 305 58 C 309 76, 330 70, 350 40" fill="none" stroke="#1a2a6c" stroke-width="3.2" stroke-linecap="round"/><path d="M40 92 L 320 86" stroke="#1a2a6c" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
     DB.capacitacao_config = [{ hospital_id: HID, assinatura: 'data:image/svg+xml;base64,' + btoa(svgAss), assinante_nome: 'Dra. Helena Exemplo', assinante_cargo: 'Diretora Técnica', assinatura2: null, assinante2_nome: 'Enf. Coordenação NSP', assinante2_cargo: 'Núcleo de Segurança do Paciente', updated_at: new Date().toISOString() }];
     DB.capacitacao_participantes = [];
-    ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves'].forEach(function (n, i) {
-      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: i % 4 === 3 ? 'Medicina' : 'Divisão de Enfermagem',
-        progresso: [{ lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 }, pre: { pct: 50 } } }, { queda: { etapa: 'resultado', pct: 88, pre: { pct: 50 }, cert: { pct: 88, data: '01/10/2026' } } }, { ccih: { etapa: 'pre', preResp: { maos_1: 0 } } }, { medicamentos: { etapa: 'conteudo', atual: 's2', pre: { pct: 33 } } }][i % 4] });
+    var todosMods = ['identificacao', 'medicamentos', 'queda', 'lpp', 'cirurgia', 'comunicacao', 'ccih'];
+    var completo = function (base) { var pr = {}; todosMods.forEach(function (m, k) { var pct = 73 + ((base + k * 7) % 27); pr[m] = { etapa: 'resultado', pct: pct, pre: { pct: 40 + (k * 9) % 30 }, cert: { pct: pct, data: diasAtras(base + k).toLocaleDateString('pt-BR') } }; }); return pr; };
+    var profsP = ['Enfermeiro(a)', 'Técnico(a) de enfermagem', 'Médico(a)', 'Técnico(a) de enfermagem', 'Dentista', 'Farmacêutico(a)', 'Enfermeiro(a)', 'Fisioterapeuta', 'Recepcionista', 'Técnico(a) de radiologia', 'Nutricionista'];
+    ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana'].forEach(function (n, i) {
+      var prog = [{ lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 }, pre: { pct: 50 } } }, { queda: { etapa: 'resultado', pct: 88, pre: { pct: 50 }, cert: { pct: 88, data: '01/10/2026' } } }, { ccih: { etapa: 'pre', preResp: { maos_1: 0 } } }, { medicamentos: { etapa: 'conteudo', atual: 's2', pre: { pct: 33 } } }][i % 4];
+      if (i >= 8) prog = completo(3 + i * 4);
+      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: profsP[i],
+        progresso: prog, certificado_emitido_em: i >= 9 ? diasAtras(2 + i).toISOString() : null, certificado_entregue_em: i === 10 ? diasAtras(1).toISOString() : null });
     });
     DB.videos_educacao = [
       { id: uuid(), created_at: diasAtras(20).toISOString(), hospital_id: HID, subnucleo: 'ccih', titulo: 'Higiene das mãos: os 5 momentos', url: 'https://www.youtube.com/watch?v=IisgnbMfKvI', descricao: 'Exemplo de vídeo cadastrado pelo subnúcleo.', publico: 'todos', ordem: 0, ativo: true, criado_por: 'ccih' },
@@ -128,7 +133,7 @@
     DB.capacitacao_respostas = [];
     var mods = { identificacao: 'ident', medicamentos: 'med', queda: 'queda', lpp: 'lpp', cirurgia: 'cir', comunicacao: 'com', ccih: 'maos' };
     var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62, med_9: 0.5, lpp_10: 0.48, com_10: 0.55, ident_11: 0.7, queda_10: 0.66, cir_11: 0.72, maos_9: 0.52 };
-    var profs = ['Divisão de Enfermagem', 'Divisão de Enfermagem', 'Divisão de Enfermagem', 'Medicina', 'Farmácia', 'Odontologia', 'Fisioterapia'];
+    var profs = ['Enfermeiro(a)', 'Técnico(a) de enfermagem', 'Técnico(a) de enfermagem', 'Médico(a)', 'Farmacêutico(a)', 'Dentista', 'Fisioterapeuta'];
     var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
     var pids = nomes.map(function () { return uuid(); });
     // diagnostico inicial: 2 primeiras questoes de cada nivel (mesma regra do app)
@@ -140,7 +145,7 @@
       var dt = Math.floor(rnd() * 200), chave = pids[ni] + mod, prePct = null;
       if (!vistos[chave] && rnd() < 0.8) {
         vistos[chave] = 1; var pr = {}, pac = 0, ids = PRE[mod];
-        ids.forEach(function (id) { var p0 = (dificeis[id] || (/_(9|10|11)$/.test(id) ? 0.74 : 0.88)) - 0.3 - (prof === 'Divisão de Enfermagem' ? 0 : 0.05), c0 = rnd() < p0; if (c0) pac++; pr[id] = { e: c0 ? 0 : 1 + Math.floor(rnd() * 3), c: c0 }; });
+        ids.forEach(function (id) { var p0 = (dificeis[id] || (/_(9|10|11)$/.test(id) ? 0.74 : 0.88)) - 0.3 - (/enfermag|Enfermeiro/.test(prof) ? 0 : 0.05), c0 = rnd() < p0; if (c0) pac++; pr[id] = { e: c0 ? 0 : 1 + Math.floor(rnd() * 3), c: c0 }; });
         prePct = Math.round(pac / ids.length * 100);
         DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(dt + 1).toISOString(), hospital_id: HID, modulo: mod, participante_id: pids[ni], nome: nome, setor: setor, profissao: prof, acertos: pac, total: ids.length, percentual: prePct, respostas: pr, duracao_seg: null, versao: '2026.2', tipo: 'pre' });
       }

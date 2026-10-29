@@ -1,0 +1,122 @@
+{
+  "titulo": "Identificação correta do paciente",
+  "nome_saida": "identificacao-do-paciente",
+  "instituicao": "Hospital Naval de Salvador · Núcleo de Segurança do Paciente",
+  "link": "notificaai.ia.br/hnsa",
+  "qr": "https://notificaai.ia.br/hnsa",
+  "chamada_final": "Viu algo errado? Notifique.",
+  "titulo_capa": "Por que conferimos sua pulseira?",
+  "narracao": "narracao.mp3",
+  "formatos": [
+    "vertical",
+    "horizontal"
+  ],
+  "cenas": [
+    {
+      "tipo": "foto",
+      "foto": "posto.jpg",
+      "foco": [
+        0.42,
+        0.52
+      ],
+      "borrar": [
+        [
+          0.28,
+          0.43,
+          0.72,
+          0.57
+        ]
+      ],
+      "selo": "Segurança do paciente",
+      "titulo": "Identificação correta do paciente",
+      "texto": "Olá! Aqui é o Núcleo de Segurança do Paciente do Hospital Naval de Salvador. Você sabe por que perguntamos tantas vezes o seu nome?",
+      "foco_h": [
+        0.42,
+        0.4
+      ]
+    },
+    {
+      "tipo": "pulseira",
+      "titulo": "Dois identificadores, sempre",
+      "linhas": [
+        "Nome completo",
+        "Data de nascimento"
+      ],
+      "texto": "Na internação, você recebe uma pulseira com seu nome completo e sua data de nascimento. Ela fica no pulso até a alta, inclusive no banho e nos exames."
+    },
+    {
+      "tipo": "foto",
+      "foto": "leito.jpg",
+      "foco": [
+        0.55,
+        0.55
+      ],
+      "borrar": [
+        [
+          0.0,
+          0.1,
+          0.04,
+          0.24
+        ],
+        [
+          0.0,
+          0.32,
+          0.05,
+          0.4
+        ]
+      ],
+      "selo": "Antes de cada cuidado",
+      "titulo": "A equipe confere a pulseira",
+      "linhas": [
+        "Remédio e transfusão",
+        "Exame e coleta",
+        "Procedimento",
+        "!Nunca pelo número do leito"
+      ],
+      "texto": "Antes de qualquer remédio, exame, coleta ou procedimento, o profissional confere a pulseira e pergunta seu nome completo e sua data de nascimento. Nunca pelo número do leito."
+    },
+    {
+      "tipo": "foto",
+      "foto": "posto.jpg",
+      "foco": [
+        0.62,
+        0.62
+      ],
+      "zoom": 0.09,
+      "borrar": [
+        [
+          0.28,
+          0.43,
+          0.72,
+          0.57
+        ]
+      ],
+      "selo": "Você também cuida",
+      "titulo": "Pulseira com problema?",
+      "linhas": [
+        "Soltou, apagou ou tem erro: avise a equipe",
+        "Você pode e deve pedir a conferência"
+      ],
+      "texto": "Se a pulseira soltar, apagar ou estiver com algum dado errado, avise a equipe na hora. E se alguém não conferir, você pode e deve pedir.",
+      "foco_h": [
+        0.3,
+        0.45
+      ],
+      "foco_v": [
+        0.5,
+        0.45
+      ]
+    },
+    {
+      "tipo": "mensagem",
+      "titulo": "Perguntar seu nome várias vezes não é esquecimento:",
+      "destaque": "é segurança.",
+      "texto": "Perguntar seu nome várias vezes não é esquecimento: é segurança. Viu algo errado? Notifique: notificaai ponto ia ponto br barra hnsa.",
+      "legenda": "Perguntar seu nome várias vezes não é esquecimento: é segurança. Viu algo errado? Notifique: notificaai.ia.br/hnsa."
+    },
+    {
+      "tipo": "final",
+      "no_texto": "Viu algo errado"
+    }
+  ]
+}

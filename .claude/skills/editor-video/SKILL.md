@@ -20,6 +20,10 @@ Ferramenta: `video/editor.py` (documentação completa em `video/README.md`).
 5. **Revisar o resultado antes de entregar**: folha de contato dos dois formatos, `ebur128` (deve dar ≈ −14 LUFS), primeiras linhas do `.srt`. Corrija enquadramento, sobreposição de textos ou cortes errados.
 6. **Entregar** com `SendUserFile` (vídeos, capa, srt) e o `relatorio.txt` resumido. Lembre: autorização para uso de farda e imagens do hospital; sem pacientes identificáveis; no YouTube, marcar "conteúdo alterado ou sintético" se houver cenas geradas por IA.
 
+## Vídeo só com narração
+
+Use `video/narrado.py` com um `narrado.json` (modelo em `video/projetos/identificacao/narrado.json`): uma cena por trecho do roteiro (`foto`, `pulseira`, `mensagem`, `final`). Antes, confira as fotos e marque em `borrar` papéis, telas e pessoas. A transcrição (sherpa-onnx + Whisper small, baixado do GitHub) sincroniza legenda e cenas com a fala; confira no relatório e na folha de contato que as cenas trocam nos blocos certos.
+
 ## Limites a dizer ao usuário
 
 - Sem transcrição, o editor não percebe uma frase errada e repetida: peça um arquivo por bloco, sem erros.

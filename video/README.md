@@ -59,6 +59,19 @@ Os arquivos ficam em `video/projetos/<tema>/saida/`. Vídeos e áudios não vão
 
 Troca de fundo precisa de `pip install onnxruntime numpy`; o modelo (15 MB) é baixado na primeira vez para `~/.cache/notificaai/`. Velocidade: cerca de 4 a 9 quadros por segundo na CPU (1 min de vídeo leva alguns minutos).
 
+## Vídeo narrado (sem apresentador)
+
+`video/narrado.py` monta o vídeo só com a narração gravada, fotos do hospital e gráficos:
+
+```bash
+python3 video/narrado.py video/projetos/identificacao/narrado.json
+```
+
+- **Cenas** (`cenas[]`): `foto` (foto com movimento lento e painel de texto: `selo`, `titulo`, `linhas`; linha que começa com `!` sai em vermelho), `pulseira` (ilustração com os dois identificadores), `mensagem` (frase de destaque) e `final` (QR code). Cada cena com fala tem o `texto` do roteiro (como foi falado) e, se quiser, a `legenda` (como deve aparecer, ex.: o endereço escrito).
+- **Fotos**: `foco` (ponto de interesse, de 0 a 1), `foco_h`/`foco_v` por formato, `borrar` (retângulos em fração da foto para esconder papéis, telas ou pessoas), `zoom`.
+- **Sincronia**: transcreve a narração com Whisper (modelo `sherpa-onnx-whisper-small`, 640 MB, baixado do GitHub na primeira vez para `~/.cache/notificaai/`; requer `pip install sherpa-onnx numpy`) e alinha o texto do roteiro com o que foi dito: cada frase da legenda e cada troca de cena caem na hora certa. A cena `final` pode começar numa frase (`"no_texto": "Viu algo errado"`). Sem a transcrição, a legenda é distribuída pelas pausas (aproximada).
+- **Pausas**: as longas são encurtadas (`pausa_max` dentro da cena, `pausa_cena` entre cenas).
+
 ## Como gravar
 
 - Celular na horizontal (ou vertical, se o foco for Reels), na altura dos olhos, 1080p/30 fps.

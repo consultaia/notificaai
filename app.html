@@ -8077,6 +8077,38 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     setProg(novo);try{localStorage.setItem(kProg,JSON.stringify(novo));}catch{}
     if(part&&part.id&&sbUrl&&sbKey){clearTimeout(timer.current);timer.current=setTimeout(()=>{sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${part.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});},800);}
   };
+  // envia o que ficou guardado no aparelho quando o banco ainda nao aceitava (cadastro, diagnosticos e resultados)
+  const sincronizando=React.useRef(false);
+  useEffect(()=>{
+    if(!part||!sbUrl||!sbKey||sincronizando.current) return;
+    const temPendente=!part.id||Object.values(prog||{}).some(v=>v&&(v.pendente||v.preReg));
+    if(!temPendente) return;
+    sincronizando.current=true;
+    (async()=>{
+      try{
+        let p=part;
+        if(!p.id){
+          const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:prog});
+          if(!(r&&r[0]&&r[0].id)) return;
+          p={...p,id:r[0].id};setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));}catch{}
+        }
+        const novo={...prog};let mudou=false;
+        for(const [mod,v] of Object.entries(prog||{})){
+          if(!v) continue;const nv={...v};
+          if(nv.preReg){try{await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{...nv.preReg,participante_id:p.id});delete nv.preReg;mudou=true;}catch(e){}}
+          if(nv.pendente){try{const r=await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{...nv.pendente,participante_id:p.id});
+            const cod=r&&r[0]&&r[0].id?String(r[0].id).slice(0,8).toUpperCase():null;
+            delete nv.pendente;if(cod){nv.codigo=cod;if(nv.cert&&!nv.cert.codigo)nv.cert={...nv.cert,codigo:cod};}mudou=true;}catch(e){}}
+          novo[mod]=nv;
+        }
+        if(mudou){setProg(novo);try{localStorage.setItem(kProg,JSON.stringify(novo));}catch{}
+          sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});
+          toast('Resultados guardados no aparelho foram enviados ao NSP.','success');}
+        else if(!part.id) sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}`,{progresso:novo}).catch(()=>{});
+      }catch(e){}
+      finally{sincronizando.current=false;}
+    })();
+  },[part&&part.id,sbUrl,sbKey]);
   const pm=(modId&&prog[modId])||{};
   const setPm=patch=>salvarProg({...prog,[modId]:{...pm,...patch,atualizado:new Date().toISOString()}});
   const m=mods&&mods.find(x=>x.id===modId);
@@ -8138,11 +8170,13 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     m.questoes.forEach(q=>{const c=resp[q.id]===0;if(c)acertos++;det[q.id]={e:resp[q.id],c};});
     const pct=Math.round(acertos/m.questoes.length*100);
     const reg={hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos,total:m.questoes.length,percentual:pct,respostas:det,duracao_seg:pm.inicio?Math.round((Date.now()-new Date(pm.inicio).getTime())/1000):null,versao:window.CAPACITACAO_VERSAO||null,tipo:'pos',pre_percentual:pm.pre?pm.pre.pct:null};
-    let codigo=null;
+    let codigo=null,pendente=null;
+    // se o banco nao aceitar agora (sem conexao ou capacitacao ainda nao ativada), o resultado fica guardado
+    // no aparelho e e enviado sozinho depois (sincronizarPendentes); a pessoa nao perde o que fez
     try{if(sbUrl&&sbKey){const r=await sbInsert(sbUrl,sbKey,'capacitacao_respostas',reg);codigo=r&&r[0]&&r[0].id?String(r[0].id).slice(0,8).toUpperCase():null;}}
-    catch(e){toast(faltaSQL004(e)||/capacitacao_/.test(e.message)?'Resultado não registrado: a capacitação ainda não foi ativada no banco. Avise o NSP.':'Resultado não registrado (sem conexão). Tente enviar de novo.','error');setOcupado(false);return;}
+    catch(e){pendente=reg;toast('Resultado guardado neste aparelho. Ele será enviado ao NSP automaticamente assim que o sistema estiver liberado.','success');}
     const melhor=Math.max(pct,pm.melhor||0);
-    setPm({etapa:'resultado',pct,acertos,posMesmas:pctLocal(questoesPre(m),resp),codigo:codigo||('LOCAL'+Date.now().toString(36).toUpperCase()),data:new Date().toLocaleDateString('pt-BR'),melhor,
+    setPm({etapa:'resultado',pct,acertos,pendente,posMesmas:pctLocal(questoesPre(m),resp),codigo:codigo||('LOCAL'+Date.now().toString(36).toUpperCase()),data:new Date().toLocaleDateString('pt-BR'),melhor,
       ...(pct>=NOTA_APROVACAO&&!(pm.cert&&pm.cert.pct>=pct)?{cert:{pct,codigo,data:new Date().toLocaleDateString('pt-BR')}}:{})});
     setOcupado(false);topo();
   };
@@ -8339,8 +8373,10 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     preQs.forEach(q=>{const c=preResp[q.id]===0;if(c)ac++;det[q.id]={e:preResp[q.id],c};});
     const pct=Math.round(ac/preQs.length*100);
     // o diagnostico nao bloqueia o curso: se falhar o envio, a pessoa segue normalmente
-    try{if(sbUrl&&sbKey) await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos:ac,total:preQs.length,percentual:pct,respostas:det,versao:window.CAPACITACAO_VERSAO||null,tipo:'pre'});}catch(e){}
-    setPm({etapa:'conteudo',atual:'inicio',pre:{pct,acertos:ac,total:preQs.length,data:new Date().toISOString()}});
+    const regPre={hospital_id:h.id,modulo:m.id,participante_id:part.id||null,nome:part.nome,setor:part.setor,profissao:part.profissao,acertos:ac,total:preQs.length,percentual:pct,respostas:det,versao:window.CAPACITACAO_VERSAO||null,tipo:'pre'};
+    let preReg=regPre;
+    try{if(sbUrl&&sbKey){await sbInsert(sbUrl,sbKey,'capacitacao_respostas',regPre);preReg=null;}}catch(e){}
+    setPm({etapa:'conteudo',atual:'inicio',preReg,pre:{pct,acertos:ac,total:preQs.length,data:new Date().toISOString()}});
     toast('Diagnóstico registrado! No final você vai ver o quanto evoluiu.','success');
     setOcupado(false);topo();
   };

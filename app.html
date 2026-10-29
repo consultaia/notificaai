@@ -7870,7 +7870,10 @@ function VideosEducacaoView({sbUrl,sbKey,hospital,profileMode,userSubnucleo,show
 // ── Capacitacao online: video + apostila + questionario por protocolo ─────────
 // Conteudo em assets/capacitacao.js (carregado sob demanda). Resultados em
 // capacitacao_respostas (SQL 004): nome, setor, profissao, % de acerto e cada resposta.
-const PROFISSOES=['Enfermeiro(a)','Técnico(a) ou auxiliar de enfermagem','Médico(a)','Residente','Farmacêutico(a)','Fisioterapeuta','Nutricionista','Odontólogo(a)','Psicólogo(a)','Assistente social','Fonoaudiólogo(a)','Técnico(a) de radiologia ou laboratório','Maqueiro(a) / apoio','Higienização','Administrativo / recepção','Estagiário(a) / acadêmico(a)','Outro'];
+// Especialidade/divisao escolhida no cadastro (fica no campo 'profissao'); 'Outros' abre um campo livre.
+// A instituicao pode ter a propria lista em hospitals.divisoes (["...", ...]).
+const DIVISOES_PADRAO=['Divisão de Enfermagem','Medicina','Farmácia','Odontologia'];
+const divisoesDe=h=>(h&&Array.isArray(h.divisoes)&&h.divisoes.length?h.divisoes:DIVISOES_PADRAO);
 const NOTA_APROVACAO=70;
 let _capacPromise=null;
 function carregarCapacitacao(){
@@ -7975,7 +7978,8 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
   const [erroCont,setErroCont]=useState(null);
   const [part,setPart]=useState(()=>ler(kPart,null));
   const [prog,setProg]=useState(()=>ler(kProg,{}));
-  const [cad,setCad]=useState(()=>{const a=ler('nai_participante_'+h.id,{});return {nome:a.nome||'',setor:a.setor||'',profissao:a.profissao||''};});
+  const [cad,setCad]=useState(()=>{const a=ler('nai_participante_'+h.id,{});const lista=divisoesDe(h);const conhecida=lista.includes(a.profissao);
+    return {nome:a.nome||'',setor:a.setor||'',divisao:a.profissao?(conhecida?a.profissao:'outros'):'',outra:a.profissao&&!conhecida?a.profissao:''};});
   const [codigoDig,setCodigoDig]=useState('');
   const [modId,setModId]=useState(()=>{try{return new URLSearchParams(location.search).get('modulo')||null;}catch{return null;}});
   const [videos,setVideos]=useState([]);
@@ -8004,12 +8008,14 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
 
   const cadastrar=async()=>{
     if(!cad.nome.trim()||cad.nome.trim().split(/\s+/).length<2){toast('Informe seu nome completo (como deve sair no certificado)','error');return;}
-    if(!cad.setor||!cad.profissao){toast('Escolha o setor e a profissão','error');return;}
+    const divisao=cad.divisao==='outros'?cad.outra.trim().replace(/\s+/g,' ').slice(0,60):cad.divisao;
+    if(!divisao){toast(cad.divisao==='outros'?'Escreva a sua especialidade ou área':'Escolha a sua especialidade','error');return;}
+    if(!cad.setor){toast('Escolha o setor onde trabalha','error');return;}
     setOcupado(true);
-    const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:cad.profissao};
+    const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
     try{if(sbUrl&&sbKey){const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,...p,progresso:prog});if(r&&r[0])p.id=r[0].id;}}
     catch(e){if(!faltaSQL004(e)&&!/capacitacao_participantes/.test(e.message)) toast('Sem conexão: seu progresso fica salvo só neste aparelho por enquanto.','error');}
-    setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify(cad));}catch{}
+    setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify({nome:p.nome,setor:p.setor,profissao:p.profissao}));}catch{}
     setMostrarCodigo(true);setOcupado(false);topo();
   };
   const entrarComCodigo=async()=>{
@@ -8063,9 +8069,11 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       <select value={cad.setor} onChange={e=>setCad({...cad,setor:e.target.value})} style={{...inp,appearance:'none'}}>
         <option value="">Setor onde trabalha...</option>{[...(h.sectors||[]),'Outro'].map(x=><option key={x} value={x}>{x}</option>)}
       </select>
-      <select value={cad.profissao} onChange={e=>setCad({...cad,profissao:e.target.value})} style={{...inp,appearance:'none'}}>
-        <option value="">Profissão...</option>{PROFISSOES.map(x=><option key={x} value={x}>{x}</option>)}
-      </select>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'2px 0 8px'}}>A qual especialidade você pertence?</div>
+      <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:cad.divisao==='outros'?8:14}}>
+        {[...divisoesDe(h),'outros'].map(x=>{const sel=cad.divisao===x;return(<button key={x} onClick={()=>setCad({...cad,divisao:x})} style={{flex:'1 1 45%',padding:'11px 8px',borderRadius:10,border:'1.5px solid '+(sel?C.teal:C.border),background:sel?C.teal+'22':C.surface,color:sel?C.teal:C.text,fontSize:13,fontWeight:sel?800:600,cursor:'pointer'}}>{x==='outros'?'Outros':x}</button>);})}
+      </div>
+      {cad.divisao==='outros'&&<input value={cad.outra} onChange={e=>setCad({...cad,outra:e.target.value})} placeholder="Escreva a sua especialidade ou área (ex.: Fisioterapia, Nutrição)" style={inp} maxLength={60} autoFocus/>}
       <button onClick={cadastrar} disabled={ocupado} style={btnP}>{ocupado?'Cadastrando...':'Começar'}</button>
     </div>
     <div style={{...cardSt,marginTop:12}}>
@@ -8203,7 +8211,7 @@ function CertificadoVerificarView({sbUrl,sbKey,hospital}){
     {res&&res.erro&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'55',borderRadius:12,padding:14,color:C.red,fontSize:13}}>{res.erro}</div>}
     {r&&<div style={{background:C.green+'12',border:'1px solid '+C.green+'55',borderRadius:12,padding:16}}>
       <div style={{fontSize:14,fontWeight:900,color:C.green,marginBottom:8}}>{(r.percentual||0)>=NOTA_APROVACAO?'Certificado válido':'Registro encontrado, mas abaixo da nota de aprovação'}</div>
-      {[['Nome',r.nome],['Profissão',r.profissao],['Setor',r.setor],['Capacitação',tit||r.modulo],['Acerto',r.percentual+'%'],['Data',new Date(r.created_at).toLocaleDateString('pt-BR')]].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
+      {[['Nome',r.nome],['Especialidade',r.profissao],['Setor',r.setor],['Capacitação',tit||r.modulo],['Acerto',r.percentual+'%'],['Data',new Date(r.created_at).toLocaleDateString('pt-BR')]].map(([a,b])=><div key={a} style={{display:'flex',justifyContent:'space-between',gap:10,fontSize:13,padding:'5px 0',borderTop:'1px solid '+C.border}}><span style={{color:C.muted}}>{a}</span><b style={{color:C.text,textAlign:'right'}}>{b||'—'}</b></div>)}
     </div>}
   </div>);
 }
@@ -8258,14 +8266,14 @@ function AssinaturasCertificado({sbUrl,sbKey,hospital,showToast}){
         {bloco(2,'assinatura2','assinante2_nome','assinante2_cargo','Segunda assinatura (opcional)','Ex.: Coordenação do NSP')}
       </div>
       <div style={{display:'flex',gap:8,marginTop:10}}>
-        <button onClick={()=>imprimirCertificado({m:{titulo:'Prevenção de quedas',carga:'30 min'},h,nome:'Nome do Profissional',setor:(h.sectors||[])[0]||'',profissao:'Enfermeiro(a)',pct:90,data:new Date().toLocaleDateString('pt-BR'),codigo:'EXEMPLO0',cfg})} style={{flex:1,background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'10px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver certificado de exemplo</button>
+        <button onClick={()=>imprimirCertificado({m:{titulo:'Prevenção de quedas',carga:'30 min'},h,nome:'Nome do Profissional',setor:(h.sectors||[])[0]||'',profissao:'Divisão de Enfermagem',pct:90,data:new Date().toLocaleDateString('pt-BR'),codigo:'EXEMPLO0',cfg})} style={{flex:1,background:C.surface,color:C.teal,border:'1px solid '+C.teal+'55',borderRadius:8,padding:'10px',fontSize:12,fontWeight:700,cursor:'pointer'}}>Ver certificado de exemplo</button>
         <button onClick={salvar} disabled={salvando} style={{flex:1,background:C.teal,color:'#06101F',border:'none',borderRadius:8,padding:'10px',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
       </div>
     </div>}
   </div>);
 }
 
-// Painel do gestor: quem fez, por setor e profissao, % de acerto, pontos fortes e fracos
+// Painel do gestor: quem fez, por setor e especialidade, % de acerto, pontos fortes e fracos
 function resumoCapacitacao(lista,mods){
   const pessoas=new Set(lista.map(r=>semAcento(r.nome).replace(/\s+/g,' ').trim()+'|'+r.setor+'|'+r.profissao));
   const media=lista.length?Math.round(lista.reduce((a,r)=>a+(r.percentual||0),0)/lista.length):null;
@@ -8312,11 +8320,11 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
   const sugestoes=[];
   fracos.slice(0,6).forEach(x=>sugestoes.push('Reforçar "'+x.q.tema+'" em '+nomeMod(x.m.id)+' ('+x.pct+'% de acerto): '+x.q.exp));
   R.porSetor.filter(x=>x.n>=3&&x.media<NOTA_APROVACAO).forEach(x=>sugestoes.push('Priorizar treinamento presencial no setor '+x.k+' (média '+x.media+'%).'));
-  R.porProf.filter(x=>x.n>=3&&x.media<NOTA_APROVACAO).forEach(x=>sugestoes.push('Ação educativa dirigida a '+x.k+' (média '+x.media+'%).'));
+  R.porProf.filter(x=>x.n>=3&&x.media<NOTA_APROVACAO).forEach(x=>sugestoes.push('Ação educativa dirigida à especialidade '+x.k+' (média '+x.media+'%).'));
   if(mods&&modulo==='todos') mods.filter(m=>!filtrada.some(r=>r.modulo===m.id)).forEach(m=>sugestoes.push('Divulgar o módulo "'+m.titulo+'": nenhuma participação no período.'));
   const link=linkH(h)+'?view=capacitacao';
   const exportar=()=>{
-    const linhas=filtrada.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(r=>({Data:new Date(r.created_at).toLocaleString('pt-BR'),Nome:r.nome,Setor:r.setor,Profissao:r.profissao,Modulo:nomeMod(r.modulo),Acertos:r.acertos+'/'+r.total,Percentual:r.percentual,Situacao:(r.percentual||0)>=NOTA_APROVACAO?'Concluído':'Abaixo de '+NOTA_APROVACAO+'%',Codigo:String(r.id||'').slice(0,8).toUpperCase()}));
+    const linhas=filtrada.slice().sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||'')).map(r=>({Data:new Date(r.created_at).toLocaleString('pt-BR'),Nome:r.nome,Setor:r.setor,Especialidade:r.profissao,Modulo:nomeMod(r.modulo),Acertos:r.acertos+'/'+r.total,Percentual:r.percentual,Situacao:(r.percentual||0)>=NOTA_APROVACAO?'Concluído':'Abaixo de '+NOTA_APROVACAO+'%',Codigo:String(r.id||'').slice(0,8).toUpperCase()}));
     if(!linhas.length){showToast('Nenhum registro no período','error');return;}
     const nome='capacitacao-online-'+siglaH(h)+'-'+new Date().toISOString().slice(0,10);
     if(window.XLSX){const wb=window.XLSX.utils.book_new();window.XLSX.utils.book_append_sheet(wb,window.XLSX.utils.json_to_sheet(linhas),'Participantes');window.XLSX.writeFile(wb,nome+'.xlsx');}
@@ -8362,7 +8370,7 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
         </div>
         {!travado&&modulo==='todos'&&tabela('Por módulo',R.porModulo,'Módulo')}
         {tabela('Por setor',R.porSetor,'Setor')}
-        {tabela('Por profissão',R.porProf,'Profissão')}
+        {tabela('Por especialidade',R.porProf,'Especialidade')}
         <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.green,marginBottom:4}}>Pontos fortes (85% de acerto ou mais)</div>{listaQ(fortes,C.green)}</div>
         <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.red,marginBottom:4}}>Pontos fracos (menos de 60% de acerto)</div>{listaQ(fracos,C.red)}</div>
         <div style={card}><div style={{fontSize:13,fontWeight:800,color:C.text,marginBottom:6}}>Sugestões para os próximos treinamentos</div>

@@ -103,7 +103,7 @@
     DB.capacitacao_config = [{ hospital_id: HID, assinatura: 'data:image/svg+xml;base64,' + btoa(svgAss), assinante_nome: 'Dra. Helena Exemplo', assinante_cargo: 'Diretora Técnica', assinatura2: null, assinante2_nome: 'Enf. Coordenação NSP', assinante2_cargo: 'Núcleo de Segurança do Paciente', updated_at: new Date().toISOString() }];
     DB.capacitacao_participantes = [];
     ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves'].forEach(function (n, i) {
-      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: 'Enfermeiro(a)',
+      DB.capacitacao_participantes.push({ id: uuid(), created_at: diasAtras(30 + i * 5).toISOString(), updated_at: diasAtras(i * 3).toISOString(), hospital_id: HID, codigo: 'DEMO' + (10 + i), nome: n, setor: SETORES[i % SETORES.length], profissao: i % 4 === 3 ? 'Medicina' : 'Divisão de Enfermagem',
         progresso: i % 3 === 0 ? { lpp: { etapa: 'quiz', resp: { lpp_1: 0, lpp_2: 0 } } } : { queda: { etapa: 'resultado', pct: 88, cert: { pct: 88, data: '01/10/2026' } } } });
     });
     DB.videos_educacao = [
@@ -128,7 +128,7 @@
     DB.capacitacao_respostas = [];
     var mods = { identificacao: 'ident', medicamentos: 'med', queda: 'queda', lpp: 'lpp', cirurgia: 'cir', comunicacao: 'com', ccih: 'maos' };
     var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62 };
-    var profs = ['Enfermeiro(a)', 'Técnico(a) ou auxiliar de enfermagem', 'Técnico(a) ou auxiliar de enfermagem', 'Médico(a)', 'Fisioterapeuta', 'Farmacêutico(a)'];
+    var profs = ['Divisão de Enfermagem', 'Divisão de Enfermagem', 'Divisão de Enfermagem', 'Medicina', 'Farmácia', 'Odontologia', 'Fisioterapia'];
     var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
     for (var i = 0; i < 64; i++) {
       var mod = pick(Object.keys(mods)), pre = mods[mod], nome = pick(nomes), resp = {}, ac = 0, setor = SETORES[nomes.indexOf(nome) % SETORES.length];

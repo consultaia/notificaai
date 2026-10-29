@@ -174,3 +174,222 @@ window.CAPACITACAO_MODULOS = [
   ]
 }
 ];
+
+// ── Apostilas em tom de conversa (professor dialogando com o aluno) ─────────────
+// Cada secao: t (titulo), p (paragrafo ou lista de paragrafos), itens (opcional) e
+// caixa {tipo: cena | sabia | pratica | pense | atencao, titulo, texto}.
+window.CAPACITACAO_APOSTILAS = {
+identificacao: {
+  abertura: [
+    'Olá, colega! Vamos começar por uma pergunta simples: quantas vezes, num único plantão, você confirma quem é o paciente à sua frente? Se a resposta for “várias”, ótimo. Se for “só quando tenho dúvida”, esta conversa é para você.',
+    'Identificar o paciente parece óbvio, quase burocrático. Mas é justamente por parecer óbvio que a gente relaxa, e é aí que mora o perigo. Nas próximas páginas vamos entender por que esse gesto pequeno sustenta todos os outros cuidados.'
+  ],
+  secoes: [
+    { t: 'Por que algo tão simples dá errado', p: [
+      'Pense na rotina de uma enfermaria cheia: pacientes trocam de leito, chegam transferidos de madrugada, dormem, estão sedados, confusos ou simplesmente cansados de responder. Em meio a isso, a identificação vira automática e o automático é onde o erro se esconde.',
+      'Quando a identificação falha, todo o resto falha junto: o medicamento certo vai para a pessoa errada, a amostra de sangue é etiquetada com outro nome, o exame é feito no paciente do leito ao lado. Por isso a identificação correta é a Meta 1 de segurança do paciente: ela vem antes de todas as outras.' ],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Dois pacientes na mesma enfermaria: José Carlos da Silva, leito 3, e José Carlos de Souza, leito 5. O técnico chega com a medicação e chama: “Seu José?”. Os dois olham. O do leito 5, sonolento, responde “sou eu”. Ninguém mentiu, ninguém foi descuidado de propósito, e mesmo assim o remédio quase foi para a pessoa errada. O que teria evitado? Perguntar o nome completo e a data de nascimento, e conferir com a pulseira.' } },
+    { t: 'Os dois identificadores', p: [
+      'A regra de ouro é usar sempre pelo menos dois identificadores. No nosso protocolo, eles são o nome completo e a data de nascimento. Em algumas situações a instituição pode usar o nome da mãe ou o número de registro, mas a lógica é a mesma: duas informações que juntas só pertencem àquela pessoa.',
+      'E o número do leito? Nunca. O leito identifica um lugar, não uma pessoa. O paciente muda de leito, de quarto, de setor; a cama fica e recebe outro.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'Silva, Santos e Oliveira estão entre os sobrenomes mais comuns do Brasil. Num hospital grande, ter dois ou três pacientes com nomes parecidos internados ao mesmo tempo não é raridade, é rotina. É exatamente por isso que só o nome não basta.' } },
+    { t: 'A pulseira: o documento que vai junto com o paciente', p: [
+      'A pulseira é colocada na admissão, de preferência no punho. Se não for possível, por causa de acesso venoso, curativo ou edema, vai para o tornozelo. Ao colocar, confira os dados em voz alta com o paciente ou o acompanhante: é a primeira chance de pegar um erro de cadastro.',
+      'Ela acompanha o paciente até a alta, inclusive no banho, nos exames e no centro cirúrgico. Ficou ilegível, apertada, solta ou com dado errado? Troque na hora. Pulseira que “depois a gente troca” é pulseira que não protege.' ],
+      itens: ['Dados legíveis: nome completo e data de nascimento.', 'Iguais aos do prontuário, da prescrição e das etiquetas.', 'Sinalizações extras (alergia, risco de queda) seguem o padrão do hospital.'] },
+    { t: 'Quando conferir', p: 'A identificação não é um evento da admissão, é um hábito de todo o plantão. Confira sempre antes de:',
+      itens: ['administrar medicamentos e hemocomponentes;', 'coletar sangue ou outro material e etiquetar a amostra;', 'realizar procedimentos, exames de imagem e cirurgias;', 'entregar a dieta;', 'transportar, transferir ou dar alta.'],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Qual desses momentos é o mais “corrido” no seu setor? Normalmente é nele que a conferência é pulada. Que tal combinar com a equipe um cuidado extra justamente ali?' } },
+    { t: 'Como perguntar: o segredo da pergunta aberta', p: [
+      'Repare na diferença entre “O senhor é o Seu José?” e “Qual é o seu nome completo e a sua data de nascimento?”. A primeira pergunta já entrega a resposta: basta dizer “sim”. E as pessoas dizem sim por muitos motivos: não escutaram direito, estão sedadas, ansiosas, constrangidas ou querem colaborar.',
+      'A pergunta aberta obriga o paciente a dizer os dados, e você compara com a pulseira e com a prescrição ou etiqueta. Leva três segundos e fecha a porta para o erro.' ],
+      caixa: { tipo: 'pratica', titulo: 'Na prática', texto: 'Paciente que não pode responder (inconsciente, intubado, confuso, bebê): confira a pulseira com a prescrição e, quando houver acompanhante, peça que ele confirme. Paciente sem identificação na chegada: use o padrão do hospital, como “desconhecido” mais o número de registro, até a identificação definitiva.' } },
+    { t: 'Erros comuns que vale evitar', itens: [
+      'Chamar o paciente pelo número do leito (“o do 12”).',
+      'Conferir só o primeiro nome.',
+      'Etiquetar tubos de coleta antes de chegar ao paciente, ou deixar para etiquetar depois.',
+      'Confiar na placa da cabeceira em vez da pulseira.',
+      'Deixar para trocar a pulseira ilegível “no próximo plantão”.' ],
+      caixa: { tipo: 'atencao', titulo: 'Atenção aos homônimos', texto: 'Dois pacientes com nomes iguais ou parecidos no mesmo setor? Sinalize o alerta no prontuário e no quadro, avise a equipe na passagem de plantão e reforce a dupla conferência. Se possível, evite colocá-los no mesmo quarto.' } },
+    { t: 'E quando algo der errado?', p: [
+      'Pegou uma etiqueta trocada antes da coleta? Uma pulseira com a data errada? Notifique, mesmo que nada tenha acontecido. Esses quase erros são ouro para o Núcleo de Segurança do Paciente: mostram onde o processo falha antes que alguém seja prejudicado.',
+      'Notificar não é dedurar ninguém. É ajudar o hospital a consertar o sistema, para que o próximo colega cansado, às 4 da manhã, tenha mais barreiras a seu favor.' ] }
+  ],
+  resumo: ['Sempre dois identificadores: nome completo + data de nascimento.', 'Leito nunca é identificador.', 'Pergunta aberta: “Qual é o seu nome completo e a sua data de nascimento?”.', 'Confira antes de medicação, sangue, coleta, procedimento, dieta e transporte.', 'Pulseira ilegível ou errada: troque na hora.', 'Homônimos: sinalize e redobre a atenção.', 'Quase erro também se notifica.']
+},
+medicamentos: {
+  abertura: [
+    'Olá! Se existe um processo no hospital em que muita gente põe a mão, é o do medicamento. O médico prescreve, a farmácia confere e dispensa, a enfermagem prepara e administra, e todo mundo observa a resposta do paciente. Cada passagem de mão é uma chance de acertar, e também de errar.',
+    'A boa notícia: a maioria dos erros de medicação é evitável com hábitos simples. Vamos conversar sobre eles.' ],
+  secoes: [
+    { t: 'Onde o erro aparece', p: [
+      'O erro pode nascer em qualquer etapa: uma prescrição ilegível, uma ampola parecida com outra na prateleira, uma diluição calculada às pressas, um horário esquecido na troca de plantão. Quase nunca é falta de conhecimento; é o sistema deixando brechas e a rotina acelerada aproveitando-as.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'A Organização Mundial da Saúde lançou em 2017 o desafio global “Medicação sem Danos”, com a meta de reduzir pela metade os danos graves e evitáveis relacionados a medicamentos. O tema é tão importante que virou prioridade mundial.' } },
+    { t: 'Os “certos” da administração', p: 'Você provavelmente já ouviu falar dos certos. Eles funcionam como um checklist mental antes de cada administração:',
+      itens: ['Paciente certo: confira os dois identificadores.', 'Medicamento certo: leia o rótulo três vezes (ao pegar, ao preparar, ao administrar).', 'Via certa.', 'Hora certa.', 'Dose certa: atenção redobrada a cálculos e diluições.', 'Registro certo: registre logo após administrar.', 'Orientação correta: explique ao paciente o que é e para que serve.', 'Forma farmacêutica certa.', 'Resposta certa: acompanhe o efeito esperado e os efeitos indesejados.'],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Qual desses certos você confere sem nem perceber? E qual é o primeiro a ser pulado quando o plantão aperta? Saber onde você costuma escorregar já é meio caminho para não escorregar.' } },
+    { t: 'Prescrição segura: cada detalhe conta', p: [
+      'Algumas convenções existem porque já causaram tragédias. Zero à direita é uma delas: “5,0 mg”, com a vírgula apagada ou mal impressa, vira “50 mg”, dez vezes a dose. Por isso escreva “5 mg”. Já o zero à esquerda é obrigatório: “0,5 mg”, nunca “,5 mg”.',
+      'Abreviaturas também enganam. O “U” de unidade, escrito à mão, já foi lido como zero, transformando 10 U de insulina em 100. Escreva “unidades” por extenso.' ],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Plantão noturno, o médico pede por telefone: “Faz quinze de insulina regular”. Você entende cinquenta. O que salva o paciente é a repetição em voz alta: “Confirmando: quinze unidades de insulina regular, subcutânea, agora?”. Prescrição verbal só em emergência, sempre repetida, confirmada e registrada assim que possível.' } },
+    { t: 'Medicamentos de alta vigilância', p: [
+      'Alguns medicamentos não perdoam: um erro com eles tende a causar dano grave. São chamados de alta vigilância (ou potencialmente perigosos). Exemplos: insulinas, heparinas e outros anticoagulantes, opioides, cloreto de potássio concentrado, sedativos intravenosos e quimioterápicos.',
+      'Com eles, três cuidados fazem diferença: armazenamento separado e bem identificado, dupla checagem independente antes de administrar e acesso controlado. Dupla checagem independente quer dizer que o colega confere sozinho, sem você ditar o que ele deve ver.' ],
+      caixa: { tipo: 'atencao', titulo: 'Atenção', texto: 'Cloreto de potássio concentrado não deve ficar disponível nas unidades de internação sem controle. Se você encontrar ampolas soltas no posto, avise a farmácia e o NSP.' } },
+    { t: 'Nomes e embalagens parecidos', p: [
+      'Hidroxizina e hidralazina. Dopamina e dobutamina. Nomes que soam parecidos e embalagens quase iguais são uma armadilha clássica. A estratégia é separar fisicamente na prateleira e destacar a diferença na etiqueta com letras maiúsculas, como em hidrOXIzina e hidrALAzina.',
+      'Na dúvida, pare e confirme com a farmácia. Dois minutos de confirmação valem mais do que horas de arrependimento.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'Esse jeito de escrever com letras maiúsculas no meio do nome tem até apelido em inglês: “tall man lettering”. Ele é recomendado no mundo todo justamente para que os olhos percebam a diferença entre nomes parecidos.' } },
+    { t: 'O paciente como aliado', p: [
+      'O paciente é a última barreira, e muitas vezes a mais atenta. Pergunte sobre alergias antes do primeiro medicamento e registre. Pergunte também sobre os remédios que ele usa em casa, inclusive chás e vitaminas, e oriente que não tome nada trazido de casa sem avisar a equipe.',
+      'Ao administrar, diga o que está dando e para quê. Se o paciente estranhar (“esse comprimido não é o que eu tomo”), pare e confira. Muitas vezes ele tem razão.' ] },
+    { t: 'Erro ou quase erro? Notifique', p: 'Erros de medicação, reações adversas e também os erros interceptados antes de chegar ao paciente devem ser notificados ao Núcleo de Segurança do Paciente. O quase erro mostra a falha no processo sem que ninguém tenha se machucado: é a melhor aula que o hospital pode ter.' }
+  ],
+  resumo: ['Use os certos como checklist mental a cada administração.', 'Nunca zero à direita; sempre zero à esquerda.', 'Escreva “unidades” por extenso.', 'Ordem verbal: só em emergência, repetida em voz alta e registrada.', 'Alta vigilância: separar, identificar e fazer dupla checagem independente.', 'Nomes parecidos: separar e destacar a diferença.', 'Pergunte sobre alergias e remédios de casa.', 'Notifique erros e quase erros.']
+},
+queda: {
+  abertura: [
+    'Olá! Vamos falar de algo que todo mundo acha que entende: cair. Fora do hospital, uma queda pode ser só um susto. Dentro dele, com o paciente fragilizado, medicado e num ambiente desconhecido, pode significar fratura, cirurgia, internação mais longa e perda de independência.',
+    'A boa notícia é que boa parte das quedas pode ser prevenida, e a prevenção é feita de gestos simples, repetidos com consistência.' ],
+  secoes: [
+    { t: 'Quem cai e por quê', p: [
+      'Quedas raramente têm uma causa só. Normalmente é uma soma: um idoso que toma diurético, acorda à noite com vontade de urinar, levanta rápido, sente tontura, o chão está escorregadio e a campainha ficou longe. Tire qualquer um desses elementos e a queda talvez não aconteça.' ],
+      itens: ['Idade avançada e história de quedas anteriores.', 'Mobilidade reduzida, uso de soro, sondas e drenos.', 'Confusão, agitação, alteração do sono.', 'Medicamentos: sedativos, hipnóticos, anti-hipertensivos, diuréticos, hipoglicemiantes.', 'Urgência para ir ao banheiro, diarreia.', 'Déficit visual, tontura ao levantar, pós-operatório.'],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Dona Lúcia, 78 anos, segundo dia de pós-operatório. Às 3 da manhã ela precisa ir ao banheiro. Não quer “incomodar a enfermagem”, que parece tão ocupada. Levanta sozinha, de chinelo, com o soro no braço. No caminho, a pressão cai. Quantas oportunidades de prevenção você enxerga nessa história?' } },
+    { t: 'Avaliar o risco: o primeiro passo', p: [
+      'Cada paciente deve ter o risco de queda avaliado na admissão, com a escala adotada pelo hospital, e reavaliado quando a condição muda, na transferência de setor e depois de qualquer queda.',
+      'O resultado precisa ficar visível para toda a equipe, pela sinalização padronizada da instituição (pulseira, placa, alerta no prontuário). Não é rótulo: é um aviso de que aquele paciente precisa de cuidado extra.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'Uma das escalas mais usadas no mundo, a Escala de Morse, foi criada pela enfermeira canadense Janice Morse no fim dos anos 1980. Ela soma pontos para histórico de quedas, diagnósticos, uso de acesso venoso, forma de andar, estado mental e apoio para deambular.' } },
+    { t: 'Um ambiente que protege', p: 'Muitas quedas são vencidas antes mesmo de o paciente se mexer, só pelo jeito como o ambiente está arrumado:',
+      itens: ['Cama na posição mais baixa e com as rodas travadas.', 'Grades elevadas quando indicado pelo plano de cuidados.', 'Campainha, óculos, água e telefone ao alcance da mão.', 'Luz noturna acesa e caminho até o banheiro livre.', 'Piso seco; se estiver molhado, sinalize na hora.', 'Calçado fechado e antiderrapante (chinelo solto é inimigo).'],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Na próxima vez que entrar num quarto, faça o teste: se você fosse o paciente, conseguiria pegar a água e a campainha sem se esticar? Se a resposta for não, o ambiente ainda não está seguro.' } },
+    { t: 'Levantar em etapas', p: [
+      'Ao passar de deitado para em pé muito rápido, o sangue “desce” e a pressão cai por alguns segundos: é a hipotensão postural, uma grande causadora de tontura e queda.',
+      'Ensine o paciente a levantar em três tempos: sentar na beira da cama, esperar alguns segundos com os pés apoiados no chão e só então ficar em pé, com apoio. Parece detalhe, mas evita muitas quedas.' ],
+      caixa: { tipo: 'pratica', titulo: 'Na prática', texto: 'Para pacientes de risco, ofereça idas programadas ao banheiro, principalmente antes de dormir e após diuréticos. Muitas quedas acontecem justamente no trajeto até o banheiro, à noite.' } },
+    { t: 'O acompanhante faz parte da equipe', p: [
+      'Explique ao paciente e ao acompanhante qual é o risco e por que existe a sinalização. Combine que o paciente deve chamar a enfermagem antes de levantar e que o acompanhante avisa antes de se ausentar do quarto.',
+      'Um acompanhante orientado é um par de olhos a mais. Um acompanhante que não sabe do risco pode, sem querer, baixar a grade “para dar conforto”.' ] },
+    { t: 'Se a queda acontecer', p: [
+      'Primeiro, não levante o paciente imediatamente: avalie se há dor, deformidade, sangramento ou batida na cabeça. Chame ajuda e comunique o médico.',
+      'Depois, registre, notifique ao Núcleo de Segurança do Paciente e reavalie o risco e o plano de cuidados. Mesmo a queda sem lesão aparente precisa ser notificada: ela revela uma brecha que pode machucar o próximo paciente.' ],
+      caixa: { tipo: 'atencao', titulo: 'Atenção', texto: 'Pacientes em uso de anticoagulante que batem a cabeça precisam de avaliação médica mesmo sem sintomas imediatos, porque um sangramento pode se manifestar horas depois.' } }
+  ],
+  resumo: ['Avalie o risco na admissão e reavalie quando algo mudar.', 'Sinalize o risco para toda a equipe.', 'Cama baixa e travada, campainha e objetos ao alcance.', 'Calçado antiderrapante, piso seco e luz noturna.', 'Levantar em etapas: sentar, esperar, levantar com apoio.', 'Oriente paciente e acompanhante.', 'Caiu? Avalie antes de mover, comunique, notifique e reavalie.']
+},
+lpp: {
+  abertura: [
+    'Olá! Hoje a conversa é sobre uma lesão silenciosa: a lesão por pressão. Ela não faz barulho, não dá alarme no monitor e às vezes começa com uma simples vermelhidão. Mas, quando avança, causa dor, infecção, internação prolongada e muito sofrimento.',
+    'O mais importante: na grande maioria das vezes ela pode ser prevenida, e a prevenção está nas nossas mãos, literalmente.' ],
+  secoes: [
+    { t: 'O que é e como acontece', p: [
+      'Lesão por pressão é um dano na pele e nos tecidos de baixo dela, causado por pressão contínua, ou pressão somada ao cisalhamento (aquele “arrastar” da pele sobre o lençol). A pressão aperta os vasos entre o osso e a superfície, o sangue não chega e o tecido sofre.',
+      'Por isso ela aparece onde o osso fica mais perto da pele: região sacral e cóccix, calcanhares, quadril, ísquios, cotovelos, nuca e orelhas. E também embaixo de dispositivos: sondas, máscaras, cateteres e talas.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'Até 2016 o nome mais usado era “úlcera por pressão”. O painel americano especializado no tema (NPUAP, hoje NPIAP) passou a recomendar “lesão por pressão”, porque o dano pode existir mesmo com a pele ainda íntegra, sem úlcera aberta.' } },
+    { t: 'Quem está em risco', p: [
+      'Pacientes acamados, sedados, com mobilidade reduzida, desnutridos, com incontinência ou com pouca sensibilidade (como após um AVC ou em diabéticos) estão no grupo de maior risco.',
+      'Para não depender da impressão de cada um, usamos a Escala de Braden na admissão e em reavaliações periódicas. Ela avalia percepção sensorial, umidade, atividade, mobilidade, nutrição e fricção/cisalhamento. Quanto menor a pontuação, maior o risco.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'A Escala de Braden foi criada nos Estados Unidos em 1987 pelas enfermeiras Barbara Braden e Nancy Bergstrom e é uma das ferramentas de enfermagem mais usadas no mundo.' } },
+    { t: 'Olhar a pele todos os dias', p: [
+      'A inspeção diária da pele é a ferramenta mais barata e eficaz que existe. Aproveite o banho e as mudanças de posição para olhar com atenção as proeminências ósseas e a pele sob os dispositivos.',
+      'Um truque simples: pressione levemente uma área avermelhada com o dedo. Se ela clareia e volta a ficar vermelha, a circulação está respondendo. Se continua vermelha, sem clarear, é sinal de lesão por pressão em estágio inicial (estágio 1). É hora de agir.' ],
+      itens: ['Estágio 1: pele íntegra com vermelhidão que não clareia à pressão.', 'Estágio 2: perda parcial da pele, pode parecer uma bolha.', 'Estágios 3 e 4: perda total da pele, com exposição de gordura, músculo ou osso.', 'Não classificável e tissular profunda: dano profundo, ainda que a superfície engane.'] },
+    { t: 'Mudar de posição: o coração da prevenção', p: [
+      'Nenhuma pele aguenta pressão contínua por muito tempo. Por isso o reposicionamento é feito a cada 2 horas, ou conforme o plano individual do paciente. Use travesseiros e coxins para aliviar os pontos de apoio e deixe os calcanhares “flutuando”, sem encostar no colchão.',
+      'Na hora de mobilizar, use o lençol para levantar, sem arrastar. E, quando possível, mantenha a cabeceira até 30 graus: cabeceira muito alta faz o paciente escorregar, e o cisalhamento machuca.' ],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Seu Antônio, 82 anos, internado por pneumonia, passa o dia com a cabeceira bem alta “para respirar melhor” e vai escorregando na cama. No terceiro dia, no banho, a técnica nota uma mancha arroxeada na região sacral. O que poderia ter sido feito diferente nos dias anteriores?' } },
+    { t: 'Pele limpa, seca e bem nutrida', p: [
+      'Umidade enfraquece a pele. Em pacientes com incontinência, higienize logo após as eliminações, seque bem e use creme barreira. Hidrate a pele seca, sem esfregar.',
+      'Nutrição e hidratação também são prevenção: pele mal nutrida rompe com facilidade. Envolva a nutrição e a equipe médica quando o paciente come pouco.' ],
+      caixa: { tipo: 'atencao', titulo: 'Atenção', texto: 'Não massageie áreas avermelhadas sobre proeminências ósseas. A massagem, que parece carinho, pode aumentar o dano nos tecidos já comprometidos.' } },
+    { t: 'Notificar faz parte do cuidado', p: 'Lesão por pressão que surge durante a internação é um evento adverso e deve ser notificada ao Núcleo de Segurança do Paciente, em qualquer estágio. A notificação ajuda a identificar setores, turnos e situações em que a prevenção precisa ser reforçada, como falta de colchões especiais ou de pessoal para os reposicionamentos.' }
+  ],
+  resumo: ['Avalie o risco com a Escala de Braden e reavalie periodicamente.', 'Inspecione a pele todos os dias, inclusive sob dispositivos.', 'Vermelhidão que não clareia: estágio 1, aja já.', 'Reposicione a cada 2 horas (ou conforme o plano).', 'Calcanhares sem apoio, cabeceira até 30° quando possível, mobilize sem arrastar.', 'Pele limpa, seca e hidratada; nada de massagem na vermelhidão.', 'Notifique toda LPP adquirida na internação.']
+},
+cirurgia: {
+  abertura: [
+    'Olá! Já imaginou operar o joelho errado? Ou esquecer uma compressa dentro do paciente? Parece coisa de filme, mas são eventos que aconteceram, e ainda acontecem, em hospitais do mundo todo. Quase sempre com equipes competentes e bem-intencionadas.',
+    'A cirurgia segura não depende só da habilidade do cirurgião. Depende de uma equipe que para, confere e conversa nos momentos certos. É disso que vamos falar.' ],
+  secoes: [
+    { t: 'Uma lista que salva vidas', p: [
+      'Em 2008, a Organização Mundial da Saúde lançou a campanha “Cirurgias Seguras Salvam Vidas”, com uma lista de verificação simples, aplicada em três momentos de toda cirurgia.',
+      'A ideia veio da aviação: pilotos experientes usam checklists antes de decolar não por falta de conhecimento, mas porque sabem que memória falha sob pressão. No centro cirúrgico é igual.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'Num estudo publicado em 2009 em oito hospitais de diferentes países, a adoção da lista da OMS foi associada à queda da mortalidade cirúrgica de 1,5% para 0,8% e das complicações de 11% para 7%. Poucas intervenções tão simples tiveram impacto tão grande.' } },
+    { t: 'Momento 1: antes da anestesia', p: 'Com o paciente ainda acordado, a equipe confirma com ele:',
+      itens: ['identidade, procedimento, local da cirurgia e consentimento;', 'demarcação do local, quando se aplica;', 'equipamento de anestesia checado e oxímetro funcionando;', 'alergias conhecidas, via aérea difícil ou risco de aspiração e risco de grande perda de sangue.'],
+      caixa: { tipo: 'pratica', titulo: 'Na prática', texto: 'A demarcação do local é feita pelo cirurgião responsável, com o paciente acordado participando, sempre que houver lateralidade (direito/esquerdo), estruturas múltiplas (dedos) ou níveis (coluna). A marca precisa continuar visível depois da antissepsia.' } },
+    { t: 'Momento 2: a pausa antes da incisão', p: [
+      'Antes do bisturi tocar a pele, todos param. Cada um se apresenta pelo nome e pela função, e a equipe confirma em voz alta: paciente, procedimento e local. Confirma também se o antibiótico profilático foi feito nos últimos 60 minutos (quando indicado) e se os exames de imagem estão disponíveis.',
+      'Cirurgião, anestesista e enfermagem comentam os pontos críticos previstos: tempo estimado, perda de sangue esperada, cuidados especiais. São dois minutos que alinham a equipe inteira.' ],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Por que se apresentar pelo nome faz diferença? Estudos de trabalho em equipe mostram que quem foi chamado pelo nome no início se sente mais à vontade para falar quando percebe um problema durante o procedimento.' } },
+    { t: 'Momento 3: antes de sair da sala', p: 'Antes de o paciente deixar a sala, a equipe confirma:',
+      itens: ['qual procedimento foi realizado e registrado;', 'contagem de compressas, instrumentais e agulhas conferida;', 'amostras e peças identificadas com o nome do paciente, lidas em voz alta;', 'problemas com equipamentos e cuidados para a recuperação.'] },
+    { t: 'Todo mundo pode parar a cirurgia', p: [
+      'Um dos pontos mais importantes da cirurgia segura é cultural: qualquer membro da equipe, do residente ao técnico de enfermagem, pode e deve interromper o processo diante de uma dúvida.',
+      'Interromper não é desrespeito à hierarquia. É exatamente o que a lista espera que aconteça. Um profissional conduz a verificação e tem autoridade para pausar até que tudo esteja esclarecido.' ],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Na pausa antes da incisão, a circulante percebe que a demarcação está no joelho direito, mas o termo de consentimento diz esquerdo. Ela é a pessoa menos experiente da sala. Fala ou fica quieta? Na cirurgia segura, a resposta é sempre: fala. E a equipe agradece.' } },
+    { t: 'O paciente também se prepara', p: 'Oriente o paciente a seguir o jejum, retirar joias, piercings e próteses móveis, informar alergias e medicamentos em uso (principalmente anticoagulantes) e a participar das confirmações. Explique que responder várias vezes as mesmas perguntas não é desorganização: é segurança.' },
+    { t: 'Notifique', p: 'Falhas na aplicação da lista, quase erros (como uma demarcação divergente percebida a tempo) e eventos no centro cirúrgico devem ser notificados ao Núcleo de Segurança do Paciente. É assim que o processo melhora.' }
+  ],
+  resumo: ['Três momentos: antes da anestesia, antes da incisão e antes de sair da sala.', 'Confirme paciente, procedimento e local com o paciente acordado.', 'Demarcação pelo cirurgião, com o paciente, quando há lateralidade ou níveis.', 'Antibiótico profilático nos 60 minutos antes da incisão, quando indicado.', 'Contagem de compressas, instrumentais e agulhas antes de sair.', 'Amostras identificadas e lidas em voz alta.', 'Qualquer um pode parar diante de uma dúvida.']
+},
+comunicacao: {
+  abertura: [
+    'Olá! Pense numa brincadeira de telefone sem fio: uma frase passa de pessoa em pessoa e chega ao final completamente diferente. No hospital, a informação também passa por muitas mãos: na troca de plantão, na transferência, na ligação do laboratório, na orientação de alta. Só que aqui o “telefone sem fio” pode custar caro.',
+    'A comunicação efetiva é a Meta 2 de segurança do paciente. Vamos ver ferramentas simples que tornam a mensagem clara do começo ao fim.' ],
+  secoes: [
+    { t: 'Por que comunicar bem é segurança', p: [
+      'Quando se investigam eventos adversos graves, as falhas de comunicação aparecem entre as causas mais frequentes: uma informação que não foi passada, um resultado que não chegou a quem precisava, uma ordem mal entendida.',
+      'O problema raramente é falta de vontade. É pressa, interrupção, ruído, hierarquia e o famoso “eu achei que você sabia”.' ],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Lembre da última passagem de plantão que você recebeu. Saiu dela sabendo exatamente quais pacientes precisavam de atenção primeiro e por quê? Se não, que informação faltou?' } },
+    { t: 'SBAR: a passagem de plantão organizada', p: [
+      'O SBAR organiza a conversa em quatro partes: Situação (o que está acontecendo agora), Breve histórico (o contexto que importa), Avaliação (o que você acha que está acontecendo) e Recomendação (o que precisa ser feito).',
+      'Prefira passar o plantão à beira do leito, quando possível, e num momento com o mínimo de interrupções. Inclua pendências, riscos (queda, LPP, alergias) e cuidados programados.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'O SBAR nasceu na Marinha dos Estados Unidos, nos submarinos nucleares, onde informações precisavam ser passadas de forma rápida e sem ambiguidade. Depois foi adaptado para a saúde e hoje é usado em hospitais do mundo inteiro.' } },
+    { t: 'Ordens verbais e por telefone: leia de volta', p: [
+      'Ordem verbal ou por telefone só deve acontecer quando não há alternativa, como numa emergência ou durante um procedimento estéril. Quem recebe escreve, lê de volta em voz alta e só executa depois da confirmação. Depois, a ordem é registrada no prontuário.',
+      'Essa técnica, chamada de leitura de volta, também vem da aviação: o piloto repete as instruções da torre para garantir que entendeu certo.' ],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: '— Faz furosemida, 40 de 8 em 8. — Confirmando: furosemida 40 mg, endovenosa, de 8 em 8 horas? — Isso, mas é 20 mg, não 40. Sem a leitura de volta, o erro teria passado. Com ela, foi corrigido em três segundos.' } },
+    { t: 'Resultados críticos não podem esperar', p: 'Quando o laboratório ou a imagem liga com um resultado crítico, a informação vai imediatamente para o profissional responsável pelo paciente. Quem recebe repete o resultado para confirmar e registra o horário e o nome de quem foi comunicado. Resultado crítico anotado num papel no balcão, esperando a visita do dia seguinte, é uma bomba-relógio.' },
+    { t: 'Transferências e registros', p: [
+      'Toda transição de cuidado (do pronto-socorro para a enfermaria, da UTI para o quarto, de um hospital para outro) é um momento de alto risco para perder informação. Passe as informações verbalmente e por escrito, de forma estruturada, para a equipe que recebe.',
+      'No prontuário, escreva de forma legível, com data, hora e identificação, e evite abreviaturas não padronizadas. O que é óbvio para você pode ser lido de outro jeito pelo colega.' ] },
+    { t: 'Com o paciente e a família', p: [
+      'Use palavras simples e confirme se a pessoa entendeu. Em vez de perguntar “Entendeu?” (a resposta quase sempre é sim), peça: “Pode me contar como vai tomar esse remédio em casa?”. Essa técnica se chama teach-back, ou ensino de volta.',
+      'Quando acontece um evento adverso, a Política Nacional de Qualidade e Segurança do Paciente (2026) reforça a comunicação aberta e transparente com o paciente e a família: o que aconteceu, o que foi feito e o que muda para não se repetir.' ],
+      caixa: { tipo: 'pratica', titulo: 'Fale se perceber risco', texto: 'Percebeu algo errado? Fale na hora, com respeito, mesmo diante de alguém mais experiente. Uma frase ajuda: “Estou preocupado com…”. Cultura de segurança é aquela em que todos se sentem à vontade para alertar.' } }
+  ],
+  resumo: ['Passagem de plantão estruturada (SBAR), com pendências e riscos.', 'Ordem verbal só quando necessário: escreva, leia de volta, confirme e registre.', 'Resultado crítico: comunique na hora e registre quem recebeu e quando.', 'Transferência: informação verbal e escrita, estruturada.', 'Prontuário legível, sem abreviaturas não padronizadas.', 'Teach-back com o paciente; comunicação transparente após eventos adversos.', 'Percebeu risco? Fale.']
+},
+ccih: {
+  abertura: [
+    'Olá! Se eu tivesse que escolher uma única medida para proteger os pacientes contra infecções no hospital, seria esta: higienizar as mãos. Simples, barata, rápida e, ainda assim, uma das mais esquecidas.',
+    'Nossas mãos tocam pacientes, bombas de infusão, grades da cama, prontuários e celulares. Sem perceber, viram um meio de transporte para microrganismos. Vamos conversar sobre como interromper essa viagem.' ],
+  secoes: [
+    { t: 'Uma história que mudou a medicina', p: [
+      'Em 1847, em Viena, o médico húngaro Ignaz Semmelweis percebeu que as mães atendidas por médicos que vinham direto da sala de autópsia morriam muito mais de febre puerperal do que as atendidas por parteiras. Ele passou a exigir que todos lavassem as mãos com solução clorada antes de examinar as gestantes, e a mortalidade caiu de forma impressionante.',
+      'Curiosamente, Semmelweis foi ridicularizado pelos colegas na época. Só anos depois, com as descobertas de Pasteur e Lister sobre os germes, a medicina deu razão a ele.' ],
+      caixa: { tipo: 'sabia', titulo: 'Você sabia?', texto: 'O Dia Mundial da Higiene das Mãos é celebrado em 5 de maio. A data foi escolhida pela OMS de propósito: 5 do mês 5, lembrando os cinco dedos de cada mão e os cinco momentos da higiene.' } },
+    { t: 'Os cinco momentos', p: 'A OMS resumiu quando higienizar as mãos em cinco momentos, todos ligados ao paciente e ao espaço ao redor dele:',
+      itens: ['1. Antes de tocar o paciente.', '2. Antes de realizar procedimento limpo ou asséptico.', '3. Após risco de exposição a fluidos corporais.', '4. Após tocar o paciente.', '5. Após tocar superfícies próximas ao paciente.'],
+      caixa: { tipo: 'cena', titulo: 'Imagine a cena', texto: 'Você entra no quarto para ajustar a bomba de infusão. Não toca no paciente, só aperta os botões e arruma o equipo. Precisa higienizar as mãos ao sair? Sim: é o quinto momento. A bomba, a grade e a mesa de cabeceira estão contaminadas com os microrganismos daquele paciente.' } },
+    { t: 'Álcool ou água e sabonete?', p: [
+      'Na maior parte das vezes, a preparação alcoólica é a melhor escolha: é rápida (20 a 30 segundos), fica ao lado do leito e agride menos a pele. Friccione até secar.',
+      'Água e sabonete entram quando as mãos estão visivelmente sujas ou com sangue e outros fluidos, depois de usar o banheiro e em situações específicas orientadas pelo SCIH, como diarreia por Clostridioides difficile, contra a qual o álcool não é eficaz. A lavagem completa leva de 40 a 60 segundos.' ],
+      caixa: { tipo: 'pense', titulo: 'Pare e pense', texto: 'Cantar mentalmente “Parabéns pra você” duas vezes leva cerca de 20 segundos. Experimente medir quanto tempo você realmente gasta higienizando as mãos num plantão corrido.' } },
+    { t: 'A técnica: onde a gente esquece', p: [
+      'Não basta molhar as mãos com álcool: é preciso friccionar todas as áreas. Palma com palma, dorso das mãos, entre os dedos, polegares, pontas dos dedos e unhas, e punhos.',
+      'Os polegares e as pontas dos dedos são as áreas mais esquecidas, justamente as que mais tocam o paciente e os objetos.' ],
+      caixa: { tipo: 'atencao', titulo: 'Atenção', texto: 'Luvas não substituem a higiene das mãos. Higienize antes de calçar e logo depois de retirar: as luvas podem ter microfuros e as mãos se contaminam no momento da retirada.' } },
+    { t: 'Unhas, anéis e relógio', p: 'Durante a assistência, mantenha as unhas curtas e naturais (sem unhas artificiais ou esmalte descascado) e retire anéis, pulseiras e relógio. Adornos acumulam microrganismos e impedem a fricção adequada; a NR 32 proíbe o uso de adornos por profissionais expostos a agentes biológicos.' },
+    { t: 'Todos participam', p: [
+      'Pacientes, acompanhantes e visitantes também higienizam as mãos ao entrar e sair do quarto, antes das refeições e depois do banheiro. E podem pedir ao profissional que higienize as suas. Quando um paciente faz esse pedido, a resposta certa é “obrigado por lembrar”.',
+      'Dúvidas sobre precauções, isolamento e uso de equipamentos de proteção: procure o Serviço de Controle de Infecção Hospitalar (SCIH).' ] }
+  ],
+  resumo: ['Higiene das mãos é a principal medida contra infecções hospitalares.', 'Cinco momentos: antes do paciente, antes de procedimento limpo, após fluidos, após o paciente, após o entorno.', 'Álcool: 20 a 30 segundos, até secar.', 'Água e sabonete: 40 a 60 segundos, quando houver sujeira visível ou fluidos.', 'Atenção a polegares e pontas dos dedos.', 'Luvas não substituem a higiene.', 'Sem adornos, unhas curtas e naturais.']
+}
+};
+(window.CAPACITACAO_MODULOS || []).forEach(function (m) {
+  var a = window.CAPACITACAO_APOSTILAS[m.id];
+  if (a) { m.abertura = a.abertura; m.apostila = a.secoes; m.resumo = a.resumo; }
+});

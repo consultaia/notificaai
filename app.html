@@ -7875,7 +7875,7 @@ const NOTA_APROVACAO=70;
 let _capacPromise=null;
 function carregarCapacitacao(){
   if(window.CAPACITACAO_MODULOS) return Promise.resolve(window.CAPACITACAO_MODULOS);
-  if(!_capacPromise) _capacPromise=new Promise((ok,falha)=>{const s=document.createElement('script');s.src='/assets/capacitacao.js?v=2026.1';s.onload=()=>window.CAPACITACAO_MODULOS?ok(window.CAPACITACAO_MODULOS):falha(new Error('conteúdo vazio'));s.onerror=()=>{_capacPromise=null;falha(new Error('Não foi possível carregar o conteúdo. Verifique a internet.'));};document.head.appendChild(s);});
+  if(!_capacPromise) _capacPromise=new Promise((ok,falha)=>{const s=document.createElement('script');s.src='/assets/capacitacao.js?v=2026.2';s.onload=()=>window.CAPACITACAO_MODULOS?ok(window.CAPACITACAO_MODULOS):falha(new Error('conteúdo vazio'));s.onerror=()=>{_capacPromise=null;falha(new Error('Não foi possível carregar o conteúdo. Verifique a internet.'));};document.head.appendChild(s);});
   return _capacPromise;
 }
 // Ordem das alternativas embaralhada de forma fixa por questao (a correta e o indice 0 no conteudo)
@@ -7885,14 +7885,26 @@ function ordemAlternativas(q){
 }
 const modInfo=id=>SUBNUCLEOS_HNSA.find(s=>s.id===id)||{icon:String.fromCodePoint(128218),color:C.teal,label:id};
 
+const CAIXAS_APOSTILA={
+  cena:{rotulo:'Imagine a cena',icone:String.fromCodePoint(127916),cor:'#2563EB',fundo:'#EFF4FF'},
+  sabia:{rotulo:'Você sabia?',icone:String.fromCodePoint(128161),cor:'#B45309',fundo:'#FFF7E6'},
+  pratica:{rotulo:'Na prática',icone:String.fromCodePoint(9989),cor:'#0D9488',fundo:'#E6F6F4'},
+  pense:{rotulo:'Pare e pense',icone:String.fromCodePoint(129300),cor:'#7C3AED',fundo:'#F3EEFF'},
+  atencao:{rotulo:'Atenção',icone:String.fromCodePoint(9888),cor:'#DC2626',fundo:'#FEF0F0'},
+};
 function imprimirApostila(m,h){
   const w=window.open('','_blank');if(!w) return;
-  const sec=m.apostila.map(s=>`<h2>${escHtml(s.t)}</h2>${s.p?`<p>${escHtml(s.p)}</p>`:''}${s.itens?`<ul>${s.itens.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul>`:''}`).join('');
+  const paras=p=>(Array.isArray(p)?p:p?[p]:[]).map(x=>`<p>${escHtml(x)}</p>`).join('');
+  const cx=c=>{if(!c)return '';const k=CAIXAS_APOSTILA[c.tipo]||CAIXAS_APOSTILA.pratica;return `<div class="cx" style="border-color:${k.cor};background:${k.fundo}"><b style="color:${k.cor}">${k.icone} ${escHtml(c.titulo||k.rotulo)}</b><p>${escHtml(c.texto)}</p></div>`;};
+  const sec=(m.abertura?`<div class="ab">${paras(m.abertura)}</div>`:'')+m.apostila.map(s=>`<h2>${escHtml(s.t)}</h2>${paras(s.p)}${s.itens?`<ul>${s.itens.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul>`:''}${cx(s.caixa)}`).join('')
+    +(m.resumo?`<div class="res"><b>Resumo de bolso</b><ul>${m.resumo.map(i=>`<li>${escHtml(i)}</li>`).join('')}</ul></div>`:'');
   w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Apostila - ${escHtml(m.titulo)} - ${escHtml(siglaH(h))}</title><style>
 @page{size:A4;margin:16mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a1a;font-size:12.5px;line-height:1.55;max-width:760px;margin:0 auto;padding:16px}
 .cab{border-bottom:3px solid #0D9488;padding-bottom:10px;margin-bottom:14px}.cab small{color:#0D9488;font-weight:700;letter-spacing:1px;text-transform:uppercase}h1{font-size:22px;margin:4px 0}
 .obj{background:#E6F6F4;border-left:4px solid #0D9488;padding:10px 12px;border-radius:4px;margin:12px 0}h2{font-size:15px;color:#0D3B66;margin:18px 0 6px}ul{margin:4px 0 0 18px;padding:0}li{margin-bottom:4px}
-.ref{margin-top:22px;border-top:1px solid #ccc;padding-top:8px;font-size:10.5px;color:#555}@media print{.noprint{display:none}}.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#0D9488;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}
+.ref{margin-top:22px;border-top:1px solid #ccc;padding-top:8px;font-size:10.5px;color:#555}
+p{margin:6px 0}.ab{font-size:13.5px;color:#222;margin-bottom:6px}.cx{border-left:4px solid;border-radius:6px;padding:9px 12px;margin:10px 0;page-break-inside:avoid}.cx p{margin:4px 0 0}
+.res{background:#0D3B66;color:#fff;border-radius:8px;padding:12px 16px;margin-top:18px;page-break-inside:avoid}.res b{color:#FFD400;font-size:14px}.res li{margin-bottom:3px}@media print{.noprint{display:none}}.noprint{position:fixed;top:8px;right:10px}.noprint button{background:#0D9488;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-weight:800;cursor:pointer}
 </style></head><body><div class="noprint"><button onclick="window.print()">Imprimir / salvar PDF</button></div>
 <div class="cab"><small>${escHtml(nomeH(h))} · Núcleo de Segurança do Paciente · Capacitação online</small><h1>${escHtml(m.titulo)}</h1>Carga horária sugerida: ${escHtml(m.carga)}</div>
 <div class="obj"><b>Objetivo:</b> ${escHtml(m.objetivo)}</div>${sec}
@@ -8114,11 +8126,19 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
           <div style={{fontSize:15,fontWeight:900,color:C.text}}>Apostila</div>
           <button onClick={()=>imprimirApostila(m,h)} style={{background:C.card,border:'1px solid '+C.teal+'55',color:C.teal,borderRadius:8,padding:'7px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>Baixar PDF</button>
         </div>
+        {m.abertura&&<div style={{...cardSt,fontSize:13.5,color:C.text,lineHeight:1.7}}>{(Array.isArray(m.abertura)?m.abertura:[m.abertura]).map((x,j)=><p key={j} style={{margin:j?'10px 0 0':0}}>{x}</p>)}</div>}
         {m.apostila.map((sec,i)=><div key={i} style={cardSt}>
-          <div style={{fontSize:13,fontWeight:800,color:s.color,marginBottom:6}}>{sec.t}</div>
-          {sec.p&&<div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{sec.p}</div>}
-          {sec.itens&&<ul style={{margin:'0 0 0 18px',padding:0}}>{sec.itens.map((it,j)=><li key={j} style={{fontSize:13,color:C.text,lineHeight:1.6,marginBottom:3}}>{it}</li>)}</ul>}
+          <div style={{fontSize:14,fontWeight:800,color:s.color,marginBottom:6}}>{sec.t}</div>
+          {(Array.isArray(sec.p)?sec.p:sec.p?[sec.p]:[]).map((x,j)=><p key={j} style={{fontSize:13.5,color:C.text,lineHeight:1.7,margin:j?'10px 0 0':0}}>{x}</p>)}
+          {sec.itens&&<ul style={{margin:'8px 0 0 18px',padding:0}}>{sec.itens.map((it,j)=><li key={j} style={{fontSize:13.5,color:C.text,lineHeight:1.6,marginBottom:3}}>{it}</li>)}</ul>}
+          {sec.caixa&&(()=>{const k=CAIXAS_APOSTILA[sec.caixa.tipo]||CAIXAS_APOSTILA.pratica;return(<div style={{marginTop:12,borderLeft:'4px solid '+k.cor,background:k.cor+'18',borderRadius:8,padding:'10px 12px'}}>
+            <div style={{fontSize:12,fontWeight:800,color:k.cor,marginBottom:4}}>{k.icone} {sec.caixa.titulo||k.rotulo}</div>
+            <div style={{fontSize:13,color:C.text,lineHeight:1.6}}>{sec.caixa.texto}</div></div>);})()}
         </div>)}
+        {m.resumo&&<div style={{...cardSt,background:'#0D3B66',borderColor:'#0D3B66'}}>
+          <div style={{fontSize:14,fontWeight:900,color:'#FFD400',marginBottom:6}}>Resumo de bolso</div>
+          <ul style={{margin:'0 0 0 18px',padding:0}}>{m.resumo.map((it,j)=><li key={j} style={{fontSize:13,color:'#fff',lineHeight:1.6,marginBottom:3}}>{it}</li>)}</ul>
+        </div>}
         <button onClick={()=>{setPm({etapa:'quiz'});topo();}} style={btnP}>Ir para o questionário →</button>
       </>}
       {etapa==='quiz'&&<>

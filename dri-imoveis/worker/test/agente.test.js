@@ -226,3 +226,37 @@ test("assistente com nome masculino: o prompt usa o masculino", async () => {
   assert.match(f, /como uma corretora simpática/);
   assert.match(f, /é a assistente virtual/);
 });
+
+test("horário pedido no fim da tarde aparece (antes a lista cortava nos 12 primeiros)", async () => {
+  const db = fakeDb({
+    contas: [], imoveis: [{ id: "i1", conta_id: "c1", ativo: true, titulo: "Apto", finalidade: "aluguel", tipo: "apartamento", bairro: "Imbuí", preco: 3500 }],
+    disponibilidades: [{ conta_id: "c1", imovel_id: null, dia_semana: 5, hora_inicio: "09:00:00", hora_fim: "18:00:00" }],
+    visitas: [{ conta_id: "c1", status: "marcada", inicio: utcDe(2026, 10, 30, "16:00").toISOString(), fim: utcDe(2026, 10, 30, "17:00").toISOString() }],
+    bloqueios: [], conversas: [], leads: [],
+  });
+  const conta = { id: "c1", nome: "João", tipo: "corretor", nome_assistente: "Dri", duracao_visita_min: 60, antecedencia_min_horas: 2 };
+  const ctx = { env: ENV, db, conta, telefone: "5571988887777", nome: "Marcos", canal: "simulador", agora: utcDe(2026, 10, 28, "20:00"), conexao: null };
+  roteiro = [
+    usar(chamada("t1", "horarios_visita", { imovel_id: "i1", a_partir_de: "2026-10-30", horario: "15:00" })),
+    (corpo) => {
+      const r = ultimoResultado(corpo);
+      assert.equal(r.pedido_livre, true);
+      assert.equal(r.horario_pedido.descricao, "sexta 30/10 às 15:00");
+      return usar(chamada("t2", "horarios_visita", { imovel_id: "i1", a_partir_de: "2026-10-30", horario: "16:00" }));
+    },
+    (corpo) => {
+      const r = ultimoResultado(corpo);
+      assert.equal(r.pedido_livre, false, "16h já tem visita");
+      assert.deepEqual(r.alternativas.map((a) => a.descricao), ["sexta 30/10 às 14:30", "sexta 30/10 às 15:00", "sexta 30/10 às 17:00"]);
+      return usar(chamada("t3", "horarios_visita", { imovel_id: "i1", a_partir_de: "2026-10-30", dias: 1 }));
+    },
+    (corpo) => {
+      const r = ultimoResultado(corpo);
+      const hs = r.horarios.map((h) => h.descricao.slice(-5));
+      assert.equal(hs.length, 6);
+      assert.equal(hs[0], "09:00"); assert.equal(hs.at(-1), "17:00", "a lista resumida cobre a tarde");
+      return falar("ok");
+    },
+  ];
+  assert.equal(await responder(ctx, ["sexta às 15h dá?"]), "ok");
+});

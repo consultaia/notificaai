@@ -18,7 +18,9 @@ const brl = (v) => v == null ? null : Number(v).toLocaleString("pt-BR", { style:
 // Data e hora vão em cada mensagem do cliente, não aqui.
 export function promptSistema(conta) {
   const g = generoDa(conta);
-  const quem = conta.tipo === "imobiliaria" ? `a imobiliária ${conta.nome}` : `o corretor ${conta.nome}`;
+  const quem = conta.tipo === "imobiliaria"
+    ? (/^imobili[aá]ria\b/i.test(conta.nome) ? `a ${conta.nome}` : `a imobiliária ${conta.nome}`)
+    : (/^corretor(a)?\b/i.test(conta.nome) ? conta.nome : `o corretor ${conta.nome}`);
   return `Você é ${conta.nome_assistente}, assistente virtual que atende pelo WhatsApp para ${quem}${conta.creci ? ` (CRECI ${conta.creci})` : ""}${conta.cidade ? `, em ${conta.cidade}` : ""}.
 
 Seu trabalho: receber bem quem procura imóvel, entender o que a pessoa quer, apresentar opções da carteira e marcar a visita na agenda real.
@@ -27,6 +29,7 @@ Seu jeito de falar (isto importa muito):
 - Converse como ${g.uma} ${g.x === "o" ? "corretor simpático e atencioso" : "corretora simpática e atenciosa"} conversaria no WhatsApp com alguém que acabou de chegar: calorosa, leve e natural, nunca robótica nem "de formulário". Português do Brasil do dia a dia ("a gente", "tá", "pra" cabem bem), sem gírias forçadas.
 - Comece se apresentando com simpatia na primeira mensagem e chame a pessoa pelo nome quando souber (sem repetir o nome em toda mensagem).
 - Reaja ao que a pessoa contou antes de seguir: se ela vai casar, está esperando bebê, mudando de cidade ou procurando mais espaço para a família, comente isso com interesse genuíno e use isso para recomendar ("com criança pequena, o playground e a portaria 24h ajudam bastante").
+- Se a pessoa não respondeu uma pergunta, não repita a mesma pergunta na mensagem seguinte: siga a conversa e retome só mais tarde, se fizer falta.
 - Faça uma pergunta por vez e explique por que pergunta quando ajudar ("pra eu já te mostrar o que cabe no bolso, você pensa em financiar?").
 - Apresente imóveis como quem conta uma novidade, destacando o que combina com o que a pessoa disse, e não como uma ficha técnica. Lista com marcadores só quando forem 2 ou 3 opções lado a lado; mesmo assim, uma linha curta por opção e um comentário seu antes ou depois.
 - Use emoji com moderação (no máximo um por mensagem, e nem toda mensagem precisa).
@@ -42,7 +45,8 @@ Como conduzir:
 - Endereço exato só depois que a visita estiver marcada. Antes disso, fale só o bairro.
 - Lançamentos e imóveis na planta vêm agrupados por empreendimento: apresente o empreendimento e as plantas disponíveis. Se houver book, ofereça mandar (enviar_book). Se não houver preço cadastrado, diga que o corretor passa a tabela atualizada e as condições, e use chamar_corretor se a pessoa quiser os valores.
 - Para marcar visita: consulte horarios_visita, ofereça 2 ou 3 horários, confirme o nome da pessoa e use marcar_visita com o horário exato devolvido pela ferramenta. Depois confirme dia, hora e endereço.
-- Para remarcar ou cancelar, use visitas_do_cliente e cancelar_visita, depois marque o novo horário.
+- Para remarcar: primeiro confira se o horário novo está livre (horarios_visita com 'horario' e 'a_partir_de'), marque o novo com marcar_visita e só depois cancele o antigo (visitas_do_cliente e cancelar_visita). Nunca cancele a visita antiga antes de garantir a nova. Para só cancelar, use visitas_do_cliente e cancelar_visita.
+- Quando a pessoa pedir um dia e hora específicos, consulte horarios_visita com 'a_partir_de' e 'horario'.
 - Guarde o que a pessoa procura com salvar_perfil_cliente assim que souber (ajuda o corretor).
 - Novidades: uma vez por conversa, num momento natural (depois de ajudar, ao se despedir ou quando não houver imóvel que sirva agora), pergunte se a pessoa quer receber novidades e lançamentos por aqui. Registre a resposta com registrar_novidades. Não insista se ela disser não, e não pergunte de novo se o cabeçalho disser que ela já respondeu. Se a pessoa pedir para não receber mais mensagens, registre "não" e confirme com gentileza.
 
@@ -105,6 +109,7 @@ const FERRAMENTAS = [
       properties: {
         imovel_id: { type: "string" },
         a_partir_de: { type: "string", description: "Data AAAA-MM-DD, se a pessoa pediu um dia específico" },
+        horario: { type: "string", description: "HH:MM, se a pessoa pediu um horário específico (use junto com a_partir_de). Diz se está livre e sugere os mais próximos." },
         dias: { type: "integer", description: "Quantos dias olhar, padrão 7" },
       },
     },
@@ -249,15 +254,41 @@ async function executar(nome, input, ctx) {
       for (const r of [disp, vis, bloq]) if (r.error) throw new Error(r.error.message);
       if (!(disp.data || []).length)
         return { horarios: [], aviso: "O corretor ainda não cadastrou horários de visita. Ofereça chamar o corretor para combinar." };
-      const livres = horariosLivres({
+      const todos = horariosLivres({
         disponibilidades: disp.data, ocupados: [...vis.data, ...bloq.data], imovelId: input.imovel_id,
         agora, dataInicio: input.a_partir_de || null, dias: Math.min(input.dias || 7, 30),
-        duracaoMin: conta.duracao_visita_min, antecedenciaHoras: conta.antecedencia_min_horas, limite: 12,
+        duracaoMin: conta.duracao_visita_min, antecedenciaHoras: conta.antecedencia_min_horas, limite: 500,
       });
+      const item = (d) => ({ inicio: d.toISOString(), descricao: descreverHorario(d) });
+      // Pediu um horário: diz se está livre e, se não, os mais próximos naquele dia (ou nos seguintes)
+      const hm = /^(\d{1,2})(?::|h)?(\d{2})?$/.exec(String(input.horario || "").trim());
+      if (hm) {
+        const alvoMin = Number(hm[1]) * 60 + Number(hm[2] || 0);
+        const minDoDia = (d) => { const l = local(d); return l.hora * 60 + l.minuto; };
+        const diaDe = (d) => { const l = local(d); return `${l.ano}-${l.mes}-${l.dia}`; };
+        const primeiroDia = todos.length ? diaDe(todos[0]) : null;
+        const doDia = todos.filter((d) => diaDe(d) === primeiroDia);
+        const exato = doDia.find((d) => minDoDia(d) === alvoMin);
+        const proximos = [...doDia].sort((a, b) => Math.abs(minDoDia(a) - alvoMin) - Math.abs(minDoDia(b) - alvoMin)).slice(0, 3)
+          .sort((a, b) => a - b);
+        return {
+          duracao_minutos: conta.duracao_visita_min,
+          pedido_livre: !!exato,
+          ...(exato ? { horario_pedido: item(exato) } : {}),
+          alternativas: (exato ? [] : proximos).map(item),
+          ...(todos.length ? {} : { aviso: "Nenhum horário livre nesse período. Tente outros dias ou chame o corretor." }),
+        };
+      }
+      // Lista resumida: até 5 dias, até 6 horários por dia espalhados entre manhã e tarde
+      const porDia = new Map();
+      for (const d of todos) { const l = local(d); const k = `${l.ano}-${l.mes}-${l.dia}`; if (!porDia.has(k)) porDia.set(k, []); porDia.get(k).push(d); }
+      const espalhar = (xs, n) => (xs.length <= n ? xs : Array.from({ length: n }, (_, i) => xs[Math.round(i * (xs.length - 1) / (n - 1))]));
+      const resumo = [...porDia.values()].slice(0, 5).flatMap((xs) => espalhar(xs, 6));
       return {
         duracao_minutos: conta.duracao_visita_min,
-        horarios: livres.map((d) => ({ inicio: d.toISOString(), descricao: descreverHorario(d) })),
-        ...(livres.length ? {} : { aviso: "Nenhum horário livre nesse período. Tente outros dias ou chame o corretor." }),
+        horarios: resumo.map(item),
+        observacao: "Lista resumida. Se a pessoa pedir um horário que não está aqui, consulte de novo com 'horario' e 'a_partir_de' antes de dizer que não tem.",
+        ...(todos.length ? {} : { aviso: "Nenhum horário livre nesse período. Tente outros dias ou chame o corretor." }),
       };
     }
     case "marcar_visita": {

@@ -127,14 +127,14 @@
   function capacitacao() {
     DB.capacitacao_respostas = [];
     var mods = { identificacao: 'ident', medicamentos: 'med', queda: 'queda', lpp: 'lpp', cirurgia: 'cir', comunicacao: 'com', ccih: 'maos' };
-    var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62 };
+    var dificeis = { med_2: 0.45, lpp_5: 0.5, maos_3: 0.55, cir_5: 0.58, com_3: 0.62, med_9: 0.5, lpp_10: 0.48, com_10: 0.55, ident_11: 0.7, queda_10: 0.66, cir_11: 0.72, maos_9: 0.52 };
     var profs = ['Divisão de Enfermagem', 'Divisão de Enfermagem', 'Divisão de Enfermagem', 'Medicina', 'Farmácia', 'Odontologia', 'Fisioterapia'];
     var nomes = ['Ana Souza', 'Bruno Lima', 'Carla Dias', 'Diego Rocha', 'Elaine Costa', 'Fábio Nunes', 'Gisele Melo', 'Hugo Alves', 'Iara Santos', 'João Pires', 'Karen Viana', 'Lucas Moura', 'Marta Reis', 'Nilton Braga', 'Olga Prado', 'Paulo Teles', 'Rita Gomes', 'Sérgio Luz'];
     for (var i = 0; i < 64; i++) {
       var mod = pick(Object.keys(mods)), pre = mods[mod], nome = pick(nomes), resp = {}, ac = 0, setor = SETORES[nomes.indexOf(nome) % SETORES.length];
-      for (var q = 1; q <= 8; q++) { var id = pre + '_' + q, p = dificeis[id] || 0.88, c = rnd() < p; if (c) ac++; resp[id] = { e: c ? 0 : 1 + Math.floor(rnd() * 3), c: c }; }
+      for (var q = 1; q <= 11; q++) { var id = pre + '_' + q, p = dificeis[id] || (q > 8 ? 0.74 : 0.88), c = rnd() < p; if (c) ac++; resp[id] = { e: c ? 0 : 1 + Math.floor(rnd() * 3), c: c }; }
       DB.capacitacao_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 200)).toISOString(), hospital_id: HID, modulo: mod, nome: nome, setor: setor, profissao: profs[nomes.indexOf(nome) % profs.length],
-        acertos: ac, total: 8, percentual: Math.round(ac / 8 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.1' });
+        acertos: ac, total: 11, percentual: Math.round(ac / 11 * 100), respostas: resp, duracao_seg: 600 + Math.floor(rnd() * 900), versao: '2026.2' });
     }
   }
 

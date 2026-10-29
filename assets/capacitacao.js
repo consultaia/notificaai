@@ -393,3 +393,134 @@ ccih: {
   var a = window.CAPACITACAO_APOSTILAS[m.id];
   if (a) { m.abertura = a.abertura; m.apostila = a.secoes; m.resumo = a.resumo; }
 });
+
+// ── Níveis das questões + casos difíceis da prática institucional ──────────────
+window.CAPACITACAO_VERSAO = '2026.2';
+window.CAPACITACAO_NIVEIS = {
+  ident_1: 'facil', ident_2: 'facil', ident_4: 'facil', ident_6: 'facil', ident_3: 'medio', ident_5: 'medio', ident_7: 'medio', ident_8: 'medio',
+  med_3: 'facil', med_4: 'facil', med_7: 'facil', med_1: 'medio', med_2: 'medio', med_5: 'medio', med_6: 'medio', med_8: 'medio',
+  queda_2: 'facil', queda_3: 'facil', queda_4: 'facil', queda_8: 'facil', queda_1: 'medio', queda_5: 'medio', queda_6: 'medio', queda_7: 'medio',
+  lpp_1: 'facil', lpp_2: 'facil', lpp_4: 'facil', lpp_8: 'facil', lpp_3: 'medio', lpp_5: 'medio', lpp_6: 'medio', lpp_7: 'medio',
+  cir_1: 'facil', cir_4: 'facil', cir_8: 'facil', cir_2: 'medio', cir_3: 'medio', cir_5: 'medio', cir_6: 'medio', cir_7: 'medio',
+  com_1: 'facil', com_4: 'facil', com_5: 'facil', com_8: 'facil', com_2: 'medio', com_3: 'medio', com_6: 'medio', com_7: 'medio',
+  maos_1: 'facil', maos_2: 'facil', maos_3: 'facil', maos_4: 'medio', maos_5: 'medio', maos_6: 'medio', maos_7: 'medio', maos_8: 'medio'
+};
+window.CAPACITACAO_DIFICEIS = {
+  identificacao: [
+    { id: 'ident_9', tema: 'Etiquetagem à beira do leito', p: 'Na rotina de coleta, a técnica leva para o quarto os tubos de dois pacientes já etiquetados no posto, para ganhar tempo. Segundo o protocolo, qual é a conduta correta?', ops: ['Etiquetar cada tubo à beira do leito, na frente do paciente, depois de conferir a pulseira com a solicitação', 'Etiquetar todos no posto e conferir depois da coleta', 'Coletar tudo e etiquetar no fim da rotina, separando por quarto', 'Pedir que o paciente segure o tubo com o próprio nome'], exp: 'Tubo etiquetado longe do paciente é uma das causas mais comuns de troca de amostra. A etiqueta vai no tubo à beira do leito, depois da conferência.' },
+    { id: 'ident_10', tema: 'Paciente não identificado', p: 'Um paciente chega inconsciente à emergência, sem documentos. Como ele deve ser identificado até que se saiba quem é?', ops: ['Pelo padrão institucional para não identificado (ex.: “desconhecido” + número de registro), trocando pelos dados reais assim que confirmados', 'Pelo número do leito da emergência', 'Sem pulseira até a família chegar', 'Com um nome provisório escolhido pela equipe'], exp: 'Mesmo sem nome, o paciente precisa de uma identificação única e padronizada desde a chegada, para que exames e medicamentos não se percam.' },
+    { id: 'ident_11', tema: 'Divergência antes de transfusão', p: 'Antes de instalar um hemocomponente, você nota que o nome na pulseira e na bolsa é igual, mas a data de nascimento é diferente. O que fazer?', ops: ['Não instalar, comunicar imediatamente o serviço de hemoterapia para checagem e notificar a ocorrência', 'Instalar, pois o nome confere', 'Corrigir a data na pulseira à caneta e instalar', 'Perguntar a data ao paciente e, se bater com a bolsa, instalar'], exp: 'Qualquer divergência entre os identificadores suspende a transfusão. Os dois identificadores precisam bater em todos os registros.' }
+  ],
+  medicamentos: [
+    { id: 'med_9', tema: 'Abreviatura perigosa', p: 'A prescrição diz: “Insulina regular 10U SC agora”. O que é mais seguro antes de administrar?', ops: ['Confirmar com o prescritor e pedir a correção para “10 unidades”, pois o “U” pode ser lido como zero', 'Administrar 10 unidades, pois parece claro', 'Administrar 100 unidades se a glicemia estiver alta', 'Aguardar a próxima prescrição sem avisar ninguém'], exp: 'O “U” já foi lido como zero, multiplicando a dose por dez. Com medicamento de alta vigilância, a dúvida se resolve com o prescritor antes de administrar.' },
+    { id: 'med_10', tema: 'O paciente como barreira', p: 'Na hora da medicação, o paciente diz: “Esse comprimido não é o que eu tomo, o meu é branco e menor”. Qual a conduta?', ops: ['Interromper, conferir prescrição, rótulo e identificação e, se preciso, confirmar com a farmácia antes de administrar', 'Explicar que o hospital usa outra marca e administrar', 'Administrar e anotar a queixa no prontuário', 'Pedir ao acompanhante que convença o paciente'], exp: 'O paciente é a última barreira contra o erro. Uma estranheza dele é motivo para parar e conferir.' },
+    { id: 'med_11', tema: 'Cloreto de potássio concentrado', p: 'Você encontra ampolas de cloreto de potássio concentrado soltas na bancada de preparo de uma enfermaria. O que fazer?', ops: ['Retirar da área de preparo comum, segregar ou devolver conforme orientação da farmácia e notificar ao NSP', 'Guardar na gaveta junto com os demais eletrólitos', 'Deixar onde está, pois pode ser útil numa emergência', 'Descartar no lixo comum'], exp: 'KCl concentrado é de alta vigilância e não deve ficar disponível sem controle nas unidades. É uma circunstância de risco que deve ser notificada.' }
+  ],
+  queda: [
+    { id: 'queda_9', tema: 'Reavaliação do risco', p: 'Paciente de 80 anos, pós-operatório, em uso de diurético, avaliado como alto risco às 8h. Às 22h ele fica confuso. Qual a conduta mais adequada?', ops: ['Reavaliar o risco, comunicar o médico sobre a confusão e reforçar as medidas: cama baixa, campainha, acompanhante orientado e idas programadas ao banheiro', 'Manter o plano da manhã, pois ele já foi avaliado hoje', 'Contê-lo no leito sem prescrição', 'Retirar a sinalização para não assustar o acompanhante'], exp: 'Mudança no quadro, como confusão, exige reavaliação do risco e reforço das medidas, além de avaliação médica da causa.' },
+    { id: 'queda_10', tema: 'Queda em anticoagulado', p: 'Um paciente em uso de anticoagulante é encontrado no chão, consciente, dizendo que bateu a cabeça mas está bem. O que fazer?', ops: ['Avaliar antes de mover, comunicar o médico mesmo sem sintomas, manter observação e notificar', 'Ajudá-lo a voltar à cama e não comunicar, já que está bem', 'Registrar só se surgirem sintomas', 'Dar um analgésico e seguir a rotina'], exp: 'No anticoagulado, um sangramento intracraniano pode aparecer horas depois. A avaliação médica é obrigatória mesmo sem sintomas.' },
+    { id: 'queda_11', tema: 'Prevenção à noite', p: 'Qual conjunto de medidas protege melhor, à noite, um paciente com alto risco de queda?', ops: ['Luz noturna, cama baixa e travada, campainha e água ao alcance e ida programada ao banheiro antes de dormir', 'Luz totalmente apagada para dormir melhor e grades abaixadas', 'Sedativo para não levantar e porta fechada', 'Chinelo ao lado da cama e suporte de soro para se apoiar'], exp: 'Muitas quedas acontecem no trajeto ao banheiro, à noite. Iluminação, cama baixa, objetos ao alcance e idas programadas atacam essas causas.' }
+  ],
+  lpp: [
+    { id: 'lpp_9', tema: 'Plano de prevenção completo', p: 'Paciente com Braden 11, acamado, com sonda nasoenteral e incontinência. Qual plano é mais completo?', ops: ['Reposicionar a cada 2 h (ou plano individual), superfície de redistribuição, calcanhares sem apoio, higiene após eliminações com barreira, inspeção sob a sonda e acionar a nutrição', 'Reposicionar uma vez por plantão e massagear as proeminências', 'Manter a cabeceira a 90° o tempo todo', 'Usar fralda dupla e trocar a cada 8 horas'], exp: 'Braden 11 indica risco alto. A prevenção combina alívio de pressão, controle da umidade, nutrição e atenção aos dispositivos.' },
+    { id: 'lpp_10', tema: 'Lesão tissular profunda', p: 'No banho, você nota na região sacral uma área arroxeada, com pele intacta, que não clareia à pressão e tem consistência diferente do tecido ao redor. Isso sugere:', ops: ['Lesão tissular profunda: aliviar a pressão, comunicar e notificar', 'Estágio 2, sem necessidade de notificação', 'Hematoma sem relação com pressão', 'Pele normal do idoso'], exp: 'A lesão tissular profunda pode ter pele intacta e cor arroxeada. Ela indica dano por baixo da superfície e pode evoluir rapidamente.' },
+    { id: 'lpp_11', tema: 'Cabeceira e cisalhamento', p: 'Por que manter a cabeceira acima de 30° por longos períodos aumenta o risco de lesão por pressão sacral?', ops: ['Porque o paciente escorrega, aumentando o cisalhamento e a pressão na região sacral', 'Porque diminui a oxigenação da pele', 'Porque esfria a pele', 'Não aumenta o risco'], exp: 'Com a cabeceira alta, o corpo desliza e a pele fica presa no lençol: é o cisalhamento, que soma à pressão sobre o sacro.' }
+  ],
+  cirurgia: [
+    { id: 'cir_9', tema: 'Profilaxia esquecida', p: 'Na pausa antes da incisão, o anestesista informa que o antibiótico profilático indicado não foi feito. Qual a conduta?', ops: ['Administrar o antibiótico conforme o protocolo e só então iniciar a incisão, registrando na lista', 'Iniciar a cirurgia e fazer o antibiótico no fim', 'Dispensar a profilaxia para não atrasar', 'Fazer o antibiótico só se houver febre no pós-operatório'], exp: 'A pausa existe para pegar exatamente isso. A profilaxia, quando indicada, deve ser feita antes da incisão.' },
+    { id: 'cir_10', tema: 'Lado não confirmado', p: 'Cirurgia de hérnia inguinal à direita. O paciente, já levemente sedado, não consegue confirmar o lado e não há demarcação. O que fazer?', ops: ['Não iniciar: confirmar o lado no prontuário, no termo e nos exames e demarcar conforme o protocolo antes de prosseguir', 'Operar pelo lado de que o cirurgião se lembra', 'Perguntar ao acompanhante na porta e seguir', 'Iniciar e confirmar o lado durante a cirurgia'], exp: 'Sem confirmação e sem demarcação, a cirurgia não começa. A checagem em documentos substitui a fala do paciente quando ele não pode confirmar.' },
+    { id: 'cir_11', tema: 'Contagem que não fecha', p: 'Ao final, a contagem de compressas não fecha. Qual a conduta?', ops: ['Não encerrar: recontar, procurar no campo e na sala e, se não encontrar, comunicar o cirurgião e seguir o protocolo da instituição (como exame de imagem), registrando', 'Encerrar e anotar a diferença', 'Recontar no dia seguinte', 'Considerar erro de contagem e liberar o paciente'], exp: 'Contagem divergente é sinal de alerta para corpo estranho retido. O paciente não sai da sala até a situação ser esclarecida.' }
+  ],
+  comunicacao: [
+    { id: 'com_9', tema: 'Partes do SBAR', p: 'Numa ligação ao médico usando SBAR, qual frase corresponde à “Avaliação”?', ops: ['“Acho que ele pode estar evoluindo com sepse.”', '“Paciente do leito 4, 72 anos, internado por pneumonia.”', '“Peço que o senhor venha avaliar agora.”', '“Está com pressão 80x50 e confuso desde as 18h.”'], exp: 'Situação é o que está acontecendo (pressão baixa, confusão); Breve histórico é o contexto; Avaliação é a sua interpretação; Recomendação é o que você pede.' },
+    { id: 'com_10', tema: 'Resultado crítico de madrugada', p: 'Às 2h, o laboratório informa potássio de 6,8 de um paciente. O plantonista não atende o telefone. Qual a conduta?', ops: ['Acionar a cadeia de escalonamento definida pela instituição (outro médico, chefia de plantão), sem esperar, e registrar horários e pessoas contatadas', 'Anotar e passar na troca de plantão da manhã', 'Aguardar o médico retornar a ligação', 'Pedir para repetir o exame antes de avisar alguém'], exp: 'Resultado crítico não espera. Se o responsável não for encontrado, segue-se a cadeia de escalonamento até alguém assumir a conduta.' },
+    { id: 'com_11', tema: 'Comunicação de evento adverso', p: 'Depois de uma queda com fratura, a família pergunta o que aconteceu. Segundo a PNQSP 2026, a postura esperada é:', ops: ['Comunicar de forma aberta e transparente o que ocorreu, o que foi feito e o que muda para evitar novos casos, registrando a comunicação', 'Dizer que não houve problema para evitar conflito', 'Orientar a família a procurar a ouvidoria', 'Esperar que a família esqueça o assunto'], exp: 'A comunicação transparente de eventos adversos é um dos eixos da Política Nacional de 2026 e fortalece a confiança entre paciente e equipe.' }
+  ],
+  ccih: [
+    { id: 'maos_9', tema: 'Clostridioides difficile', p: 'Paciente com diarreia por Clostridioides difficile, em precaução de contato. Qual a higiene das mãos mais adequada após o atendimento?', ops: ['Água e sabonete, pois o álcool não é eficaz contra os esporos dessa bactéria', 'Somente álcool 70%', 'Nenhuma, se usou luvas', 'Álcool por cima das luvas'], exp: 'Os esporos de C. difficile resistem ao álcool; a remoção mecânica com água e sabonete é a medida indicada, junto com as precauções de contato.' },
+    { id: 'maos_10', tema: 'Sequência com luvas', p: 'Um profissional higieniza as mãos, calça luvas, aspira a traqueostomia, retira as luvas e vai direto preparar a medicação de outro paciente. Onde está o erro?', ops: ['Faltou higienizar as mãos depois de retirar as luvas, após a exposição a fluidos e antes do procedimento limpo', 'Não há erro, porque usou luvas', 'Deveria ter usado dois pares de luvas', 'O erro foi higienizar antes de calçar as luvas'], exp: 'Luvas não substituem a higiene. Após retirá-las há exposição a fluidos (3º momento) e, antes de preparar medicação, procedimento limpo (2º momento).' },
+    { id: 'maos_11', tema: 'Quem cada momento protege', p: 'Quais momentos da higiene das mãos protegem principalmente o profissional e o ambiente hospitalar?', ops: ['Após risco de exposição a fluidos, após tocar o paciente e após tocar superfícies próximas a ele', 'Antes de tocar o paciente', 'Antes de procedimento limpo ou asséptico', 'Antes de calçar luvas estéreis'], exp: 'Os momentos “antes” (1 e 2) protegem o paciente; os momentos “após” (3, 4 e 5) protegem o profissional e evitam levar microrganismos para o ambiente.' }
+  ]
+};
+(window.CAPACITACAO_MODULOS || []).forEach(function (m) {
+  m.questoes.forEach(function (q) { q.nivel = q.nivel || window.CAPACITACAO_NIVEIS[q.id] || 'medio'; });
+  (window.CAPACITACAO_DIFICEIS[m.id] || []).forEach(function (q) {
+    if (!m.questoes.some(function (x) { return x.id === q.id; })) { q.nivel = 'dificil'; m.questoes.push(q); }
+  });
+  var ordem = { facil: 0, medio: 1, dificil: 2 };
+  m.questoes.sort(function (a, b) { return ordem[a.nivel] - ordem[b.nivel]; });
+});
+
+// ── Trilha interativa: decisões nos casos ("Imagine a cena") e verdadeiro ou falso ──
+window.CAPACITACAO_INTERATIVO = {
+  identificacao: {
+    cenas: [{ pergunta: 'O que teria evitado esse quase erro?', opcoes: [
+      { t: 'Perguntar o nome completo e a data de nascimento e conferir com a pulseira', ok: true, fb: 'Isso! A pergunta aberta mais a pulseira fecham a porta para a troca.' },
+      { t: 'Chamar mais alto pelo nome', fb: 'Falar mais alto não resolve: os dois se chamam José e o sonolento pode responder do mesmo jeito.' },
+      { t: 'Confirmar pelo número do leito', fb: 'O leito identifica o lugar, não a pessoa. Pacientes mudam de leito.' }] }],
+    vf: [
+      { a: 'O número do leito pode ser o segundo identificador quando o paciente está sedado.', v: false, fb: 'Nunca. Com o paciente sedado, confira a pulseira e confirme com o acompanhante.' },
+      { a: 'A pulseira deve ser trocada assim que ficar ilegível.', v: true, fb: 'Pulseira que não dá para ler não identifica ninguém.' },
+      { a: '“O senhor é o João?” é a forma recomendada de confirmar a identidade.', v: false, fb: 'É a pergunta fechada: basta dizer “sim”. Use a pergunta aberta.' }]
+  },
+  medicamentos: {
+    cenas: [{ pergunta: 'Qual atitude protegeu o paciente?', opcoes: [
+      { t: 'Repetir a ordem em voz alta e confirmar com o médico', ok: true, fb: 'Exato: a leitura de volta pega o “quinze” que virou “cinquenta”.' },
+      { t: 'Anotar rápido para não esquecer', fb: 'Anotar ajuda, mas sem repetir em voz alta o erro de escuta passa direto.' },
+      { t: 'Esperar a prescrição escrita do dia seguinte', fb: 'Numa emergência não dá para esperar; o caminho é repetir, confirmar e registrar.' }] }],
+    vf: [
+      { a: 'Escrever “5,0 mg” é seguro, desde que a letra esteja legível.', v: false, fb: 'O zero à direita pode transformar 5 em 50. Escreva “5 mg”.' },
+      { a: 'Na dupla checagem independente, o colega confere sozinho, sem você ditar.', v: true, fb: 'Se você dita, ele só confirma o que ouviu, inclusive o erro.' },
+      { a: 'Erros interceptados antes de chegar ao paciente não precisam ser notificados.', v: false, fb: 'Quase erro também se notifica: mostra a falha sem ninguém se machucar.' }]
+  },
+  queda: {
+    cenas: [{ pergunta: 'Qual medida teria mais chance de evitar a queda da Dona Lúcia?', opcoes: [
+      { t: 'Orientar a chamar a enfermagem e oferecer ida ao banheiro antes de dormir, com a campainha ao alcance', ok: true, fb: 'Isso: atacou a causa (ir sozinha ao banheiro à noite) e deu um jeito fácil de pedir ajuda.' },
+      { t: 'Apagar todas as luzes para ela dormir melhor', fb: 'No escuro o risco aumenta. Luz noturna é aliada.' },
+      { t: 'Deixar o chinelo ao lado da cama', fb: 'Chinelo solto escorrega. O ideal é calçado fechado e antiderrapante.' }] }],
+    vf: [
+      { a: 'Queda sem lesão não precisa ser notificada.', v: false, fb: 'Toda queda é notificada e o risco é reavaliado.' },
+      { a: 'Levantar em etapas ajuda a evitar a tontura da hipotensão postural.', v: true, fb: 'Sentar, esperar e então levantar dá tempo para a pressão se ajustar.' },
+      { a: 'As grades da cama devem ficar sempre abaixadas, para conforto.', v: false, fb: 'Grades seguem o plano de cuidados; para paciente de risco, costumam ficar elevadas.' }]
+  },
+  lpp: {
+    cenas: [{ pergunta: 'O que poderia ter sido diferente com o Seu Antônio?', opcoes: [
+      { t: 'Cabeceira até 30° quando possível, reposicionamento a cada 2 h e inspeção diária da região sacral', ok: true, fb: 'Perfeito: menos cisalhamento, menos pressão contínua e detecção precoce.' },
+      { t: 'Massagear a região sacral todos os dias', fb: 'Massagem sobre proeminência óssea pode piorar o dano.' },
+      { t: 'Manter a cabeceira bem alta o dia todo', fb: 'Foi justamente o que fez ele escorregar e aumentou o cisalhamento.' }] }],
+    vf: [
+      { a: 'Massagear áreas avermelhadas ajuda a prevenir a lesão por pressão.', v: false, fb: 'A massagem pode aumentar o dano nos tecidos já comprometidos.' },
+      { a: 'Vermelhidão que não clareia à pressão indica estágio 1.', v: true, fb: 'É o primeiro sinal: hora de aliviar a pressão.' },
+      { a: 'Lesão por pressão só acontece sobre proeminências ósseas.', v: false, fb: 'Também acontece sob dispositivos: sondas, máscaras, cateteres.' }]
+  },
+  cirurgia: {
+    cenas: [{ pergunta: 'O que a circulante deve fazer?', opcoes: [
+      { t: 'Falar na hora e pedir a pausa até esclarecer', ok: true, fb: 'Isso! Qualquer membro da equipe pode e deve parar diante de uma dúvida.' },
+      { t: 'Ficar quieta, porque o cirurgião sabe o que faz', fb: 'Hierarquia não pode silenciar um alerta de lateralidade.' },
+      { t: 'Comentar só depois da cirurgia', fb: 'Depois pode ser tarde demais.' }] }],
+    vf: [
+      { a: 'A demarcação do local é feita pelo cirurgião, com a participação do paciente.', v: true, fb: 'Quem opera demarca, com o paciente acordado confirmando.' },
+      { a: 'Em cirurgias curtas, a contagem de compressas pode ser dispensada.', v: false, fb: 'A contagem é feita em toda cirurgia.' },
+      { a: 'A lista de verificação da OMS foi inspirada nos checklists da aviação.', v: true, fb: 'Pilotos experientes também usam checklist: a memória falha sob pressão.' }]
+  },
+  comunicacao: {
+    cenas: [{ pergunta: 'Qual técnica corrigiu o erro da furosemida?', opcoes: [
+      { t: 'Leitura de volta (read-back)', ok: true, fb: 'Isso: repetir a ordem permitiu ao médico corrigir de 40 para 20 mg.' },
+      { t: 'SBAR', fb: 'O SBAR organiza a passagem de informação; aqui o que salvou foi repetir a ordem.' },
+      { t: 'Teach-back', fb: 'Teach-back é pedir ao paciente que repita a orientação com as próprias palavras.' }] }],
+    vf: [
+      { a: 'Perguntar “Entendeu?” é suficiente para confirmar a orientação de alta.', v: false, fb: 'A resposta quase sempre é “sim”. Peça que a pessoa explique com as próprias palavras.' },
+      { a: 'O SBAR nasceu na Marinha dos Estados Unidos.', v: true, fb: 'Foi criado nos submarinos nucleares e depois adaptado para a saúde.' },
+      { a: 'Resultado crítico pode aguardar a visita médica do dia seguinte.', v: false, fb: 'Resultado crítico é comunicado na hora, com registro de quem recebeu.' }]
+  },
+  ccih: {
+    cenas: [{ pergunta: 'Precisa higienizar as mãos ao sair do quarto?', opcoes: [
+      { t: 'Sim, é o 5º momento: após tocar superfícies próximas ao paciente', ok: true, fb: 'Exato: a bomba e a grade carregam os microrganismos daquele paciente.' },
+      { t: 'Não, porque não tocou no paciente', fb: 'O entorno do paciente também está contaminado.' },
+      { t: 'Só se o paciente estiver em isolamento', fb: 'Os cinco momentos valem para todos os pacientes.' }] }],
+    vf: [
+      { a: 'Luvas substituem a higiene das mãos.', v: false, fb: 'Higienize antes de calçar e depois de retirar.' },
+      { a: 'Com álcool, a fricção leva de 20 a 30 segundos.', v: true, fb: 'Friccione todas as áreas até secar.' },
+      { a: 'Polegares e pontas dos dedos são as áreas mais esquecidas.', v: true, fb: 'E são justamente as que mais tocam o paciente.' }]
+  }
+};

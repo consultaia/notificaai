@@ -8039,6 +8039,22 @@ async function hashSenhaCapac(pin,hid,nome){
   const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pin+':'+hid+':capacitacao:'+nomeChave(nome)));
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+// Junta o progresso salvo em dois aparelhos: em cada modulo fica o mais adiantado
+// (certificado > resultado > desafio > trilha > diagnostico); empate, o mais recente. Nunca perde certificado nem pendencia.
+const RANK_ETAPA={pre:1,conteudo:2,quiz:3,resultado:4};
+function mesclarProgresso(a,b){
+  const out={...(a||{})};
+  const r=x=>(x&&x.cert?10:0)+(RANK_ETAPA[x&&x.etapa]||0);
+  Object.entries(b||{}).forEach(([k,v])=>{
+    const u=out[k];if(!v)return;if(!u){out[k]=v;return;}
+    const ru=r(u),rv=r(v);
+    const win={...(rv>ru?v:ru>rv?u:((v.atualizado||'')>(u.atualizado||'')?v:u))};
+    const certs=[u.cert,v.cert].filter(Boolean).sort((x,y)=>(y.pct||0)-(x.pct||0));if(certs[0])win.cert=certs[0];
+    ['pendente','preReg','pre'].forEach(c=>{if(!win[c]&&(u[c]||v[c]))win[c]=u[c]||v[c];});
+    out[k]=win;
+  });
+  return out;
+}
 function porNivelResp(m,resp){
   return ['facil','medio','dificil'].map(nv=>{const qs=m.questoes.filter(q=>(q.nivel||'medio')===nv);return {nv,total:qs.length,ac:qs.filter(q=>resp[q.id]===0).length};}).filter(x=>x.total);
 }
@@ -8077,34 +8093,42 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     setProg(novo);try{localStorage.setItem(kProg,JSON.stringify(novo));}catch{}
     if(part&&part.id&&sbUrl&&sbKey){clearTimeout(timer.current);timer.current=setTimeout(()=>{sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${part.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});},800);}
   };
-  // envia o que ficou guardado no aparelho quando o banco ainda nao aceitava (cadastro, diagnosticos e resultados)
+  // Ao abrir: (1) cria o cadastro que ficou so no aparelho (ou junta com um cadastro do mesmo nome feito em outro
+  // aparelho); (2) traz o progresso feito em outro aparelho; (3) envia diagnosticos e resultados que ficaram guardados.
   const sincronizando=React.useRef(false);
   useEffect(()=>{
     if(!part||!sbUrl||!sbKey||sincronizando.current) return;
-    const temPendente=!part.id||Object.values(prog||{}).some(v=>v&&(v.pendente||v.preReg));
-    if(!temPendente) return;
     sincronizando.current=true;
+    const local=prog;
     (async()=>{
       try{
         let p=part;
         if(!p.id){
-          const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:prog});
-          if(!(r&&r[0]&&r[0].id)) return;
-          p={...p,id:r[0].id};setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));}catch{}
+          let ex=null;
+          try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(p.nome))}&select=id,codigo,nome,setor,profissao&order=updated_at.desc`);if(d&&d.length===1)ex=d[0];}catch(e){}
+          if(ex) p={id:ex.id,codigo:ex.codigo,nome:ex.nome,setor:ex.setor,profissao:ex.profissao};
+          else{
+            const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:local});
+            if(!(r&&r[0]&&r[0].id)) return;
+            p={...p,id:r[0].id};
+          }
+          setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));}catch{}
         }
-        const novo={...prog};let mudou=false;
-        for(const [mod,v] of Object.entries(prog||{})){
-          if(!v) continue;const nv={...v};
-          if(nv.preReg){try{await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{...nv.preReg,participante_id:p.id});delete nv.preReg;mudou=true;}catch(e){}}
+        let remoto={};
+        try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}&select=progresso`);remoto=(d&&d[0]&&d[0].progresso)||{};}catch(e){}
+        const novo=mesclarProgresso(remoto,local);let enviou=false;
+        for(const [mod,v] of Object.entries(novo)){
+          if(!v||(!v.preReg&&!v.pendente)) continue;const nv={...v};
+          if(nv.preReg){try{await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{...nv.preReg,participante_id:p.id});delete nv.preReg;enviou=true;}catch(e){}}
           if(nv.pendente){try{const r=await sbInsert(sbUrl,sbKey,'capacitacao_respostas',{...nv.pendente,participante_id:p.id});
             const cod=r&&r[0]&&r[0].id?String(r[0].id).slice(0,8).toUpperCase():null;
-            delete nv.pendente;if(cod){nv.codigo=cod;if(nv.cert&&!nv.cert.codigo)nv.cert={...nv.cert,codigo:cod};}mudou=true;}catch(e){}}
+            delete nv.pendente;if(cod){nv.codigo=cod;if(nv.cert&&!nv.cert.codigo)nv.cert={...nv.cert,codigo:cod};}enviou=true;}catch(e){}}
           novo[mod]=nv;
         }
-        if(mudou){setProg(novo);try{localStorage.setItem(kProg,JSON.stringify(novo));}catch{}
-          sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});
-          toast('Resultados guardados no aparelho foram enviados ao NSP.','success');}
-        else if(!part.id) sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}`,{progresso:novo}).catch(()=>{});
+        const js=JSON.stringify(novo);
+        if(js!==JSON.stringify(local)){setProg(novo);try{localStorage.setItem(kProg,js);}catch{}}
+        if(js!==JSON.stringify(remoto)) sbPatch(sbUrl,sbKey,'capacitacao_participantes',`id=eq.${p.id}`,{progresso:novo,updated_at:new Date().toISOString()}).catch(()=>{});
+        if(enviou) toast('Resultados guardados no aparelho foram enviados ao NSP.','success');
       }catch(e){}
       finally{sincronizando.current=false;}
     })();
@@ -8123,6 +8147,11 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
     if(!cad.setor){toast('Escolha o setor onde trabalha','error');return;}
     if(!/^\d{4}$/.test(pinNovo)){toast('Crie um PIN de 4 números: com ele e o seu nome você volta de onde parou','error');return;}
     setOcupado(true);
+    if(sbUrl&&sbKey){
+      try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(cad.nome))}&select=id&limit=1`);
+        if(d&&d.length&&!window.confirm('Já existe um cadastro com o nome '+cad.nome.trim()+'.\n\nSe for você (começou em outro aparelho), toque em Cancelar e use "Já começou? Continue de onde parou" com o seu nome e PIN ou o código: assim o progresso continua o mesmo.\n\nSe for outra pessoa com o mesmo nome, toque em OK.')){setOcupado(false);setModoVolta('nome');setVolta(v=>({...v,nome:cad.nome.trim()}));return;}}
+      catch(e){}
+    }
     const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
     try{if(sbUrl&&sbKey){
       const base={hospital_id:h.id,...p,progresso:prog};

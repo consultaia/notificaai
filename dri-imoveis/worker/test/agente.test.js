@@ -220,11 +220,13 @@ test("assistente com nome masculino: o prompt usa o masculino", async () => {
   const { promptSistema } = await import("../src/agente.js");
   const p = promptSistema({ nome: "Carlos Imóveis", nome_assistente: "Pedro", genero_assistente: "masculino", tipo: "corretor" });
   assert.match(p, /como um corretor simpático e atencioso/);
-  assert.match(p, /é o assistente virtual do corretor/);
+  assert.match(p, /é o assistente virtual do Carlos/);
   assert.match(p, /masculino \(obrigado/);
   const f = promptSistema({ nome: "Carlos Imóveis", nome_assistente: "Dri", tipo: "corretor" });
   assert.match(f, /como uma corretora simpática/);
-  assert.match(f, /é a assistente virtual/);
+  assert.match(f, /é a assistente virtual do Carlos/);
+  assert.match(f, /Aqui é a Dri, da equipe do Carlos/);
+  assert.match(f, /nunca diga que é uma pessoa/);
 });
 
 test("horário pedido no fim da tarde aparece (antes a lista cortava nos 12 primeiros)", async () => {

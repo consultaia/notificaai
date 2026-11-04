@@ -811,25 +811,55 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
   </div>);
 }
 
-// Botao "Instalar app" (Android/Chrome: dialogo nativo; iPhone: instrucoes)
-function BotaoInstalar({compacto}) {
+// Botao "Instalar app": Chrome/Edge (computador e Android) abrem o dialogo nativo; nos demais, instrucoes do navegador
+const ehComputador=()=>!/android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+const appInstalado=()=>!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;
+function dicaInstalar(){
+  const ua=navigator.userAgent;
+  if(/iphone|ipad|ipod/i.test(ua)) return 'No iPhone: toque em Compartilhar (quadrado com seta) e depois em Adicionar à Tela de Início.';
+  if(/Edg\//.test(ua)) return 'No Edge: clique no ícone de instalar na barra de endereço (à direita) ou no menu ⋯ → Aplicativos → Instalar este site como aplicativo. O NotificaAI ganha atalho na área de trabalho e no menu Iniciar.';
+  if(/Chrome\//.test(ua)) return 'No Chrome: clique no ícone de instalar na barra de endereço (monitor com seta, à direita) ou no menu ⋮ → Transmitir, salvar e compartilhar → Instalar página como app. O NotificaAI ganha atalho na área de trabalho e no menu Iniciar.';
+  if(/Firefox\//.test(ua)) return 'O Firefox não instala aplicativos. Para criar um atalho, arraste o cadeado da barra de endereço até a área de trabalho, ou abra o NotificaAI no Chrome ou no Edge e instale por lá.';
+  if(/Safari\//.test(ua)) return 'No Safari (Mac): menu Arquivo → Adicionar ao Dock.';
+  return 'Use o Chrome ou o Edge e clique no ícone de instalar na barra de endereço.';
+}
+function BotaoInstalar({compacto,destaque}) {
   const [pronto,setPronto]=useState(!!window.__naiInstalar);
   const [dica,setDica]=useState(false);
-  useEffect(()=>{const f=()=>setPronto(true);window.addEventListener('nai-instalavel',f);return()=>window.removeEventListener('nai-instalavel',f);},[]);
-  const instalado=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
+  const [feito,setFeito]=useState(false);
+  useEffect(()=>{const f=()=>setPronto(true);const g=()=>setFeito(true);window.addEventListener('nai-instalavel',f);window.addEventListener('appinstalled',g);return()=>{window.removeEventListener('nai-instalavel',f);window.removeEventListener('appinstalled',g);};},[]);
+  const pc=ehComputador();
   const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  if(instalado||(!pronto&&!ios)) return null;
+  if(feito||appInstalado()||(!pronto&&!ios&&!pc)) return null;
   const clicar=async()=>{
-    if(window.__naiInstalar){const e=window.__naiInstalar;e.prompt();try{await e.userChoice;}catch{}window.__naiInstalar=null;setPronto(false);}
+    if(window.__naiInstalar){const e=window.__naiInstalar;e.prompt();try{const r=await e.userChoice;if(r&&r.outcome==='accepted'){setFeito(true);window.dispatchEvent(new Event('nai-instalado'));}}catch{}window.__naiInstalar=null;setPronto(false);}
     else setDica(d=>!d);
   };
-  return(<div style={{marginBottom:4}}>
-    <button onClick={clicar} style={compacto
-      ?{width:'100%',background:'none',border:'none',textAlign:'left',fontSize:10,color:C.teal,padding:'0 8px 8px',cursor:'pointer',fontWeight:700}
+  const rotulo=pc?'Instalar no computador':'Instalar app no celular';
+  const ic=String.fromCodePoint(pc?128187:128242);
+  return(<div style={{marginBottom:destaque?0:4}}>
+    <button onClick={clicar} title="Cria um atalho do NotificaAI na área de trabalho, que abre em janela própria" style={compacto
+      ?{width:'100%',background:C.teal+'14',border:'1px solid '+C.teal+'44',borderRadius:8,textAlign:'left',fontSize:11,color:C.teal,padding:'8px 10px',marginBottom:8,cursor:'pointer',fontWeight:800,display:'flex',alignItems:'center',gap:8}
+      :destaque?{background:C.teal,border:'none',borderRadius:10,padding:'10px 16px',cursor:'pointer',color:'#06101F',fontSize:13,fontWeight:800,whiteSpace:'nowrap'}
       :{width:'100%',background:C.card,border:'1px solid '+C.teal+'55',borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',color:C.teal,fontSize:13,fontWeight:700}}>
-      {compacto?'Instalar app no aparelho':<React.Fragment><span style={{fontSize:20}}>{String.fromCodePoint(128242)}</span>Instalar app no celular</React.Fragment>}
+      {destaque?rotulo:<React.Fragment><span style={{fontSize:compacto?15:20}}>{ic}</span>{rotulo}</React.Fragment>}
     </button>
-    {dica&&<div style={{fontSize:11,color:C.muted,padding:'4px 8px 8px',lineHeight:1.5}}>No iPhone: toque em <b>Compartilhar</b> (quadrado com seta) e depois em <b>Adicionar à Tela de Início</b>.</div>}
+    {dica&&<div style={{fontSize:11,color:C.muted,padding:'6px 8px 8px',lineHeight:1.55,maxWidth:destaque?360:undefined}}>{dicaInstalar()}</div>}
+  </div>);
+}
+// Aviso no Painel (computador): oferece instalar uma vez; "Agora nao" esconde por 30 dias
+function AvisoInstalarComputador(){
+  const k='nai_aviso_instalar_ate';
+  const [oculto,setOculto]=useState(()=>{try{return Date.now()<Number(localStorage.getItem(k)||0);}catch{return false;}});
+  useEffect(()=>{const f=()=>setOculto(true);window.addEventListener('nai-instalado',f);window.addEventListener('appinstalled',f);return()=>{window.removeEventListener('nai-instalado',f);window.removeEventListener('appinstalled',f);};},[]);
+  if(oculto||!ehComputador()||appInstalado()) return null;
+  const fechar=()=>{try{localStorage.setItem(k,String(Date.now()+30*864e5));}catch{}setOculto(true);};
+  return(<div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',background:'linear-gradient(135deg,'+C.teal+'18,'+C.blue+'12)',border:'1px solid '+C.teal+'55',borderRadius:14,padding:'12px 16px',marginBottom:12}}>
+    <span style={{fontSize:28}}>{String.fromCodePoint(128187)}</span>
+    <div style={{flex:'1 1 260px'}}><div style={{fontSize:13.5,fontWeight:800,color:C.text}}>Instale o NotificaAI no computador</div>
+      <div style={{fontSize:11.5,color:C.muted,marginTop:2,lineHeight:1.5}}>Fica com atalho na área de trabalho e abre em janela própria, sem procurar o link no navegador.</div></div>
+    <BotaoInstalar destaque/>
+    <button onClick={fechar} style={{background:'none',border:'none',color:C.muted,fontSize:11.5,cursor:'pointer',textDecoration:'underline'}}>Agora não</button>
   </div>);
 }
 
@@ -5398,6 +5428,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       </button>))}
     </div>}
 
+    {gestorMode&&<AvisoInstalarComputador/>}
     {gestorMode&&!loading&&resumoPlano&&resumoPlano.total>0&&(()=>{const pct=Math.round(resumoPlano.feitas/resumoPlano.total*100);return(
       <button onClick={()=>setView('acoes')} style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:'12px 14px',marginBottom:12,cursor:'pointer'}}>
         <div style={{width:46,height:46,borderRadius:23,flexShrink:0,background:'conic-gradient('+C.green+' '+pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:36,height:36,borderRadius:18,background:C.card,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:C.text}}>{pct}%</div></div>

@@ -2133,51 +2133,17 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
-  const h=hospital||DEFAULT_HOSPITAL;
-  const anoAtual=new Date().getFullYear();
-  const [modo,setModo]=useState('mes');
-  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
-  const [ano,setAno]=useState(anoAtual);
-  const [sem,setSem]=useState(new Date().getMonth()<6?1:2);
-  const [dados,setDados]=useState(null);
-  const [loading,setLoading]=useState(false);
-
-  const periodo=()=>{
-    if(modo==='mes'){const [a2,m2]=mes.split('-').map(Number);return{ini:mes+'-01',fim:new Date(a2,m2,0).toISOString().slice(0,10),label:new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};}
-    if(modo==='sem')return sem===1?{ini:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1º semestre de ${ano}`}:{ini:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2º semestre de ${ano}`};
-    return{ini:`${ano}-01-01`,fim:`${ano}-12-31`,label:`Ano de ${ano}`};
-  };
-
-  const carregar=async()=>{
-    setLoading(true);
-    try{
-      const {ini,fim}=periodo();
-      const [nots,indMesArr,dsmArr]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&select=event_subtype,description,gravidade,event_date,created_at,sector`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${ini.slice(0,7)}&mes_ref=lte.${fim.slice(0,7)}&select=pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${ini}&mes=lte.${fim}&select=*`).catch(()=>[]),
-      ]);
-      const getD=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
-      const doMes=(nots||[]).filter(n=>{const d2=getD(n);return d2&&d2>=ini&&d2<=fim;});
-      // Agrega objetos {setor:valor} de varios meses somando por chave
-      const numv=v=>Number(v)||0;
-      const sumObjs=(rows,campo)=>{const acc={};(rows||[]).forEach(r=>{const o=r[campo];if(o&&typeof o==='object')Object.entries(o).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)acc[k]=(acc[k]||0)+numv(v);});});return acc;};
-      // Casos manuais: soma o valor de cada mes (objeto por setor OU escalar), null se nenhum mes lancou
-      const cmMesVal=(o,k)=>{const v=o?o[k]:undefined;if(v===undefined||v===null||v==='')return null;if(typeof v==='object'){let t=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){t=true;tot+=numv(x);}});return t?tot:null;}return numv(v);};
-      const cmAgg={};['lpp','avp'].forEach(k=>{let t=false,tot=0;(indMesArr||[]).forEach(r=>{const v=cmMesVal(r.casos_manuais,k);if(v!==null){t=true;tot+=v;}});cmAgg[k]=t?tot:null;});
-      const im={pd_setores:sumObjs(indMesArr,'pd_setores'),pd_lpp_setores:sumObjs(indMesArr,'pd_lpp_setores'),pd_avp_setores:sumObjs(indMesArr,'pd_avp_setores'),pd_geral:(indMesArr||[]).reduce((a2,r)=>a2+numv(r.pd_geral),0)};
-      // DSM: soma campo a campo, preservando "nunca lancado" como undefined (para N/D honesto)
-      const dsm={};(dsmArr||[]).forEach(r=>{Object.entries(r).forEach(([k,v])=>{if(['id','hospital_id','mes','updated_at','created_at'].includes(k))return;if(v!==null&&v!==''&&v!==undefined&&!isNaN(Number(v))){dsm[k]=(dsm[k]||0)+Number(v);}});});
-      setDados({doMes,im,dsm,cmAgg,meses:(dsmArr||[]).length||(indMesArr||[]).length});
-    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
-    setLoading(false);
-  };
-  useEffect(()=>{carregar();},[modo,mes,ano,sem,sbUrl,sbKey]);
-
-  if(loading||!dados) return <div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div>;
-
-  const {doMes,im,dsm,cmAgg}=dados;
+// Calcula todos os indicadores de um periodo (notificacoes do periodo + lancamentos mensais Por Setor e DSM)
+function calcIndicadoresPeriodo(doMes,indMesArr,dsmArr){
+  // Agrega objetos {setor:valor} de varios meses somando por chave
+  const numv=v=>Number(v)||0;
+  const sumObjs=(rows,campo)=>{const acc={};(rows||[]).forEach(r=>{const o=r[campo];if(o&&typeof o==='object')Object.entries(o).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)acc[k]=(acc[k]||0)+numv(v);});});return acc;};
+  // Casos manuais: soma o valor de cada mes (objeto por setor OU escalar), null se nenhum mes lancou
+  const cmMesVal=(o,k)=>{const v=o?o[k]:undefined;if(v===undefined||v===null||v==='')return null;if(typeof v==='object'){let t=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){t=true;tot+=numv(x);}});return t?tot:null;}return numv(v);};
+  const cmAgg={};['lpp','avp'].forEach(k=>{let t=false,tot=0;(indMesArr||[]).forEach(r=>{const v=cmMesVal(r.casos_manuais,k);if(v!==null){t=true;tot+=v;}});cmAgg[k]=t?tot:null;});
+  const im={pd_setores:sumObjs(indMesArr,'pd_setores'),pd_lpp_setores:sumObjs(indMesArr,'pd_lpp_setores'),pd_avp_setores:sumObjs(indMesArr,'pd_avp_setores'),pd_geral:(indMesArr||[]).reduce((a2,r)=>a2+numv(r.pd_geral),0)};
+  // DSM: soma campo a campo, preservando "nunca lancado" como undefined (para N/D honesto)
+  const dsm={};(dsmArr||[]).forEach(r=>{Object.entries(r).forEach(([k,v])=>{if(['id','hospital_id','mes','updated_at','created_at'].includes(k))return;if(v!==null&&v!==''&&v!==undefined&&!isNaN(Number(v))){dsm[k]=(dsm[k]||0)+Number(v);}});});
   const num=v=>Number(v)||0;
   const soma=obj=>obj?Object.values(obj).reduce((a2,v)=>a2+(num(v)),0):0;
   const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
@@ -2224,46 +2190,147 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
     ]},
   ];
 
-  const mesLabel=periodo().label;
   const usouTotal=(pdLpp===0||pdAvp===0)&&pdGeral>0;
+  return {grupos,usouTotal};
+}
+
+const listaMeses=(ini,fim)=>{const out=[];const d=new Date(ini.slice(0,7)+'-15T12:00:00');while(d.toISOString().slice(0,7)<=fim.slice(0,7)){out.push(d.toISOString().slice(0,7));d.setMonth(d.getMonth()+1);}return out;};
+const fimDoMes=m=>{const [a,b]=m.split('-').map(Number);return new Date(a,b,0).toISOString().slice(0,10);};
+const somaMeses=(m,n)=>{const d=new Date(m+'-15T12:00:00');d.setMonth(d.getMonth()+n);return d.toISOString().slice(0,7);};
+// Sentido de melhora de cada indicador: conformidade e notificacao, quanto maior melhor; taxas de dano e IRAS, quanto menor melhor
+const sentidoMeta=it=>{const m=String(it.meta||'').trim();return /maior/.test(m)||m.startsWith('>')||m==='100%'?'maior':'menor';};
+
+function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const anoAtual=new Date().getFullYear();
+  const mesHoje=new Date().toISOString().slice(0,7);
+  const [modo,setModo]=useState('ytd');
+  const [mes,setMes]=useState(mesHoje);
+  const [ano,setAno]=useState(anoAtual);
+  const [sem,setSem]=useState(new Date().getMonth()<6?1:2);
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [aberto,setAberto]=useState(null);
+
+  // periodo escolhido e o periodo anterior equivalente (para comparar)
+  const periodo=()=>{
+    const nomeM=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.','');
+    if(modo==='ytd'){const ini=`${anoAtual}-01-01`,fim=fimDoMes(mesHoje),nm=new Date().getMonth()+1;
+      return{ini,fim,label:'Acumulado de '+anoAtual+' (jan a '+new Date().toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+')',pIni:`${anoAtual-1}-01-01`,pFim:fimDoMes(`${anoAtual-1}-${String(nm).padStart(2,'0')}`),pLabel:'mesmo período de '+(anoAtual-1)};}
+    if(modo==='6m'){const m0=somaMeses(mesHoje,-5);return{ini:m0+'-01',fim:fimDoMes(mesHoje),label:'Últimos 6 meses ('+nomeM(m0)+' a '+nomeM(mesHoje)+')',pIni:somaMeses(m0,-6)+'-01',pFim:fimDoMes(somaMeses(m0,-1)),pLabel:'6 meses anteriores'};}
+    if(modo==='12m'){const m0=somaMeses(mesHoje,-11);return{ini:m0+'-01',fim:fimDoMes(mesHoje),label:'Últimos 12 meses ('+nomeM(m0)+' a '+nomeM(mesHoje)+')',pIni:somaMeses(m0,-12)+'-01',pFim:fimDoMes(somaMeses(m0,-1)),pLabel:'12 meses anteriores'};}
+    if(modo==='mes'){const ant=somaMeses(mes,-1);return{ini:mes+'-01',fim:fimDoMes(mes),label:new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),pIni:ant+'-01',pFim:fimDoMes(ant),pLabel:'mês anterior'};}
+    if(modo==='sem')return sem===1?{ini:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1º semestre de ${ano}`,pIni:`${ano-1}-07-01`,pFim:`${ano-1}-12-31`,pLabel:'semestre anterior'}:{ini:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2º semestre de ${ano}`,pIni:`${ano}-01-01`,pFim:`${ano}-06-30`,pLabel:'semestre anterior'};
+    return{ini:`${ano}-01-01`,fim:`${ano}-12-31`,label:`Ano de ${ano}`,pIni:`${ano-1}-01-01`,pFim:`${ano-1}-12-31`,pLabel:'ano anterior'};
+  };
+
+  const carregar=async()=>{
+    setLoading(true);
+    try{
+      const P=periodo();
+      // o grafico mes a mes mostra pelo menos 6 meses, terminando no fim do periodo
+      const mesesP=listaMeses(P.ini,P.fim);
+      const mesesG=mesesP.length>=3?mesesP:listaMeses(somaMeses(P.fim.slice(0,7),-5)+'-01',P.fim);
+      const iniBusca=[P.pIni,mesesG[0]+'-01'].sort()[0];
+      const [nots,indMesArr,dsmArr]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&select=event_subtype,description,gravidade,event_date,created_at,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${iniBusca.slice(0,7)}&mes_ref=lte.${P.fim.slice(0,7)}&select=mes_ref,pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${iniBusca}&mes=lte.${P.fim}&select=*`).catch(()=>[]),
+      ]);
+      const getD=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
+      const recorte=(ini,fim)=>calcIndicadoresPeriodo(
+        (nots||[]).filter(n=>{const d2=getD(n);return d2&&d2>=ini&&d2<=fim;}),
+        (indMesArr||[]).filter(r=>r.mes_ref>=ini.slice(0,7)&&r.mes_ref<=fim.slice(0,7)),
+        (dsmArr||[]).filter(r=>(r.mes||'')>=ini&&(r.mes||'')<=fim));
+      const mesesLancados=new Set([...(dsmArr||[]).map(r=>(r.mes||'').slice(0,7)),...(indMesArr||[]).map(r=>r.mes_ref)].filter(m=>m>=P.ini.slice(0,7)&&m<=P.fim.slice(0,7))).size;
+      setDados({atual:recorte(P.ini,P.fim),anterior:recorte(P.pIni,P.pFim),porMes:mesesG.map(m=>({m,r:recorte(m+'-01',fimDoMes(m))})),mesesP:mesesP.length,mesesLancados});
+    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
+    setLoading(false);
+  };
+  useEffect(()=>{carregar();},[modo,mes,ano,sem,sbUrl,sbKey]);
+
+  const P=periodo();
   const anosOpts=[];for(let a3=2025;a3<=anoAtual;a3++)anosOpts.push(a3);
-  const mb=(id,l)=><button onClick={()=>setModo(id)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid '+(modo===id?C.teal:C.border),background:modo===id?C.teal+'22':'transparent',color:modo===id?C.teal:C.muted,fontSize:12,fontWeight:modo===id?800:500,cursor:'pointer'}}>{l}</button>;
+  const mb=(id,l)=><button key={id} onClick={()=>setModo(id)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid '+(modo===id?C.teal:C.border),background:modo===id?C.teal+'22':'transparent',color:modo===id?C.teal:C.muted,fontSize:12,fontWeight:modo===id?800:500,cursor:'pointer',whiteSpace:'nowrap'}}>{l}</button>;
+  const sel={background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'};
+  const filtros=<div style={{display:'flex',flexDirection:'column',gap:8}}>
+    <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>{mb('ytd','Acumulado do ano')}{mb('6m','Últimos 6 meses')}{mb('12m','Últimos 12 meses')}{mb('mes','Mês')}{mb('sem','Semestre')}{mb('ano','Ano')}</div>
+    {(modo==='mes'||modo==='sem'||modo==='ano')&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={sel}/>}
+      {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={sel}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
+      {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={sel}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
+    </div>}
+  </div>;
+  if(loading||!dados) return(<div style={{display:'flex',flexDirection:'column',gap:14}}>{filtros}<div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div></div>);
+
+  const {atual,anterior,porMes}=dados;
+  const numV=v=>v===null||v===undefined?null:parseFloat(v);
+  const achar=(r,g,n)=>{const gg=r.grupos.find(x=>x.titulo===g);return gg&&gg.itens.find(x=>x.n===n);};
+  const todos=atual.grupos.flatMap(g=>g.itens.map(it=>({g,it})));
+  const comMeta=todos.filter(x=>x.it.ok!==null&&x.it.v!==null);
+  const dentro=comMeta.filter(x=>x.it.ok).length;
+  const tendencias=todos.map(({g,it})=>{const a=numV(it.v),b=numV((achar(anterior,g.titulo,it.n)||{}).v);if(a===null||b===null||a===b)return 0;return (a>b)===(sentidoMeta(it)==='maior')?1:-1;});
+  const melhoraram=tendencias.filter(x=>x>0).length,pioraram=tendencias.filter(x=>x<0).length;
+  const nomeMesC=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+  const ICT={sobe:String.fromCodePoint(9650),desce:String.fromCodePoint(9660)};
+
+  const mini=(g,it)=>{
+    const vals=porMes.map(x=>{const i2=achar(x.r,g.titulo,it.n);return {m:x.m,v:i2?numV(i2.v):null,ok:i2?i2.ok:null};});
+    const max=Math.max(...vals.map(x=>x.v||0),0)||1;
+    return(<div style={{display:'flex',alignItems:'flex-end',gap:3,height:42,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
+      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':x.v+(it.un?' '+it.un:''))} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*30)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
+        <span style={{fontSize:7.5,color:C.muted,lineHeight:1}}>{nomeMesC(x.m).slice(0,3)}</span>
+      </div>)}
+    </div>);
+  };
 
   return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
-    <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-      {mb('mes','Mes')}{mb('sem','Semestre')}{mb('ano','Ano')}
-      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}/>}
-      {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
-      {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
-      <div style={{fontSize:12,color:C.muted}}>Panorama de <span style={{fontWeight:800,color:C.text}}>{mesLabel}</span></div>
+    {filtros}
+    <div style={{background:'linear-gradient(135deg,'+C.teal+'14,'+C.blue+'10)',border:'1px solid '+C.teal+'44',borderRadius:14,padding:14,display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+      <div style={{flex:'1 1 220px'}}>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:0.5}}>Panorama</div>
+        <div style={{fontSize:16,fontWeight:900,color:C.text,marginTop:2}}>{P.label}</div>
+        <div style={{fontSize:11.5,color:C.muted,marginTop:3}}>{dados.mesesLancados} de {dados.mesesP} mês(es) com lançamentos · comparado com {P.pLabel}</div>
+      </div>
+      {[[dentro+' de '+comMeta.length,'dentro da meta',dentro===comMeta.length?C.green:C.yellow],[String(melhoraram),'melhoraram','#22C55E'],[String(pioraram),'pioraram',pioraram?'#EF4444':C.muted]].map(([v,l,cor])=><div key={l} style={{textAlign:'center',minWidth:84}}>
+        <div style={{fontSize:22,fontWeight:900,color:cor}}>{v}</div><div style={{fontSize:10.5,color:C.muted}}>{l}</div></div>)}
     </div>
-    {grupos.map(g=>(<div key={g.titulo} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
+    {atual.grupos.map(g=>(<div key={g.titulo} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:12,fontWeight:800,color:g.cor,marginBottom:10,textTransform:'uppercase',letterSpacing:0.5}}>{g.titulo}</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
         {g.itens.map(it=>{
           const cor=it.v===null?C.muted:(it.ok===null?g.cor:(it.ok?'#22C55E':'#EF4444'));
-          return(<div key={it.n} style={{background:C.card,border:'1px solid '+(it.v===null?C.border:cor+'55'),borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px'}}>
+          const ant=achar(anterior,g.titulo,it.n);const a=numV(it.v),b=ant?numV(ant.v):null;
+          const dif=a!==null&&b!==null?a-b:null;const bom=dif===null||dif===0?null:(dif>0)===(sentidoMeta(it)==='maior');
+          const k=g.titulo+it.n;
+          return(<div key={it.n} onClick={()=>setAberto(aberto===k?null:k)} style={{background:C.card,border:'1px solid '+(it.v===null?C.border:cor+'55'),borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
             <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:4}}>{it.n}</div>
             <div style={{display:'flex',alignItems:'baseline',gap:5}}>
               <span style={{fontSize:24,fontWeight:900,color:cor}}>{it.v===null?'N/D':it.v}</span>
               {it.v!==null&&it.un&&<span style={{fontSize:10,color:C.muted,fontWeight:700}}>{it.un}</span>}
               <span style={{marginLeft:'auto',fontSize:9,color:C.muted}}>meta {it.meta}</span>
             </div>
-            <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>{it.den}</div>
+            <div style={{fontSize:10,marginTop:2,color:bom===null?C.muted:bom?'#22C55E':'#EF4444',fontWeight:700}}>
+              {a===null?'\u00a0':dif===null?'sem dado no período de comparação':dif===0?'sem variação vs '+P.pLabel:(dif>0?ICT.sobe:ICT.desce)+' '+(Number.isInteger(dif)?Math.abs(dif):Math.abs(dif).toFixed(Math.abs(dif)<1?2:1))+' vs '+P.pLabel+' ('+ant.v+')'}
+            </div>
+            {mini(g,it)}
+            {aberto===k&&<div style={{fontSize:9.5,color:C.muted,marginTop:6,lineHeight:1.45}}>{it.den}</div>}
           </div>);
         })}
       </div>
     </div>))}
     <div style={{fontSize:10,color:C.muted,lineHeight:1.6,padding:'0 4px'}}>
-      {usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
-      {modo!=='mes'&&'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
+      {atual.usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
+      {'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
       N/D = denominador ou numerador ainda nao alimentado no periodo (abas Por Setor e DSM). Prevalencia pontual (ex: prevalencia de LPP em um dia de censo) exige coleta propria de censo pontual, ainda nao registrada no sistema — os valores acima sao incidencias, densidades e conformidades.
+      <div style={{marginTop:6}}>Barras: um mês por coluna (verde dentro da meta, vermelho fora, cinza sem dado). Toque no cartão para ver o cálculo.</div>
     </div>
   </div>);
 }
 
 function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userSubnucleo}) {
-  const [aba,setAba]=useState('setor');
+  const [aba,setAba]=useState('panorama');
   const tb=(id,l)=><button onClick={()=>setAba(id)} style={{flex:1,padding:'9px 6px',borderRadius:8,border:'none',background:aba===id?C.teal:'transparent',color:aba===id?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>;
   return(<div style={{padding:'0 0 80px'}}>
     <BackHeader title='Indicadores' subtitle='Taxas por setor, dados mensais DSM e checklist ANVISA'/>
@@ -7252,6 +7319,72 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
       const mesesComDados=mesesAno.length||1;
       sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.6,y:5.95,w:8.8,h:0.65,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.5}});
       sl.addText('Total no ano at\u00e9 '+nomesMeses[mesRefN-1]+': '+doAno.length+' notifica\u00e7\u00f5es  \u2022  M\u00e9dia mensal: '+(doAno.length/mesesComDados).toFixed(1), {x:0.8,y:5.95,w:8.4,h:0.65,fontSize:13,bold:true,color:C2.tealDk,valign:'middle',margin:0});
+
+      // ── Panorama dos indicadores: acumulado do ano e evolucao dos ultimos 6 meses (mesmo calculo da aba Indicadores > Panorama) ──
+      try{
+        const mRef=mesPPT;const m6=somaMeses(mRef,-5);
+        const iniBusca=[`${anoRefN}-01-01`,m6+'-01'].sort()[0];
+        const [indRows,dsmRows]=await Promise.all([
+          sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${iniBusca.slice(0,7)}&mes_ref=lte.${mRef}&select=mes_ref,pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+          sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${iniBusca}&mes=lte.${fimMes}&select=*`).catch(()=>[]),
+        ]);
+        const recorte=(ini,fim)=>calcIndicadoresPeriodo(
+          rawData.filter(n=>{const d=getData(n);return d&&d>=ini&&d<=fim&&!n.is_test;}),
+          (indRows||[]).filter(r=>r.mes_ref>=ini.slice(0,7)&&r.mes_ref<=fim.slice(0,7)),
+          (dsmRows||[]).filter(r=>(r.mes||'')>=ini&&(r.mes||'')<=fim));
+        const ytd=recorte(`${anoRefN}-01-01`,fimMes);
+        const mesesYtd=listaMeses(`${anoRefN}-01-01`,fimMes);
+        const nomeM=m=>nomesMeses[Number(m.slice(5,7))-1];
+        const pctNaMeta=r=>{const its=r.grupos.flatMap(g=>g.itens).filter(it=>it.ok!==null&&it.v!==null);return its.length?Math.round(its.filter(it=>it.ok).length/its.length*100):null;};
+
+        // slide 1: tabela do acumulado + % de indicadores na meta por mes
+        sl=pres.addSlide();sl.background={color:C2.white};fundoAutentico(sl);
+        sl.addText('Panorama dos Indicadores — Acumulado '+anoRefN+' (Jan a '+nomesMeses[mesRefN-1]+')',{x:1.3,y:0.3,w:7.4,h:0.45,fontSize:16,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+        const hdr={bold:true,color:C2.navy,fill:{color:C2.tableHead},fontSize:8.5};
+        const tr=[[{text:'Indicador',options:hdr},{text:'Acumulado',options:{...hdr,align:'center'}},{text:'Meta',options:{...hdr,align:'center'}}]];
+        ytd.grupos.forEach(g=>g.itens.forEach((it,i)=>{
+          const cor=it.v===null?'94A3B8':it.ok===null?'334155':(it.ok?C2.green:C2.red);
+          const fl={color:tr.length%2?'FFFFFF':'F8FAFC'};
+          tr.push([{text:it.n,options:{fontSize:8,fill:fl,color:'1E293B'}},{text:it.v===null?'N/D':it.v+(it.un?' '+it.un:''),options:{fontSize:8,bold:it.v!==null,align:'center',fill:fl,color:cor}},{text:String(it.meta),options:{fontSize:7.5,align:'center',fill:fl,color:'64748B'}}]);
+        }));
+        sl.addTable(tr,{x:0.45,y:0.95,w:5.35,colW:[2.75,1.45,1.15],border:{pt:0.5,color:'E2E8F0'},rowH:0.27,fontFace:'Calibri',valign:'middle'});
+        const serie=mesesYtd.map(m=>pctNaMeta(recorte(m+'-01',fimDoMes(m))));
+        const comDado=mesesYtd.map((m,i)=>({m,v:serie[i]})).filter(x=>x.v!==null);
+        sl.addText('Indicadores dentro da meta, mês a mês (%)',{x:6.0,y:0.95,w:3.6,h:0.3,fontSize:10,bold:true,color:C2.navy,margin:0});
+        if(comDado.length){
+          sl.addChart(pres.charts.BAR,[{name:'% na meta',labels:comDado.map(x=>nomeM(x.m)),values:comDado.map(x=>x.v)}],{x:5.95,y:1.25,w:3.65,h:3.3,chartColors:[C2.teal],showValue:true,dataLabelFontSize:9,dataLabelColor:C2.navy,valAxisMaxVal:100,valAxisMinVal:0,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:9});
+        } else sl.addText('Sem lançamentos mensais suficientes para o gráfico.',{x:6.0,y:2.6,w:3.6,h:0.4,fontSize:10,color:C2.gray,margin:0});
+        const its=ytd.grupos.flatMap(g=>g.itens).filter(it=>it.ok!==null&&it.v!==null);
+        const dentro=its.filter(it=>it.ok).length;
+        sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:6.0,y:4.75,w:3.6,h:1.05,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.2}});
+        sl.addText(dentro+' de '+its.length,{x:6.0,y:4.8,w:3.6,h:0.5,fontSize:24,bold:true,color:dentro===its.length?C2.green:C2.navy,align:'center',margin:0});
+        sl.addText('indicadores com meta estão dentro dela no acumulado do ano',{x:6.1,y:5.3,w:3.4,h:0.45,fontSize:9,color:'334155',align:'center',margin:0});
+        sl.addText('Verde: dentro da meta  •  Vermelho: fora da meta  •  N/D: sem dado lançado. Taxas agregadas (soma dos numeradores / soma dos denominadores do período).',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});
+
+        // slide 2: evolucao dos ultimos 6 meses dos indicadores principais, com a linha da meta
+        const meses6=listaMeses(m6+'-01',fimMes);
+        const porMes6=meses6.map(m=>recorte(m+'-01',fimDoMes(m)));
+        const valor=(r,nome)=>{const it=r.grupos.flatMap(g=>g.itens).find(x=>x.n===nome);return it&&it.v!==null?parseFloat(it.v):null;};
+        const principais=[
+          {n:'Incidencia de LPP',t:'Incidência de LPP (%)',meta:4},
+          {n:'Taxa de quedas',t:'Taxa de quedas (%)',meta:0.15},
+          {n:'Adesao a higiene das maos',t:'Adesão à higiene das mãos (%)',meta:70},
+          {n:'Avaliacao risco de queda',t:'Avaliação do risco de queda (%)',meta:90},
+        ];
+        sl=pres.addSlide();sl.background={color:C2.white};fundoAutentico(sl);
+        sl.addText('Evolução dos Indicadores — Últimos 6 meses ('+nomeM(m6)+' a '+nomesMeses[mesRefN-1]+')',{x:1.3,y:0.3,w:7.4,h:0.45,fontSize:16,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+        principais.forEach((k,i)=>{
+          const x=0.45+(i%2)*4.6,y=0.95+Math.floor(i/2)*2.85;
+          sl.addText(k.t,{x,y,w:4.4,h:0.28,fontSize:10.5,bold:true,color:C2.navy,margin:0});
+          // so os meses com lancamento: mes sem dado nao vira zero no grafico
+          const pts=meses6.map((m,j)=>({m,v:valor(porMes6[j],k.n)})).filter(x=>x.v!==null);
+          if(pts.length){
+            sl.addChart(pres.charts.LINE,[{name:'Resultado',labels:pts.map(x=>nomeM(x.m)),values:pts.map(x=>x.v)},{name:'Meta',labels:pts.map(x=>nomeM(x.m)),values:pts.map(()=>k.meta)}],
+              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:false});
+          } else sl.addText('Sem dados lançados nos últimos 6 meses (Indicadores > DSM / Por Setor).',{x,y:y+1.1,w:4.4,h:0.5,fontSize:9.5,color:C2.gray,align:'center',margin:0});
+        });
+        sl.addText('Linha vermelha: meta. Meses sem lançamento não aparecem no gráfico. Detalhes na plataforma: Indicadores > Panorama.',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});
+      }catch(e){console.warn('panorama de indicadores no PPT',e);}
 
       await pres.writeFile({fileName:'Analise_Mensal_'+(h.short_name||'NSP')+'_'+mesPPT+'.pptx'});
       showToast('Analise mensal gerada!','success');

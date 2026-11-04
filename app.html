@@ -1863,19 +1863,179 @@ function ChecklistANVISAView({sbUrl,sbKey,showToast,hospital,perfil,userSubnucle
   </div>);
 }
 
+// Panorama visual do plano de acao: quanto ja foi executado, em que etapa cada acao esta,
+// o que aconteceu mes a mes (acoes, treinamentos e reunioes) e como anda cada subnucleo
+const ETAPAS_ACAO=[
+  {id:'afazer',rotulo:'A fazer',cor:'#F59E0B',dica:'Ainda não começou'},
+  {id:'andamento',rotulo:'Em andamento',cor:'#3B82F6',dica:'Sendo executada'},
+  {id:'eficacia',rotulo:'Verificar eficácia',cor:'#8B5CF6',dica:'Concluída: confira se resolveu (30 a 90 dias)'},
+  {id:'eficaz',rotulo:'Concluída e eficaz',cor:'#22C55E',dica:'Ciclo fechado'},
+];
+const etapaDaAcao=a=>{
+  const st=a.status||'pendente';
+  if(st==='cancelado') return null;
+  if(st==='concluido'||st==='concluida') return a.efetividade_verificada?'eficaz':'eficacia';
+  if(st==='em_andamento') return 'andamento';
+  return 'afazer';
+};
+const ehReuniao=t=>/reuniao/.test(t.tipo||'');
+
+function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerificar,irParaLista}){
+  const hoje=new Date().toISOString().slice(0,10);
+  const [subSel,setSubSel]=useState('todos');
+  const subDaAcao=a=>{const n=nots[a.notification_id];if(!n)return null;const s=SUBNUCLEOS_HNSA.find(x=>notifDoSubnucleo(n,x.id));return s?s.id:null;};
+  const lista=acoes.filter(a=>etapaDaAcao(a)&&(subSel==='todos'||subDaAcao(a)===subSel));
+  const porEtapa={};ETAPAS_ACAO.forEach(e=>porEtapa[e.id]=[]);lista.forEach(a=>porEtapa[etapaDaAcao(a)].push(a));
+  const vencida=a=>a.prazo&&a.prazo<hoje&&['afazer','andamento'].includes(etapaDaAcao(a));
+  const total=lista.length;
+  const feitas=porEtapa.eficacia.length+porEtapa.eficaz.length;
+  const pctExec=total?Math.round(feitas/total*100):0;
+  const nVencidas=lista.filter(vencida).length;
+  const treinsF=treins.filter(t=>subSel==='todos'||t.subnucleo===subSel);
+  const dt=s=>{if(!s)return '—';const d=new Date(s.length===10?s+'T12:00:00':s);return d.toLocaleDateString('pt-BR',d.getFullYear()===new Date().getFullYear()?{day:'2-digit',month:'2-digit'}:{day:'2-digit',month:'2-digit',year:'2-digit'});};
+
+  // linha do tempo: 6 meses para tras e 2 para frente
+  const meses=[];{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-6);for(let i=0;i<9;i++){meses.push(d.toISOString().slice(0,7));d.setMonth(d.getMonth()+1);}}
+  const mesAtual=hoje.slice(0,7);
+  const porMes=meses.map(m=>({m,
+    feitas:lista.filter(a=>(a.concluido_em||'').slice(0,7)===m).length,
+    abertas:lista.filter(a=>['afazer','andamento'].includes(etapaDaAcao(a))&&(a.prazo||'').slice(0,7)===m).length,
+    treinos:treinsF.filter(t=>!ehReuniao(t)&&(t.data||'').slice(0,7)===m),
+    reunioes:treinsF.filter(t=>ehReuniao(t)&&(t.data||'').slice(0,7)===m).length}));
+  const maxMes=Math.max(1,...porMes.map(x=>Math.max(x.feitas,x.abertas,x.treinos.length)));
+  const nomeMes=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+
+  // execucao recente: o que foi feito nos ultimos 45 dias
+  const desde=new Date(Date.now()-45*864e5).toISOString().slice(0,10);
+  const IC={ok:String.fromCodePoint(9989),alvo:String.fromCodePoint(127919),reuniao:String.fromCodePoint(129309),trein:String.fromCodePoint(127891),hosp:String.fromCodePoint(127973)};
+  const feed=[
+    ...lista.filter(a=>(a.concluido_em||'').slice(0,10)>=desde&&(a.concluido_em||'').slice(0,10)<=hoje).map(a=>({d:a.concluido_em.slice(0,10),ic:IC.ok,cor:'#22C55E',t:a.acao,s:'Ação concluída'+(a.responsavel?' · '+a.responsavel:'')})),
+    ...lista.filter(a=>(a.efetividade_em||'').slice(0,10)>=desde&&(a.efetividade_em||'').slice(0,10)<=hoje).map(a=>({d:a.efetividade_em.slice(0,10),ic:IC.alvo,cor:'#16A34A',t:a.acao,s:'Eficácia verificada: '+(a.efetividade_verificada==='parcial'?'parcialmente efetiva':'efetiva')})),
+    ...treinsF.filter(t=>(t.data||'')>=desde&&(t.data||'')<=hoje).map(t=>{const s=SUBNUCLEOS_HNSA.find(x=>x.id===t.subnucleo);return ehReuniao(t)
+      ?{d:t.data,ic:IC.reuniao,cor:'#8B5CF6',t:t.tipo==='reuniao_extraordinaria'?'Reunião extraordinária do NSP':'Reunião mensal do NSP',s:(t.participantes?t.participantes+' participantes':'')+(t.link_gdrive?' · ata anexada':' · sem ata anexada')}
+      :{d:t.data,ic:IC.trein,cor:'#0EA5E9',t:'Treinamento'+(t.protocolo?': '+t.protocolo:s?': '+s.label:''),s:(s?s.label+' · ':'')+(t.participantes?t.participantes+' participantes':'')+(t.link_gdrive?' · lista anexada':' · sem lista de presença')};}),
+  ].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,14);
+
+  // por subnucleo
+  const iniSem=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()<6?0:6,1).toISOString().slice(0,10);})();
+  const subs=SUBNUCLEOS_HNSA.map(s=>{const as=acoes.filter(a=>etapaDaAcao(a)&&subDaAcao(a)===s.id);const ts=treins.filter(t=>!ehReuniao(t)&&t.subnucleo===s.id&&(t.data||'')>=iniSem);
+    const ult=treins.filter(t=>!ehReuniao(t)&&t.subnucleo===s.id).sort((a,b)=>(b.data||'').localeCompare(a.data||''))[0];
+    return {s,total:as.length,feitas:as.filter(a=>['eficacia','eficaz'].includes(etapaDaAcao(a))).length,venc:as.filter(vencida).length,treinSem:ts.length,pessoas:ts.reduce((t,x)=>t+(Number(x.participantes)||0),0),ult};});
+
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:14};
+  const titulo=(t,sub)=><div style={{marginBottom:10}}><div style={{fontSize:14,fontWeight:900,color:C.text}}>{t}</div>{sub&&<div style={{fontSize:11,color:C.muted,marginTop:2}}>{sub}</div>}</div>;
+  const mini=(l,cor,fn)=><button onClick={e=>{e.stopPropagation();fn();}} disabled={!!busy} style={{padding:'5px 9px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10.5,fontWeight:800,cursor:busy?'default':'pointer'}}>{l}</button>;
+
+  return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
+    <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}}>
+      {[{id:'todos',label:'Todos',icon:IC.hosp,color:C.teal},...SUBNUCLEOS_HNSA].map(s=><button key={s.id} onClick={()=>setSubSel(s.id)} style={{flexShrink:0,fontSize:11.5,padding:'7px 12px',borderRadius:18,border:'1px solid '+(subSel===s.id?s.color:C.border),background:subSel===s.id?s.color+'22':'transparent',color:subSel===s.id?s.color:C.muted,fontWeight:800,cursor:'pointer'}}>{s.icon} {s.label}</button>)}
+    </div>
+
+    <div style={{...card,background:'linear-gradient(135deg,'+C.teal+'14,'+C.blue+'10)',borderColor:C.teal+'44'}}>
+      <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+        <div style={{position:'relative',width:92,height:92,flexShrink:0}}>
+          <svg width="92" height="92" viewBox="0 0 36 36" aria-label={'Plano executado: '+pctExec+'%'}><circle cx="18" cy="18" r="15.9" fill="none" stroke={C.border} strokeWidth="3.4"/>
+            <circle cx="18" cy="18" r="15.9" fill="none" stroke={C.green} strokeWidth="3.4" strokeDasharray={pctExec+' '+(100-pctExec)} strokeDashoffset="25" strokeLinecap="round"/></svg>
+          <div style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><b style={{fontSize:20,color:C.text}}>{pctExec}%</b><span style={{fontSize:9,color:C.muted}}>executado</span></div>
+        </div>
+        <div style={{flex:1,minWidth:200}}>
+          <div style={{fontSize:15,fontWeight:900,color:C.text}}>Plano de ação {subSel==='todos'?'do hospital':'· '+(SUBNUCLEOS_HNSA.find(s=>s.id===subSel)||{}).label}</div>
+          <div style={{fontSize:12,color:C.muted,margin:'3px 0 10px'}}>{feitas} de {total} ações concluídas{nVencidas?' · ':''}{nVencidas>0&&<b style={{color:C.red}}>{nVencidas} vencida(s)</b>}</div>
+          <div style={{display:'flex',height:12,borderRadius:6,overflow:'hidden',background:C.border}}>
+            {ETAPAS_ACAO.slice().reverse().map(e=>{const n=porEtapa[e.id].length;return n?<div key={e.id} title={e.rotulo+': '+n} style={{width:(n/Math.max(1,total)*100)+'%',background:e.cor}}/>:null;})}
+          </div>
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',marginTop:8}}>{ETAPAS_ACAO.slice().reverse().map(e=><span key={e.id} style={{fontSize:10.5,color:C.muted,display:'flex',alignItems:'center',gap:4}}><span style={{width:9,height:9,borderRadius:3,background:e.cor}}/>{e.rotulo} <b style={{color:C.text}}>{porEtapa[e.id].length}</b></span>)}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style={card}>
+      {titulo('Quadro do plano','Cada cartão é uma ação. Avance a etapa pelos botões; ações vencidas ficam com borda vermelha.')}
+      <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}}>
+        {ETAPAS_ACAO.map(e=><div key={e.id} style={{flex:'1 0 210px',minWidth:210,background:C.surface,border:'1px solid '+C.border,borderTop:'3px solid '+e.cor,borderRadius:12,padding:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><b style={{fontSize:12,color:e.cor}}>{e.rotulo}</b><span style={{fontSize:11,fontWeight:900,color:C.text,background:e.cor+'22',borderRadius:10,padding:'1px 8px'}}>{porEtapa[e.id].length}</span></div>
+          <div style={{fontSize:10,color:C.muted,margin:'2px 0 8px'}}>{e.dica}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:340,overflowY:'auto'}}>
+            {porEtapa[e.id].slice(0,25).map(a=>{const s=SUBNUCLEOS_HNSA.find(x=>x.id===subDaAcao(a));const v=vencida(a);return(<div key={a.id} style={{background:C.card,border:'1px solid '+(v?C.red+'88':C.border),borderLeft:'3px solid '+(s?s.color:C.muted),borderRadius:9,padding:'8px 9px'}}>
+              <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35}}>{a.acao}</div>
+              <div style={{fontSize:10,color:v?C.red:C.muted,marginTop:3}}>{s?s.icon+' ':''}{a.responsavel||'sem responsável'} · {a.prazo?(v?'venceu ':'até ')+dt(a.prazo):'sem prazo'}</div>
+              <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
+                {e.id==='afazer'&&mini('Iniciar','#3B82F6',()=>onIniciar(a))}
+                {(e.id==='afazer'||e.id==='andamento')&&mini('Concluir','#22C55E',()=>onConcluir(a))}
+                {e.id==='eficacia'&&<>{mini('Efetiva','#22C55E',()=>onVerificar(a,'efetiva'))}{mini('Parcial','#F59E0B',()=>onVerificar(a,'parcial'))}{mini('Não resolveu','#EF4444',()=>onVerificar(a,'inefetiva'))}</>}
+                {e.id==='eficaz'&&<span style={{fontSize:10,color:C.green,fontWeight:700}}>{a.efetividade_verificada==='parcial'?'Parcialmente efetiva':'Efetiva'}{a.efetividade_em?' · '+dt(a.efetividade_em):''}</span>}
+              </div>
+            </div>);})}
+            {porEtapa[e.id].length>25&&<button onClick={irParaLista} style={{fontSize:11,color:C.teal,background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>+{porEtapa[e.id].length-25} na lista completa</button>}
+            {!porEtapa[e.id].length&&<div style={{fontSize:11,color:C.muted,textAlign:'center',padding:'14px 0'}}>Nenhuma</div>}
+          </div>
+        </div>)}
+      </div>
+    </div>
+
+    <div style={card}>
+      {titulo('Mês a mês','Ações concluídas, prazos em aberto, treinamentos e reuniões do NSP')}
+      <div style={{display:'flex',gap:6,alignItems:'flex-end',overflowX:'auto',paddingBottom:4}}>
+        {porMes.map(x=>{const atual=x.m===mesAtual,futuro=x.m>mesAtual;const h=v=>Math.max(v?6:0,Math.round(v/maxMes*90));
+          return(<div key={x.m} style={{flex:'1 0 54px',minWidth:54,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+            <div style={{display:'flex',gap:3,alignItems:'flex-end',height:96}}>
+              <div title={x.feitas+' ações concluídas'} style={{width:12,height:h(x.feitas),background:'#22C55E',borderRadius:3}}/>
+              <div title={x.abertas+' ações com prazo em aberto'} style={{width:12,height:h(x.abertas),background:futuro?'#F59E0B':'#EF4444',borderRadius:3,opacity:x.abertas?1:0}}/>
+              <div title={x.treinos.length+' treinamentos'} style={{width:12,height:h(x.treinos.length),background:'#0EA5E9',borderRadius:3}}/>
+            </div>
+            <div style={{fontSize:10.5,fontWeight:atual?900:600,color:atual?C.teal:C.muted,textTransform:'capitalize'}}>{nomeMes(x.m)}</div>
+            <div style={{fontSize:9.5,color:C.muted,textAlign:'center',lineHeight:1.3,minHeight:26}}>{x.treinos.length?IC.trein+x.treinos.length:''}{x.reunioes?' '+IC.reuniao+x.reunioes:''}</div>
+          </div>);})}
+      </div>
+      <div style={{display:'flex',gap:12,flexWrap:'wrap',marginTop:6,fontSize:10.5,color:C.muted}}>
+        {[['#22C55E','Ações concluídas'],['#EF4444','Prazos vencidos em aberto'],['#F59E0B','Prazos futuros'],['#0EA5E9','Treinamentos']].map(([c,l])=><span key={l} style={{display:'flex',alignItems:'center',gap:4}}><span style={{width:9,height:9,borderRadius:3,background:c}}/>{l}</span>)}
+        <span>{IC.reuniao} reuniões do NSP</span>
+      </div>
+    </div>
+
+    <div style={{display:'flex',gap:14,flexWrap:'wrap'}}>
+      {subSel==='todos'&&<div style={{...card,flex:'1 1 320px'}}>
+        {titulo('Por subnúcleo','Ações executadas e treinamentos neste semestre')}
+        {subs.map(x=><button key={x.s.id} onClick={()=>setSubSel(x.s.id)} style={{all:'unset',cursor:'pointer',display:'block',padding:'9px 0',borderTop:'1px solid '+C.border,width:'100%'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <span style={{fontSize:16}}>{x.s.icon}</span><b style={{fontSize:12.5,color:C.text,flex:1}}>{x.s.label}</b>
+            <span style={{fontSize:10.5,fontWeight:800,color:x.treinSem?'#0EA5E9':C.red,background:(x.treinSem?'#0EA5E9':C.red)+'18',borderRadius:10,padding:'2px 8px'}}>{x.treinSem?IC.trein+' '+x.treinSem+' treinamento(s)'+(x.pessoas?' · '+x.pessoas+' pessoas':''):'Sem treinamento no semestre'}</span>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
+            <div style={{flex:1,height:8,borderRadius:4,background:C.border,overflow:'hidden'}}><div style={{width:(x.total?x.feitas/x.total*100:0)+'%',height:'100%',background:x.s.color}}/></div>
+            <span style={{fontSize:10.5,color:C.muted,minWidth:120,textAlign:'right'}}>{x.total?x.feitas+'/'+x.total+' ações':'sem ações'}{x.venc?' · ':''}{x.venc>0&&<b style={{color:C.red}}>{x.venc} vencida(s)</b>}</span>
+          </div>
+          {x.ult&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Último treinamento: {dt(x.ult.data)}{x.ult.protocolo?' · '+x.ult.protocolo:''}</div>}
+        </button>)}
+      </div>}
+      <div style={{...card,flex:'1 1 320px'}}>
+        {titulo('O que foi feito','Últimos 45 dias: ações concluídas, eficácia verificada, treinamentos e reuniões')}
+        {feed.length?feed.map((x,i)=><div key={i} style={{display:'flex',gap:10,padding:'8px 0',borderTop:'1px solid '+C.border}}>
+          <span style={{width:28,height:28,borderRadius:14,background:x.cor+'1f',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{x.ic}</span>
+          <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35}}>{x.t}</div><div style={{fontSize:10.5,color:C.muted,marginTop:1}}>{x.s}</div></div>
+          <span style={{fontSize:10.5,color:C.muted,whiteSpace:'nowrap'}}>{dt(x.d)}</span>
+        </div>):<div style={{fontSize:11.5,color:C.muted}}>Nada registrado nos últimos 45 dias. Conclua ações ou registre treinamentos em "Treinamentos e reuniões".</div>}
+      </div>
+    </div>
+  </div>);
+}
+
 function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [acoes,setAcoes]=useState(null);
   const [nots,setNots]=useState({});
+  const [treins,setTreins]=useState([]);
   const [busy,setBusy]=useState(null);
+  const [aba,setAba]=useState('panorama');
   const carregar=async()=>{
     try{
-      const [a2,n2]=await Promise.all([
+      const [a2,n2,t2]=await Promise.all([
         sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*&order=prazo.asc`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&select=id,event_subtype,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&select=id,event_subtype,occurrence_subtype,notification_type,infection_topography,is_test,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
       ]);
       const map={};(n2||[]).forEach(n=>{map[n.id]=n;});
-      setAcoes(a2||[]);setNots(map);
+      setAcoes(a2||[]);setNots(map);setTreins(t2||[]);
     }catch(e){showToast('Erro: '+e.message,'error');setAcoes([]);}
   };
   useEffect(()=>{carregar();},[sbUrl,sbKey]);
@@ -1891,6 +2051,12 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   const aguardaEfic=acoes.filter(a2=>(a2.status==='concluido'||a2.status==='concluida')&&!a2.efetividade_verificada);
   const eficAtrasada=aguardaEfic.filter(a2=>a2.concluido_em&&a2.concluido_em<d30);
 
+  const iniciar=async(a2)=>{
+    setBusy(a2.id);
+    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'em_andamento'});await carregar();showToast('Ação em andamento','success');}
+    catch(e){showToast('Erro: '+e.message,'error');}
+    setBusy(null);
+  };
   const concluir=async(a2)=>{
     setBusy(a2.id);
     try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
@@ -1929,7 +2095,17 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   };
   const btn=(l,cor,fn,dis)=><button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
 
-  return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
+  const abas=<div style={{display:'flex',gap:4,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:4}}>
+    {[['panorama','Panorama visual'],['lista','Lista de cobrança']].map(([k,l])=><button key={k} onClick={()=>setAba(k)} style={{flex:1,padding:'9px 6px',borderRadius:7,border:'none',background:aba===k?C.teal:'transparent',color:aba===k?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>)}
+  </div>;
+  if(aba==='panorama') return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
+    <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>Plano de ação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Como as ações das notificações estão sendo executadas, junto com os treinamentos e as reuniões do NSP</div></div>
+    {abas}
+    <PanoramaPlanoAcao acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={iniciar} onConcluir={concluir} onVerificar={verificar} irParaLista={()=>setAba('lista')}/>
+  </div>);
+  return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
+    <div style={{fontSize:19,fontWeight:900,color:C.text}}>Plano de ação</div>
+    {abas}
     <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{'Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.'}</div>
     <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
       {kpi(vencidas.length,'Vencidas','#EF4444')}{kpi(proximas.length,'Vencem em 7 dias','#F59E0B')}{kpi(emDia.length,'Em dia',C.teal)}{kpi(aguardaEfic.length,'Aguardam efic\u00e1cia'+(eficAtrasada.length?' ('+eficAtrasada.length+' h\u00e1 +30d)':''),'#8B5CF6')}
@@ -1957,51 +2133,17 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
-  const h=hospital||DEFAULT_HOSPITAL;
-  const anoAtual=new Date().getFullYear();
-  const [modo,setModo]=useState('mes');
-  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
-  const [ano,setAno]=useState(anoAtual);
-  const [sem,setSem]=useState(new Date().getMonth()<6?1:2);
-  const [dados,setDados]=useState(null);
-  const [loading,setLoading]=useState(false);
-
-  const periodo=()=>{
-    if(modo==='mes'){const [a2,m2]=mes.split('-').map(Number);return{ini:mes+'-01',fim:new Date(a2,m2,0).toISOString().slice(0,10),label:new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})};}
-    if(modo==='sem')return sem===1?{ini:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1º semestre de ${ano}`}:{ini:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2º semestre de ${ano}`};
-    return{ini:`${ano}-01-01`,fim:`${ano}-12-31`,label:`Ano de ${ano}`};
-  };
-
-  const carregar=async()=>{
-    setLoading(true);
-    try{
-      const {ini,fim}=periodo();
-      const [nots,indMesArr,dsmArr]=await Promise.all([
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&select=event_subtype,description,gravidade,event_date,created_at,sector`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${ini.slice(0,7)}&mes_ref=lte.${fim.slice(0,7)}&select=pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${ini}&mes=lte.${fim}&select=*`).catch(()=>[]),
-      ]);
-      const getD=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
-      const doMes=(nots||[]).filter(n=>{const d2=getD(n);return d2&&d2>=ini&&d2<=fim;});
-      // Agrega objetos {setor:valor} de varios meses somando por chave
-      const numv=v=>Number(v)||0;
-      const sumObjs=(rows,campo)=>{const acc={};(rows||[]).forEach(r=>{const o=r[campo];if(o&&typeof o==='object')Object.entries(o).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)acc[k]=(acc[k]||0)+numv(v);});});return acc;};
-      // Casos manuais: soma o valor de cada mes (objeto por setor OU escalar), null se nenhum mes lancou
-      const cmMesVal=(o,k)=>{const v=o?o[k]:undefined;if(v===undefined||v===null||v==='')return null;if(typeof v==='object'){let t=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){t=true;tot+=numv(x);}});return t?tot:null;}return numv(v);};
-      const cmAgg={};['lpp','avp'].forEach(k=>{let t=false,tot=0;(indMesArr||[]).forEach(r=>{const v=cmMesVal(r.casos_manuais,k);if(v!==null){t=true;tot+=v;}});cmAgg[k]=t?tot:null;});
-      const im={pd_setores:sumObjs(indMesArr,'pd_setores'),pd_lpp_setores:sumObjs(indMesArr,'pd_lpp_setores'),pd_avp_setores:sumObjs(indMesArr,'pd_avp_setores'),pd_geral:(indMesArr||[]).reduce((a2,r)=>a2+numv(r.pd_geral),0)};
-      // DSM: soma campo a campo, preservando "nunca lancado" como undefined (para N/D honesto)
-      const dsm={};(dsmArr||[]).forEach(r=>{Object.entries(r).forEach(([k,v])=>{if(['id','hospital_id','mes','updated_at','created_at'].includes(k))return;if(v!==null&&v!==''&&v!==undefined&&!isNaN(Number(v))){dsm[k]=(dsm[k]||0)+Number(v);}});});
-      setDados({doMes,im,dsm,cmAgg,meses:(dsmArr||[]).length||(indMesArr||[]).length});
-    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
-    setLoading(false);
-  };
-  useEffect(()=>{carregar();},[modo,mes,ano,sem,sbUrl,sbKey]);
-
-  if(loading||!dados) return <div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div>;
-
-  const {doMes,im,dsm,cmAgg}=dados;
+// Calcula todos os indicadores de um periodo (notificacoes do periodo + lancamentos mensais Por Setor e DSM)
+function calcIndicadoresPeriodo(doMes,indMesArr,dsmArr){
+  // Agrega objetos {setor:valor} de varios meses somando por chave
+  const numv=v=>Number(v)||0;
+  const sumObjs=(rows,campo)=>{const acc={};(rows||[]).forEach(r=>{const o=r[campo];if(o&&typeof o==='object')Object.entries(o).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)acc[k]=(acc[k]||0)+numv(v);});});return acc;};
+  // Casos manuais: soma o valor de cada mes (objeto por setor OU escalar), null se nenhum mes lancou
+  const cmMesVal=(o,k)=>{const v=o?o[k]:undefined;if(v===undefined||v===null||v==='')return null;if(typeof v==='object'){let t=false,tot=0;Object.values(v).forEach(x=>{if(x!==''&&x!==null&&x!==undefined){t=true;tot+=numv(x);}});return t?tot:null;}return numv(v);};
+  const cmAgg={};['lpp','avp'].forEach(k=>{let t=false,tot=0;(indMesArr||[]).forEach(r=>{const v=cmMesVal(r.casos_manuais,k);if(v!==null){t=true;tot+=v;}});cmAgg[k]=t?tot:null;});
+  const im={pd_setores:sumObjs(indMesArr,'pd_setores'),pd_lpp_setores:sumObjs(indMesArr,'pd_lpp_setores'),pd_avp_setores:sumObjs(indMesArr,'pd_avp_setores'),pd_geral:(indMesArr||[]).reduce((a2,r)=>a2+numv(r.pd_geral),0)};
+  // DSM: soma campo a campo, preservando "nunca lancado" como undefined (para N/D honesto)
+  const dsm={};(dsmArr||[]).forEach(r=>{Object.entries(r).forEach(([k,v])=>{if(['id','hospital_id','mes','updated_at','created_at'].includes(k))return;if(v!==null&&v!==''&&v!==undefined&&!isNaN(Number(v))){dsm[k]=(dsm[k]||0)+Number(v);}});});
   const num=v=>Number(v)||0;
   const soma=obj=>obj?Object.values(obj).reduce((a2,v)=>a2+(num(v)),0):0;
   const txt=n=>((n.event_subtype||'')+' '+(n.description||'')).toLowerCase();
@@ -2048,46 +2190,147 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
     ]},
   ];
 
-  const mesLabel=periodo().label;
   const usouTotal=(pdLpp===0||pdAvp===0)&&pdGeral>0;
+  return {grupos,usouTotal};
+}
+
+const listaMeses=(ini,fim)=>{const out=[];const d=new Date(ini.slice(0,7)+'-15T12:00:00');while(d.toISOString().slice(0,7)<=fim.slice(0,7)){out.push(d.toISOString().slice(0,7));d.setMonth(d.getMonth()+1);}return out;};
+const fimDoMes=m=>{const [a,b]=m.split('-').map(Number);return new Date(a,b,0).toISOString().slice(0,10);};
+const somaMeses=(m,n)=>{const d=new Date(m+'-15T12:00:00');d.setMonth(d.getMonth()+n);return d.toISOString().slice(0,7);};
+// Sentido de melhora de cada indicador: conformidade e notificacao, quanto maior melhor; taxas de dano e IRAS, quanto menor melhor
+const sentidoMeta=it=>{const m=String(it.meta||'').trim();return /maior/.test(m)||m.startsWith('>')||m==='100%'?'maior':'menor';};
+
+function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
+  const h=hospital||DEFAULT_HOSPITAL;
+  const anoAtual=new Date().getFullYear();
+  const mesHoje=new Date().toISOString().slice(0,7);
+  const [modo,setModo]=useState('ytd');
+  const [mes,setMes]=useState(mesHoje);
+  const [ano,setAno]=useState(anoAtual);
+  const [sem,setSem]=useState(new Date().getMonth()<6?1:2);
+  const [dados,setDados]=useState(null);
+  const [loading,setLoading]=useState(false);
+  const [aberto,setAberto]=useState(null);
+
+  // periodo escolhido e o periodo anterior equivalente (para comparar)
+  const periodo=()=>{
+    const nomeM=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.','');
+    if(modo==='ytd'){const ini=`${anoAtual}-01-01`,fim=fimDoMes(mesHoje),nm=new Date().getMonth()+1;
+      return{ini,fim,label:'Acumulado de '+anoAtual+' (jan a '+new Date().toLocaleDateString('pt-BR',{month:'short'}).replace('.','')+')',pIni:`${anoAtual-1}-01-01`,pFim:fimDoMes(`${anoAtual-1}-${String(nm).padStart(2,'0')}`),pLabel:'mesmo período de '+(anoAtual-1)};}
+    if(modo==='6m'){const m0=somaMeses(mesHoje,-5);return{ini:m0+'-01',fim:fimDoMes(mesHoje),label:'Últimos 6 meses ('+nomeM(m0)+' a '+nomeM(mesHoje)+')',pIni:somaMeses(m0,-6)+'-01',pFim:fimDoMes(somaMeses(m0,-1)),pLabel:'6 meses anteriores'};}
+    if(modo==='12m'){const m0=somaMeses(mesHoje,-11);return{ini:m0+'-01',fim:fimDoMes(mesHoje),label:'Últimos 12 meses ('+nomeM(m0)+' a '+nomeM(mesHoje)+')',pIni:somaMeses(m0,-12)+'-01',pFim:fimDoMes(somaMeses(m0,-1)),pLabel:'12 meses anteriores'};}
+    if(modo==='mes'){const ant=somaMeses(mes,-1);return{ini:mes+'-01',fim:fimDoMes(mes),label:new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'}),pIni:ant+'-01',pFim:fimDoMes(ant),pLabel:'mês anterior'};}
+    if(modo==='sem')return sem===1?{ini:`${ano}-01-01`,fim:`${ano}-06-30`,label:`1º semestre de ${ano}`,pIni:`${ano-1}-07-01`,pFim:`${ano-1}-12-31`,pLabel:'semestre anterior'}:{ini:`${ano}-07-01`,fim:`${ano}-12-31`,label:`2º semestre de ${ano}`,pIni:`${ano}-01-01`,pFim:`${ano}-06-30`,pLabel:'semestre anterior'};
+    return{ini:`${ano}-01-01`,fim:`${ano}-12-31`,label:`Ano de ${ano}`,pIni:`${ano-1}-01-01`,pFim:`${ano-1}-12-31`,pLabel:'ano anterior'};
+  };
+
+  const carregar=async()=>{
+    setLoading(true);
+    try{
+      const P=periodo();
+      // o grafico mes a mes mostra pelo menos 6 meses, terminando no fim do periodo
+      const mesesP=listaMeses(P.ini,P.fim);
+      const mesesG=mesesP.length>=3?mesesP:listaMeses(somaMeses(P.fim.slice(0,7),-5)+'-01',P.fim);
+      const iniBusca=[P.pIni,mesesG[0]+'-01'].sort()[0];
+      const [nots,indMesArr,dsmArr]=await Promise.all([
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&select=event_subtype,description,gravidade,event_date,created_at,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${iniBusca.slice(0,7)}&mes_ref=lte.${P.fim.slice(0,7)}&select=mes_ref,pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${iniBusca}&mes=lte.${P.fim}&select=*`).catch(()=>[]),
+      ]);
+      const getD=n=>n.event_date||(n.created_at?n.created_at.slice(0,10):null);
+      const recorte=(ini,fim)=>calcIndicadoresPeriodo(
+        (nots||[]).filter(n=>{const d2=getD(n);return d2&&d2>=ini&&d2<=fim;}),
+        (indMesArr||[]).filter(r=>r.mes_ref>=ini.slice(0,7)&&r.mes_ref<=fim.slice(0,7)),
+        (dsmArr||[]).filter(r=>(r.mes||'')>=ini&&(r.mes||'')<=fim));
+      const mesesLancados=new Set([...(dsmArr||[]).map(r=>(r.mes||'').slice(0,7)),...(indMesArr||[]).map(r=>r.mes_ref)].filter(m=>m>=P.ini.slice(0,7)&&m<=P.fim.slice(0,7))).size;
+      setDados({atual:recorte(P.ini,P.fim),anterior:recorte(P.pIni,P.pFim),porMes:mesesG.map(m=>({m,r:recorte(m+'-01',fimDoMes(m))})),mesesP:mesesP.length,mesesLancados});
+    }catch(e){showToast('Erro ao carregar: '+e.message,'error');}
+    setLoading(false);
+  };
+  useEffect(()=>{carregar();},[modo,mes,ano,sem,sbUrl,sbKey]);
+
+  const P=periodo();
   const anosOpts=[];for(let a3=2025;a3<=anoAtual;a3++)anosOpts.push(a3);
-  const mb=(id,l)=><button onClick={()=>setModo(id)} style={{padding:'8px 14px',borderRadius:8,border:'1px solid '+(modo===id?C.teal:C.border),background:modo===id?C.teal+'22':'transparent',color:modo===id?C.teal:C.muted,fontSize:12,fontWeight:modo===id?800:500,cursor:'pointer'}}>{l}</button>;
+  const mb=(id,l)=><button key={id} onClick={()=>setModo(id)} style={{padding:'8px 12px',borderRadius:8,border:'1px solid '+(modo===id?C.teal:C.border),background:modo===id?C.teal+'22':'transparent',color:modo===id?C.teal:C.muted,fontSize:12,fontWeight:modo===id?800:500,cursor:'pointer',whiteSpace:'nowrap'}}>{l}</button>;
+  const sel={background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'};
+  const filtros=<div style={{display:'flex',flexDirection:'column',gap:8}}>
+    <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>{mb('ytd','Acumulado do ano')}{mb('6m','Últimos 6 meses')}{mb('12m','Últimos 12 meses')}{mb('mes','Mês')}{mb('sem','Semestre')}{mb('ano','Ano')}</div>
+    {(modo==='mes'||modo==='sem'||modo==='ano')&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={sel}/>}
+      {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={sel}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
+      {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={sel}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
+    </div>}
+  </div>;
+  if(loading||!dados) return(<div style={{display:'flex',flexDirection:'column',gap:14}}>{filtros}<div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div></div>);
+
+  const {atual,anterior,porMes}=dados;
+  const numV=v=>v===null||v===undefined?null:parseFloat(v);
+  const achar=(r,g,n)=>{const gg=r.grupos.find(x=>x.titulo===g);return gg&&gg.itens.find(x=>x.n===n);};
+  const todos=atual.grupos.flatMap(g=>g.itens.map(it=>({g,it})));
+  const comMeta=todos.filter(x=>x.it.ok!==null&&x.it.v!==null);
+  const dentro=comMeta.filter(x=>x.it.ok).length;
+  const tendencias=todos.map(({g,it})=>{const a=numV(it.v),b=numV((achar(anterior,g.titulo,it.n)||{}).v);if(a===null||b===null||a===b)return 0;return (a>b)===(sentidoMeta(it)==='maior')?1:-1;});
+  const melhoraram=tendencias.filter(x=>x>0).length,pioraram=tendencias.filter(x=>x<0).length;
+  const nomeMesC=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
+  const ICT={sobe:String.fromCodePoint(9650),desce:String.fromCodePoint(9660)};
+
+  const mini=(g,it)=>{
+    const vals=porMes.map(x=>{const i2=achar(x.r,g.titulo,it.n);return {m:x.m,v:i2?numV(i2.v):null,ok:i2?i2.ok:null};});
+    const max=Math.max(...vals.map(x=>x.v||0),0)||1;
+    return(<div style={{display:'flex',alignItems:'flex-end',gap:3,height:42,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
+      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':x.v+(it.un?' '+it.un:''))} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*30)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
+        <span style={{fontSize:7.5,color:C.muted,lineHeight:1}}>{nomeMesC(x.m).slice(0,3)}</span>
+      </div>)}
+    </div>);
+  };
 
   return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
-    <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-      {mb('mes','Mes')}{mb('sem','Semestre')}{mb('ano','Ano')}
-      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}/>}
-      {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
-      {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'8px 12px',color:C.text,fontSize:13,fontWeight:700,outline:'none'}}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
-      <div style={{fontSize:12,color:C.muted}}>Panorama de <span style={{fontWeight:800,color:C.text}}>{mesLabel}</span></div>
+    {filtros}
+    <div style={{background:'linear-gradient(135deg,'+C.teal+'14,'+C.blue+'10)',border:'1px solid '+C.teal+'44',borderRadius:14,padding:14,display:'flex',gap:16,alignItems:'center',flexWrap:'wrap'}}>
+      <div style={{flex:'1 1 220px'}}>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,textTransform:'uppercase',letterSpacing:0.5}}>Panorama</div>
+        <div style={{fontSize:16,fontWeight:900,color:C.text,marginTop:2}}>{P.label}</div>
+        <div style={{fontSize:11.5,color:C.muted,marginTop:3}}>{dados.mesesLancados} de {dados.mesesP} mês(es) com lançamentos · comparado com {P.pLabel}</div>
+      </div>
+      {[[dentro+' de '+comMeta.length,'dentro da meta',dentro===comMeta.length?C.green:C.yellow],[String(melhoraram),'melhoraram','#22C55E'],[String(pioraram),'pioraram',pioraram?'#EF4444':C.muted]].map(([v,l,cor])=><div key={l} style={{textAlign:'center',minWidth:84}}>
+        <div style={{fontSize:22,fontWeight:900,color:cor}}>{v}</div><div style={{fontSize:10.5,color:C.muted}}>{l}</div></div>)}
     </div>
-    {grupos.map(g=>(<div key={g.titulo} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
+    {atual.grupos.map(g=>(<div key={g.titulo} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:12,fontWeight:800,color:g.cor,marginBottom:10,textTransform:'uppercase',letterSpacing:0.5}}>{g.titulo}</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:10}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(240px,1fr))',gap:10}}>
         {g.itens.map(it=>{
           const cor=it.v===null?C.muted:(it.ok===null?g.cor:(it.ok?'#22C55E':'#EF4444'));
-          return(<div key={it.n} style={{background:C.card,border:'1px solid '+(it.v===null?C.border:cor+'55'),borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px'}}>
+          const ant=achar(anterior,g.titulo,it.n);const a=numV(it.v),b=ant?numV(ant.v):null;
+          const dif=a!==null&&b!==null?a-b:null;const bom=dif===null||dif===0?null:(dif>0)===(sentidoMeta(it)==='maior');
+          const k=g.titulo+it.n;
+          return(<div key={it.n} onClick={()=>setAberto(aberto===k?null:k)} style={{background:C.card,border:'1px solid '+(it.v===null?C.border:cor+'55'),borderLeft:'4px solid '+cor,borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
             <div style={{fontSize:11,fontWeight:700,color:C.text,marginBottom:4}}>{it.n}</div>
             <div style={{display:'flex',alignItems:'baseline',gap:5}}>
               <span style={{fontSize:24,fontWeight:900,color:cor}}>{it.v===null?'N/D':it.v}</span>
               {it.v!==null&&it.un&&<span style={{fontSize:10,color:C.muted,fontWeight:700}}>{it.un}</span>}
               <span style={{marginLeft:'auto',fontSize:9,color:C.muted}}>meta {it.meta}</span>
             </div>
-            <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>{it.den}</div>
+            <div style={{fontSize:10,marginTop:2,color:bom===null?C.muted:bom?'#22C55E':'#EF4444',fontWeight:700}}>
+              {a===null?'\u00a0':dif===null?'sem dado no período de comparação':dif===0?'sem variação vs '+P.pLabel:(dif>0?ICT.sobe:ICT.desce)+' '+(Number.isInteger(dif)?Math.abs(dif):Math.abs(dif).toFixed(Math.abs(dif)<1?2:1))+' vs '+P.pLabel+' ('+ant.v+')'}
+            </div>
+            {mini(g,it)}
+            {aberto===k&&<div style={{fontSize:9.5,color:C.muted,marginTop:6,lineHeight:1.45}}>{it.den}</div>}
           </div>);
         })}
       </div>
     </div>))}
     <div style={{fontSize:10,color:C.muted,lineHeight:1.6,padding:'0 4px'}}>
-      {usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
-      {modo!=='mes'&&'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
+      {atual.usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
+      {'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
       N/D = denominador ou numerador ainda nao alimentado no periodo (abas Por Setor e DSM). Prevalencia pontual (ex: prevalencia de LPP em um dia de censo) exige coleta propria de censo pontual, ainda nao registrada no sistema — os valores acima sao incidencias, densidades e conformidades.
+      <div style={{marginTop:6}}>Barras: um mês por coluna (verde dentro da meta, vermelho fora, cinza sem dado). Toque no cartão para ver o cálculo.</div>
     </div>
   </div>);
 }
 
 function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userSubnucleo}) {
-  const [aba,setAba]=useState('setor');
+  const [aba,setAba]=useState('panorama');
   const tb=(id,l)=><button onClick={()=>setAba(id)} style={{flex:1,padding:'9px 6px',borderRadius:8,border:'none',background:aba===id?C.teal:'transparent',color:aba===id?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>;
   return(<div style={{padding:'0 0 80px'}}>
     <BackHeader title='Indicadores' subtitle='Taxas por setor, dados mensais DSM e checklist ANVISA'/>
@@ -3179,6 +3422,10 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
           <input type='date' value={customAte} onChange={e=>setCustomAte(e.target.value)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none'}}/>
         </div>}
       </div>
+      {periodoFiltro!=='todos'&&registros.length>filteredPeriodoAll.length&&<div style={{display:'flex',alignItems:'center',gap:10,background:C.blue+'14',border:'1px solid '+C.blue+'44',borderRadius:10,padding:'9px 12px',marginBottom:10,fontSize:12,color:C.text}}>
+        <span style={{flex:1}}>Mostrando só <b>{periodoRange.label}</b>. Há mais <b>{registros.length-filteredPeriodoAll.length}</b> registro(s) de outros períodos.</span>
+        <button onClick={()=>setPeriodoFiltro('todos')} style={{background:C.blue,color:'#fff',border:'none',borderRadius:8,padding:'7px 12px',fontSize:11.5,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>Ver todos</button>
+      </div>}
 
     {canEdit&&<div style={{textAlign:'right',marginBottom:10}}><button onClick={()=>setShowForm(!showForm)} style={{background:C.teal,border:'none',borderRadius:10,padding:'8px 14px',color:'#06101F',fontWeight:800,fontSize:12,cursor:'pointer'}}>+ Novo</button></div>}
     {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
@@ -5057,6 +5304,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   const [notiVisaTarget,setNotiVisaTarget]=useState(null);
   const [riscoTarget,setRiscoTarget]=useState(null);
   const [planoTarget,setPlanoTarget]=useState(null);
+  const [resumoPlano,setResumoPlano]=useState(null);
   const [alertas,setAlertas]=useState({protsVencidos:[],planosAtrasados:[],rcaPendentes:[],efetPendentes:[],triagemPendentes:[],docsInst:[],notsById:{}});
   const [homeTick,setHomeTick]=useState(0);
   const [painelSub,setPainelSub]=useState(null); // gestor preenchendo pelo subnucleo
@@ -5088,6 +5336,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       else if(cfg.data_atualizacao_psp&&vencimentoPadrao(cfg.data_atualizacao_psp)<hoje) docsInst.push('PSP vencido em '+new Date(vencimentoPadrao(cfg.data_atualizacao_psp)+'T12:00:00').toLocaleDateString('pt-BR'));
       if(!cfg.link_portaria_nsp&&!cfg.numero_portaria_nsp) docsInst.push('Portaria do NSP não cadastrada');
       setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById,semComunicacao});
+      const validas=(planos||[]).filter(p=>p.status!=='cancelado');
+      setResumoPlano({total:validas.length,feitas:validas.filter(p=>p.status==='concluido'||p.status==='concluida').length,vencidas:planosAtrasados.length});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -5148,6 +5398,13 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       </button>))}
     </div>}
 
+    {gestorMode&&!loading&&resumoPlano&&resumoPlano.total>0&&(()=>{const pct=Math.round(resumoPlano.feitas/resumoPlano.total*100);return(
+      <button onClick={()=>setView('acoes')} style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:'12px 14px',marginBottom:12,cursor:'pointer'}}>
+        <div style={{width:46,height:46,borderRadius:23,flexShrink:0,background:'conic-gradient('+C.green+' '+pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:36,height:36,borderRadius:18,background:C.card,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:C.text}}>{pct}%</div></div>
+        <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:800,color:C.text}}>Plano de ação: {pct}% executado</div>
+          <div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{resumoPlano.feitas} de {resumoPlano.total} ações concluídas{resumoPlano.vencidas?' · '+resumoPlano.vencidas+' vencida(s)':''} · ver o panorama, os treinamentos e as reuniões</div></div>
+        <IconChev size={16} color={C.teal}/>
+      </button>);})()}
     {/* ── Painel Ação Necessária: fila priorizada com CTA direto ── */}
     {gestorMode&&!loading&&(()=>{ 
       const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
@@ -7062,6 +7319,72 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
       const mesesComDados=mesesAno.length||1;
       sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.6,y:5.95,w:8.8,h:0.65,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.5}});
       sl.addText('Total no ano at\u00e9 '+nomesMeses[mesRefN-1]+': '+doAno.length+' notifica\u00e7\u00f5es  \u2022  M\u00e9dia mensal: '+(doAno.length/mesesComDados).toFixed(1), {x:0.8,y:5.95,w:8.4,h:0.65,fontSize:13,bold:true,color:C2.tealDk,valign:'middle',margin:0});
+
+      // ── Panorama dos indicadores: acumulado do ano e evolucao dos ultimos 6 meses (mesmo calculo da aba Indicadores > Panorama) ──
+      try{
+        const mRef=mesPPT;const m6=somaMeses(mRef,-5);
+        const iniBusca=[`${anoRefN}-01-01`,m6+'-01'].sort()[0];
+        const [indRows,dsmRows]=await Promise.all([
+          sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${iniBusca.slice(0,7)}&mes_ref=lte.${mRef}&select=mes_ref,pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+          sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${iniBusca}&mes=lte.${fimMes}&select=*`).catch(()=>[]),
+        ]);
+        const recorte=(ini,fim)=>calcIndicadoresPeriodo(
+          rawData.filter(n=>{const d=getData(n);return d&&d>=ini&&d<=fim&&!n.is_test;}),
+          (indRows||[]).filter(r=>r.mes_ref>=ini.slice(0,7)&&r.mes_ref<=fim.slice(0,7)),
+          (dsmRows||[]).filter(r=>(r.mes||'')>=ini&&(r.mes||'')<=fim));
+        const ytd=recorte(`${anoRefN}-01-01`,fimMes);
+        const mesesYtd=listaMeses(`${anoRefN}-01-01`,fimMes);
+        const nomeM=m=>nomesMeses[Number(m.slice(5,7))-1];
+        const pctNaMeta=r=>{const its=r.grupos.flatMap(g=>g.itens).filter(it=>it.ok!==null&&it.v!==null);return its.length?Math.round(its.filter(it=>it.ok).length/its.length*100):null;};
+
+        // slide 1: tabela do acumulado + % de indicadores na meta por mes
+        sl=pres.addSlide();sl.background={color:C2.white};fundoAutentico(sl);
+        sl.addText('Panorama dos Indicadores — Acumulado '+anoRefN+' (Jan a '+nomesMeses[mesRefN-1]+')',{x:1.3,y:0.3,w:7.4,h:0.45,fontSize:16,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+        const hdr={bold:true,color:C2.navy,fill:{color:C2.tableHead},fontSize:8.5};
+        const tr=[[{text:'Indicador',options:hdr},{text:'Acumulado',options:{...hdr,align:'center'}},{text:'Meta',options:{...hdr,align:'center'}}]];
+        ytd.grupos.forEach(g=>g.itens.forEach((it,i)=>{
+          const cor=it.v===null?'94A3B8':it.ok===null?'334155':(it.ok?C2.green:C2.red);
+          const fl={color:tr.length%2?'FFFFFF':'F8FAFC'};
+          tr.push([{text:it.n,options:{fontSize:8,fill:fl,color:'1E293B'}},{text:it.v===null?'N/D':it.v+(it.un?' '+it.un:''),options:{fontSize:8,bold:it.v!==null,align:'center',fill:fl,color:cor}},{text:String(it.meta),options:{fontSize:7.5,align:'center',fill:fl,color:'64748B'}}]);
+        }));
+        sl.addTable(tr,{x:0.45,y:0.95,w:5.35,colW:[2.75,1.45,1.15],border:{pt:0.5,color:'E2E8F0'},rowH:0.27,fontFace:'Calibri',valign:'middle'});
+        const serie=mesesYtd.map(m=>pctNaMeta(recorte(m+'-01',fimDoMes(m))));
+        const comDado=mesesYtd.map((m,i)=>({m,v:serie[i]})).filter(x=>x.v!==null);
+        sl.addText('Indicadores dentro da meta, mês a mês (%)',{x:6.0,y:0.95,w:3.6,h:0.3,fontSize:10,bold:true,color:C2.navy,margin:0});
+        if(comDado.length){
+          sl.addChart(pres.charts.BAR,[{name:'% na meta',labels:comDado.map(x=>nomeM(x.m)),values:comDado.map(x=>x.v)}],{x:5.95,y:1.25,w:3.65,h:3.3,chartColors:[C2.teal],showValue:true,dataLabelFontSize:9,dataLabelColor:C2.navy,valAxisMaxVal:100,valAxisMinVal:0,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:9});
+        } else sl.addText('Sem lançamentos mensais suficientes para o gráfico.',{x:6.0,y:2.6,w:3.6,h:0.4,fontSize:10,color:C2.gray,margin:0});
+        const its=ytd.grupos.flatMap(g=>g.itens).filter(it=>it.ok!==null&&it.v!==null);
+        const dentro=its.filter(it=>it.ok).length;
+        sl.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:6.0,y:4.75,w:3.6,h:1.05,fill:{color:C2.teal,transparency:90},rectRadius:0.1,line:{color:C2.teal,transparency:50,width:1.2}});
+        sl.addText(dentro+' de '+its.length,{x:6.0,y:4.8,w:3.6,h:0.5,fontSize:24,bold:true,color:dentro===its.length?C2.green:C2.navy,align:'center',margin:0});
+        sl.addText('indicadores com meta estão dentro dela no acumulado do ano',{x:6.1,y:5.3,w:3.4,h:0.45,fontSize:9,color:'334155',align:'center',margin:0});
+        sl.addText('Verde: dentro da meta  •  Vermelho: fora da meta  •  N/D: sem dado lançado. Taxas agregadas (soma dos numeradores / soma dos denominadores do período).',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});
+
+        // slide 2: evolucao dos ultimos 6 meses dos indicadores principais, com a linha da meta
+        const meses6=listaMeses(m6+'-01',fimMes);
+        const porMes6=meses6.map(m=>recorte(m+'-01',fimDoMes(m)));
+        const valor=(r,nome)=>{const it=r.grupos.flatMap(g=>g.itens).find(x=>x.n===nome);return it&&it.v!==null?parseFloat(it.v):null;};
+        const principais=[
+          {n:'Incidencia de LPP',t:'Incidência de LPP (%)',meta:4},
+          {n:'Taxa de quedas',t:'Taxa de quedas (%)',meta:0.15},
+          {n:'Adesao a higiene das maos',t:'Adesão à higiene das mãos (%)',meta:70},
+          {n:'Avaliacao risco de queda',t:'Avaliação do risco de queda (%)',meta:90},
+        ];
+        sl=pres.addSlide();sl.background={color:C2.white};fundoAutentico(sl);
+        sl.addText('Evolução dos Indicadores — Últimos 6 meses ('+nomeM(m6)+' a '+nomesMeses[mesRefN-1]+')',{x:1.3,y:0.3,w:7.4,h:0.45,fontSize:16,bold:true,color:C2.navy,align:'center',valign:'middle',margin:0});
+        principais.forEach((k,i)=>{
+          const x=0.45+(i%2)*4.6,y=0.95+Math.floor(i/2)*2.85;
+          sl.addText(k.t,{x,y,w:4.4,h:0.28,fontSize:10.5,bold:true,color:C2.navy,margin:0});
+          // so os meses com lancamento: mes sem dado nao vira zero no grafico
+          const pts=meses6.map((m,j)=>({m,v:valor(porMes6[j],k.n)})).filter(x=>x.v!==null);
+          if(pts.length){
+            sl.addChart(pres.charts.LINE,[{name:'Resultado',labels:pts.map(x=>nomeM(x.m)),values:pts.map(x=>x.v)},{name:'Meta',labels:pts.map(x=>nomeM(x.m)),values:pts.map(()=>k.meta)}],
+              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:false});
+          } else sl.addText('Sem dados lançados nos últimos 6 meses (Indicadores > DSM / Por Setor).',{x,y:y+1.1,w:4.4,h:0.5,fontSize:9.5,color:C2.gray,align:'center',margin:0});
+        });
+        sl.addText('Linha vermelha: meta. Meses sem lançamento não aparecem no gráfico. Detalhes na plataforma: Indicadores > Panorama.',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});
+      }catch(e){console.warn('panorama de indicadores no PPT',e);}
 
       await pres.writeFile({fileName:'Analise_Mensal_'+(h.short_name||'NSP')+'_'+mesPPT+'.pptx'});
       showToast('Analise mensal gerada!','success');
@@ -9267,7 +9590,7 @@ function NotificaAI() {
   const gestorTabs=[
     {id:'home',label:'Painel',icon:IconHome,grupo:'Dia a dia'},
     {id:'notificacoes',label:'Notificações',icon:IconMsg,grupo:'Dia a dia'},
-    {id:'acoes',label:'Ações',curto:'Ações',icon:IconAudit,grupo:'Dia a dia'},
+    {id:'acoes',label:'Plano de ação',curto:'Ações',icon:IconAudit,grupo:'Dia a dia'},
     {id:'treinamentos',label:'Treinamentos e reuniões',curto:'Treinamentos',icon:IconBook,grupo:'Dia a dia'},
     {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Documentos'},
     {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Documentos'},

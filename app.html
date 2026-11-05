@@ -1544,6 +1544,11 @@ function RCAPanel({notification,sbUrl,sbKey,showToast,onClose,onSaved,autor}) {
   const [loading,setLoading]=useState(false);
   const [tab,setTab]=useState('porques');
   const [saving,setSaving]=useState(false);
+  // Modelo em branco: a analise pode ser feita sem a IA (antes, se a IA falhasse, nao havia como analisar)
+  const modeloEmBranco=()=>({
+    cinco_porques:[{pergunta:'Por que ocorreu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Causa raiz:',resposta:''}],
+    ishikawa:[{categoria:'Pessoa',cor:'#EF4444',causas:['']},{categoria:'Processo',cor:'#F59E0B',causas:['']},{categoria:'Equipamento',cor:'#8B5CF6',causas:['']},{categoria:'Ambiente',cor:'#1D6FE8',causas:['']},{categoria:'Gestão',cor:'#00C9B8',causas:['']}],
+    fatores:[],plano:[{acao:'',responsavel:'',prazo:'30 dias'}]});
 
   const gerar=async()=>{
     setLoading(true);
@@ -1619,7 +1624,7 @@ Formato exato:
       }
       if(parsed) setRca(parsed);
       else throw new Error('Não foi possível processar a resposta da IA');
-    } catch(e) { console.error('RCA parse error:',e); showToast('Erro ao gerar: '+e.message,'error'); }
+    } catch(e) { console.error('RCA parse error:',e); showToast('A IA não respondeu agora. Preencha a análise você mesmo: o modelo já está aberto.','error'); setRca(modeloEmBranco()); }
     setLoading(false);
   };
 
@@ -1627,9 +1632,23 @@ Formato exato:
     if(!sbUrl||!sbKey){showToast('Configure o Supabase','error');return;}
     setSaving(true);
     try {
+      // 1) acoes do plano viram acoes reais do plano de acao (antes nao eram gravadas)
+      const prazoData=pz=>{const s=String(pz||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d+)\s*(dia|semana|mes|mês)/i);let dias=30;if(m){const n=Number(m[1]);dias=/semana/i.test(m[2])?n*7:/m/i.test(m[2])?n*30:n;}return new Date(Date.now()+dias*864e5).toISOString().slice(0,10);};
+      const acoes=(rca&&rca.plano||[]).filter(x=>String(x.acao||'').trim());
+      let gravadas=0;
+      for(const x of acoes){try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);}}
+      // 2) o conteudo da analise fica registrado nas atualizacoes do plano
+      if(rca){const linhas=['Análise de causa raiz (RCA)'];
+        (rca.cinco_porques||[]).filter(p=>String(p.resposta||'').trim()).forEach((p,i)=>linhas.push((i+1)+'. '+p.pergunta+' '+p.resposta));
+        const ish=(rca.ishikawa||[]).map(c=>({c:c.categoria,v:(c.causas||[]).filter(x=>String(x||'').trim())})).filter(x=>x.v.length);
+        if(ish.length)linhas.push('Ishikawa: '+ish.map(x=>x.c+': '+x.v.join('; ')).join(' | '));
+        const fat=(rca.fatores||[]).filter(f=>String(f.descricao||'').trim());
+        if(fat.length)linhas.push('Fatores: '+fat.map(f=>f.tipo+': '+f.descricao).join(' | '));
+        if(acoes.length)linhas.push('Ações definidas: '+acoes.map(x=>x.acao).join('; '));
+        if(linhas.length>1)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||null,texto:linhas.join('\n')});}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||'nsp',rca_concluido_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'RCA_CONCLUIDO','rca_gerado','false','true',autor||'nsp',autor||'nsp');
-      showToast('Análise de Causa salva!','success');
+      showToast('Análise salva!'+(gravadas?' '+gravadas+' ação(ões) enviadas ao plano de ação.':''),'success');
       if(onSaved) onSaved(); else onClose();
     } catch { showToast('Erro ao salvar','error'); }
     setSaving(false);
@@ -1648,6 +1667,7 @@ Formato exato:
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
       {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{String.fromCodePoint(129504)+' Analisar Causa Raiz com IA'}</button>}
+      {!rca&&!loading&&<button onClick={()=>setRca(modeloEmBranco())} style={{width:'100%',marginTop:8,background:'none',border:'1px solid '+C.border,borderRadius:12,padding:'11px',color:C.text,fontWeight:700,fontSize:13,cursor:'pointer'}}>Preencher a análise sem a IA</button>}
       {loading&&<div style={{textAlign:'center',padding:32}}><Dots/><div style={{fontSize:12,color:C.muted,marginTop:12}}>Analisando incidente...</div></div>}
       {rca&&(<div>
         <div style={{display:'flex',background:C.card,borderRadius:10,padding:3,gap:2,marginBottom:14}}>
@@ -3743,6 +3763,54 @@ function aplicarSubnucleosDoHospital(h){
   SUBS_TREINAMENTO.splice(0,SUBS_TREINAMENTO.length,...novos,...SETORES_APOIO);
 }
 
+// Editar um registro de treinamento ou reuniao (data, participantes, tema e trocar a lista de presenca)
+function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir}){
+  const [f,setF]=useState({data:r.data||'',participantes:r.participantes||'',protocolo:r.protocolo||'',descricao:r.descricao||'',link_gdrive:r.link_gdrive||''});
+  const [salvando,setSalvando]=useState(false);
+  const inp={width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:8};
+  const salvar=async()=>{
+    if(!f.data||!Number(f.participantes)){showToast('Informe a data e o número de participantes','error');return;}
+    setSalvando(true);
+    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null});
+      showToast('Registro atualizado','success');onSalvo&&onSalvo();}
+    catch(e){showToast('Erro ao salvar: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const excluir=async()=>{
+    if(!confirm('Excluir este registro? A lista de presença anexada continua guardada no armazenamento.'))return;
+    setSalvando(true);
+    try{await sbDelete(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`);showToast('Registro excluído','success');onSalvo&&onSalvo();}
+    catch(e){showToast('Erro ao excluir: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const dt=f.data||new Date().toISOString().slice(0,10);
+  return(<div style={{background:C.surface,border:'1px solid '+C.teal+'55',borderRadius:10,padding:12,marginTop:8}}>
+    <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8}}>Editar registro</div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+      <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data *</div><input type="date" value={f.data} onChange={e=>setF({...f,data:e.target.value})} style={inp}/></div>
+      <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Participantes *</div><input type="number" min="1" value={f.participantes} onChange={e=>setF({...f,participantes:e.target.value})} style={inp}/></div>
+    </div>
+    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema ou protocolo</div>
+    <input value={f.protocolo} onChange={e=>setF({...f,protocolo:e.target.value})} style={inp}/>
+    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Descrição ou pauta</div>
+    <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}}/>
+    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presença / ata</div>
+    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:10}}>
+      {f.link_gdrive&&<a href={f.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700}}>Ver a anexada</a>}
+      <StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label={f.link_gdrive?'Trocar pela lista correta':'Anexar lista de presença'}
+        meta={{subnucleo:r.subnucleo||'nsp_pleno',data:dt,participantes:f.participantes||'',ano:dt.slice(0,4),semestre:Number(dt.slice(5,7))<=6?'1':'2'}}
+        onUploaded={link=>{setF(x=>({...x,link_gdrive:link}));showToast('Lista nova anexada. Toque em Salvar.','success');}}/>
+    </div>
+    <div style={{display:'flex',gap:8}}>
+      {podeExcluir&&<button onClick={excluir} disabled={salvando} style={{background:'none',border:'1px solid '+C.red+'66',borderRadius:8,padding:'8px 12px',color:C.red,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>Excluir</button>}
+      <div style={{flex:1}}/>
+      <button onClick={onCancelar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
+      <button onClick={salvar} disabled={salvando} style={{background:C.teal,border:'none',borderRadius:8,padding:'8px 16px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
+    </div>
+  </div>);
+}
+// Mesma lista anexada em mais de um registro (anexos que se sobrescreveram)
+const contarListasRepetidas=regs=>{const m={};(regs||[]).forEach(r=>{if(r.link_gdrive)m[r.link_gdrive]=(m[r.link_gdrive]||0)+1;});return m;};
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [registros,setRegistros]=useState([]);
@@ -3751,6 +3819,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   const [saving,setSaving]=useState(false);
   const [subnucleoAtivo,setSubnucleoAtivo]=useState('todos');
   const [verApoio,setVerApoio]=useState(false);
+  const [editandoId,setEditandoId]=useState(null);
   const [periodoFiltro,setPeriodoFiltro]=useState('semestre_atual');
   const [customDe,setCustomDe]=useState('');
   const [customAte,setCustomAte]=useState('');
@@ -3814,6 +3883,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   });
 
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
+  const repetidas=contarListasRepetidas(registros);
   const renderRegistro=r=>{
       const sub=SUBS_TREINAMENTO.find(s=>s.id===r.subnucleo)||{icon:String.fromCodePoint(128203),color:C.muted,label:r.subnucleo==='nsp_pleno'?'NSP (núcleo pleno)':r.subnucleo};
       return(<div key={r.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:8}}>
@@ -3832,6 +3902,9 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
           </div>
         </div>
         {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
+        {r.link_gdrive&&repetidas[r.link_gdrive]>1&&<div style={{fontSize:11,color:C.text,background:C.yellow+'1a',border:'1px solid '+C.yellow+'55',borderRadius:8,padding:'6px 9px',margin:'4px 0 6px'}}><b style={{color:C.yellow}}>Atenção:</b> a mesma lista está anexada em {repetidas[r.link_gdrive]} registros. Confira e, se não for a deste, toque em Editar e troque pela lista correta.</div>}
+        {canEdit&&editandoId!==r.id&&r.id&&<button onClick={()=>setEditandoId(r.id)} style={{float:'right',marginTop:2,background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'3px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Editar</button>}
+        {editandoId===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={gestorMode||profileMode==='gestor'} onCancelar={()=>setEditandoId(null)} onSalvo={()=>{setEditandoId(null);load();}}/>}
         {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
       </div>);
   };
@@ -5196,6 +5269,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [loadingMes,setLoadingMes]=useState(false);
   const [showFormTrein,setShowFormTrein]=useState(null);
   const [formTrein,setFormTrein]=useState({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10),link_gdrive:''});
+  const [editTrein,setEditTrein]=useState(null);
   const [savingTrein,setSavingTrein]=useState(false);
   const [rcaMembro,setRcaMembro]=useState(null);
   const [notiVisaMembro,setNotiVisaMembro]=useState(null);
@@ -5467,7 +5541,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       ))}
     </div>}
 
-    {SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
+    {(()=>{const repetidasSub=contarListasRepetidas(s.treins);return SUBNUCLEOS_HNSA.filter(sub=>filtroSub==='todos'||filtroSub===sub.id).map(sub=>{
       const regs=s.treins.filter(t=>t.subnucleo===sub.id);
       const treins=regs.filter(t=>t.tipo==='treinamento');
       const totalPart=regs.reduce((acc,r)=>acc+(r.participantes||0),0);
@@ -5544,20 +5618,25 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           </button>
         </div>)}
         {regs.slice(0,verTodosTrein[sub.id]?regs.length:3).map((r,i)=>(
-          <div key={r.id||i} style={{display:'flex',alignItems:'center',gap:10,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:8}}>
+          <React.Fragment key={r.id||i}>
+          <div style={{display:'flex',alignItems:'center',gap:10,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:8}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:11.5,color:C.text}}>{r.protocolo||r.descricao||(r.tipo==='treinamento'?'Treinamento':'Reunião')}</div>
               <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes</div>
+              {r.link_gdrive&&repetidasSub[r.link_gdrive]>1&&<div style={{fontSize:10,color:C.yellow,fontWeight:700,marginTop:2}}>Mesma lista anexada em {repetidasSub[r.link_gdrive]} registros: confira e troque em Editar</div>}
             </div>
+            {r.id&&editTrein!==r.id&&<button onClick={()=>setEditTrein(r.id)} style={{background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'3px 9px',color:C.muted,fontSize:10.5,fontWeight:700,cursor:'pointer',flexShrink:0}}>Editar</button>}
             {r.link_gdrive?<a href={r.link_gdrive} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.green,fontWeight:700,whiteSpace:'nowrap'}}>Lista anexada</a>
               :<StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista'
                 meta={{subnucleo:sub.id,data:r.data||new Date().toISOString().slice(0,10),participantes:r.participantes||'',ano:String((r.data||new Date().toISOString()).slice(0,4)),semestre:Number((r.data||new Date().toISOString()).slice(5,7))<=6?'1':'2'}}
                 onUploaded={async link=>{try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{link_gdrive:link});showToast('Lista de presença anexada','success');carregar();}catch(e){showToast('Erro ao anexar: '+e.message,'error');}}}/>}
           </div>
+          {editTrein===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={profileMode==='gestor'} onCancelar={()=>setEditTrein(null)} onSalvo={()=>{setEditTrein(null);carregar();}}/>}
+          </React.Fragment>
         ))}
         {regs.length>3&&<button onClick={()=>setVerTodosTrein(v=>({...v,[sub.id]:!v[sub.id]}))} style={{marginTop:8,background:'none',border:'none',color:C.teal,fontSize:11.5,fontWeight:700,cursor:'pointer',padding:0}}>{verTodosTrein[sub.id]?'Mostrar menos':'Ver todos os '+regs.length+' registros'}</button>}
       </div>);
-    })}
+    });})()}
 
     </div>
     <div style={mostra('protocolos')}>
@@ -10583,17 +10662,20 @@ function buildStoragePath(tipo, meta, originalName) {
   const ano  = meta.ano       || String(new Date().getFullYear());
   const sem  = meta.semestre  || (new Date().getMonth()<6?'1':'2');
   const mes  = new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/\. |\./, '');
-  if(tipo==='protocolo') return `protocolos/${ano}/${sem}S/${meta.crit||'XX'}-${safe((meta.nomeProt||'').slice(0,20))}-Rev${mes}.${ext}`;
-  if(tipo==='treinamento') return `treinamentos/${ano}/${sem}S/${safe((meta.subnucleo||'nsp').slice(0,15))}/${meta.data||new Date().toISOString().slice(0,10)}${meta.participantes?'_'+meta.participantes+'p':''}.${ext}`;
+  // sufixo unico: antes, dois anexos com o mesmo nome (ex.: mesma data) se sobrescreviam e todos os registros abriam o ultimo arquivo
+  const uid = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  if(tipo==='protocolo') return `protocolos/${ano}/${sem}S/${meta.crit||'XX'}-${safe((meta.nomeProt||'').slice(0,20))}-Rev${mes}-${uid}.${ext}`;
+  if(tipo==='treinamento') return `treinamentos/${ano}/${sem}S/${safe((meta.subnucleo||'nsp').slice(0,15))}/${meta.data||new Date().toISOString().slice(0,10)}${meta.participantes?'_'+meta.participantes+'p':''}_${uid}.${ext}`;
   if(tipo==='relatorio') return `relatorios/${ano}/${sem}S/DSM-${meta.sigla||'HNSA'}-${ano}-${sem}S.xlsx`;
-  return `outros/${Date.now()}_${safe(originalName)}`;
+  return `outros/${Date.now()}_${uid}_${safe(originalName)}`;
 }
 
 async function uploadToStorage(file, tipo, meta, sbUrl, sbKey) {
   const path = buildStoragePath(tipo, meta, file.name);
   const resp = await fetch(`${sbUrl}/storage/v1/object/nsp-documentos/${path}`, {
     method:'POST',
-    headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':file.type||'application/octet-stream','x-upsert':'true'},
+    // so o relatorio semestral substitui o arquivo anterior; os demais anexos nunca sobrescrevem
+    headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey,'Content-Type':file.type||'application/octet-stream','x-upsert':tipo==='relatorio'?'true':'false'},
     body: file,
   });
   if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error||`Upload falhou (${resp.status})`);}

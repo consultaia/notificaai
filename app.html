@@ -2640,12 +2640,20 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
   const nomeMesC=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
   const ICT={sobe:String.fromCodePoint(9650),desce:String.fromCodePoint(9660)};
 
+  // Valor de cada mês escrito na barra. A escala considera a meta, para um mês baixo não parecer pico
+  // (antes a barra mais alta era sempre o maior valor do período, mesmo muito abaixo da meta).
+  const fmtV=v=>Number(v.toFixed(v!==0&&Math.abs(v)<1?2:Math.abs(v)<10?1:0)).toLocaleString('pt-BR');
+  const metaNum=it=>{const m=String(it.meta||'').replace(',','.').match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):null;};
   const mini=(g,it)=>{
     const vals=porMes.map(x=>{const i2=achar(x.r,g.titulo,it.n);return {m:x.m,v:i2?numV(i2.v):null,ok:i2?i2.ok:null};});
-    const max=Math.max(...vals.map(x=>x.v||0),0)||1;
-    return(<div style={{display:'flex',alignItems:'flex-end',gap:3,height:42,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
-      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':x.v+(it.un?' '+it.un:''))} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*30)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
+    const mt=metaNum(it);
+    const max=Math.max(...vals.map(x=>x.v||0),mt&&mt>0?mt:0,0)||1;
+    const H=30;const yMeta=mt&&mt>0?Math.round(mt/max*H):null;
+    return(<div style={{position:'relative',display:'flex',alignItems:'flex-end',gap:3,height:H+26,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
+      {yMeta!==null&&<div title={'Meta '+it.meta} style={{position:'absolute',left:0,right:0,bottom:11+yMeta,borderTop:'1px dashed '+C.muted,opacity:0.55,pointerEvents:'none'}}/>}
+      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':fmtV(x.v)+(it.un?' '+it.un:''))} style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <span style={{fontSize:7.5,fontWeight:700,color:x.v===null?C.muted:C.text,lineHeight:1,whiteSpace:'nowrap'}}>{x.v===null?'–':fmtV(x.v)}</span>
+        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*H)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
         <span style={{fontSize:7.5,color:C.muted,lineHeight:1}}>{nomeMesC(x.m).slice(0,3)}</span>
       </div>)}
     </div>);
@@ -2690,7 +2698,7 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
       {atual.usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
       {'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
       N/D = denominador ou numerador ainda nao alimentado no periodo (abas Por Setor e DSM). Prevalencia pontual (ex: prevalencia de LPP em um dia de censo) exige coleta propria de censo pontual, ainda nao registrada no sistema — os valores acima sao incidencias, densidades e conformidades.
-      <div style={{marginTop:6}}>Barras: um mês por coluna (verde dentro da meta, vermelho fora, cinza sem dado). Toque no cartão para ver o cálculo.</div>
+      <div style={{marginTop:6}}>Barras: um mês por coluna, com o valor do mês escrito acima (verde dentro da meta, vermelho fora, cinza sem dado). A linha tracejada marca a meta. Toque no cartão para ver o cálculo.</div>
     </div>
   </div>);
 }
@@ -7892,7 +7900,7 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
           const pts=meses6.map((m,j)=>({m,v:valor(porMes6[j],k.n)})).filter(x=>x.v!==null);
           if(pts.length){
             sl.addChart(pres.charts.LINE,[{name:'Resultado',labels:pts.map(x=>nomeM(x.m)),values:pts.map(x=>x.v)},{name:'Meta',labels:pts.map(x=>nomeM(x.m)),values:pts.map(()=>k.meta)}],
-              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:false});
+              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:true,dataLabelFontSize:7,dataLabelColor:C2.navy,dataLabelPosition:'t'});
           } else sl.addText('Sem dados lançados nos últimos 6 meses (Indicadores > DSM / Por Setor).',{x,y:y+1.1,w:4.4,h:0.5,fontSize:9.5,color:C2.gray,align:'center',margin:0});
         });
         sl.addText('Linha vermelha: meta. Meses sem lançamento não aparecem no gráfico. Detalhes na plataforma: Indicadores > Panorama.',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});

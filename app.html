@@ -6083,6 +6083,8 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
     const txt=label||(dataDigitada?new Date(valor+'T12:00:00').toLocaleDateString('pt-BR'):valor);
     addMsg('user',txt);
     const d={...dados};
+    // paciente, familiar ou anonimo: perguntas em linguagem simples, sem termos tecnicos
+    const lg=['paciente','familiar','anonimo'].includes(step==='perfil'?valor:d.notifier_type);
 
     switch(step){
 
@@ -6110,10 +6112,10 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
 
       case 'subtipo':{
         d.event_subtype=valor;
-        if(valor==='Perda de AVP'){
+        if(valor==='Perda de AVP'&&!lg){
           avancar(d,'avp_motivo','Qual foi o motivo da perda do acesso venoso periférico?');
         } else {
-          avancar(d,'setor','Em qual setor ocorreu?');
+          avancar(d,'setor',lg?'Em qual setor ou local do hospital aconteceu?':'Em qual setor ocorreu?');
         }
         break;
       }
@@ -6132,7 +6134,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
 
       case 'setor':{
         d.sector=valor;
-        avancar(d,'data','Quando ocorreu o evento?');
+        avancar(d,'data',lg?'Quando aconteceu?':'Quando ocorreu o evento?');
         break;
       }
 
@@ -6146,20 +6148,20 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
         else if(txt.toLowerCase().includes('hoje')){date=hojeISO;}
         else if(txt.toLowerCase().includes('ontem')){date=ontemISO;}
         d.event_date=date;d.shift=turno;
-        avancar(d,'relato','Descreva o que aconteceu com o máximo de detalhes:');
+        avancar(d,'relato',lg?'Conte, com suas palavras, o que aconteceu:':'Descreva o que aconteceu com o máximo de detalhes:');
         break;
       }
 
       case 'relato':{
         d.description=valor;
-        avancar(d,'medidas','Quais medidas foram tomadas imediatamente após o evento?');
+        avancar(d,'medidas',lg?'Alguém da equipe fez alguma coisa logo depois? (se não souber, escreva "não sei")':'Quais medidas foram tomadas imediatamente após o evento?');
         break;
       }
 
       case 'medidas':{
         d.measures_taken=valor;
         if(isSP(d)){
-          avancar(d,'nip','**NIP do paciente** (número de identificação):\n\nO NIP permite ao NSP localizar o prontuário. Se não souber, toque em "Pular".');
+          avancar(d,'nip',lg?'Se souber, informe o **número de identificação do paciente** (NIP, que aparece na pulseira ou no cartão). Se não souber, toque em "Pular".':'**NIP do paciente** (número de identificação):\n\nO NIP permite ao NSP localizar o prontuário. Se não souber, toque em "Pular".');
         } else {
           gerarResumo(d);
         }
@@ -6168,13 +6170,13 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
 
       case 'nip':{
         if(valor!=='nao_informar') d.patient_nip=valor;
-        avancar(d,'nome_pac','Nome completo do paciente (ou deixe em branco):');
+        avancar(d,'nome_pac',lg?'Nome do paciente (se preferir, toque em "Pular"):':'Nome completo do paciente (se não souber, toque em "Pular"):');
         break;
       }
 
       case 'nome_pac':{
         if(valor&&valor.toLowerCase()!=='não informar'&&valor.toLowerCase()!=='nao informar') d.patient_name=valor;
-        avancar(d,'idade','Idade do paciente (em anos):');
+        avancar(d,'idade',lg?'Qual a idade do paciente?':'Idade do paciente (em anos):');
         break;
       }
 
@@ -6186,30 +6188,30 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
 
       case 'sexo':{
         if(valor!=='nao_informar') d.patient_sex=valor;
-        avancar(d,'data_admissao','Data de admissao do paciente (ou "nao informar"):');
+        avancar(d,'data_admissao',lg?'Desde quando o paciente está internado? (se não souber, toque em "Pular")':'Data de admissão do paciente (se não souber, toque em "Pular"):');
         break;
       }
 
       case 'data_admissao':{
         if(valor&&valor!=='nao informar'&&valor!=='nao_informar') d.patient_admission=valor;
-        avancar(d,'motivo_internacao','Qual o motivo da internacao do paciente? (ou "nao informar")');
+        avancar(d,'motivo_internacao',lg?'Por que o paciente está internado? (se não souber, toque em "Pular")':'Qual o motivo da internação do paciente? (se não souber, toque em "Pular")');
         break;
       }
 
       case 'motivo_internacao':{
         if(valor&&valor!=='nao informar'&&valor!=='nao_informar') d.motivo_internacao=valor;
-        avancar(d,'desfecho','Qual foi o desfecho para o paciente?');
+        avancar(d,'desfecho',lg?'Como o paciente ficou depois do ocorrido?':'Qual foi o desfecho para o paciente?');
         break;
       }
 
       case 'desfecho':{
         d.patient_outcome=valor;
-        avancar(d,'preventivel','O evento era evitável?');
+        avancar(d,'preventivel',lg?'Na sua opinião, isso poderia ter sido evitado?':'O evento era evitável?');
         break;
       }
 
       case 'preventivel':{
-        d.was_preventable=valor==='Sim'||txt.toLowerCase().includes('sim');
+        d.was_preventable=valor==='Sim'?true:valor==='Não'?false:null;
         gerarResumo(d);
         break;
       }
@@ -6235,7 +6237,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
       idade:'Idade aproximada do paciente:',
       sexo:'Sexo do paciente:',
       motivo_internacao:'Qual o motivo da internacao do paciente?',
-      desfecho:'Qual foi o desfecho para o paciente?',
+      desfecho:['paciente','familiar','anonimo'].includes(dados.notifier_type)?'Como o paciente ficou depois do ocorrido?':'Qual foi o desfecho para o paciente?',
     };
     addMsg('user','Não informado');
     avancar({...dados},proximo,perguntas[proximo]);
@@ -6243,7 +6245,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
   // Quem notifica nem sempre tem os dados do paciente: pula o bloco inteiro de uma vez (o NSP completa depois)
   const pularPaciente=()=>{
     addMsg('user','Prefiro não informar os dados do paciente');
-    avancar({...dados},'desfecho','Qual foi o desfecho para o paciente?');
+    avancar({...dados},'desfecho',['paciente','familiar','anonimo'].includes(dados.notifier_type)?'Como o paciente ficou depois do ocorrido?':'Qual foi o desfecho para o paciente?');
   };
 
   const gerarResumo=async(d)=>{
@@ -6474,10 +6476,38 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       {v:'Não',l:'Não era evitável'},
       {v:'Não sei',l:'Não sei avaliar'},
     ],
+    subtipo_leigo:[
+      {v:'Queda',l:'O paciente caiu'},
+      {v:'Erro de medicação',l:'Problema com remédio (remédio, dose ou horário errado)'},
+      {v:'Falha na identificação',l:'Confundiram o paciente com outra pessoa (nome ou pulseira)'},
+      {v:'Lesão por pressão',l:'Ferida na pele por ficar muito tempo na mesma posição'},
+      {v:'Perda de AVP',l:'O acesso na veia (soro) saiu ou deu problema'},
+      {v:'Cirurgia segura',l:'Problema relacionado a uma cirurgia'},
+      {v:'Falha de comunicação',l:'Faltou informação ou houve desencontro de informações'},
+      {v:'Falha de equipamento',l:'Aparelho ou equipamento com defeito'},
+      {v:'Circunstancia de risco',l:'Situação perigosa que pode causar dano (nada aconteceu ainda)'},
+      {v:'Outro',l:'Outra situação'},
+    ],
+    desfecho_leigo:[
+      {v:'Sem dano',l:'Não sofreu nenhum dano'},
+      {v:'Dano leve',l:'Teve um dano leve e já se recuperou'},
+      {v:'Dano moderado',l:'Precisou de cuidado ou tratamento a mais'},
+      {v:'Dano grave',l:'Teve um dano grave'},
+      {v:'Óbito',l:'Faleceu'},
+      {v:'Near miss - sem dano',l:'Não chegou a atingir o paciente'},
+      {v:'Não sei',l:'Não sei'},
+    ],
+    preventivel_leigo:[
+      {v:'Sim',l:'Sim'},
+      {v:'Não',l:'Não'},
+      {v:'Não sei',l:'Não sei'},
+    ],
   };
 
   const chipsAtivos=()=>{
-    if(step==='subtipo') return CHIPS_MAP.subtipo_sp;
+    const leigo=['paciente','familiar','anonimo'].includes(dados.notifier_type);
+    if(step==='subtipo') return leigo?CHIPS_MAP.subtipo_leigo:CHIPS_MAP.subtipo_sp;
+    if(leigo&&(step==='desfecho'||step==='preventivel')) return CHIPS_MAP[step+'_leigo'];
     return CHIPS_MAP[step]||[];
   };
 

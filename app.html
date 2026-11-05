@@ -289,6 +289,7 @@ async function hashPin(pin, hospitalId) {
 
 const PROFILES = {
   gestor:   {pin:'1234', label:'Gestor',     icon:'painel',color:'#8B5CF6',perfil:'gestor'},
+  auditor:  {pin:null,label:'Auditor',icon:String.fromCodePoint(128269),color:'#0EA5E9',perfil:'auditor'},
   membro_nsp:{pin:'5555',label:'Membro NSP',icon:String.fromCodePoint(128694),color:'#00C9B8',perfil:'membro_nsp'},
 };
 
@@ -318,6 +319,7 @@ const ACENTOS_EXIBICAO={lesao:'lesão',pressao:'pressão',medicacao:'medicação
   farmacia:'farmácia',manutencao:'manutenção',hotelaria:'hotelaria',nutricao:'nutrição',agressao:'agressão',transfusao:'transfusão',sitio:'sítio',cirurgico:'cirúrgico',urinario:'urinário',
   trato:'trato',ventilacao:'ventilação',mecanica:'mecânica',corrente:'corrente',sanguinea:'sanguínea',equipamento:'equipamento',passagem:'passagem',plantao:'plantão',informacao:'informação'};
 function acentuar(t){
+  if(/^near miss$/i.test(String(t||'').trim())) return 'Quase erro (near miss)';
   const s=String(t||'').replace(/[A-Za-zÀ-ú]+/g,w=>{const r=ACENTOS_EXIBICAO[w.toLowerCase()];if(!r)return w;return w[0]===w[0].toUpperCase()?r[0].toUpperCase()+r.slice(1):r;});
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
@@ -802,6 +804,11 @@ const passosGuiaGestor=h=>[
     ?{titulo:'Preparação para a inspeção da DSM',texto:'Em "Preparação para a inspeção" está a lista do que a DSM vai conferir, com a situação de cada item e o botão que leva até onde ele se resolve. No dia, é por ali que se mostram as evidências.'}
     :{titulo:'Preparação para auditorias',texto:'Em "Preparação para auditoria" está a lista do que costuma ser conferido (documentos, reuniões, treinamentos, indicadores e análises), com a situação de cada item e o botão que leva até onde ele se resolve.'},
 ];
+const PASSOS_GUIA_AUDITOR=h=>[
+  {titulo:'Boas-vindas, auditor(a)',texto:'Este é um acesso somente para leitura ao NotificaAI do '+siglaH(h)+'. Nada pode ser alterado por aqui, e os dados de pacientes não aparecem.'},
+  {titulo:'Comece pelo Roteiro da inspeção',texto:'O roteiro lista o que é conferido (documentos, reuniões, treinamentos, indicadores, análises e planos), com a situação de cada item. Toque em um item para abrir a evidência.',
+    itens:[['Indicadores','Panorama por período, com metas e evolução mês a mês.'],['Biblioteca de documentos','Portarias, protocolos, atas e listas de presença.'],['Dossiê de evidências','PDF, apresentação e planilha consolidados.']]},
+];
 const PASSOS_GUIA_SUBNUCLEO=[
   {titulo:'Este é o painel do seu subnúcleo',texto:'Aqui fica tudo o que o seu subnúcleo precisa alimentar. A aba "O que falta" mostra, em ordem, o que está pendente, com o botão para resolver.'},
   {titulo:'A rotina do subnúcleo',texto:'Abaixo do "O que falta" está a sua rotina: o que fazer toda semana, todo mês, todo semestre e na validade do protocolo.',
@@ -887,7 +894,7 @@ async function carregarProntidao(sbUrl,sbKey,h){
 const COR_ST=st=>st==='ok'?C.green:st==='atencao'?C.yellow:C.red;
 const ROT_ST={ok:'Em dia',atencao:'Atenção',pendente:'Pendente'};
 
-function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif}){
+function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif,modoAuditor}){
   const h=hospital||DEFAULT_HOSPITAL;
   const mar=ehMarinha(h);
   const kData='nai_data_inspecao_'+h.id;
@@ -896,8 +903,10 @@ function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif}){
   useEffect(()=>{if(sbUrl&&sbKey)carregarProntidao(sbUrl,sbKey,h).then(setDados).catch(()=>setDados({itens:[],pct:0}));},[sbUrl,sbKey]);
   const salvarData=v=>{setDataInsp(v);try{v?localStorage.setItem(kData,v):localStorage.removeItem(kData);}catch{}};
   const dias=dataInsp?Math.ceil((new Date(dataInsp+'T12:00:00')-new Date())/864e5):null;
-  const ir=(v,f)=>{if(f&&setFiltroNotif)setFiltroNotif(f);setView(v);};
-  const titulo=mar?'Preparação para a inspeção da DSM':'Preparação para auditoria';
+  // auditor so navega para telas sem dados de pacientes
+  const MAPA_AUDITOR={protocolos:'documentos_nsp',notificacoes:'pnqsp',relatorio_dsm:'auditar',admin:null};
+  const ir=(v,f)=>{if(modoAuditor){const d=v in MAPA_AUDITOR?MAPA_AUDITOR[v]:v;if(d)setView(d);return;}if(f&&setFiltroNotif)setFiltroNotif(f);setView(v);};
+  const titulo=modoAuditor?'Roteiro da inspeção':mar?'Preparação para a inspeção da DSM':'Preparação para auditoria';
   const card={background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16};
   if(!dados) return(<div style={{padding:16,maxWidth:980,margin:'0 auto'}}><div style={{fontSize:20,fontWeight:900,color:C.text}}>{titulo}</div><div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div></div>);
   const grupos=[...new Set(dados.itens.map(x=>x.grupo))];
@@ -913,20 +922,20 @@ function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif}){
   ];
   return(<div style={{padding:16,maxWidth:980,margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
     <div><div style={{fontSize:20,fontWeight:900,color:C.text}}>{titulo}</div>
-      <div style={{fontSize:12.5,color:C.muted,marginTop:3,lineHeight:1.5}}>O que {mar?'a DSM':'a auditoria'} costuma conferir, com a situação de cada item. Toque em um item para ir até onde ele se resolve.</div></div>
+      <div style={{fontSize:12.5,color:C.muted,marginTop:3,lineHeight:1.5}}>{modoAuditor?'Itens conferidos no '+siglaH(h)+', com a situação registrada na plataforma. Toque em um item para abrir a evidência.':'O que '+(mar?'a DSM':'a auditoria')+' costuma conferir, com a situação de cada item. Toque em um item para ir até onde ele se resolve.'}</div></div>
     <div style={{...card,display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
       <div style={{width:96,height:96,borderRadius:48,flexShrink:0,background:'conic-gradient('+corPct+' '+dados.pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}>
         <div style={{width:78,height:78,borderRadius:39,background:C.card,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><b style={{fontSize:22,color:C.text}}>{dados.pct}%</b><span style={{fontSize:9.5,color:C.muted}}>pronto</span></div>
       </div>
       <div style={{flex:'1 1 220px'}}>
         <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>{[['ok','em dia'],['atencao','atenção'],['pendente','pendentes']].map(([k,l])=><div key={k}><div style={{fontSize:22,fontWeight:900,color:COR_ST(k)}}>{n(k)}</div><div style={{fontSize:11,color:C.muted}}>{l}</div></div>)}</div>
-        <div style={{fontSize:11.5,color:C.muted,marginTop:8}}>Comece pelos itens pendentes (vermelho) e depois os de atenção (amarelo).</div>
+        <div style={{fontSize:11.5,color:C.muted,marginTop:8}}>{modoAuditor?'Verde: em dia · amarelo: atenção · vermelho: pendente.':'Comece pelos itens pendentes (vermelho) e depois os de atenção (amarelo).'}</div>
       </div>
-      <div style={{minWidth:200}}>
+      {!modoAuditor&&<div style={{minWidth:200}}>
         <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>Data da {mar?'inspeção':'auditoria'}</div>
         <input type="date" value={dataInsp} onChange={e=>salvarData(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,fontFamily:'inherit'}}/>
         {dias!==null&&<div style={{fontSize:13,fontWeight:800,color:dias<=7?C.red:dias<=15?C.yellow:C.text,marginTop:6}}>{dias>1?'Faltam '+dias+' dias':dias===1?'É amanhã':dias===0?'É hoje':'Data já passou'}</div>}
-      </div>
+      </div>}
     </div>
     {grupos.map(g=><div key={g} style={card}>
       <div style={{fontSize:13,fontWeight:900,color:C.text,marginBottom:8}}>{g}</div>
@@ -938,10 +947,10 @@ function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif}){
       </button>)}
     </div>)}
     <div style={card}>
-      <div style={{fontSize:13,fontWeight:900,color:C.text}}>No dia, onde mostrar cada evidência</div>
-      <div style={{fontSize:11.5,color:C.muted,margin:'2px 0 8px'}}>Roteiro para conduzir {mar?'a inspeção':'a auditoria'} pela plataforma.</div>
+      <div style={{fontSize:13,fontWeight:900,color:C.text}}>{modoAuditor?'Onde encontrar cada evidência':'No dia, onde mostrar cada evidência'}</div>
+      <div style={{fontSize:11.5,color:C.muted,margin:'2px 0 8px'}}>{modoAuditor?'Atalhos para as evidências na plataforma.':'Roteiro para conduzir '+(mar?'a inspeção':'a auditoria')+' pela plataforma.'}</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:8}}>
-        {evidencias.map(([t,d,v],i)=><button key={v+i} onClick={()=>setView(v)} style={{textAlign:'left',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
+        {evidencias.map(([t,d,v],i)=><button key={v+i} onClick={()=>ir(v)} style={{textAlign:'left',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
           <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>{i+1}. {t}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{d}</div></button>)}
       </div>
     </div>
@@ -1298,7 +1307,9 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
           <option value="membro_nsp">Membro NSP - subnúcleos e indicadores</option>
+          <option value="auditor">Auditor - somente leitura (inspeção ou auditoria)</option>
         </select>
+        {form.perfil==='auditor'&&<div style={{fontSize:11,color:C.muted,lineHeight:1.5,margin:'-4px 0 10px'}}>O auditor vê o roteiro da inspeção, indicadores, documentos, treinamentos, planos de ação e o dossiê. Não altera nada e não vê dados de pacientes. Desative o acesso depois da inspeção.</div>}
         {form.perfil==='membro_nsp'&&<React.Fragment>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo do membro</label>
           <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
@@ -1797,14 +1808,59 @@ function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   </div>);
 }
 
-function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
+// Plano de acao impresso: leva o numero da notificacao para o setor executar, registrar a correcao e assinar.
+// Depois, o responsavel do setor ou o gestor anexa o plano assinado no proprio plano (Atualizações e anexos).
+const protocoloNotif=n=>String((n&&n.id)||'').slice(0,8).toUpperCase();
+function imprimirPlanoAcao({notification:n,acoes,hospital}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const w=window.open('','_blank');if(!w) return;
+  const prot=protocoloNotif(n);
+  const dt=s=>s?new Date((String(s).length===10?s+'T12:00:00':s)).toLocaleDateString('pt-BR'):'—';
+  const ST={pendente:'A fazer',em_andamento:'Em andamento',concluido:'Concluída',concluida:'Concluída',cancelado:'Cancelada'};
+  const PR={alta:'Alta',media:'Média',baixa:'Baixa'};
+  const cab=(h.org_header||[]).map(l=>`<div class="org">${escHtml(l)}</div>`).join('');
+  const linhas=(acoes||[]).filter(a=>a.status!=='cancelado').map((a,i)=>`<tr><td class="c">${i+1}</td><td>${escHtml(a.acao||'')}</td><td>${escHtml(a.responsavel||'')}</td><td class="c">${dt(a.prazo)}</td><td class="c">${escHtml(PR[a.prioridade]||'')}</td><td class="c">${escHtml(ST[a.status||'pendente']||a.status||'')}</td><td class="esc"></td><td class="esc"></td></tr>`).join('')
+    ||'<tr><td colspan="8" class="c">Nenhuma ação cadastrada.</td></tr>';
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Plano de ação - Notificação ${prot}</title><style>
+@page{size:A4 landscape;margin:12mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:11px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0B3B5C;padding-bottom:8px;margin-bottom:10px}
+.org{font-size:10px;font-weight:700;letter-spacing:.5px}.hosp{font-size:13px;font-weight:800;margin-top:2px}.nsp{font-size:10.5px;color:#444}
+h1{font-size:18px;margin:0;color:#0B3B5C;text-align:right}.prot{font-size:15px;font-weight:800;text-align:right;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 14px;margin:8px 0 10px}.grid div{border-bottom:1px solid #ccc;padding:3px 0}.grid b{display:block;font-size:9px;color:#555;text-transform:uppercase;letter-spacing:.4px}
+.relato{border:1px solid #ccc;border-radius:4px;padding:6px 8px;margin-bottom:10px;line-height:1.4}
+table{width:100%;border-collapse:collapse}th,td{border:1px solid #888;padding:5px 6px;vertical-align:top}th{background:#E8EEF3;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px}
+td.c{text-align:center;white-space:nowrap}td.esc{height:34px}
+.ret{margin-top:10px;border:1px solid #888;border-radius:4px;padding:6px 8px;min-height:52px}.ret b{font-size:9.5px;text-transform:uppercase;color:#555}
+.ass{display:flex;gap:40px;margin-top:26px}.ass div{flex:1;text-align:center;font-size:10px}.ass div:before{content:"";display:block;border-top:1px solid #111;margin-bottom:4px}
+.rod{margin-top:12px;font-size:9.5px;color:#444;border-top:1px solid #ccc;padding-top:6px}
+@media print{.noprint{display:none}}.noprint{position:fixed;bottom:12px;right:12px}.noprint button{background:#0B3B5C;color:#fff;border:none;border-radius:6px;padding:9px 18px;font-weight:700;cursor:pointer}
+</style></head><body><div class="noprint"><button onclick="window.print()">Imprimir</button></div>
+<div class="top"><div>${cab}<div class="hosp">${escHtml(nomeH(h))}</div><div class="nsp">Núcleo de Segurança do Paciente</div></div>
+<div><h1>PLANO DE AÇÃO</h1><div class="prot">Notificação nº ${prot}</div></div></div>
+<div class="grid">
+<div><b>Data do evento</b>${dt(n.event_date||n.created_at)}</div>
+<div><b>Setor</b>${escHtml(n.sector||'—')}</div>
+<div><b>Evento</b>${escHtml(acentuar(n.event_subtype||n.occurrence_subtype||'—'))}</div>
+<div><b>Gravidade</b>${escHtml(n.gravidade||'—')}</div>
+</div>
+<div class="relato"><b>Relato:</b> ${escHtml((n.description||'—').slice(0,600))}</div>
+<table><thead><tr><th style="width:3%">Nº</th><th style="width:27%">Ação</th><th style="width:13%">Responsável</th><th style="width:8%">Prazo</th><th style="width:7%">Prioridade</th><th style="width:9%">Situação</th><th style="width:25%">Correção realizada / evidência</th><th style="width:8%">Data e rubrica</th></tr></thead><tbody>${linhas}</tbody></table>
+<div class="ret"><b>Observações do setor</b></div>
+<div class="ass"><div>Responsável pelo setor</div><div>Gestor(a) do NSP</div></div>
+<div class="rod">Depois de executar as ações, anexe este plano assinado (foto ou PDF) no NotificaAI: Planos de ação › notificação nº ${prot} › Atualizações e anexos. Impresso em ${new Date().toLocaleDateString('pt-BR')} · NotificaAI</div>
+</body></html>`);
+  w.document.close();
+}
+
+function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
   const [acoes,setAcoes]=useState([]);
   const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
   const [saving,setSaving]=useState(false);
   const [form,setForm]=useState({acao:'',responsavel:'',prazo:'',prioridade:'media'});
   const [comentarios,setComentarios]=useState([]);
-  const [comentForm,setComentForm]=useState({setor:'',autor:'',texto:''});
+  const [comentForm,setComentForm]=useState({setor:'',autor:'',texto:'',anexo:''});
   const [savingComent,setSavingComent]=useState(false);
   const [fechando,setFechando]=useState(false);
   const [fechadoEm,setFechadoEm]=useState(notification.plano_fechado_em||null);
@@ -1824,12 +1880,12 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   useEffect(()=>{load();},[]);
 
   const addComentario=()=>{
-    if(!comentForm.setor.trim()||!comentForm.texto.trim()){showToast('Informe setor e mensagem','error');return;}
+    if(!comentForm.setor.trim()||(!comentForm.texto.trim()&&!comentForm.anexo)){showToast('Informe o setor e escreva a atualização ou anexe o arquivo','error');return;}
     setSavingComent(true);
-    sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:comentForm.setor.trim(),autor:comentForm.autor.trim()||null,texto:comentForm.texto.trim(),created_at:new Date().toISOString()})
+    sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:comentForm.setor.trim(),autor:comentForm.autor.trim()||null,texto:(comentForm.texto.trim()||'Plano com as correções anexado.')+(comentForm.anexo?'\nAnexo: '+comentForm.anexo:''),created_at:new Date().toISOString()})
       .then(()=>{
         sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_COMENTARIO','comentario','',comentForm.texto.slice(0,120),comentForm.autor||comentForm.setor,'setor');
-        setComentForm({setor:'',autor:'',texto:''});
+        setComentForm({setor:'',autor:'',texto:'',anexo:''});
         showToast('Atualizacao registrada!','success');
         return load();
       })
@@ -1899,7 +1955,8 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
   return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>
     <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:480,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)+' Plano de Acao'}</div>
+        <div><div style={{fontSize:15,fontWeight:800,color:C.text}}>Plano de ação</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>Notificação nº <b style={{color:C.text,letterSpacing:1}}>{protocoloNotif(notification)}</b></div></div>
+        <button onClick={()=>imprimirPlanoAcao({notification,acoes,hospital})} title="Imprimir o plano com o número da notificação, para o setor executar e assinar" style={{marginLeft:'auto',marginRight:8,background:C.card,border:'1px solid '+C.teal,color:C.teal,borderRadius:8,padding:'7px 12px',fontSize:12,fontWeight:800,cursor:'pointer'}}>Imprimir plano</button>
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.blue,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
@@ -1996,14 +2053,15 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
 
       {/* ── Comunicação entre setores ── */}
       <div style={{marginTop:18}}>
-        <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>{String.fromCodePoint(128172)+' Comunicação entre setores'}</div>
+        <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:8,textTransform:'uppercase',letterSpacing:'0.04em'}}>Atualizações e anexos dos setores</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:8,lineHeight:1.5}}>Imprima o plano, o setor executa e assina; depois o responsável do setor ou o gestor anexa aqui o plano assinado ou a evidência das correções.</div>
         {comentarios.length===0&&<div style={{fontSize:11,color:C.muted,padding:'8px 0'}}>Nenhuma atualização registrada. Cada setor envolvido pode registrar aqui o andamento da sua parte do plano — tudo fica visível ao NSP e à auditoria.</div>}
         {comentarios.map(c=>(<div key={c.id} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'9px 12px',marginBottom:6}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
             <div style={{fontSize:11,fontWeight:800,color:C.teal}}>{c.setor}{c.autor?' · '+c.autor:''}</div>
             <div style={{fontSize:9,color:C.muted}}>{new Date(c.created_at).toLocaleDateString('pt-BR')} {new Date(c.created_at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
           </div>
-          <div style={{fontSize:12,color:C.text,lineHeight:1.5}}>{c.texto}</div>
+          <div style={{fontSize:12,color:C.text,lineHeight:1.5}}>{String(c.texto||'').split('\n').map((l,k)=>{const m=/^(Anexo|Evidência):\s*(https?:\/\/\S+)/.exec(l);return m?<div key={k}><a href={m[2]} target="_blank" rel="noreferrer" style={{color:C.teal,fontWeight:700}}>{m[1]==='Anexo'?'Abrir anexo':'Abrir evidência'}</a></div>:<div key={k}>{l}</div>;})}</div>
         </div>))}
         {!fechadoEm&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginTop:6}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
@@ -2011,6 +2069,10 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose}) {
             <input value={comentForm.autor} onChange={e=>setComentForm({...comentForm,autor:e.target.value})} placeholder="Nome (opcional)" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'}}/>
           </div>
           <textarea value={comentForm.texto} onChange={e=>setComentForm({...comentForm,texto:e.target.value})} placeholder="Atualização do setor: o que foi feito, dificuldades, próximos passos..." rows={2} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%',marginTop:8,resize:'none',fontFamily:'inherit'}}/>
+          <div style={{marginTop:8,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+            {comentForm.anexo?<span style={{fontSize:12,color:C.green,fontWeight:700}}>Arquivo anexado · <a href={comentForm.anexo} target="_blank" rel="noreferrer" style={{color:C.teal}}>ver</a> · <button onClick={()=>setComentForm(f=>({...f,anexo:''}))} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:11}}>trocar</button></span>
+              :<StorageUploadBtn tipo="outros" sbUrl={sbUrl} sbKey={sbKey} label="Anexar plano assinado ou evidência" meta={{}} onUploaded={l=>setComentForm(f=>({...f,anexo:l}))}/>}
+          </div>
           <button onClick={addComentario} disabled={savingComent} style={{width:'100%',marginTop:8,background:C.blue,border:'none',borderRadius:8,padding:'9px',color:'#fff',fontSize:12,fontWeight:800,cursor:savingComent?'default':'pointer'}}>{savingComent?'Registrando...':'Registrar atualização'}</button>
         </div>}
       </div>
@@ -2308,7 +2370,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   </div>);
 }
 
-function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
+function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [acoes,setAcoes]=useState(null);
   const [nots,setNots]=useState({});
@@ -2381,7 +2443,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
       {extra}
     </div>);
   };
-  const btn=(l,cor,fn,dis)=><button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
+  const btn=(l,cor,fn,dis)=>somenteLeitura?null:<button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
 
   const abas=<div style={{display:'flex',gap:4,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:4}}>
     {[['panorama','Panorama visual'],['lista','Lista de cobrança']].map(([k,l])=><button key={k} onClick={()=>setAba(k)} style={{flex:1,padding:'9px 6px',borderRadius:7,border:'none',background:aba===k?C.teal:'transparent',color:aba===k?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>)}
@@ -2389,7 +2451,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   if(aba==='panorama') return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
     <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Como as ações das notificações estão sendo executadas, junto com os treinamentos e as reuniões do NSP</div></div>
     {abas}
-    <PanoramaPlanoAcao sbUrl={sbUrl} sbKey={sbKey} acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={iniciar} onConcluir={concluir} onVerificar={verificar} irParaLista={()=>setAba('lista')}/>
+    <PanoramaPlanoAcao sbUrl={sbUrl} sbKey={sbKey} acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={somenteLeitura?null:iniciar} onConcluir={somenteLeitura?null:concluir} onVerificar={verificar} podeVerificar={!somenteLeitura} irParaLista={()=>setAba('lista')}/>
   </div>);
   return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
     <div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div>
@@ -2623,11 +2685,11 @@ function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userS
   return(<div style={{padding:'0 0 80px'}}>
     <BackHeader title='Indicadores' subtitle='Panorama por período, lançamentos mensais e metas'/>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('panorama','Panorama')}{tb('setor','Por setor')}{perfil!=='membro_nsp'&&tb('dsm',ehMarinha(hospital)?'Lançamentos mensais (DSM)':'Lançamentos mensais')}{tb('anvisa','Checklist ANVISA')}
+      {tb('panorama','Panorama')}{perfil!=='auditor'&&tb('setor','Por setor')}{perfil!=='membro_nsp'&&perfil!=='auditor'&&tb('dsm',ehMarinha(hospital)?'Lançamentos mensais (DSM)':'Lançamentos mensais')}{tb('anvisa','Checklist ANVISA')}
     </div>
     {aba==='panorama'&&<PanoramaMensalView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-    {aba==='setor'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded userSubnucleo={userSubnucleo}/>}
-    {aba==='dsm'&&perfil!=='membro_nsp'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
+    {aba==='setor'&&perfil!=='auditor'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded userSubnucleo={userSubnucleo}/>}
+    {aba==='dsm'&&perfil!=='membro_nsp'&&perfil!=='auditor'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
     {aba==='anvisa'&&<ChecklistANVISAView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} perfil={perfil} userSubnucleo={userSubnucleo}/>}
   </div>);
 }
@@ -3420,7 +3482,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaTarget(null)} onSaved={()=>{setRcaTarget(null);load();}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);load();}}/>}
     {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRiscoTarget(null);load();}}/>}
-    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);load();}}/>}
+    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} hospital={hospital} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);load();}}/>}
 
     {/* Cards resumo */}
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
@@ -5719,7 +5781,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);setHomeTick(t=>t+1);}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaTarget(null)}/>}
     {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={()=>{}}/>}
-    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);setHomeTick(t=>t+1);}}/>}
+    {planoTarget&&<PlanoAcaoPanel notification={planoTarget} hospital={hospital} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);setHomeTick(t=>t+1);}}/>}
 
     {gestorMode&&<div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div>
       <div style={{fontSize:21,fontWeight:900,color:C.text,letterSpacing:'-0.01em'}}>Visão geral</div>
@@ -9950,7 +10012,7 @@ function NotificaAI() {
   const [filtroNotif,setFiltroNotif]=useState(null);
   const [showGuia,setShowGuia]=useState(false);
   useEffect(()=>{try{const w=document.getElementById('content-wrapper');if(w)w.scrollTop=0;window.scrollTo(0,0);}catch{}},[view]);
-  const chaveGuia=gestorMode?'nai_guia_gestor_v1':profileMode==='membro_nsp'?'nai_guia_sub_v1':null;
+  const chaveGuia=gestorMode?'nai_guia_gestor_v1':profileMode==='membro_nsp'?'nai_guia_sub_v1':profileMode==='auditor'?'nai_guia_auditor_v1':null;
   useEffect(()=>{if(!chaveGuia)return;try{if(!localStorage.getItem(chaveGuia))setShowGuia(true);}catch{}},[chaveGuia]);
   const fecharGuia=()=>{setShowGuia(false);try{chaveGuia&&localStorage.setItem(chaveGuia,'1');}catch{}};
 
@@ -10023,7 +10085,21 @@ function NotificaAI() {
     {id:'capacitacao_dash',label:'Capacitação online',curto:'Capacitação',icon:IconBook,fixo:true,desc:'Resultados do curso do seu protocolo'},
     {id:'saq_dashboard',label:'Cultura de segurança',curto:'Cultura',icon:IconBar,fixo:true,desc:'Resultado da pesquisa de cultura'},
     {id:'central',label:'Central de Conhecimento',icon:IconBook,desc:'Materiais e vídeos de educação em saúde'}];
-  const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
+  // Auditor: somente leitura, sem telas com dados de pacientes
+  const auditorMode=profileMode==='auditor';
+  const auditorTabs=[
+    {id:'inspecao_auditor',label:'Roteiro da inspeção',curto:'Roteiro',icon:IconShield,fixo:true,desc:'O que é conferido, a situação de cada item e onde está a evidência'},
+    {id:'indicadores',label:'Indicadores',icon:IconBar,fixo:true,desc:'Panorama por período, metas e evolução mês a mês'},
+    {id:'documentos_nsp',label:'Biblioteca de documentos',curto:'Documentos',icon:IconBook,fixo:true,desc:'Portarias, protocolos, atas e listas de presença'},
+    {id:'treinamentos',label:'Treinamentos e reuniões',icon:IconBook,desc:'Registros com lista de presença e ata'},
+    {id:'acoes',label:'Planos de ação',icon:IconAudit,desc:'Execução das ações e verificação de eficácia (somente leitura)'},
+    {id:'pnqsp',label:'Política Nacional (PNQSP)',icon:IconShield,desc:'Indicadores de estrutura, processo e resultado'},
+    {id:'saq_dashboard',label:'Cultura de segurança',icon:IconBar,desc:'Resultado da pesquisa de cultura'},
+    {id:'auditar',label:'Dossiê de evidências',curto:'Dossiê',icon:IconAudit,fixo:true,desc:'PDF, apresentação e planilha com as evidências'},
+  ];
+  const bloqueadoAuditor=auditorMode&&!auditorTabs.some(t=>t.id===view);
+  useEffect(()=>{if(bloqueadoAuditor)setView('inspecao_auditor');},[bloqueadoAuditor]);
+  const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:auditorMode?auditorTabs:pubTabs;
 
   return(<>
     {splash&&<Splash leaving={splashLeaving} hospital={hospital}/>}
@@ -10051,15 +10127,15 @@ function NotificaAI() {
         #content-wrapper{flex:1;overflow-y:auto;height:100vh}
       }`)}
     {window.NAI_DEMO&&<div style={{background:'linear-gradient(90deg,#B45309,#D97706)',color:'#fff',fontSize:12,padding:'6px 12px',display:'flex',gap:10,alignItems:'center',justifyContent:'center',flexWrap:'wrap',textAlign:'center'}}>
-      <b>Demonstração com dados fictícios</b><span>· nada é salvo de verdade ·</span><span>PINs: Gestor <b>1234</b> · LPP <b>1111</b> · Queda <b>2222</b> · Cirurgia <b>3333</b></span>
+      <b>Demonstração com dados fictícios</b><span>· nada é salvo de verdade ·</span><span>PINs: Gestor <b>1234</b> · LPP <b>1111</b> · Queda <b>2222</b> · Cirurgia <b>3333</b> · Auditor <b>4444</b></span>
       <a href="/#teste" style={{background:'#fff',color:'#B45309',borderRadius:6,padding:'2px 10px',fontWeight:800,textDecoration:'none'}}>Quero testar no meu hospital</a>
     </div>}
     <div id='app-container' style={{background:C.bg,minHeight:'100vh',maxWidth:900,margin:'0 auto',display:'flex',flexDirection:'column',color:C.text,fontFamily:'system-ui,-apple-system,sans-serif'}}>
       {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onClose={()=>setToast(null)}/>}
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
-        onSuccess={(role,info)=>{setProfileMode(role);setUserId((info&&info.id)||null);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':'home');}}
+        onSuccess={(role,info)=>{setProfileMode(role);setUserId((info&&info.id)||null);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':role==='auditor'?'inspecao_auditor':'home');}}
         onClose={()=>setShowPin(false)}/>}
-      {showGuia&&chaveGuia&&<GuiaPrimeiroAcesso passos={gestorMode?passosGuiaGestor(hospital):PASSOS_GUIA_SUBNUCLEO} onFechar={fecharGuia}/>}
+      {showGuia&&chaveGuia&&<GuiaPrimeiroAcesso passos={gestorMode?passosGuiaGestor(hospital):profileMode==='auditor'?PASSOS_GUIA_AUDITOR(hospital):PASSOS_GUIA_SUBNUCLEO} onFechar={fecharGuia}/>}
       {showAlterarPin&&<AlterarPinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} userId={userId} showToast={showToast} onClose={()=>setShowAlterarPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -10072,7 +10148,7 @@ function NotificaAI() {
             <div style={{fontSize:9,color:C.muted}}>{hospital?.short_name||''}</div>
           </div>
         </div>
-        {(gestorMode||profileMode==='membro_nsp')&&<BuscaNavegacao tabs={tabs} onIr={setView}/>}
+        {(gestorMode||profileMode==='membro_nsp'||profileMode==='auditor')&&<BuscaNavegacao tabs={tabs} onIr={setView}/>}
         {tabs.map(({id,label,icon:Icon,grupo,desc},idx)=>{
           const active=view===id;
           const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
@@ -10081,14 +10157,14 @@ function NotificaAI() {
             <span style={{fontSize:12.5,fontWeight:active?700:500,color:active?'#FFFFFF':C.text}}>{label}</span>
           </button></React.Fragment>);
         })}
-        {(gestorMode||profileMode==='membro_nsp')&&<button onClick={()=>setShowGuia(true)} style={{width:'100%',background:'transparent',border:'none',borderRadius:9,padding:'8px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginTop:10,textAlign:'left'}}>
+        {(gestorMode||profileMode==='membro_nsp'||profileMode==='auditor')&&<button onClick={()=>setShowGuia(true)} style={{width:'100%',background:'transparent',border:'none',borderRadius:9,padding:'8px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginTop:10,textAlign:'left'}}>
           <IconAjuda size={17} sw={1.8} color={C.muted}/><span style={{fontSize:12.5,fontWeight:500,color:C.text}}>Como usar</span></button>}
         <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:12}}>
           <BotaoInstalar compacto/>
           {profileMode?<div style={{display:'flex',alignItems:'center',gap:10,padding:'4px 6px 10px'}}>
             <div style={{width:34,height:34,borderRadius:17,background:C.teal+'1f',color:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900,flexShrink:0}}>{String(userName||PROFILES[profileMode]?.label||'?').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>
             <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{userName||PROFILES[profileMode]?.label||'Usuário'}</div>
-              <div style={{fontSize:9.5,fontWeight:800,color:C.teal,textTransform:'uppercase',letterSpacing:'0.06em'}}>{gestorMode?'Gestor do NSP':(SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo)||{}).label||PROFILES[profileMode]?.label||''}</div></div>
+              <div style={{fontSize:9.5,fontWeight:800,color:C.teal,textTransform:'uppercase',letterSpacing:'0.06em'}}>{gestorMode?'Gestor do NSP':auditorMode?'Auditor · somente leitura':(SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo)||{}).label||PROFILES[profileMode]?.label||''}</div></div>
             <button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} title="Sair" aria-label="Sair" style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'6px 8px',cursor:'pointer',color:C.muted,fontSize:11,fontWeight:700}}>Sair</button>
           </div>
           :<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.teal,border:'none',borderRadius:9,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'center',gap:8,cursor:'pointer',marginBottom:8}}>
@@ -10103,6 +10179,9 @@ function NotificaAI() {
       </div>
 
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
+        {auditorMode&&<div style={{background:'#0EA5E914',borderBottom:'1px solid #0EA5E955',color:C.text,fontSize:12,padding:'8px 16px',textAlign:'center'}}><b style={{color:'#0EA5E9'}}>Modo auditor</b> · somente leitura · dados de pacientes ocultos</div>}
+        {bloqueadoAuditor?null:<>
+        {view==='inspecao_auditor'&&auditorMode&&<PreparacaoInspecaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} setView={setView} modoAuditor/>}
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
         {view==='inspecao'&&gestorMode&&<PreparacaoInspecaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} setView={setView} setFiltroNotif={setFiltroNotif}/>}
@@ -10117,13 +10196,13 @@ function NotificaAI() {
         {view==='indicadores'&&<IndicadoresHubView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='indicadores_dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={userName} perfil={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='protocolos'&&<ProtocolosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='documentos_nsp'&&<DocumentosNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} somenteLeitura={auditorMode}/>}
         
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} somenteLeitura={auditorMode}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
         {view==='saq_publico'&&<SAQPublicoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast}/>}
@@ -10134,6 +10213,7 @@ function NotificaAI() {
         {view==='certificado'&&<CertificadoVerificarView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
         {view==='capacitacao_dash'&&<CapacitacaoDashboardView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} userSubnucleo={userSubnucleo} perfil={profileMode} setView={setView}/>}
         {view==='pnqsp'&&<PainelPNQSPView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} setView={setView}/>}
+        </>}
       </div></div>
 
       {/* NAV + MENU HAMBURGUER */}
@@ -10149,8 +10229,8 @@ function NotificaAI() {
           </div>
           <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>{String.fromCodePoint(10005)}</button>
         </div>
-        {(gestorMode||profileMode==='membro_nsp')&&<BuscaNavegacao tabs={tabs} onIr={id=>{setView(id);setShowMenu(false);}} compacta/>}
-        {(gestorMode||profileMode==='membro_nsp')&&<button onClick={()=>{setShowMenu(false);setShowGuia(true);}} style={{width:'100%',background:'none',border:'none',display:'flex',alignItems:'center',gap:10,padding:'4px 14px 10px',cursor:'pointer'}}><IconAjuda size={18} color={C.muted}/><span style={{fontSize:13,color:C.text}}>Como usar</span></button>}
+        {(gestorMode||profileMode==='membro_nsp'||profileMode==='auditor')&&<BuscaNavegacao tabs={tabs} onIr={id=>{setView(id);setShowMenu(false);}} compacta/>}
+        {(gestorMode||profileMode==='membro_nsp'||profileMode==='auditor')&&<button onClick={()=>{setShowMenu(false);setShowGuia(true);}} style={{width:'100%',background:'none',border:'none',display:'flex',alignItems:'center',gap:10,padding:'4px 14px 10px',cursor:'pointer'}}><IconAjuda size={18} color={C.muted}/><span style={{fontSize:13,color:C.text}}>Como usar</span></button>}
         {tabs.map(({id,label,icon:Icon,grupo},idx)=>{
           const active=view===id;
           const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
@@ -11280,7 +11360,7 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
   </div>);
 }
 
-function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
+function DocumentosNSPView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const anoAtual=new Date().getFullYear();
   const semAtual=new Date().getMonth()<6?1:2;
@@ -11369,7 +11449,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
     <BackHeader title='Biblioteca de documentos' subtitle='Protocolos, listas de presença e relatórios do NSP'/>
 
     {/* UPLOAD PELO GESTOR */}
-    <div style={{background:C.card,border:'1px solid '+C.teal+'33',borderRadius:12,padding:'12px 14px',marginBottom:14,borderLeft:'3px solid '+C.teal}}>
+    {!somenteLeitura&&<div style={{background:C.card,border:'1px solid '+C.teal+'33',borderRadius:12,padding:'12px 14px',marginBottom:14,borderLeft:'3px solid '+C.teal}}>
       <div style={{fontSize:12,fontWeight:800,color:C.teal,marginBottom:8}}>Enviar documento para a biblioteca</div>
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
         <select value={uploadTipo} onChange={e=>setUploadTipo(e.target.value)} style={{padding:'8px 12px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:12,outline:'none'}}>
@@ -11381,7 +11461,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
         <input value={uploadNome} onChange={e=>setUploadNome(e.target.value)} placeholder='Nome do documento' style={{flex:1,minWidth:160,padding:'8px 12px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:12,outline:'none'}}/>
         <StorageUploadBtn tipo={uploadTipo} meta={{ano:String(ano),semestre:String(semestre),nome:uploadNome||'documento'}} sbUrl={sbUrl} sbKey={sbKey} label='Enviar' onUploaded={()=>{showToast('Documento enviado!','success');carregar();}}/>
       </div>
-    </div>
+    </div>}
 
     {/* PROTOCOLOS VIGENTES — validade propria, independente de semestre */}
     {protsVigentes.length>0&&(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:14}}>

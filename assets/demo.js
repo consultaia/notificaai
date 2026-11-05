@@ -163,7 +163,7 @@
   }
   function prepararUsuarios() {
     if (usuariosProntos) return usuariosProntos;
-    var lista = [['Gestora do NSP (demonstração)', 'gestor', null, '1234'], ['Subnúcleo LPP (demonstração)', 'membro_nsp', 'lpp', '1111'], ['Subnúcleo Queda (demonstração)', 'membro_nsp', 'queda', '2222'], ['Subnúcleo Cirurgia (demonstração)', 'membro_nsp', 'cirurgia', '3333']];
+    var lista = [['Gestora do NSP (demonstração)', 'gestor', null, '1234'], ['Auditoria externa (demonstração)', 'auditor', null, '4444'], ['Subnúcleo LPP (demonstração)', 'membro_nsp', 'lpp', '1111'], ['Subnúcleo Queda (demonstração)', 'membro_nsp', 'queda', '2222'], ['Subnúcleo Cirurgia (demonstração)', 'membro_nsp', 'cirurgia', '3333']];
     usuariosProntos = Promise.all(lista.map(function (u) { return hashLocal(u[3]); })).then(function (hs) {
       lista.forEach(function (u, k) { DB.nsp_usuarios.push({ id: k + 1, nome: u[0], perfil: u[1], subnucleo: u[2], ativo: true, pin_hash: hs[k], hospital_id: HID, created_at: new Date().toISOString() }); });
     });

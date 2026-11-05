@@ -5130,7 +5130,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [acoesAll,setAcoesAll]=useState([]);
   const [verTodosTrein,setVerTodosTrein]=useState({});
   const [busyAcao,setBusyAcao]=useState(null);
-  const [pendIndItens,setPendIndItens]=useState({itens:[],mes:''});
+  const [pendIndItens,setPendIndItens]=useState({meses:[]});
   const [pendProtItens,setPendProtItens]=useState([]);
   const [verTodasNotif,setVerTodasNotif]=useState(false);
   const [pendInd,setPendInd]=useState(0);
@@ -5248,7 +5248,13 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     setBusyAcao(null);
   };
   const NOMES_MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  const mesInd=pendIndItens.mes?NOMES_MES[Number(pendIndItens.mes.split('-')[1])-1]:'';
+  const mesesInd=pendIndItens.meses||[];
+  const nomeMesInd=m=>NOMES_MES[Number(m.split('-')[1])-1];
+  const tituloInd=mesesInd.length===0?'Indicadores do ano preenchidos até '+NOMES_MES[Number(mesReferencia().split('-')[1])-1]
+    :mesesInd.length===1?(mesesInd[0].faltando.length+' indicador'+(mesesInd[0].faltando.length>1?'es':'')+' de '+nomeMesInd(mesesInd[0].mes)+' sem preencher')
+    :'Indicadores de '+mesesInd.length+' meses sem preencher';
+  const detInd=mesesInd.length===1?mesesInd[0].faltando.slice(0,4).join(' · ')+(mesesInd[0].faltando.length>4?' · …':'')
+    :mesesInd.map(x=>nomeMesInd(x.mes)+' ('+x.faltando.length+')').join(' · ');
   const ABAS=[
     {id:'resumo',label:'O que falta',badge:totalPend},
     {id:'notificacoes',label:'Notificações',badge:pendNotif},
@@ -5285,8 +5291,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
         {[
           {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
-            titulo:pendInd>0?(pendInd+' indicador'+(pendInd>1?'es':'')+' de '+mesInd+' sem preencher'):'Indicadores de '+(mesInd||'este mês')+' preenchidos',
-            det:pendInd>0?pendIndItens.itens.slice(0,4).join(' · ')+(pendIndItens.itens.length>4?' · …':''):''},
+            titulo:tituloInd,det:pendInd>0?detInd:''},
           {ok:pendProt===0,aba:'protocolos',acao:'Atualizar',
             titulo:pendProt>0?(pendProt+' protocolo'+(pendProt>1?'s':'')+' vencido'+(pendProt>1?'s':'')+' ou sem cadastro'):'Protocolos em dia',
             det:pendProtItens.join(' · ')},
@@ -5317,7 +5322,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         {[
           ['Toda semana','Analisar as notificações do seu tema (eventos graves: análise de causa em até 72 horas).','notificacoes',pendNotif===0],
           ['Toda semana','Atualizar as ações do plano: iniciar, concluir e anexar a evidência do que foi feito.','acoes',pendAcoes===0],
-          ['Todo mês, até o dia 5','Lançar os indicadores do mês anterior'+(mesInd?' ('+mesInd+')':'')+'.','indicadores',pendInd===0],
+          ['Todo mês, até o dia 5','Lançar os indicadores do mês anterior'+(mesesInd.length>1?' ('+mesesInd.length+' meses pendentes)':'')+'.','indicadores',pendInd===0],
           ['Todo semestre','Registrar ao menos um treinamento, com a lista de presença anexada.','treinamentos',pendTrein===0&&pendEvid===0],
           ['A cada 2 anos (ou quando a prática mudar)','Revisar o protocolo do subnúcleo e anexar a versão aprovada.','protocolos',pendProt===0],
         ].map(([f,t,ab,ok],i)=><button key={i} onClick={()=>setAba(ab)} style={{all:'unset',boxSizing:'border-box',cursor:'pointer',display:'flex',gap:12,alignItems:'flex-start',width:'100%',padding:'9px 2px',borderTop:i?'1px solid '+C.border:'none'}}>
@@ -5486,7 +5491,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       <ProtocoloSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={(n,it)=>{setPendProt(n);setPendProtItens(it||[]);}}/>
     </div>
     <div style={mostra('indicadores')}>
-      <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={(n,it,m)=>{setPendInd(n);setPendIndItens({itens:it||[],mes:m||''});}}/>
+      <IndicadoresSubnucleoWidget sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={h} userSubnucleo={subAtivo} onPendentes={(n,meses)=>{setPendInd(n);setPendIndItens({meses:meses||[]});}}/>
     </div>
     <div style={mostra('panorama')}>
     {/* Metricas totais */}
@@ -11067,6 +11072,10 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   const [form,setForm]=useState({paciente_dia_total:''});
   const [salvando,setSalvando]=useState(false);
   const [pdSetores,setPdSetores]=useState(null); // soma do paciente-dia lancado na aba Por Setor
+  const [situacaoAno,setSituacaoAno]=useState(null); // [{mes,faltando:[labels]}] de janeiro ate o ultimo mes fechado
+  const [versao,setVersao]=useState(0);
+  const [naoSalvo,setNaoSalvo]=useState(false);
+  const mesInicialOk=useRef(false);
   const sub=SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo);
   const campos=camposProprios(userSubnucleo); // paciente-dia tem campo proprio, compartilhado
   const usaPD=SUBS_USAM_PD.includes(userSubnucleo);
@@ -11090,11 +11099,37 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   const vazio=v=>v===''||v===null||v===undefined;
   const pdEfetivo=!vazio(form.paciente_dia_total)?form.paciente_dia_total:pdSetores;
-  const faltando=campos.length===0?[]:[...(usaPD&&vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mes'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
-  useEffect(()=>{if(onPendentes)onPendentes(faltando.length,faltando.map(f=>f.label),mes);},[faltando.map(f=>f.key).join('|'),mes]);
+  const faltando=campos.length===0?[]:[...(usaPD&&vazio(pdEfetivo)?[{key:'paciente_dia_total',label:'Pacientes-dia total no mês'}]:[]),...campos.filter(f=>vazio(form[f.key]))];
+
+  // Situacao de todos os meses do ano (janeiro ate o ultimo mes fechado): antes so o mes escolhido era cobrado
+  const ref=mesReferencia();
+  const mesesAno=(()=>{const [a2,m2]=ref.split('-').map(Number);return Array.from({length:m2},(_,k)=>`${a2}-${String(k+1).padStart(2,'0')}`);})();
+  useEffect(()=>{
+    if(!sbUrl||!sbKey||campos.length===0){setSituacaoAno([]);return;}
+    const ini=mesesAno[0],fim=mesesAno[mesesAno.length-1];
+    const hd={headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}};
+    Promise.all([
+      fetch(`${sbUrl}/rest/v1/indicadores_dsm?hospital_id=eq.${h.id}&mes=gte.${ini}-01&mes=lte.${fim}-01&select=*`,hd).then(r=>r.ok?r.json():[]).catch(()=>[]),
+      fetch(`${sbUrl}/rest/v1/indicadores_mensais?hospital_id=eq.${h.id}&mes_ref=gte.${ini}&mes_ref=lte.${fim}&select=mes_ref,pd_setores`,hd).then(r=>r.ok?r.json():[]).catch(()=>[]),
+    ]).then(([dsm,mens])=>{
+      const porMes={};(dsm||[]).forEach(r=>{if(r.mes)porMes[String(r.mes).slice(0,7)]=r;});
+      const pd={};(mens||[]).forEach(r=>{const o=r.pd_setores;pd[r.mes_ref]=o?Object.values(o).reduce((s,v)=>s+(Number(v)||0),0):0;});
+      const sit=mesesAno.map(m=>{const row=porMes[m];
+        const falt=[...(usaPD&&vazio(row&&row.paciente_dia_total)&&!pd[m]?['Pacientes-dia total no mês']:[]),...campos.filter(f=>vazio(row&&row[f.key])).map(f=>f.label)];
+        return {mes:m,faltando:falt};});
+      setSituacaoAno(sit);
+      // abre no mes pendente mais antigo, para o membro ir direto ao que falta
+      if(!mesInicialOk.current){mesInicialOk.current=true;const p1=sit.find(x=>x.faltando.length);if(p1)setMes(p1.mes);}
+    });
+  },[h.id,sbUrl,sbKey,userSubnucleo,versao]);
+  // o mes aberto na tela usa o que esta digitado agora
+  const situacao=situacaoAno||[]; // so o que esta salvo no banco
+  const mesesPend=situacao.filter(x=>x.faltando.length);
+  useEffect(()=>{if(onPendentes&&situacaoAno)onPendentes(mesesPend.length,mesesPend);},[mesesPend.map(x=>x.mes+':'+x.faltando.length).join('|'),!!situacaoAno]);
   const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
-  const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const set=(k,v)=>{setNaoSalvo(true);setForm(f=>({...f,[k]:v}));};
+  useEffect(()=>{setNaoSalvo(false);},[mes]);
   const salvar=async()=>{
     if(!sbUrl||!sbKey){showToast('Sem conexao','error');return;}
     setSalvando(true);
@@ -11105,7 +11140,10 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
     campos.forEach(f=>{payload[f.key]=form[f.key]!==''?Number(form[f.key]):null;});
     const erroVal=validarIndicadores({...form},k=>(campos.find(f=>f.key===k)||{label:k==='paciente_dia_total'?'Pacientes-dia total':k}).label);
     if(erroVal){showToast(erroVal,'error');setSalvando(false);return;}
-    try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');showToast('Indicadores salvos!','success');
+    try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');
+      const prox=faltando.length===0?mesesPend.find(x=>x.mes!==mes):null;
+      showToast(faltando.length?'Salvo. Ainda falta preencher '+faltando.length+' campo(s) deste mês.':prox?'Indicadores salvos! Próximo mês pendente: '+rotuloMes(prox.mes)+'.':'Indicadores salvos! Todos os meses do ano estão em dia.','success');
+      setNaoSalvo(false);setVersao(v=>v+1);if(prox)setMes(prox.mes);
       sbAuditLog(sbUrl,sbKey,h.id,null,'DSM_INDICADORES_SALVOS','mes','',payload.mes||'',userSubnucleo||'subnucleo','membro_nsp').catch(()=>{});}
     catch(e){showToast('Erro: '+e.message,'error');}
     setSalvando(false);
@@ -11119,15 +11157,31 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
   return(<div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>
     <div style={{marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
-      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mês. O gestor ve no Relatório DSM.</div>
+      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados de cada mês. O gestor vê no Relatório DSM.</div>
     </div>
+    {situacaoAno&&situacaoAno.length>0&&<div style={{marginBottom:12}}>
+      <div style={{fontSize:11.5,fontWeight:800,color:mesesPend.length?C.text:C.green,marginBottom:6}}>
+        {mesesPend.length?(mesesPend.length===1?'1 mês de '+ref.slice(0,4)+' com indicadores faltando':mesesPend.length+' meses de '+ref.slice(0,4)+' com indicadores faltando')+'. Toque no mês para preencher.':'Todos os meses de '+ref.slice(0,4)+' preenchidos.'}
+      </div>
+      <div role="tablist" aria-label="Escolha o mês" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(62px,1fr))',gap:6}}>
+        {situacao.map(x=>{const sel=x.mes===mes;const tot=x.faltando.length;const cheio=tot===0;const nada=tot>=campos.length+(usaPD?1:0);
+          const cor=cheio?C.green:nada?C.red:C.yellow;
+          return(<button key={x.mes} role="tab" aria-selected={sel} onClick={()=>setMes(x.mes)} title={cheio?'Completo':'Falta: '+x.faltando.join(', ')}
+            style={{padding:'7px 4px',borderRadius:9,cursor:'pointer',border:sel?'2px solid '+(sub?.color||C.teal):'1px solid '+cor+'66',background:sel?(sub?.color||C.teal)+'14':cor+'12',textAlign:'center'}}>
+            <div style={{fontSize:12,fontWeight:800,color:C.text}}>{NOMES_MES_CURTO[Number(x.mes.slice(5,7))-1]}</div>
+            <div style={{fontSize:9.5,fontWeight:700,color:cor,marginTop:1}}>{cheio?'✓ ok':nada?'vazio':'falta '+tot}</div>
+          </button>);})}
+      </div>
+    </div>}
     {faltando.length>0
       ?<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.text,lineHeight:1.6}}>
-        <b style={{color:C.yellow}}>Falta preencher ({faltando.length}):</b> {faltando.map(f=>f.label).join(' · ')}
+        <b style={{color:C.yellow}}>Falta preencher em {new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long'})} ({faltando.length}):</b> {faltando.map(f=>f.label).join(' · ')}
       </div>
-      :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido neste mês.</div>}
-    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
-      <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',padding:'8px 12px',cursor:'pointer'}}/>
+      :naoSalvo?<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.text,fontWeight:700}}>Tudo digitado. Toque em <b>Salvar</b> para registrar {new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long'})}.</div>
+      :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido em {new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long'})}.</div>}
+    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+      <div style={{fontSize:13,fontWeight:800,color:C.text}}>{new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div>
+      <input type='month' value={mes} max={ref} onChange={e=>e.target.value&&setMes(e.target.value)} aria-label="Outro mês" title="Outro mês (anos anteriores)" style={{...inp,width:'auto',padding:'6px 10px',cursor:'pointer',fontSize:12,color:C.muted}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>

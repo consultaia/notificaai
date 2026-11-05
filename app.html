@@ -1254,7 +1254,10 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         if(ex&&ex.length>0){showToast('Este PIN já está em uso','error');setSaving(false);return;}
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
-      else await sbInsert(sbUrl,sbKey,'nsp_usuarios',payload);
+      else{
+        try{await sbInsert(sbUrl,sbKey,'nsp_usuarios',{...payload,hospital_id:hospital?.id||'hnsa'});}
+        catch(e){if(/hospital_id/i.test(String(e&&e.message)))await sbInsert(sbUrl,sbKey,'nsp_usuarios',payload);else throw e;}
+      }
       await load(); setShowForm(false); showToast('OK Usuário salvo!','success');
     }catch(e){showToast('Erro: '+e.message,'error');}
     setSaving(false);
@@ -1291,30 +1294,36 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
       </div>);
     })()}
     {!loading&&<div style={{marginBottom:14}}>
-      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>PIN por subnúcleo</div>
-      <div style={{fontSize:11,color:C.muted,marginBottom:8}}>Cada subnúcleo entra com o próprio PIN e vê só o que é dele. Depois de entrar, ele mesmo pode trocar o PIN.</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))',gap:8}}>
+      <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>PIN dos membros dos subnúcleos</div>
+      <div style={{fontSize:11,color:C.muted,marginBottom:8,lineHeight:1.5}}>Cada membro tem o próprio PIN, com o seu nome, e vê só o que é do seu subnúcleo. Depois de entrar, cada um pode trocar o próprio PIN. Os PINs precisam ser diferentes entre si.</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(250px,1fr))',gap:8}}>
         {SUBNUCLEOS_HNSA.map(sn=>{
-          const u=users.find(x=>x.perfil==='membro_nsp'&&x.subnucleo===sn.id&&x.ativo!==false);
-          return(<div key={sn.id} style={{background:C.surface,border:'1px solid '+(u?C.border:C.yellow+'66'),borderLeft:'3px solid '+sn.color,borderRadius:10,padding:'10px 12px'}}>
+          const membros=users.filter(x=>x.perfil==='membro_nsp'&&x.subnucleo===sn.id&&x.ativo!==false);
+          const irForm=()=>setTimeout(()=>{const el=document.getElementById('pin-form');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},50);
+          return(<div key={sn.id} data-sub={sn.id} style={{background:C.surface,border:'1px solid '+(membros.length?C.border:C.yellow+'66'),borderLeft:'3px solid '+sn.color,borderRadius:10,padding:'10px 12px'}}>
             <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{sn.icon} {sn.label}</div>
-            <div style={{fontSize:10,color:u?C.green:C.yellow,marginBottom:8}}>
-              {u?('PIN cadastrado'+(u.ultimo_acesso?' · último acesso '+new Date(u.ultimo_acesso).toLocaleDateString('pt-BR'):' · ainda não entrou')):'Sem PIN'}
-            </div>
-            <button onClick={()=>{
-              if(u) openForm(u);
-              else{setEditing(null);setForm({nome:sn.label,pin:'',confirma:'',perfil:'membro_nsp',subnucleo:sn.id,ativo:true});setShowForm(true);}
-              setTimeout(()=>{const el=document.getElementById('pin-form');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},50);
-            }} style={{background:u?C.card:sn.color,border:u?'1px solid '+C.border:'none',borderRadius:7,padding:'5px 10px',color:u?C.muted:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>{u?'Trocar PIN':'Cadastrar PIN'}</button>
+            <div style={{fontSize:10,color:membros.length?C.muted:C.yellow,marginBottom:6}}>{membros.length?(membros.length===1?'1 membro com PIN':membros.length+' membros com PIN'):'Nenhum membro com PIN'}</div>
+            {membros.map(u=>{
+              const compartilhado=semAcento(u.nome||'')===semAcento(sn.label);
+              return(<div key={u.id} style={{display:'flex',alignItems:'center',gap:6,borderTop:'1px solid '+C.border,padding:'6px 0'}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:11.5,fontWeight:700,color:C.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{u.nome}</div>
+                  <div style={{fontSize:9.5,color:compartilhado?C.yellow:C.muted}}>{compartilhado?'PIN do subnúcleo: coloque o nome de quem usa':(u.ultimo_acesso?'último acesso '+new Date(u.ultimo_acesso).toLocaleDateString('pt-BR'):'ainda não entrou')}</div>
+                </div>
+                <button onClick={()=>{openForm(u);irForm();}} style={{background:C.card,border:'1px solid '+C.border,borderRadius:7,padding:'4px 9px',color:C.muted,fontSize:10.5,fontWeight:700,cursor:'pointer',flexShrink:0}}>Editar / PIN</button>
+              </div>);
+            })}
+            <button onClick={()=>{setEditing(null);setForm({nome:'',pin:'',confirma:'',perfil:'membro_nsp',subnucleo:sn.id,ativo:true});setShowForm(true);irForm();}}
+              style={{marginTop:6,background:membros.length?C.card:sn.color,border:membros.length?'1px dashed '+C.border:'none',borderRadius:7,padding:'5px 10px',color:membros.length?C.text:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>+ Adicionar membro</button>
           </div>);
         })}
       </div>
     </div>}
     {showForm&&(
       <div id="pin-form" style={{background:C.surface,border:'1px solid '+C.teal+'44',borderRadius:10,padding:14,marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{editing?'Editar':'Novo'} usuário</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>{form.perfil==='membro_nsp'&&form.subnucleo?((editing?'Editar membro · ':'Novo membro · ')+((SUBNUCLEOS_HNSA.find(s=>s.id===form.subnucleo)||{}).label||'')):((editing?'Editar':'Novo')+' usuário')}</div>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Nome completo</label>
-        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder="Ex: Maria Souza - Gestora do NSP" style={inp}/>
+        <input value={form.nome} onChange={e=>setForm({...form,nome:e.target.value})} placeholder={form.perfil==='membro_nsp'?'Ex.: 1T (S) Ana Souza':'Ex.: Maria Souza - Gestora do NSP'} autoFocus style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>PIN (4 dígitos){editing?' - deixe em branco para manter':''}</label>
         <input type="password" value={form.pin} onChange={e=>setForm({...form,pin:e.target.value.replace(/\D/g,'').slice(0,4)})} placeholder="****" inputMode="numeric" style={inp}/>
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Confirmar PIN</label>
@@ -1327,7 +1336,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         </select>
         {form.perfil==='auditor'&&<div style={{fontSize:11,color:C.muted,lineHeight:1.5,margin:'-4px 0 10px'}}>O auditor vê o roteiro da inspeção, indicadores, documentos, treinamentos, planos de ação e o dossiê. Não altera nada e não vê dados de pacientes. Desative o acesso depois da inspeção.</div>}
         {form.perfil==='membro_nsp'&&<React.Fragment>
-          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo do membro</label>
+          <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnúcleo do membro</label>
           <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
             <option value="">Sem subnúcleo definido</option>
             {SUBNUCLEOS_HNSA.map(sn=><option key={sn.id} value={sn.id}>{sn.label}</option>)}
@@ -1348,7 +1357,7 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
           <div style={{fontSize:13,fontWeight:600,color:C.text}}>{u.nome}</div>
           <div style={{fontSize:10,color:C.muted,marginTop:2,display:'flex',gap:6,flexWrap:'wrap'}}>
             <span style={{background:u.ativo!==false?C.green+'20':C.muted+'20',color:u.ativo!==false?C.green:C.muted,borderRadius:4,padding:'1px 6px',fontWeight:700}}>{u.ativo!==false?'Ativo':'Inativo'}</span>
-            <span>{u.perfil||'gestor'}</span>
+            <span>{u.perfil==='membro_nsp'?('Subnúcleo'+(u.subnucleo?' · '+((SUBNUCLEOS_HNSA.find(s=>s.id===u.subnucleo)||{}).label||u.subnucleo):'')):u.perfil==='auditor'?'Auditor':'Gestor'}</span>
             {u.ultimo_acesso&&<span>Último: {new Date(u.ultimo_acesso).toLocaleDateString('pt-BR')}</span>}
           </div>
         </div>

@@ -246,7 +246,9 @@
     }
     if (/workers\.dev/.test(url)) {
       if (/\/email$/.test(url)) return Promise.resolve(new Response('{"ok":true,"demo":true}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
-      if (/\/hashpin$/.test(url)) return Promise.resolve(new Response('{"error":"demo"}', { status: 503 }));
+      // demo: responde como o servidor (assim PIN errado aparece como 'PIN incorreto', nao 'servidor ocupado')
+      if (/\/hashpin$/.test(url)) { var bp = {}; try { bp = JSON.parse((init && init.body) || '{}'); } catch (e) { }
+        return Promise.resolve(new Response(JSON.stringify({ hash: 'demo_' + String(bp.hospital_id || '') + '_' + String(bp.pin || '') }), { status: 200, headers: { 'Content-Type': 'application/json' } })); }
       var n = 0; try { n = Number(sessionStorage.getItem('nai_demo_ia') || 0); sessionStorage.setItem('nai_demo_ia', String(n + 1)); } catch (e) { }
       if (n >= LIMITE_IA) return Promise.resolve(new Response(JSON.stringify({ error: { message: 'Limite de uso da IA na demonstração atingido. Fale com a gente para conhecer a versão completa.' } }), { status: 429, headers: { 'Content-Type': 'application/json' } }));
       return original(input, init);

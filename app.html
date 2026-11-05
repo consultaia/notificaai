@@ -101,6 +101,7 @@
 <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous" defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+input,select,textarea{max-width:100%}input[type=date],input[type=month]{min-width:0}
 html,body{background:#06101F;height:100%}
 @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
 @keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
@@ -789,20 +790,20 @@ const ehMarinha=h=>!!h&&(h.id==='hnsa'||(h.org_header||[]).join(' ').toUpperCase
 const PALAVRAS_TELA={
   home:'visao geral painel inicio pendencias resumo hoje',
   inspecao:'inspecao preparacao checklist prontidao visita auditoria dsm anvisa evidencias o que falta',
-  notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem',
+  notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem ishikawa 5 porques cinco porques',
   acoes:'plano de acao planos acoes pdca eficacia prazo responsavel execucao vencidas melhoria',
-  treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao',
+  treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao setores de apoio radiologia lavanderia nutricao gases estrutura predial equipamentos',
   capacitacao_dash:'curso online capacitacao certificado questionario apostila trilha pre teste pos teste',
   protocolos:'protocolo protocolos portaria psp plano de seguranca do paciente regimento pop validade revisao documento institucional',
   documentos_nsp:'biblioteca documentos anexos arquivos pdf comprovantes',
-  indicadores:'indicador indicadores taxa meta lpp queda higiene das maos iras paciente dia mensal lancar dsm panorama checklist',
+  indicadores:'indicador indicadores taxa meta lpp queda higiene das maos iras paciente dia pacientes-dia paciente-dia setor por setor mensal lancar dsm panorama checklist lvcs',
   pnqsp:'politica nacional pnqsp portaria 11527 estrutura processo resultado',
   relatorio_dsm:'relatorio semestral dsm anvisa circular 24 excel avaliacao nacional pacote zip envio',
-  analytics:'graficos analise mensal ppt apresentacao powerpoint mapa de calor',
+  analytics:'graficos analise mensal ppt apresentacao powerpoint mapa de calor exportar relatorio mensal',
   auditar:'dossie auditoria acreditacao ona evidencias pacote',
-  saq_dashboard:'cultura de seguranca hsopsc pesquisa questionario clima',
-  experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz qr code quarto folha dos quartos',
-  central:'central de conhecimento videos materiais educacao em saude',
+  saq_dashboard:'cultura de seguranca hsopsc saq pesquisa questionario clima',
+  experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz qr code qrcode quarto quartos folha dos quartos',
+  central:'central de conhecimento videos materiais educacao em saude cartilha folder cartaz qr code qrcode quarto quartos folha dos quartos',
   admin:'administracao usuarios pin senha backup acesso subnucleos e-mail',
   membro_nsp:'meu subnucleo painel o que falta rotina notificacoes rca analise notivisa plano de acao acoes treinamento lista de presenca ata protocolo portaria indicadores lancar mensal',
 };
@@ -825,6 +826,7 @@ function BuscaNavegacao({tabs,onIr,compacta}){
 // Guia curto mostrado no primeiro acesso (e reaberto em "Como usar")
 function GuiaPrimeiroAcesso({passos,onFechar}){
   const [i,setI]=useState(0);
+  useEffect(()=>{const f=e=>{if(e.key==='Escape')onFechar();};window.addEventListener('keydown',f);return()=>window.removeEventListener('keydown',f);},[]);
   const p=passos[i];
   return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000b',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:18,maxWidth:440,width:'100%',padding:'24px 22px'}}>
@@ -1245,14 +1247,14 @@ function SetorEmailsManager({sbUrl,sbKey,showToast,hospital}) {
     </div>
     {loading && <div style={{textAlign:'center',color:C.muted,padding:12}}><Dots/></div>}
     {!loading && CHAVES_UNICAS.map(setor => (
-      <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
-        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
+      <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8,flexWrap:'wrap'}}>
+        <div style={{width:150,maxWidth:'100%',fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
         <input
           type="email"
           value={emails[setor]||''}
           onChange={e=>setEmails(prev=>({...prev,[setor]:e.target.value}))}
           placeholder="não configurado"
-          style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
+          style={{flex:1,minWidth:0,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
         />
         <button onClick={()=>salvar(setor)} disabled={saving===setor}
           style={{fontSize:10,fontWeight:700,padding:'7px 12px',borderRadius:8,border:'none',cursor:saving===setor?'default':'pointer',background:saving===setor?C.border:C.teal,color:'#06101F',flexShrink:0}}>
@@ -1782,7 +1784,19 @@ Formato exato:
   </div>);
 }
 
-function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {  const [step,setStep]=useState(1);  const [marking,setMarking]=useState(false);  const normTipo=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('medic')||s.includes('farmac')||s.includes('prescri')||s.includes('dispens')) return 'Erro de medicacao';    if(s.includes('queda')) return 'Queda';    if(s.includes('press')||s.includes('lpp')) return 'Lesao por pressao';    if(s.includes('infec')||s.includes('iras')||s.includes('pav')||s.includes('ipcs')||s.includes('itu')||s.includes('isc')) return 'Infeccao relacionada a assistencia';    if((s.includes('identif')||s.includes('pulseira'))&&!s.startsWith('perda de')) return 'Falha de identificacao';    if(s.includes('cirurg')||s.includes('lvcs')) return 'Falha em procedimento cirurgico';    if(s.includes('avp')||s.includes('acesso venoso')||s.includes('infiltr')||s.includes('flebite')||s.includes('extravasamento')) return 'Perda de acesso venoso periferico';    if(s.includes('sne')||s.includes('sng')||s.includes('sonda')||s.includes('nasoenter')||s.includes('nasogastr')||s.includes('svd')||s.includes('cateter urinario')||s.includes('sondagem')||s.includes('exteriori')) return 'Perda/exteriorizacao de dispositivo invasivo';    if(s.includes('comunic')||s.includes('sbar')||s.includes('prescricao verbal')) return 'Falha de comunicacao';    return 'Outros';  };  const normGrav=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('sentinela')) return 'Evento sentinela';    if(s.includes('grave')) return 'Evento adverso grave';    if(s.includes('moderado')) return 'Evento adverso moderado';    if(s.includes('leve')) return 'Evento adverso leve';    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstancia de risco';    return '';  };  const normTurno=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('mat')||s.includes('manha')) return 'Matutino';    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';    if(s.includes('not')||s.includes('noite')) return 'Noturno';    if(s.includes('dia')) return '';    return v;  };  const normSexo=(v,admReason)=>{    const src=(v||'')+(admReason||'');    if(!src) return '';    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';    if(s==='f') return 'Feminino';    if(s==='m') return 'Masculino';    return '';  };  const normAdmissao=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Adm:\s*(\d{4}-\d{2}-\d{2})/);    return m?m[1]:'';  };  const normMotivo=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Motivo:\s*([^|]+)/);    return m?m[1].trim():'';  };  const normDano=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Obito';    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Nao - dano reversivel';    return '';  };  const [form,setForm]=useState(()=>({    data_evento:notification.event_date||'',    turno:normTurno(notification.shift||''),    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),    dispositivo:notification.event_subtype||notification.occurrence_subtype||'',    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),    setor:notification.sector||'',    idade:notification.patient_age||'',    sexo:normSexo(notification.patient_sex||'',notification.admission_reason||''),    data_admissao:normAdmissao(notification.admission_reason||''),    motivo_internacao:normMotivo(notification.admission_reason||''),    descricao:notification.description||'',    acao_imediata:notification.measures_taken||'',    dano:normDano(notification.patient_outcome||''),    acao_corretiva:'',  }));  const [analise,setAnalise]=useState({    fatores_profissional:[],fatores_paciente:[],fatores_trabalho:[],    deteccao_como:'',deteccao_quem:[],    consequencias:[],atenuantes:[],acoes_melhoria:[],    estrategia_risco:'',obs_analise:'',  });  const [savingAnalise,setSavingAnalise]=useState(false);  React.useEffect(()=>{    if(!sbUrl||!sbKey||!notification.id) return;    fetch(`${sbUrl}/rest/v1/notivisa_analise?notification_id=eq.${notification.id}&select=*`,{      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}    }).then(r=>r.json()).catch(()=>[]).then(d=>{      if(d&&d[0]){const a=d[0];setAnalise({        fatores_profissional:a.fatores_profissional||[],fatores_paciente:a.fatores_paciente||[],        fatores_trabalho:a.fatores_trabalho||[],deteccao_como:a.deteccao_como||'',        deteccao_quem:a.deteccao_quem||[],consequencias:a.consequencias||[],        atenuantes:a.atenuantes||[],acoes_melhoria:a.acoes_melhoria||[],        estrategia_risco:a.estrategia_risco||'',obs_analise:a.obs_analise||'',      });}    }).catch(()=>{});  },[notification.id]);  const salvarAnalise=async()=>{    if(!sbUrl||!sbKey) return;    setSavingAnalise(true);    try{      await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');      showToast('Analise salva!','success');    }catch(e){showToast('Erro: '+e.message,'error');}    setSavingAnalise(false);  };  const marcarEnviado=async()=>{    if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}    setMarking(true);    try{
+function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {  const [step,setStep]=useState(1);  const [marking,setMarking]=useState(false);  const normTipo=(v)=>{    if(!v) return '';    const s=' '+v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ')+' ';
+    /* palavras inteiras ou inicio de palavra (antes 'isc' casava com 'risco' e 'itu' com 'situacao') */
+    const ini=(...xs)=>xs.some(x=>s.includes(' '+x));const pal=(...xs)=>xs.some(x=>s.includes(' '+x+' '));
+    if(ini('medicament','medicac','farmac','prescri','dispens')) return 'Erro de medicacao';
+    if(ini('queda','caiu','cair')) return 'Queda';
+    if(ini('lesao por pressao','ulcera por pressao')||pal('lpp','up')) return 'Lesao por pressao';
+    if(ini('infec')||pal('iras','pav','ipcs','itu','isc')) return 'Infeccao relacionada a assistencia';
+    if((ini('identif','pulseira'))&&!s.startsWith(' perda de')) return 'Falha de identificacao';
+    if(ini('cirurg')||pal('lvcs')) return 'Falha em procedimento cirurgico';
+    if(pal('avp')||ini('acesso venoso','infiltr','flebite','extravasamento')) return 'Perda de acesso venoso periferico';
+    if(pal('sne','sng','svd')||ini('sonda','nasoenter','nasogastr','cateter urinario','exteriori')) return 'Perda/exteriorizacao de dispositivo invasivo';
+    if(ini('comunic','prescricao verbal')||pal('sbar')) return 'Falha de comunicacao';
+    return 'Outros';  };  const normGrav=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('sentinela')) return 'Evento sentinela';    if(s.includes('grave')) return 'Evento adverso grave';    if(s.includes('moderado')) return 'Evento adverso moderado';    if(s.includes('leve')) return 'Evento adverso leve';    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstancia de risco';    return '';  };  const normTurno=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('mat')||s.includes('manha')) return 'Matutino';    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';    if(s.includes('not')||s.includes('noite')) return 'Noturno';    if(s.includes('dia')) return '';    return v;  };  const normSexo=(v,admReason)=>{    const src=(v||'')+(admReason||'');    if(!src) return '';    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';    if(s==='f') return 'Feminino';    if(s==='m') return 'Masculino';    return '';  };  const normAdmissao=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Adm:\s*(\d{4}-\d{2}-\d{2})/);    return m?m[1]:'';  };  const normMotivo=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Motivo:\s*([^|]+)/);    return m?m[1].trim():'';  };  const normDano=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Obito';    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Nao - dano reversivel';    return '';  };  const [form,setForm]=useState(()=>({    data_evento:notification.event_date||'',    turno:normTurno(notification.shift||''),    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),    dispositivo:(/sonda|sne|sng|svd|cateter|cvc|cvd|dreno|tubo|acesso|avp|dispositivo/i.test(notification.event_subtype||notification.occurrence_subtype||'')?(notification.event_subtype||notification.occurrence_subtype):''),    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),    setor:notification.sector||'',    idade:notification.patient_age||'',    sexo:normSexo(notification.patient_sex||'',notification.admission_reason||''),    data_admissao:normAdmissao(notification.admission_reason||''),    motivo_internacao:normMotivo(notification.admission_reason||''),    descricao:notification.description||'',    acao_imediata:notification.measures_taken||'',    dano:normDano(notification.patient_outcome||''),    acao_corretiva:'',  }));  const [analise,setAnalise]=useState({    fatores_profissional:[],fatores_paciente:[],fatores_trabalho:[],    deteccao_como:'',deteccao_quem:[],    consequencias:[],atenuantes:[],acoes_melhoria:[],    estrategia_risco:'',obs_analise:'',  });  const [savingAnalise,setSavingAnalise]=useState(false);  React.useEffect(()=>{    if(!sbUrl||!sbKey||!notification.id) return;    fetch(`${sbUrl}/rest/v1/notivisa_analise?notification_id=eq.${notification.id}&select=*`,{      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}    }).then(r=>r.json()).catch(()=>[]).then(d=>{      if(d&&d[0]){const a=d[0];setAnalise({        fatores_profissional:a.fatores_profissional||[],fatores_paciente:a.fatores_paciente||[],        fatores_trabalho:a.fatores_trabalho||[],deteccao_como:a.deteccao_como||'',        deteccao_quem:a.deteccao_quem||[],consequencias:a.consequencias||[],        atenuantes:a.atenuantes||[],acoes_melhoria:a.acoes_melhoria||[],        estrategia_risco:a.estrategia_risco||'',obs_analise:a.obs_analise||'',      });}    }).catch(()=>{});  },[notification.id]);  const salvarAnalise=async()=>{    if(!sbUrl||!sbKey) return;    setSavingAnalise(true);    try{      await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');      showToast('Analise salva!','success');    }catch(e){showToast('Erro: '+e.message,'error');}    setSavingAnalise(false);  };  const marcarEnviado=async()=>{    if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}    setMarking(true);    try{
       /* antes, a analise e as correcoes digitadas se perdiam se a pessoa nao tocasse em Salvar */
       try{await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');}catch(e){console.warn('analise NOTIVISA',e);}
       try{const tx=['NOTIVISA: notificação enviada à ANVISA'];if(form.acao_imediata)tx.push('Ação imediata: '+form.acao_imediata);if(form.acao_corretiva)tx.push('Ação corretiva planejada: '+form.acao_corretiva);if(form.gravidade)tx.push('Gravidade: '+form.gravidade);
@@ -5454,7 +5468,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>{profileMode==='gestor'?'Preenchendo como gestor: '+(sub?sub.label:''):(sub?'Subnúcleo de '+sub.label:'Seu subnúcleo')}</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
         {[
-          {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
+          camposProprios(subAtivo).length>0&&{ok:pendInd===0,aba:'indicadores',acao:'Preencher',
             titulo:tituloInd,det:pendInd>0?detInd:''},
           {ok:pendProt===0,aba:'protocolos',acao:'Atualizar',
             titulo:pendProt>0?(pendProt+' protocolo'+(pendProt>1?'s':'')+' vencido'+(pendProt>1?'s':'')+' ou sem cadastro'):'Protocolos em dia',
@@ -5535,7 +5549,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                 {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
                 {(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:12,background:'transparent',color:C.teal,borderRadius:8,padding:'8px 12px',minHeight:36,fontWeight:700,border:'1px solid '+C.teal,cursor:'pointer'}}>Ficha Notivisa</button>}
                 {n.gravidade==='Evento sentinela'&&<div style={{fontSize:10,background:C.red+'1a',color:C.red,borderRadius:6,padding:'3px 7px',fontWeight:800,textAlign:'center'}}>Sentinela</div>}
               </div>
@@ -5664,7 +5678,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     </div>
     <div style={mostra('panorama')}>
     {/* Metricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(92px,1fr))',gap:10,marginBottom:14}}>
       <StatCard icon={String.fromCodePoint(128202)} label='Total notificacoes' value={s.total} color={C.teal}/>
       <StatCard icon={String.fromCodePoint(127973)} label='Seg. Paciente' value={s.sp} color={C.red}/>
       <StatCard icon={String.fromCodePoint(128203)} label='Administrativas' value={s.adm} color={C.purple}/>
@@ -8250,12 +8264,12 @@ ESTRUTURA:
 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital||DEFAULT_HOSPITAL} onClose={()=>setShowRelatorio(false)}/>}
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <div style={{display:'flex',alignItems:'baseline',gap:10}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+      <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
         <div style={{fontSize:17,fontWeight:900,color:C.text}}>Gráficos e análise mensal</div>
         <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'✓ Dados reais':sbUrl?'✓ Carregando...':'✓ Dados de exemplo'}</div>
       </div>
-      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
         <input type="month" value={mesPPT} onChange={e=>setMesPPT(e.target.value)} style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:10,padding:'6px 10px',color:C.text,fontSize:11,outline:'none'}}/>
         <button onClick={gerarAnaliseMensalPPT} disabled={gerandoPPT} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:10,padding:'7px 14px',color:C.purple,fontSize:11,fontWeight:700,cursor:gerandoPPT?'default':'pointer',display:'flex',alignItems:'center',gap:5}}>
           {gerandoPPT?'Gerando...':String.fromCodePoint(128202)+' Gerar Analise Mensal'}
@@ -9898,7 +9912,7 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
       {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
         {[['30','30 dias'],['90','3 meses'],['365','12 meses'],...anos.map(a=>[a,a])].map(([v,l])=><button key={v} onClick={()=>setPeriodo(v)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(periodo===v?C.teal:C.border),background:periodo===v?C.teal+'20':'transparent',color:periodo===v?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l}</button>)}
-        {!travado&&<select value={modulo} onChange={e=>setModulo(e.target.value)} style={{fontSize:11,padding:'6px 10px',borderRadius:16,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700}}>
+        {!travado&&<select value={modulo} onChange={e=>setModulo(e.target.value)} style={{maxWidth:'100%',fontSize:11,padding:'6px 10px',borderRadius:16,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700}}>
           <option value="todos">Todos os módulos</option>{(mods||[]).map(m=><option key={m.id} value={m.id}>{m.titulo}</option>)}
         </select>}
       </div>
@@ -10551,11 +10565,12 @@ function NotificaAI() {
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
             :<button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
-              <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
+              <span style={{fontSize:20}}>{String.fromCodePoint(128682)}</span>
+              <span style={{fontSize:13,color:C.text,fontWeight:700}}>Sair{userName?' ('+userName+')':''}</span>
             </button>
           }
           <BotaoInstalar/>
+          <a href="/?escolher=1" style={{display:'block',textAlign:'center',fontSize:12,color:C.muted,textDecoration:'none',padding:'8px 0'}}>Trocar instituição</a>
           {userId&&<button onClick={()=>{setShowMenu(false);setShowAlterarPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
             <span style={{fontSize:20}}>{String.fromCodePoint(128273)}</span><span style={{fontSize:13,color:C.muted}}>Alterar meu PIN</span>
           </button>}
@@ -11235,9 +11250,9 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
     {meusProt.map(def=>{
       const st=getStatus(def);const r=registros[def.nome];const ed=editando[def.crit];
       return(<div key={def.crit} style={{background:C.surface,borderRadius:10,padding:'12px 14px',marginBottom:10,borderLeft:'3px solid '+st.color}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:ed?10:4}}>
-          <div style={{flex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:ed?10:4,flexWrap:'wrap',gap:6}}>
+          <div style={{flex:'1 1 180px',minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2,flexWrap:'wrap'}}>
               <span style={{background:C.teal+'22',color:C.teal,borderRadius:5,padding:'1px 7px',fontSize:10,fontWeight:800}}>{def.crit}</span>
               <span style={{fontSize:13,fontWeight:700,color:C.text}}>{def.nome}</span>
             </div>
@@ -11375,7 +11390,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   if(campos.length===0)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:14}}>
     <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores - {sub?.label||userSubnucleo}</div>
-    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não possui indicadores quantitativos mensais. Registre treinamentos acima.</div>
+    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não tem indicadores mensais para lançar. Registre os treinamentos na aba Treinamentos e mantenha o protocolo em dia na aba Protocolos.</div>
   </div>);
 
   return(<div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>

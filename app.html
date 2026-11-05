@@ -2255,6 +2255,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   const hoje=new Date().toISOString().slice(0,10);
   const [subSelLivre,setSubSel]=useState('todos');
   const [concluindo,setConcluindo]=useState(null);
+  const [verTudoFeito,setVerTudoFeito]=useState(false);
   const subSel=subFixo||subSelLivre;
   const subDaAcao=a=>{const n=nots[a.notification_id];if(!n)return null;const s=SUBNUCLEOS_HNSA.find(x=>notifDoSubnucleo(n,x.id));return s?s.id:null;};
   const lista=acoes.filter(a=>etapaDaAcao(a)&&(subSel==='todos'||subDaAcao(a)===subSel));
@@ -2267,8 +2268,9 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   const treinsF=treins.filter(t=>subSel==='todos'||t.subnucleo===subSel);
   const dt=s=>{if(!s)return '—';const d=new Date(s.length===10?s+'T12:00:00':s);return d.toLocaleDateString('pt-BR',d.getFullYear()===new Date().getFullYear()?{day:'2-digit',month:'2-digit'}:{day:'2-digit',month:'2-digit',year:'2-digit'});};
 
-  // linha do tempo: 6 meses para tras e 2 para frente
-  const meses=[];{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-6);for(let i=0;i<9;i++){meses.push(d.toISOString().slice(0,7));d.setMonth(d.getMonth()+1);}}
+  // linha do tempo: o ano todo (janeiro a dezembro)
+  const anoAtual=hoje.slice(0,4);
+  const meses=Array.from({length:12},(_,k)=>anoAtual+'-'+String(k+1).padStart(2,'0'));
   const mesAtual=hoje.slice(0,7);
   const porMes=meses.map(m=>({m,
     feitas:lista.filter(a=>(a.concluido_em||'').slice(0,7)===m).length,
@@ -2278,8 +2280,8 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   const maxMes=Math.max(1,...porMes.map(x=>Math.max(x.feitas,x.abertas,x.treinos.length)));
   const nomeMes=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
 
-  // execucao recente: o que foi feito nos ultimos 45 dias
-  const desde=new Date(Date.now()-45*864e5).toISOString().slice(0,10);
+  // o que foi feito no ano (antes: ultimos 45 dias)
+  const desde=anoAtual+'-01-01';
   const IC={ok:String.fromCodePoint(9989),alvo:String.fromCodePoint(127919),reuniao:String.fromCodePoint(129309),trein:String.fromCodePoint(127891),hosp:String.fromCodePoint(127973)};
   const feed=[
     ...lista.filter(a=>(a.concluido_em||'').slice(0,10)>=desde&&(a.concluido_em||'').slice(0,10)<=hoje).map(a=>({d:a.concluido_em.slice(0,10),ic:IC.ok,cor:'#22C55E',t:a.acao,s:'Ação concluída'+(a.responsavel?' · '+a.responsavel:'')})),
@@ -2287,7 +2289,8 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
     ...treinsF.filter(t=>(t.data||'')>=desde&&(t.data||'')<=hoje).map(t=>{const s=SUBNUCLEOS_HNSA.find(x=>x.id===t.subnucleo);return ehReuniao(t)
       ?{d:t.data,ic:IC.reuniao,cor:'#8B5CF6',t:t.tipo==='reuniao_extraordinaria'?'Reunião extraordinária do NSP':'Reunião mensal do NSP',s:(t.participantes?t.participantes+' participantes':'')+(t.link_gdrive?' · ata anexada':' · sem ata anexada')}
       :{d:t.data,ic:IC.trein,cor:'#0EA5E9',t:'Treinamento'+(t.protocolo?': '+t.protocolo:s?': '+s.label:''),s:(s?s.label+' · ':'')+(t.participantes?t.participantes+' participantes':'')+(t.link_gdrive?' · lista anexada':' · sem lista de presença')};}),
-  ].sort((a,b)=>b.d.localeCompare(a.d)).slice(0,14);
+  ].sort((a,b)=>b.d.localeCompare(a.d));
+  const feedVisivel=verTudoFeito?feed:feed.slice(0,14);
 
   // por subnucleo
   const iniSem=(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth()<6?0:6,1).toISOString().slice(0,10);})();
@@ -2349,7 +2352,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
     </div>
 
     <div style={card}>
-      {titulo('Mês a mês','Ações concluídas, prazos em aberto, treinamentos e reuniões do NSP')}
+      {titulo('Mês a mês em '+anoAtual,'Ações concluídas, prazos em aberto, treinamentos e reuniões do NSP')}
       <div style={{display:'flex',gap:6,alignItems:'flex-end',overflowX:'auto',paddingBottom:4}}>
         {porMes.map(x=>{const atual=x.m===mesAtual,futuro=x.m>mesAtual;const h=v=>Math.max(v?6:0,Math.round(v/maxMes*90));
           return(<div key={x.m} style={{flex:'1 0 54px',minWidth:54,display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
@@ -2384,12 +2387,13 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
         </button>)}
       </div>}
       <div style={{...card,flex:'1 1 320px'}}>
-        {titulo('O que foi feito','Últimos 45 dias: ações concluídas, eficácia verificada, treinamentos e reuniões')}
-        {feed.length?feed.map((x,i)=><div key={i} style={{display:'flex',gap:10,padding:'8px 0',borderTop:'1px solid '+C.border}}>
+        {titulo('O que foi feito em '+anoAtual,(feed.length?feed.length+' registro'+(feed.length>1?'s':'')+': ':'')+'ações concluídas, eficácia verificada, treinamentos e reuniões')}
+        {feed.length?feedVisivel.map((x,i)=><div key={i} style={{display:'flex',gap:10,padding:'8px 0',borderTop:'1px solid '+C.border}}>
           <span style={{width:28,height:28,borderRadius:14,background:x.cor+'1f',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{x.ic}</span>
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35}}>{x.t}</div><div style={{fontSize:10.5,color:C.muted,marginTop:1}}>{x.s}</div></div>
           <span style={{fontSize:10.5,color:C.muted,whiteSpace:'nowrap'}}>{dt(x.d)}</span>
-        </div>):<div style={{fontSize:11.5,color:C.muted}}>Nada registrado nos últimos 45 dias. Conclua ações ou registre treinamentos em "Treinamentos e reuniões".</div>}
+        </div>):<div style={{fontSize:11.5,color:C.muted}}>Nada registrado em {anoAtual}. Conclua ações ou registre treinamentos em "Treinamentos e reuniões".</div>}
+        {feed.length>14&&<button onClick={()=>setVerTudoFeito(v=>!v)} style={{marginTop:8,background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'7px 12px',color:C.teal,fontSize:11.5,fontWeight:800,cursor:'pointer',width:'100%'}}>{verTudoFeito?'Mostrar só os mais recentes':'Ver todos os '+feed.length+' registros do ano'}</button>}
       </div>
     </div>
   </div>);

@@ -187,8 +187,8 @@ const THEMES = {
   dark:{ bg:'#06101F',surface:'#0C1A30',card:'#102040',border:'#1A3060',
     teal:'#00C9B8',blue:'#1D6FE8',text:'#DFF0FF',muted:'#5A7AA0',
     red:'#EF4444',yellow:'#F59E0B',green:'#10B981',purple:'#8B5CF6',orange:'#F97316' },
-  light:{ bg:'#F0F4F8',surface:'#FFFFFF',card:'#FFFFFF',border:'#CBD5E1',
-    teal:'#0097A7',blue:'#1565C0',text:'#0F172A',muted:'#64748B',
+  light:{ bg:'#F3F6F5',surface:'#FFFFFF',card:'#FFFFFF',border:'#DDE5E2',
+    teal:'#0B8577',blue:'#1D5FBF',text:'#1B2A33',muted:'#66777F',
     red:'#DC2626',yellow:'#D97706',green:'#059669',purple:'#7C3AED',orange:'#EA580C' },
 };
 let C = THEMES.dark;
@@ -197,6 +197,7 @@ const mkIco=(d)=>({size=24,sw=2,color='currentColor'})=>
   <span style={{display:'inline-flex',alignItems:'center',color}}
     dangerouslySetInnerHTML={{__html:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="${sw}" width="${size}" height="${size}">${d}</svg>`}}/>;
 const IconMsg=mkIco(`<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>`);
+const IconAjuda=mkIco(`<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5"/><line x1="12" y1="17.5" x2="12" y2="17.6"/>`);
 const IconBar=mkIco(`<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`);
 const IconBook=mkIco(`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`);
 const IconHome=mkIco(`<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>`);
@@ -333,6 +334,7 @@ function computeStats(notifications) {
   const ccih=0;
   const adm=thisM.filter(n=>n.notification_type==='administrativa').length;
   const sentinela=notifications.filter(n=>n.gravidade==='Evento sentinela').length;
+  const sentinelaMes=thisM.filter(n=>n.gravidade==='Evento sentinela').length;
   const semRCA=notifications.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
   const sm={};notifications.forEach(n=>{if(n.sector)sm[n.sector]=(sm[n.sector]||0)+1;});
   const SETOR_NOMES={'UPG':'UPG (Unidade de Pacientes Graves)','SEP':'SEP (Servico de Estabilizacao de Pacientes)','CC':'Centro Cirurgico','Centro Cirurgico':'Centro Cirurgico','Ala A':'Ala A','Oncologia':'Oncologia','Odontologia':'Odontologia','Geral':'Hospital Naval de Salvador'};
@@ -379,7 +381,7 @@ function computeStats(notifications) {
   const ratioNM=notifications.length>0?Math.round(nmCount/notifications.length*100):0;
   const txC=notifications.length>0?Math.round(concl/notifications.length*100):0;
   const culturaScore=Math.min(100,Math.round(ratioNM*0.4+txC*0.4+Math.min(nSets,5)/5*20));
-  return{total,totalPrev,sp,ccih,adm,sentinela,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
+  return{total,totalPrev,sp,ccih,adm,sentinela,sentinelaMes,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
 }
 
 const WORKER_URL='https://notificaai-proxy.janan-almeida.workers.dev';
@@ -717,6 +719,223 @@ CREATE TABLE IF NOT EXISTS notivisa_analise (
       <button onClick={()=>onSave(url.trim(),key.trim(),wh.trim())} style={{width:'100%',background:C.teal,border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>
         Salvar e Conectar
       </button>
+    </div>
+  </div>);
+}
+
+// Instituicao militar (Marinha): o HNSA e qualquer OM configurada com o cabecalho da Marinha usam o fluxo da DSM
+// (relatorio semestral, Circular 24/2023, inspecao da DSM). As demais seguem o modelo civil (ANVISA).
+const ehMarinha=h=>!!h&&(h.id==='hnsa'||(h.org_header||[]).join(' ').toUpperCase().includes('MARINHA'));
+
+// "Onde encontro?": palavras que levam cada tela, para a busca do menu e para o guia
+const PALAVRAS_TELA={
+  home:'visao geral painel inicio pendencias resumo hoje',
+  inspecao:'inspecao preparacao checklist prontidao visita auditoria dsm anvisa evidencias o que falta',
+  notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem',
+  acoes:'plano de acao planos acoes pdca eficacia prazo responsavel execucao vencidas melhoria',
+  treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao',
+  capacitacao_dash:'curso online capacitacao certificado questionario apostila trilha pre teste pos teste',
+  protocolos:'protocolo protocolos portaria psp plano de seguranca do paciente regimento pop validade revisao documento institucional',
+  documentos_nsp:'biblioteca documentos anexos arquivos pdf comprovantes',
+  indicadores:'indicador indicadores taxa meta lpp queda higiene das maos iras paciente dia mensal lancar dsm panorama checklist',
+  pnqsp:'politica nacional pnqsp portaria 11527 estrutura processo resultado',
+  relatorio_dsm:'relatorio semestral dsm anvisa circular 24 excel avaliacao nacional pacote zip envio',
+  analytics:'graficos analise mensal ppt apresentacao powerpoint mapa de calor',
+  auditar:'dossie auditoria acreditacao ona evidencias pacote',
+  saq_dashboard:'cultura de seguranca hsopsc pesquisa questionario clima',
+  experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz',
+  central:'central de conhecimento videos materiais educacao em saude',
+  admin:'administracao usuarios pin senha backup acesso subnucleos e-mail',
+  membro_nsp:'painel do subnucleo o que falta',
+};
+function BuscaNavegacao({tabs,onIr,compacta}){
+  const [q,setQ]=useState('');
+  const termo=semAcento(q).trim();
+  const res=termo.length<2?[]:tabs.map(t=>{const alvo=semAcento(t.label+' '+(t.desc||'')+' '+(PALAVRAS_TELA[t.id]||''));const ok=termo.split(/\s+/).every(p=>alvo.includes(p));return ok?t:null;}).filter(Boolean).slice(0,6);
+  return(<div style={{position:'relative',marginBottom:compacta?10:12}}>
+    <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Onde encontro? (ex.: ata, portaria, indicador)" aria-label="Buscar na plataforma"
+      style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:9,padding:'9px 11px',color:C.text,fontSize:12,outline:'none',fontFamily:'inherit'}}/>
+    {termo.length>=2&&<div style={{position:'absolute',left:0,right:0,top:'100%',marginTop:4,background:C.surface,border:'1px solid '+C.border,borderRadius:10,boxShadow:'0 8px 24px #0006',zIndex:50,overflow:'hidden'}}>
+      {res.length?res.map(t=><button key={t.id} onClick={()=>{onIr(t.id);setQ('');}} style={{display:'block',width:'100%',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid '+C.border,padding:'9px 12px',cursor:'pointer'}}>
+        <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>{t.label}</div>
+        {t.desc&&<div style={{fontSize:10.5,color:C.muted,marginTop:1,lineHeight:1.4}}>{t.desc}</div>}
+      </button>):<div style={{padding:'10px 12px',fontSize:11.5,color:C.muted}}>Nada encontrado. Tente outra palavra.</div>}
+    </div>}
+  </div>);
+}
+
+// Guia curto mostrado no primeiro acesso (e reaberto em "Como usar")
+function GuiaPrimeiroAcesso({passos,onFechar}){
+  const [i,setI]=useState(0);
+  const p=passos[i];
+  return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000b',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:18,maxWidth:440,width:'100%',padding:'24px 22px'}}>
+      <div style={{display:'flex',gap:5,marginBottom:16}}>{passos.map((_,k)=><div key={k} style={{flex:1,height:4,borderRadius:2,background:k<=i?C.teal:C.border}}/>)}</div>
+      <div style={{fontSize:11,fontWeight:800,color:C.teal,textTransform:'uppercase',letterSpacing:1}}>Passo {i+1} de {passos.length}</div>
+      <div style={{fontSize:19,fontWeight:900,color:C.text,margin:'6px 0 10px'}}>{p.titulo}</div>
+      <div style={{fontSize:13.5,color:C.text,lineHeight:1.65}}>{p.texto}</div>
+      {p.itens&&<div style={{marginTop:12,display:'flex',flexDirection:'column',gap:6}}>{p.itens.map(([t,d])=><div key={t} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'8px 11px'}}>
+        <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>{t}</div><div style={{fontSize:11,color:C.muted,marginTop:1}}>{d}</div></div>)}</div>}
+      <div style={{display:'flex',gap:8,marginTop:18}}>
+        <button onClick={onFechar} style={{background:'none',border:'none',color:C.muted,fontSize:12,cursor:'pointer',textDecoration:'underline'}}>Pular</button>
+        <div style={{flex:1}}/>
+        {i>0&&<button onClick={()=>setI(i-1)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 16px',color:C.text,fontWeight:700,fontSize:13,cursor:'pointer'}}>Voltar</button>}
+        <button onClick={()=>i<passos.length-1?setI(i+1):onFechar()} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 18px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>{i<passos.length-1?'Próximo':'Começar'}</button>
+      </div>
+    </div>
+  </div>);
+}
+const passosGuiaGestor=h=>[
+  {titulo:'Boas-vindas ao NotificaAI',texto:'O menu segue o ciclo da qualidade: o que aconteceu (ocorrências), o que estamos fazendo para melhorar, os resultados e a prestação de contas. Cada item tem uma frase dizendo para que serve.'},
+  {titulo:'Comece pela Visão geral',texto:'Ela mostra o hospital em um olhar: notificações, análises, planos de ação, eficácia, indicadores e documentos, cada etapa em verde, amarelo ou vermelho. Toque em uma etapa para ir direto ao detalhe.',
+    itens:[['Prioridades de hoje','No máximo cinco itens, já com o botão para resolver.'],['Subnúcleos','Quem está em dia e quem precisa de apoio.']]},
+  {titulo:'Não sabe onde está algo?',texto:'Use a busca "Onde encontro?" no alto do menu. Digite uma palavra como ata, portaria, PSP, indicador ou certificado e ela leva à tela certa.'},
+  ehMarinha(h)
+    ?{titulo:'Preparação para a inspeção da DSM',texto:'Em "Preparação para a inspeção" está a lista do que a DSM vai conferir, com a situação de cada item e o botão que leva até onde ele se resolve. No dia, é por ali que se mostram as evidências.'}
+    :{titulo:'Preparação para auditorias',texto:'Em "Preparação para auditoria" está a lista do que costuma ser conferido (documentos, reuniões, treinamentos, indicadores e análises), com a situação de cada item e o botão que leva até onde ele se resolve.'},
+];
+const PASSOS_GUIA_SUBNUCLEO=[
+  {titulo:'Este é o painel do seu subnúcleo',texto:'Aqui fica tudo o que o seu subnúcleo precisa alimentar. A aba "O que falta" mostra, em ordem, o que está pendente, com o botão para resolver.'},
+  {titulo:'A rotina do subnúcleo',texto:'Abaixo do "O que falta" está a sua rotina: o que fazer toda semana, todo mês, todo semestre e na validade do protocolo.',
+    itens:[['Toda semana','Analisar as notificações do seu tema e atualizar as ações do plano.'],['Todo mês, até o dia 5','Lançar os indicadores do mês anterior.'],['Todo semestre','Registrar ao menos um treinamento com a lista de presença.']]},
+  {titulo:'Cada aba é uma tarefa',texto:'Notificações, Plano de ação, Treinamentos, Protocolos e Indicadores. Os números vermelhos nas abas mostram quantas pendências existem em cada uma.'},
+];
+
+// Prontidao para inspecao/auditoria: o que costuma ser conferido, com a situacao de cada item e onde resolver.
+// Usada na tela "Preparacao para a inspecao" e no resumo da Visao geral. So le dados; nao grava nada.
+const PALAVRA_PROTOCOLO={identificacao:['identifica'],medicamentos:['medica'],queda:['queda'],lpp:['press','lpp'],cirurgia:['cirurg'],comunicacao:['comunica'],ccih:['maos','higien','ccih']};
+async function carregarProntidao(sbUrl,sbKey,h){
+  const hoje=new Date().toISOString().slice(0,10);
+  const atras=d=>new Date(Date.now()-d*864e5).toISOString().slice(0,10);
+  const q=(t,f)=>sbSelect(sbUrl,sbKey,t,f).catch(()=>[]);
+  const [cfgA,prots,treins,ind,sems,nots,acoes,saq]=await Promise.all([
+    q('config_dsm',`hospital_id=eq.${h.id}&select=*`),
+    q('protocolos',`hospital_id=eq.${h.id}&select=*`),
+    q('treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${atras(370)}&select=*`),
+    q('indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${atras(400)}&select=mes`),
+    q('semestres_dsm',`hospital_id=eq.${h.id}&order=ano.desc,semestre.desc&limit=4&select=*`),
+    q('notifications',`hospital_id=eq.${h.id}&is_test=neq.true&created_at=gte.${atras(370)}&select=id,notification_type,gravidade,rca_gerado,notivisa_enviado,created_at,event_date`),
+    q('plano_acoes',`hospital_id=eq.${h.id}&select=id,status,prazo,concluido_em,efetividade_verificada`),
+    q('saq_respostas',`hospital_id=eq.${h.id}&created_at=gte.${atras(730)}&select=id`),
+  ]);
+  const cfg=(cfgA&&cfgA[0])||{};
+  const itens=[];const add=(grupo,titulo,st,det,view,filtro)=>itens.push({grupo,titulo,st,det,view,filtro});
+  const doc=(grupo,titulo,num,link,view)=>add(grupo,titulo,link?'ok':num?'atencao':'pendente',link?(num?num+' · documento anexado':'Documento anexado'):num?num+' cadastrada, mas sem o documento anexado':'Não cadastrado',view);
+  // 1. Documentos institucionais
+  doc('Documentos institucionais','Portaria de criação do NSP',cfg.numero_portaria_nsp,cfg.link_portaria_nsp,'protocolos');
+  doc('Documentos institucionais','Portaria da CCIH / SCIH',cfg.numero_portaria_ccih,cfg.link_portaria_ccih,'protocolos');
+  {const venc=cfg.data_atualizacao_psp?vencimentoPadrao(cfg.data_atualizacao_psp):null;
+    add('Documentos institucionais','Plano de Segurança do Paciente (PSP) vigente',!cfg.data_atualizacao_psp&&!cfg.link_psp?'pendente':venc&&venc<hoje?'pendente':!cfg.link_psp?'atencao':'ok',
+      !cfg.data_atualizacao_psp&&!cfg.link_psp?'Não cadastrado':venc&&venc<hoje?'Vencido em '+new Date(venc+'T12:00:00').toLocaleDateString('pt-BR'):!cfg.link_psp?'Cadastrado sem o documento anexado':'Vigente até '+new Date(venc+'T12:00:00').toLocaleDateString('pt-BR'),'protocolos');}
+  add('Documentos institucionais','Regimento interno do NSP',cfg.link_regimento?'ok':'pendente',cfg.link_regimento?'Documento anexado':'Não anexado','protocolos');
+  // 2. Protocolos dos subnucleos
+  {const doSub=s=>(prots||[]).filter(p=>p.subnucleo===s.id||(PALAVRA_PROTOCOLO[s.id]||[]).some(k=>semAcento(p.nome).includes(k)));
+    const faltam=[],vencidos=[],semDoc=[];
+    SUBNUCLEOS_HNSA.forEach(s=>{const ps=doSub(s);if(!ps.length){faltam.push(s.label);return;}
+      if(!ps.some(p=>!p.proxima_revisao||p.proxima_revisao>=hoje))vencidos.push(s.label);
+      if(!ps.some(p=>p.link||p.link_gdrive||p.arquivo_url))semDoc.push(s.label);});
+    const n=SUBNUCLEOS_HNSA.length-faltam.length-vencidos.length;
+    add('Protocolos','Protocolos dos '+SUBNUCLEOS_HNSA.length+' subnúcleos cadastrados e vigentes',faltam.length||vencidos.length?(n>0?'atencao':'pendente'):'ok',
+      faltam.length||vencidos.length?[faltam.length?'Sem cadastro: '+faltam.join(', '):'',vencidos.length?'Vencidos: '+vencidos.join(', '):''].filter(Boolean).join(' · '):'Todos cadastrados e dentro da validade','protocolos');
+    add('Protocolos','Protocolos com o documento anexado',semDoc.length?'atencao':'ok',semDoc.length?'Sem documento: '+semDoc.join(', '):'Todos com documento','protocolos');}
+  // 3. Reunioes do NSP (ultimos 6 meses fechados)
+  {const reun=(treins||[]).filter(t=>/reuniao/.test(t.tipo||''));
+    const meses=[];{const d=new Date();d.setDate(15);for(let i=1;i<=6;i++){const x=new Date(d);x.setMonth(d.getMonth()-i);meses.push(x.toISOString().slice(0,7));}}
+    const comReun=meses.filter(m=>reun.some(r=>(r.data||'').slice(0,7)===m)).length;
+    const semAta=reun.filter(r=>!r.link_gdrive).length;
+    add('Reuniões do NSP','Reuniões registradas nos últimos 6 meses',comReun>=5?'ok':comReun>0?'atencao':'pendente',comReun+' de 6 meses com reunião registrada','treinamentos');
+    add('Reuniões do NSP','Atas anexadas',!reun.length?'pendente':semAta?'atencao':'ok',!reun.length?'Nenhuma reunião registrada nos últimos 12 meses':semAta?semAta+' de '+reun.length+' reuniões sem ata anexada':'Todas as reuniões com ata','treinamentos');}
+  // 4. Educacao permanente
+  {const tr=(treins||[]).filter(t=>!/reuniao/.test(t.tipo||''));
+    const sem6=tr.filter(t=>(t.data||'')>=atras(183));
+    const subsSem=SUBNUCLEOS_HNSA.filter(s=>!sem6.some(t=>t.subnucleo===s.id)).map(s=>s.label);
+    const semLista=tr.filter(t=>!t.link_gdrive).length;
+    add('Educação permanente','Treinamento de cada subnúcleo nos últimos 6 meses',subsSem.length===0?'ok':subsSem.length<SUBNUCLEOS_HNSA.length?'atencao':'pendente',subsSem.length?'Sem treinamento: '+subsSem.join(', '):'Todos os subnúcleos treinaram','treinamentos');
+    add('Educação permanente','Listas de presença anexadas',!tr.length?'pendente':semLista?'atencao':'ok',!tr.length?'Nenhum treinamento nos últimos 12 meses':semLista?semLista+' de '+tr.length+' treinamentos sem lista de presença':'Todos com lista de presença','treinamentos');}
+  // 5. Monitoramento
+  {const meses=[];{const d=new Date();d.setDate(15);for(let i=1;i<=6;i++){const x=new Date(d);x.setMonth(d.getMonth()-i);meses.push(x.toISOString().slice(0,7));}}
+    const lanc=meses.filter(m=>(ind||[]).some(r=>(r.mes||'').slice(0,7)===m)).length;
+    add('Monitoramento','Indicadores mensais lançados (últimos 6 meses)',lanc===6?'ok':lanc>=4?'atencao':'pendente',lanc+' de 6 meses lançados','indicadores');
+    if(ehMarinha(h)){const d=new Date();const semAt=d.getMonth()<6?1:2;const ult=semAt===1?{ano:d.getFullYear()-1,semestre:2}:{ano:d.getFullYear(),semestre:1};
+      const reg=(sems||[]).find(s=>s.ano===ult.ano&&s.semestre===ult.semestre);const st=reg&&reg.status;
+      add('Monitoramento','Relatório semestral da DSM ('+ult.semestre+'º sem. '+ult.ano+')',st==='enviado_dsm'?'ok':st==='finalizado'?'atencao':'pendente',st==='enviado_dsm'?'Enviado à DSM':st==='finalizado'?'Gerado, falta registrar o envio à DSM':'Ainda não gerado','relatorio_dsm');}}
+  // 6. Gestao de risco
+  {const graves=(nots||[]).filter(n=>(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave')&&!n.rca_gerado);
+    add('Gestão de risco','Eventos graves com análise de causa (RCA)',graves.length?'pendente':'ok',graves.length?graves.length+' evento(s) sentinela ou grave(s) sem RCA nos últimos 12 meses':'Todos os eventos graves analisados','notificacoes','semRCA');
+    const sp=(nots||[]).filter(n=>n.notification_type==='seguranca_paciente'&&(n.created_at||'')>=atras(183));const env=sp.filter(n=>n.notivisa_enviado).length;
+    add('Gestão de risco','Notificações enviadas ao NOTIVISA (6 meses)',!sp.length?'ok':env===sp.length?'ok':env/sp.length>=0.7?'atencao':'pendente',!sp.length?'Sem notificações de segurança do paciente no período':env+' de '+sp.length+' enviadas','notificacoes');
+    const abertas=(acoes||[]).filter(a=>!['concluido','concluida','cancelado'].includes(a.status));const venc=abertas.filter(a=>a.prazo&&a.prazo<hoje).length;
+    const efic=(acoes||[]).filter(a=>(a.status==='concluido'||a.status==='concluida')&&!a.efetividade_verificada&&a.concluido_em&&a.concluido_em<atras(30)).length;
+    add('Gestão de risco','Planos de ação em dia',venc===0&&efic===0?'ok':venc>10?'pendente':'atencao',venc===0&&efic===0?'Sem ações vencidas nem eficácia atrasada':[venc?venc+' ação(ões) vencida(s)':'',efic?efic+' aguardando verificação de eficácia há mais de 30 dias':''].filter(Boolean).join(' · '),'acoes');}
+  // 7. Cultura e dados
+  add('Cultura e dados','Pesquisa de cultura de segurança (24 meses)',(saq||[]).length?'ok':'pendente',(saq||[]).length?(saq||[]).length+' respostas':'Nenhuma resposta nos últimos 24 meses','saq_dashboard');
+  {let ult=null;try{ult=localStorage.getItem('nai_ultimo_backup_'+h.id);}catch{}
+    const ok=ult&&(Date.now()-new Date(ult).getTime())<30*864e5;
+    add('Cultura e dados','Backup dos dados no último mês',ok?'ok':'atencao',ult?'Último backup neste aparelho: '+new Date(ult).toLocaleDateString('pt-BR'):'Nenhum backup feito neste aparelho','admin');}
+  const pts={ok:1,atencao:0.5,pendente:0};
+  const pct=Math.round(itens.reduce((t,x)=>t+pts[x.st],0)/itens.length*100);
+  return {itens,pct};
+}
+const COR_ST=st=>st==='ok'?C.green:st==='atencao'?C.yellow:C.red;
+const ROT_ST={ok:'Em dia',atencao:'Atenção',pendente:'Pendente'};
+
+function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const mar=ehMarinha(h);
+  const kData='nai_data_inspecao_'+h.id;
+  const [dados,setDados]=useState(null);
+  const [dataInsp,setDataInsp]=useState(()=>{try{return localStorage.getItem(kData)||'';}catch{return '';}});
+  useEffect(()=>{if(sbUrl&&sbKey)carregarProntidao(sbUrl,sbKey,h).then(setDados).catch(()=>setDados({itens:[],pct:0}));},[sbUrl,sbKey]);
+  const salvarData=v=>{setDataInsp(v);try{v?localStorage.setItem(kData,v):localStorage.removeItem(kData);}catch{}};
+  const dias=dataInsp?Math.ceil((new Date(dataInsp+'T12:00:00')-new Date())/864e5):null;
+  const ir=(v,f)=>{if(f&&setFiltroNotif)setFiltroNotif(f);setView(v);};
+  const titulo=mar?'Preparação para a inspeção da DSM':'Preparação para auditoria';
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16};
+  if(!dados) return(<div style={{padding:16,maxWidth:980,margin:'0 auto'}}><div style={{fontSize:20,fontWeight:900,color:C.text}}>{titulo}</div><div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div></div>);
+  const grupos=[...new Set(dados.itens.map(x=>x.grupo))];
+  const n=st=>dados.itens.filter(x=>x.st===st).length;
+  const corPct=dados.pct>=90?C.green:dados.pct>=70?C.yellow:C.red;
+  const evidencias=[
+    ['Documentos institucionais e protocolos','Portarias, PSP, regimento e os protocolos com validade','protocolos'],
+    ['Atas de reunião e listas de presença','Reuniões do NSP e treinamentos, com os anexos','treinamentos'],
+    ['Indicadores e checklist','Panorama do ano, lançamentos mensais e checklist dos critérios','indicadores'],
+    mar?['Relatório semestral e Excel da DSM','Relatório, Excel da Circular 24/2023 e pacote ZIP de evidências','relatorio_dsm']:['Relatório e pacote de evidências','Relatório da avaliação e pacote ZIP de evidências','relatorio_dsm'],
+    ['Notificações, análises e planos','Eventos, análises de causa, planos de ação e eficácia','acoes'],
+    ['Dossiê consolidado','PDF, apresentação e planilha com todas as evidências','auditar'],
+  ];
+  return(<div style={{padding:16,maxWidth:980,margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
+    <div><div style={{fontSize:20,fontWeight:900,color:C.text}}>{titulo}</div>
+      <div style={{fontSize:12.5,color:C.muted,marginTop:3,lineHeight:1.5}}>O que {mar?'a DSM':'a auditoria'} costuma conferir, com a situação de cada item. Toque em um item para ir até onde ele se resolve.</div></div>
+    <div style={{...card,display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>
+      <div style={{width:96,height:96,borderRadius:48,flexShrink:0,background:'conic-gradient('+corPct+' '+dados.pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{width:78,height:78,borderRadius:39,background:C.card,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}><b style={{fontSize:22,color:C.text}}>{dados.pct}%</b><span style={{fontSize:9.5,color:C.muted}}>pronto</span></div>
+      </div>
+      <div style={{flex:'1 1 220px'}}>
+        <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>{[['ok','em dia'],['atencao','atenção'],['pendente','pendentes']].map(([k,l])=><div key={k}><div style={{fontSize:22,fontWeight:900,color:COR_ST(k)}}>{n(k)}</div><div style={{fontSize:11,color:C.muted}}>{l}</div></div>)}</div>
+        <div style={{fontSize:11.5,color:C.muted,marginTop:8}}>Comece pelos itens pendentes (vermelho) e depois os de atenção (amarelo).</div>
+      </div>
+      <div style={{minWidth:200}}>
+        <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:4}}>Data da {mar?'inspeção':'auditoria'}</div>
+        <input type="date" value={dataInsp} onChange={e=>salvarData(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,fontFamily:'inherit'}}/>
+        {dias!==null&&<div style={{fontSize:13,fontWeight:800,color:dias<=7?C.red:dias<=15?C.yellow:C.text,marginTop:6}}>{dias>1?'Faltam '+dias+' dias':dias===1?'É amanhã':dias===0?'É hoje':'Data já passou'}</div>}
+      </div>
+    </div>
+    {grupos.map(g=><div key={g} style={card}>
+      <div style={{fontSize:13,fontWeight:900,color:C.text,marginBottom:8}}>{g}</div>
+      {dados.itens.filter(x=>x.grupo===g).map((x,i)=><button key={i} onClick={()=>ir(x.view,x.filtro)} style={{all:'unset',boxSizing:'border-box',cursor:'pointer',display:'flex',alignItems:'center',gap:12,width:'100%',padding:'10px 4px',borderTop:i?'1px solid '+C.border:'none'}}>
+        <span style={{width:10,height:10,borderRadius:5,background:COR_ST(x.st),flexShrink:0}}/>
+        <span style={{flex:1,minWidth:0}}><span style={{display:'block',fontSize:13,fontWeight:700,color:C.text}}>{x.titulo}</span><span style={{display:'block',fontSize:11.5,color:C.muted,marginTop:2,lineHeight:1.4}}>{x.det}</span></span>
+        <span style={{fontSize:10.5,fontWeight:800,color:COR_ST(x.st),whiteSpace:'nowrap'}}>{ROT_ST[x.st]}</span>
+        <IconChev size={14} color={C.muted}/>
+      </button>)}
+    </div>)}
+    <div style={card}>
+      <div style={{fontSize:13,fontWeight:900,color:C.text}}>No dia, onde mostrar cada evidência</div>
+      <div style={{fontSize:11.5,color:C.muted,margin:'2px 0 8px'}}>Roteiro para conduzir {mar?'a inspeção':'a auditoria'} pela plataforma.</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:8}}>
+        {evidencias.map(([t,d,v],i)=><button key={v+i} onClick={()=>setView(v)} style={{textAlign:'left',background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',cursor:'pointer'}}>
+          <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>{i+1}. {t}</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{d}</div></button>)}
+      </div>
     </div>
   </div>);
 }
@@ -1910,9 +2129,10 @@ const etapaDaAcao=a=>{
 };
 const ehReuniao=t=>/reuniao/.test(t.tipo||'');
 
-function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerificar,irParaLista}){
+function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerificar,irParaLista,subFixo,podeVerificar=true}){
   const hoje=new Date().toISOString().slice(0,10);
-  const [subSel,setSubSel]=useState('todos');
+  const [subSelLivre,setSubSel]=useState('todos');
+  const subSel=subFixo||subSelLivre;
   const subDaAcao=a=>{const n=nots[a.notification_id];if(!n)return null;const s=SUBNUCLEOS_HNSA.find(x=>notifDoSubnucleo(n,x.id));return s?s.id:null;};
   const lista=acoes.filter(a=>etapaDaAcao(a)&&(subSel==='todos'||subDaAcao(a)===subSel));
   const porEtapa={};ETAPAS_ACAO.forEach(e=>porEtapa[e.id]=[]);lista.forEach(a=>porEtapa[etapaDaAcao(a)].push(a));
@@ -1957,9 +2177,9 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   const mini=(l,cor,fn)=><button onClick={e=>{e.stopPropagation();fn();}} disabled={!!busy} style={{padding:'5px 9px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10.5,fontWeight:800,cursor:busy?'default':'pointer'}}>{l}</button>;
 
   return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
-    <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}}>
+    {!subFixo&&<div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}}>
       {[{id:'todos',label:'Todos',icon:IC.hosp,color:C.teal},...SUBNUCLEOS_HNSA].map(s=><button key={s.id} onClick={()=>setSubSel(s.id)} style={{flexShrink:0,fontSize:11.5,padding:'7px 12px',borderRadius:18,border:'1px solid '+(subSel===s.id?s.color:C.border),background:subSel===s.id?s.color+'22':'transparent',color:subSel===s.id?s.color:C.muted,fontWeight:800,cursor:'pointer'}}>{s.icon} {s.label}</button>)}
-    </div>
+    </div>}
 
     <div style={{...card,background:'linear-gradient(135deg,'+C.teal+'14,'+C.blue+'10)',borderColor:C.teal+'44'}}>
       <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
@@ -1990,9 +2210,10 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
               <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35}}>{a.acao}</div>
               <div style={{fontSize:10,color:v?C.red:C.muted,marginTop:3}}>{s?s.icon+' ':''}{a.responsavel||'sem responsável'} · {a.prazo?(v?'venceu ':'até ')+dt(a.prazo):'sem prazo'}</div>
               <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
-                {e.id==='afazer'&&mini('Iniciar','#3B82F6',()=>onIniciar(a))}
-                {(e.id==='afazer'||e.id==='andamento')&&mini('Concluir','#22C55E',()=>onConcluir(a))}
-                {e.id==='eficacia'&&<>{mini('Efetiva','#22C55E',()=>onVerificar(a,'efetiva'))}{mini('Parcial','#F59E0B',()=>onVerificar(a,'parcial'))}{mini('Não resolveu','#EF4444',()=>onVerificar(a,'inefetiva'))}</>}
+                {e.id==='afazer'&&onIniciar&&mini('Iniciar','#3B82F6',()=>onIniciar(a))}
+                {(e.id==='afazer'||e.id==='andamento')&&onConcluir&&mini('Concluir','#22C55E',()=>onConcluir(a))}
+                {e.id==='eficacia'&&!podeVerificar&&<span style={{fontSize:10,color:C.purple,fontWeight:700}}>Aguarda a verificação do NSP</span>}
+                {e.id==='eficacia'&&podeVerificar&&<>{mini('Efetiva','#22C55E',()=>onVerificar(a,'efetiva'))}{mini('Parcial','#F59E0B',()=>onVerificar(a,'parcial'))}{mini('Não resolveu','#EF4444',()=>onVerificar(a,'inefetiva'))}</>}
                 {e.id==='eficaz'&&<span style={{fontSize:10,color:C.green,fontWeight:700}}>{a.efetividade_verificada==='parcial'?'Parcialmente efetiva':'Efetiva'}{a.efetividade_em?' · '+dt(a.efetividade_em):''}</span>}
               </div>
             </div>);})}
@@ -2363,7 +2584,7 @@ function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userS
   const [aba,setAba]=useState('panorama');
   const tb=(id,l)=><button onClick={()=>setAba(id)} style={{flex:1,padding:'9px 6px',borderRadius:8,border:'none',background:aba===id?C.teal:'transparent',color:aba===id?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>;
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Indicadores' subtitle='Taxas por setor, dados mensais DSM e checklist ANVISA'/>
+    <BackHeader title='Indicadores' subtitle='Panorama por período, lançamentos mensais e metas'/>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
       {tb('panorama','Panorama')}{tb('setor','Por Setor')}{tb('dsm','DSM C.1-C.15')}{tb('anvisa','Checklist ANVISA')}
     </div>
@@ -3157,7 +3378,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         </button>
       </div>
     </div>}
-    <BackHeader title='Notificacoes' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Notificações e análises' subtitle={filtered.length+' resultado(s) de '+notifications.length+' total'} right={<button onClick={load} style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaTarget(null)} onSaved={()=>{setRcaTarget(null);load();}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setNotiVisaTarget(null);load();}}/>}
@@ -3311,13 +3532,13 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
 const SUB_OUTROS={id:'outros',label:'Outros treinamentos institucionais',icon:String.fromCodePoint(127891),color:'#64748B'};
 
 const SUBNUCLEOS_HNSA=[
-  {id:'comunicacao',label:'Comunicacao Efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
-  {id:'medicamentos',label:'Seguranca na Administracao de Medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
-  {id:'identificacao',label:'Identificacao Correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
-  {id:'queda',label:'Queda',icon:String.fromCodePoint(129405),color:'#F59E0B'},
-  {id:'lpp',label:'LPP - Lesao por Pressao',icon:String.fromCodePoint(129657),color:'#EF4444'},
-  {id:'cirurgia',label:'Cirurgia Segura',icon:String.fromCodePoint(9986),color:'#10B981'},
-  {id:'ccih',label:'Higiene das Mãos / SCIH',icon:String.fromCodePoint(129440),color:'#06B6D4'},
+  {id:'comunicacao',label:'Comunicação efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
+  {id:'medicamentos',label:'Segurança na administração de medicamentos',icon:String.fromCodePoint(128138),color:'#8B5CF6'},
+  {id:'identificacao',label:'Identificação correta',icon:String.fromCodePoint(128100),color:'#00C9B8'},
+  {id:'queda',label:'Prevenção de quedas',icon:String.fromCodePoint(129405),color:'#F59E0B'},
+  {id:'lpp',label:'Lesão por pressão (LPP)',icon:String.fromCodePoint(129657),color:'#EF4444'},
+  {id:'cirurgia',label:'Cirurgia segura',icon:String.fromCodePoint(9986),color:'#10B981'},
+  {id:'ccih',label:'Higiene das mãos / SCIH',icon:String.fromCodePoint(129440),color:'#06B6D4'},
 ];
 
 // Usada exclusivamente pela aba Treinamentos (subnucleos + Outros)
@@ -3428,7 +3649,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    <BackHeader title='Treinamentos e Reunioes' subtitle={filteredPeriodo.length+' registro(s) — '+periodoRange.label} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Treinamentos e reuniões' subtitle={filteredPeriodo.length+' registro(s) — '+periodoRange.label} right={<button onClick={load} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'16px'}}>
       {/* Filtro de periodo */}
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:10}}>
@@ -4027,7 +4248,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {/* Modal de edicao */}
-    <BackHeader title='Relatorio DSM / ANVISA' subtitle='Circular 18/2024 - Indicadores NSP'/>
+    <BackHeader title={ehMarinha(h)?'Relatório DSM e ANVISA':'Relatório e avaliação ANVISA'} subtitle={ehMarinha(h)?'Relatório semestral (Circular 24/2023), Excel e avaliação ANVISA':'Relatório semestral e avaliação nacional da ANVISA'}/>
 
     {/* Semestre e um controle global: vale para DSM e ANVISA, e regenera ao trocar */}
     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
@@ -4143,12 +4364,12 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
     {tab==='dsm'&&dados&&<div>
       <div style={{display:'flex',gap:8,marginBottom:8}}>
-        <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
+        <button onClick={imprimir} style={{flex:1,background:C.card,border:'1px solid '+C.teal,borderRadius:10,padding:'11px',color:C.teal,fontWeight:800,fontSize:13,cursor:'pointer'}}>Imprimir / PDF</button>
         <button onClick={gerar} disabled={loading} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontWeight:700,fontSize:12,cursor:loading?'default':'pointer'}}>{loading?'Atualizando...':'Atualizar dados'}</button>
       </div>
-      <button onClick={gerarExcelDSM} disabled={gerandoXlsDSM} style={{width:'100%',background:gerandoXlsDSM?C.border:C.green,border:'none',borderRadius:10,padding:'12px',color:gerandoXlsDSM?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoXlsDSM?'default':'pointer',marginBottom:14}}>{gerandoXlsDSM?'Gerando...':String.fromCodePoint(128202)+' Excel DSM Oficial (Circ 24/2023)'}</button>
-      <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{width:'100%',background:loadingIA?C.border:C.purple,border:'none',borderRadius:10,padding:'11px',color:loadingIA?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:loadingIA?'default':'pointer',marginBottom:14}}>
-        {loadingIA?String.fromCodePoint(8987)+' Gerando narrativa...':String.fromCodePoint(129504)+' Gerar narrativa com IA'}
+      {ehMarinha(h)&&<button onClick={gerarExcelDSM} disabled={gerandoXlsDSM} style={{width:'100%',background:gerandoXlsDSM?C.border:C.teal,border:'none',borderRadius:10,padding:'12px',color:gerandoXlsDSM?C.muted:'#FFFFFF',fontWeight:800,fontSize:13,cursor:gerandoXlsDSM?'default':'pointer',marginBottom:14}}>{gerandoXlsDSM?'Gerando...':'Excel oficial da DSM (Circular 24/2023)'}</button>}
+      <button onClick={gerarNarrativaIA} disabled={loadingIA} style={{width:'100%',background:loadingIA?C.border:C.card,border:'1px solid '+C.teal,borderRadius:10,padding:'11px',color:loadingIA?C.muted:C.teal,fontWeight:800,fontSize:13,cursor:loadingIA?'default':'pointer',marginBottom:14}}>
+        {loadingIA?'Gerando narrativa...':'Gerar narrativa com IA'}
       </button>
       {narrativaIA&&<div style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:12,padding:16,marginBottom:14}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -4371,7 +4592,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         </div>
         <div style={{display:'flex',gap:8,marginBottom:4}}>
           <button onClick={imprimir} style={{flex:1,background:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontWeight:800,fontSize:12,cursor:'pointer'}}>Imprimir</button>
-          <button onClick={gerarPacoteANVISA} disabled={gerandoZipANVISA} style={{flex:1,background:gerandoZipANVISA?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'11px',color:gerandoZipANVISA?C.muted:'#fff',fontWeight:800,fontSize:12,cursor:gerandoZipANVISA?'default':'pointer'}}>{gerandoZipANVISA?'Gerando...':String.fromCodePoint(128230)+' Pacote ANVISA (ZIP)'}</button>
+          <button onClick={gerarPacoteANVISA} disabled={gerandoZipANVISA} style={{flex:1,background:gerandoZipANVISA?C.border:C.card,border:'1px solid '+C.teal,borderRadius:10,padding:'11px',color:gerandoZipANVISA?C.muted:C.teal,fontWeight:800,fontSize:12,cursor:gerandoZipANVISA?'default':'pointer'}}>{gerandoZipANVISA?'Gerando...':'Pacote ANVISA (ZIP)'}</button>
         </div>
 
         {/* Score geral — usa a mesma funcao compartilhada com Indicadores > Checklist ANVISA, para nunca desalinhar */}
@@ -4470,7 +4691,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
   };
   useEffect(()=>{carregar();},[sbUrl,sbKey,periodo,customDe,customAte]);
 
-  if(loading||!dados) return(<div style={{padding:'0 0 80px'}}><BackHeader title='Auditar' subtitle='Evidencias consolidadas para auditoria e acreditacao'/><div style={{display:'flex',justifyContent:'center',padding:60}}><Dots/></div></div>);
+  if(loading||!dados) return(<div style={{padding:'0 0 80px'}}><BackHeader title='Dossiê de evidências' subtitle='Evidências consolidadas para auditoria e acreditação'/><div style={{display:'flex',justifyContent:'center',padding:60}}><Dots/></div></div>);
 
   const hojeStr=new Date().toISOString().slice(0,10);
   const {nots,protocolos,treins,planos,saq,auditLog,cfg}=dados;
@@ -4679,7 +4900,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   return(<div style={{padding:'0 0 80px'}}>
-    <BackHeader title='Auditar' subtitle='Evidencias consolidadas para auditoria e acreditacao (ONA e correlatos)' right={<button onClick={carregar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
+    <BackHeader title='Dossiê de evidências' subtitle='Evidências consolidadas para auditoria e acreditação (ONA e correlatas)' right={<button onClick={carregar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 12px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>}/>
     <div style={{padding:'0 16px'}}>
       <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14}}>
         {[['tudo','Todo o historico'],['ano','Ano atual'],['12m','Ultimos 12 meses'],['custom','Personalizado']].map(([id,lb])=>(
@@ -4712,9 +4933,9 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
       </div>
 
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
-        <button onClick={gerarPPTAuditoria} disabled={gerandoPPT} style={{background:gerandoPPT?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:gerandoPPT?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:gerandoPPT?'default':'pointer'}}>{gerandoPPT?'Gerando...':'PPT - Dossie Executivo (apresentacao)'}</button>
-        <button onClick={gerarPDFConsolidado} disabled={gerandoPDF} style={{background:gerandoPDF?C.border:C.blue,border:'none',borderRadius:10,padding:'13px',color:gerandoPDF?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoPDF?'default':'pointer'}}>{gerandoPDF?'Gerando...':'PDF - Dossie Consolidado (imprimir/salvar)'}</button>
-        <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:'#7C3AED',border:'none',borderRadius:10,padding:'13px',color:gerandoZip?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'Excel - Pacote de Evidencias (varias abas)'}</button>
+        <button onClick={gerarPPTAuditoria} disabled={gerandoPPT} style={{background:gerandoPPT?C.border:C.teal,border:'none',borderRadius:10,padding:'13px',color:gerandoPPT?C.muted:'#FFFFFF',fontWeight:800,fontSize:13,cursor:gerandoPPT?'default':'pointer'}}>{gerandoPPT?'Gerando...':'PPT - Dossie Executivo (apresentacao)'}</button>
+        <button onClick={gerarPDFConsolidado} disabled={gerandoPDF} style={{background:gerandoPDF?C.border:C.card,border:'1px solid '+C.teal,borderRadius:10,padding:'13px',color:gerandoPDF?C.muted:C.teal,fontWeight:800,fontSize:13,cursor:gerandoPDF?'default':'pointer'}}>{gerandoPDF?'Gerando...':'PDF - Dossie Consolidado (imprimir/salvar)'}</button>
+        <button onClick={gerarZipEvidencias} disabled={gerandoZip} style={{background:gerandoZip?C.border:C.card,border:'1px solid '+C.teal,borderRadius:10,padding:'13px',color:gerandoZip?C.muted:C.teal,fontWeight:800,fontSize:13,cursor:gerandoZip?'default':'pointer'}}>{gerandoZip?'Gerando...':'Excel - Pacote de Evidencias (varias abas)'}</button>
       </div>
       <div style={{fontSize:10,color:C.muted,marginTop:10,lineHeight:1.5}}>Para a resposta oficial ao órgão regulador (no HNSA, Circular 24/2023 DSM/Marinha), use o Excel especifico na aba DSM/ANVISA — este dossie cobre auditorias e acreditacoes em geral (ONA e correlatos), com evidencias de todos os subnucleos.</div>
     </div>
@@ -4774,6 +4995,8 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [rcaMembro,setRcaMembro]=useState(null);
   const [notiVisaMembro,setNotiVisaMembro]=useState(null);
   const [aba,setAba]=useState('resumo');
+  const [acoesAll,setAcoesAll]=useState([]);
+  const [busyAcao,setBusyAcao]=useState(null);
   const [pendIndItens,setPendIndItens]=useState({itens:[],mes:''});
   const [pendProtItens,setPendProtItens]=useState([]);
   const [verTodasNotif,setVerTodasNotif]=useState(false);
@@ -4788,8 +5011,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     Promise.all([
       sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
-    ]).then(([nots,treins])=>{
-      setNotifications(nots||[]);
+      sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*&order=prazo.asc`).catch(()=>[]),
+    ]).then(([nots,treins,acs])=>{
+      setNotifications(nots||[]);setAcoesAll(acs||[]);
       setStats({...computeStats(nots||[]),treins:treins||[]});
     }).catch(()=>showToast('Erro ao carregar','error')).finally(()=>setLoading(false));
   };
@@ -4867,13 +5091,32 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const hojeD=new Date();const iniSem=new Date(hojeD.getFullYear(),hojeD.getMonth()<6?0:6,1).toISOString().slice(0,10);
   const treinSemestre=regsSub.filter(t=>t.tipo==='treinamento'&&(t.data||'')>=iniSem).length;
   const pendTrein=treinSemestre===0?1:0;
-  const totalPend=pendInd+pendProt+pendNotif+pendTrein;
+  // treinamento sem lista de presenca nao comprova nada numa inspecao
+  const treinSemLista=regsSub.filter(t=>t.tipo==='treinamento'&&(t.data||'')>=iniSem&&!t.link_gdrive).length;
+  const pendEvid=treinSemLista>0?1:0;
+  // acoes do plano ligadas as notificacoes do tema do subnucleo
+  const notsMap={};notifications.forEach(n=>{notsMap[n.id]=n;});
+  const hojeS=new Date().toISOString().slice(0,10);
+  const acoesSub=acoesAll.filter(x=>{const n=notsMap[x.notification_id];return n&&notifDoSub(n,subAtivo)&&!['cancelado'].includes(x.status);});
+  const acoesAbertas=acoesSub.filter(x=>!['concluido','concluida'].includes(x.status));
+  const pendAcoes=acoesAbertas.filter(x=>x.prazo&&x.prazo<hojeS).length;
+  const totalPend=pendInd+pendProt+pendNotif+pendTrein+pendEvid+(pendAcoes?1:0);
+  const mudarAcao=async(x,status)=>{
+    setBusyAcao(x.id);
+    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${x.id}`,status==='concluido'?{status,concluido_em:new Date().toISOString()}:{status});
+      sbAuditLog(sbUrl,sbKey,h.id,x.notification_id,status==='concluido'?'ACAO_CONCLUIDA':'ACAO_INICIADA','status',x.status||'pendente',status,sub?sub.label:'subnucleo','membro_nsp').catch(()=>{});
+      setAcoesAll(as=>as.map(y=>y.id===x.id?{...y,status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})}:y));
+      showToast(status==='concluido'?'Ação concluída. O NSP vai verificar a eficácia.':'Ação em andamento','success');}
+    catch(e){showToast('Erro: '+e.message,'error');}
+    setBusyAcao(null);
+  };
   const NOMES_MES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   const mesInd=pendIndItens.mes?NOMES_MES[Number(pendIndItens.mes.split('-')[1])-1]:'';
   const ABAS=[
     {id:'resumo',label:'O que falta',badge:totalPend},
     {id:'notificacoes',label:'Notificações',badge:pendNotif},
-    {id:'treinamentos',label:'Treinamentos',badge:pendTrein,info:regsSub.length||null},
+    {id:'acoes',label:'Plano de ação',badge:pendAcoes,info:acoesAbertas.length||null},
+    {id:'treinamentos',label:'Treinamentos',badge:pendTrein+pendEvid,info:regsSub.length||null},
     {id:'protocolos',label:'Protocolos',badge:pendProt},
     {id:'indicadores',label:'Indicadores',badge:pendInd},
     {id:'panorama',label:'Panorama',badge:0},
@@ -4901,7 +5144,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
     <div style={mostra('resumo')}>
       <div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderLeft:'3px solid '+(sub?.color||C.teal),borderRadius:14,padding:16}}>
-        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>{profileMode==='gestor'?'Preenchendo como gestor: '+(sub?sub.label:''):'Olá'+(sub?', '+sub.label:'')+'!'}</div>
+        <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>{profileMode==='gestor'?'Preenchendo como gestor: '+(sub?sub.label:''):(sub?'Subnúcleo de '+sub.label:'Seu subnúcleo')}</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
         {[
           {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
@@ -4912,9 +5155,15 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
             det:pendProtItens.join(' · ')},
           {ok:pendNotif===0,aba:'notificacoes',acao:'Analisar',
             titulo:pendNotif>0?(pendNotif+' notificaç'+(pendNotif>1?'ões':'ão')+' do seu tema sem RCA'):'Nenhuma notificação aguardando RCA',det:''},
+          {ok:pendAcoes===0,aba:'acoes',acao:'Ver ações',
+            titulo:pendAcoes>0?(pendAcoes+' ação(ões) do plano com prazo vencido'):acoesAbertas.length?'Ações do plano em dia ('+acoesAbertas.length+' em aberto)':'Nenhuma ação de plano em aberto no seu tema',
+            det:pendAcoes>0?'Conclua as ações (com evidência) ou combine novo prazo com o NSP':''},
+          treinSemestre>0&&{ok:pendEvid===0,aba:'treinamentos',acao:'Anexar',
+            titulo:pendEvid?treinSemLista+' treinamento(s) do semestre sem lista de presença':'Treinamentos do semestre com lista de presença',
+            det:pendEvid?'Sem a lista anexada o treinamento não comprova na inspeção':''},
           {ok:pendTrein===0,aba:'treinamentos',acao:'Registrar',
             titulo:pendTrein>0?'Nenhum treinamento registrado neste semestre':treinSemestre+' treinamento'+(treinSemestre>1?'s':'')+' registrado'+(treinSemestre>1?'s':'')+' neste semestre',det:''},
-        ].sort((a,b)=>(a.ok?1:0)-(b.ok?1:0)).map((it,i)=>(
+        ].filter(Boolean).sort((a,b)=>(a.ok?1:0)-(b.ok?1:0)).map((it,i)=>(
           <div key={i} onClick={()=>!it.ok&&setAba(it.aba)} style={{display:'flex',alignItems:'center',gap:12,padding:'12px',borderRadius:10,marginBottom:8,background:it.ok?C.surface:C.yellow+'12',border:'1px solid '+(it.ok?C.border:C.yellow+'55'),cursor:it.ok?'default':'pointer'}}>
             <div style={{width:26,height:26,borderRadius:13,flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:900,background:it.ok?C.green+'22':C.yellow+'33',color:it.ok?C.green:C.yellow}}>{it.ok?String.fromCodePoint(10003):'!'}</div>
             <div style={{flex:1,minWidth:0}}>
@@ -4925,6 +5174,25 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           </div>
         ))}
       </div>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:12}}>
+        <div style={{fontSize:14,fontWeight:900,color:C.text}}>Sua rotina no subnúcleo</div>
+        <div style={{fontSize:11.5,color:C.muted,margin:'2px 0 10px'}}>O que alimentar e com que frequência. Toque para ir até a tarefa.</div>
+        {[
+          ['Toda semana','Analisar as notificações do seu tema (eventos graves: análise de causa em até 72 horas).','notificacoes',pendNotif===0],
+          ['Toda semana','Atualizar as ações do plano: iniciar, concluir e anexar a evidência do que foi feito.','acoes',pendAcoes===0],
+          ['Todo mês, até o dia 5','Lançar os indicadores do mês anterior'+(mesInd?' ('+mesInd+')':'')+'.','indicadores',pendInd===0],
+          ['Todo semestre','Registrar ao menos um treinamento, com a lista de presença anexada.','treinamentos',pendTrein===0&&pendEvid===0],
+          ['A cada 2 anos (ou quando a prática mudar)','Revisar o protocolo do subnúcleo e anexar a versão aprovada.','protocolos',pendProt===0],
+        ].map(([f,t,ab,ok],i)=><button key={i} onClick={()=>setAba(ab)} style={{all:'unset',boxSizing:'border-box',cursor:'pointer',display:'flex',gap:12,alignItems:'flex-start',width:'100%',padding:'9px 2px',borderTop:i?'1px solid '+C.border:'none'}}>
+          <span style={{width:9,height:9,borderRadius:5,background:ok?C.green:C.yellow,marginTop:5,flexShrink:0}}/>
+          <span style={{flex:1}}><span style={{display:'block',fontSize:10.5,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{f}</span><span style={{display:'block',fontSize:12.5,color:C.text,marginTop:2,lineHeight:1.45}}>{t}</span></span>
+          <IconChev size={14} color={C.muted}/>
+        </button>)}
+      </div>
+    </div>
+    <div style={mostra('acoes')}>
+      <PanoramaPlanoAcao acoes={acoesAll} nots={notsMap} treins={s.treins||[]} busy={busyAcao} subFixo={subAtivo}
+        onIniciar={x=>mudarAcao(x,'em_andamento')} onConcluir={x=>mudarAcao(x,'concluido')} podeVerificar={false} irParaLista={()=>{}}/>
     </div>
     <div style={mostra('notificacoes')}>
     {/* Notificacoes para analise */}
@@ -5335,6 +5603,9 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   const [riscoTarget,setRiscoTarget]=useState(null);
   const [planoTarget,setPlanoTarget]=useState(null);
   const [resumoPlano,setResumoPlano]=useState(null);
+  const [indAno,setIndAno]=useState(null);
+  const [prontidao,setProntidao]=useState(null);
+  const [verTodas,setVerTodas]=useState(false);
   const [alertas,setAlertas]=useState({protsVencidos:[],planosAtrasados:[],rcaPendentes:[],efetPendentes:[],triagemPendentes:[],docsInst:[],notsById:{}});
   const [homeTick,setHomeTick]=useState(0);
   const [painelSub,setPainelSub]=useState(null); // gestor preenchendo pelo subnucleo
@@ -5367,6 +5638,18 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       if(!cfg.link_portaria_nsp&&!cfg.numero_portaria_nsp) docsInst.push('Portaria do NSP não cadastrada');
       setAlertas({protsVencidos,planosAtrasados,rcaPendentes,efetPendentes,triagemPendentes,docsInst,notsById,semComunicacao});
       const validas=(planos||[]).filter(p=>p.status!=='cancelado');
+      if(gestorMode){
+        const ano=new Date().getFullYear(),ini=ano+'-01-01';
+        Promise.all([
+          sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${hid}&mes_ref=gte.${ano}-01&select=mes_ref,pd_setores,pd_lpp_setores,pd_avp_setores,casos_manuais,pd_geral`).catch(()=>[]),
+          sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${hid}&mes=gte.${ini}&select=*`).catch(()=>[]),
+        ]).then(([im,dsm])=>{
+          const r=calcIndicadoresPeriodo((data||[]).filter(n=>{const d=n.event_date||(n.created_at||'').slice(0,10);return d>=ini;}),im,dsm);
+          const its=r.grupos.flatMap(g=>g.itens).filter(it=>it.ok!==null&&it.v!==null);
+          setIndAno({na:its.filter(it=>it.ok).length,total:its.length});
+        }).catch(()=>setIndAno(null));
+        carregarProntidao(sbUrl,sbKey,hospital||DEFAULT_HOSPITAL).then(setProntidao).catch(()=>{});
+      }
       setResumoPlano({total:validas.length,feitas:validas.filter(p=>p.status==='concluido'||p.status==='concluida').length,vencidas:planosAtrasados.length});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
@@ -5382,14 +5665,20 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
   if(painelSub) return(<MembroNSPPainel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}
     profileMode='gestor' userSubnucleo={painelSub} travado onBack={()=>{setPainelSub(null);setHomeTick(t=>t+1);}}/>);
 
-  return(<div style={{padding:'24px 16px 16px',display:'flex',flexDirection:'column',gap:16}}>
+  return(<div style={{padding:'24px 16px 16px',display:'flex',flexDirection:'column',gap:16,maxWidth:1180,margin:'0 auto',width:'100%'}}>
     {rcaTarget&&<RCAPanel notification={rcaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setRcaTarget(null);setHomeTick(t=>t+1);}}/>}
     {notiVisaTarget&&<NotiVisaPanel notification={notiVisaTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setNotiVisaTarget(null)}/>}
     {riscoTarget&&<MatrizRisco notification={riscoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRiscoTarget(null)} onSaved={()=>{}}/>}
     {planoTarget&&<PlanoAcaoPanel notification={planoTarget} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoTarget(null);setHomeTick(t=>t+1);}}/>}
 
+    {gestorMode&&<div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><div>
+      <div style={{fontSize:21,fontWeight:900,color:C.text,letterSpacing:'-0.01em'}}>Visão geral</div>
+      <div style={{fontSize:12.5,color:C.muted,marginTop:2}}>{(hospital||DEFAULT_HOSPITAL).name||(hospital||DEFAULT_HOSPITAL).short_name} · Núcleo de Segurança do Paciente · {new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}</div>
+    </div>
+      <button onClick={()=>setView('analytics')} title="Gerar a apresentação (PPT) da análise mensal com os indicadores" style={{background:C.card,border:'1px solid '+C.teal,color:C.teal,borderRadius:10,padding:'9px 14px',fontSize:12.5,fontWeight:800,cursor:'pointer'}}>Apresentação da análise mensal</button>
+    </div>}
     {/* Header */}
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+    {!gestorMode&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
         <img src={window.BRAND_LOGO} alt="NotificaAI" style={{width:44,height:44,flexShrink:0}}/>
         <div>
@@ -5400,7 +5689,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       {!configured&&<button onClick={onConfig} style={{background:C.card,border:'1px solid '+(configured?C.teal+'66':C.border),borderRadius:10,padding:8,cursor:'pointer',display:'flex'}}>
         <IconGear size={18} color={configured?C.teal:C.muted}/>
       </button>}
-    </div>
+    </div>}
 
     {/* Alertas de status */}
     {!configured&&<div onClick={onConfig} style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'13px 16px',cursor:'pointer'}}>
@@ -5414,30 +5703,68 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       <span></span><div style={{fontSize:12,color:C.yellow,fontWeight:600}}>Modo TESTE ativo - notificações marcadas como teste</div>
     </div>}
 
-    {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:8}}>
-      {[
-        [String.fromCodePoint(128221),'Treinamento ou reunião','Registrar e anexar a lista','treinamentos'],
-        [String.fromCodePoint(128220),'Protocolos e portarias','Atualizar documento e validade','protocolos'],
-        [String.fromCodePoint(128202),'Indicadores do mês','Lançar e conferir','indicadores'],
-        [String.fromCodePoint(128203),'Relatório DSM / ANVISA','Gerar o relatório','relatorio_dsm'],
-        [String.fromCodePoint(128193),'Biblioteca de documentos','Todos os anexos','documentos_nsp'],
-        [String.fromCodePoint(128190),'Usuários e backup','PINs dos subnúcleos e backup','admin'],
-      ].map(([ic,t,sub,v])=>(<button key={v} onClick={()=>setView(v)} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 12px',textAlign:'left',cursor:'pointer',display:'flex',gap:10,alignItems:'center'}}>
-        <span style={{fontSize:20}}>{ic}</span>
-        <span><span style={{display:'block',fontSize:12,fontWeight:800,color:C.text}}>{t}</span><span style={{display:'block',fontSize:10,color:C.muted,marginTop:1}}>{sub}</span></span>
-      </button>))}
-    </div>}
 
-    {gestorMode&&<AvisoInstalarComputador/>}
-    {gestorMode&&!loading&&resumoPlano&&resumoPlano.total>0&&(()=>{const pct=Math.round(resumoPlano.feitas/resumoPlano.total*100);return(
-      <button onClick={()=>setView('acoes')} style={{display:'flex',alignItems:'center',gap:12,width:'100%',textAlign:'left',background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:'12px 14px',marginBottom:12,cursor:'pointer'}}>
-        <div style={{width:46,height:46,borderRadius:23,flexShrink:0,background:'conic-gradient('+C.green+' '+pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:36,height:36,borderRadius:18,background:C.card,display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:900,color:C.text}}>{pct}%</div></div>
-        <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:800,color:C.text}}>Plano de ação: {pct}% executado</div>
-          <div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{resumoPlano.feitas} de {resumoPlano.total} ações concluídas{resumoPlano.vencidas?' · '+resumoPlano.vencidas+' vencida(s)':''} · ver o panorama, os treinamentos e as reuniões</div></div>
-        <IconChev size={16} color={C.teal}/>
-      </button>);})()}
+    {gestorMode&&!loading&&(()=>{
+      const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
+      const backupAtrasado=!ultBackup||(Date.now()-new Date(ultBackup).getTime())>30*86400000;
+      const pctPlano=resumoPlano&&resumoPlano.total?Math.round(resumoPlano.feitas/resumoPlano.total*100):null;
+      const nDocs=(alertas.docsInst||[]).length+(alertas.protsVencidos.length?1:0);
+      const etapas=[
+        {t:'Notificações',v:String(s.total),sub:'no mês · '+(diff>0?'+'+diff:diff)+' vs mês anterior'+(s.sentinelaMes?' · '+s.sentinelaMes+' sentinela(s)':''),st:s.sentinelaMes>0?'atencao':'ok',ir:()=>setView('notificacoes')},
+        {t:'Análise de causa',v:String(alertas.rcaPendentes.length),sub:alertas.rcaPendentes.length?'evento(s) grave(s) sem RCA'+(s.semRCA?' · '+s.semRCA+' notificação(ões) aguardando análise':''):s.semRCA?s.semRCA+' notificação(ões) aguardando análise':'eventos graves analisados',st:alertas.rcaPendentes.length?'pendente':s.semRCA?'atencao':'ok',ir:()=>{setFiltroNotif('semRCA');setView('notificacoes');}},
+        {t:'Planos de ação',v:pctPlano===null?'—':pctPlano+'%',sub:pctPlano===null?'nenhuma ação cadastrada':'executado'+(resumoPlano.vencidas?' · '+resumoPlano.vencidas+' vencida(s)':''),st:!resumoPlano||!resumoPlano.total?'ok':resumoPlano.vencidas>10?'pendente':resumoPlano.vencidas?'atencao':'ok',ir:()=>setView('acoes')},
+        {t:'Eficácia',v:String(alertas.efetPendentes.length),sub:alertas.efetPendentes.length?'ação(ões) aguardando verificação':'verificações em dia',st:alertas.efetPendentes.length?'atencao':'ok',ir:()=>setView('acoes')},
+        {t:'Indicadores',v:indAno&&indAno.total?indAno.na+'/'+indAno.total:'—',sub:indAno&&indAno.total?'na meta no acumulado do ano':'aguardando lançamentos',st:!indAno||!indAno.total?'atencao':indAno.na/indAno.total>=0.8?'ok':indAno.na/indAno.total>=0.5?'atencao':'pendente',ir:()=>setView('indicadores')},
+        {t:'Documentos',v:nDocs?String(nDocs):'Em dia',sub:nDocs?'pendência(s) em portarias, PSP ou protocolos':'portarias, PSP e protocolos',st:nDocs?((alertas.docsInst||[]).length?'pendente':'atencao'):'ok',ir:()=>setView('protocolos')},
+      ];
+      // prioridades: no maximo 5, da mais grave para a menos grave
+      const prio=[];
+      alertas.rcaPendentes.slice(0,2).forEach(n=>prio.push({cor:C.red,t:(n.gravidade||'Evento grave')+' sem análise de causa',d:(n.event_subtype||'-')+' · '+(n.sector||'-'),b:'Analisar',f:()=>setRcaTarget(n)}));
+      if(alertas.rcaPendentes.length>2) prio.push({cor:C.red,t:'Mais '+(alertas.rcaPendentes.length-2)+' evento(s) grave(s) sem análise',d:'Lista filtrada em Notificações',b:'Ver',f:()=>{setFiltroNotif('semRCA');setView('notificacoes');}});
+      (alertas.docsInst||[]).forEach(d=>prio.push({cor:C.red,t:d,d:'Documento institucional',b:'Atualizar',f:()=>setView('protocolos')}));
+      if(alertas.planosAtrasados.length) prio.push({cor:C.yellow,t:alertas.planosAtrasados.length+' ação(ões) de plano com prazo vencido',d:'Replaneje o prazo ou conclua, com evidência',b:'Ver planos',f:()=>setView('acoes')});
+      if(alertas.protsVencidos.length) prio.push({cor:C.yellow,t:alertas.protsVencidos.length+' protocolo(s) com revisão vencida',d:alertas.protsVencidos.slice(0,2).map(p=>p.nome).join(', '),b:'Revisar',f:()=>setView('protocolos')});
+      if(alertas.efetPendentes.length) prio.push({cor:C.blue,t:alertas.efetPendentes.length+' ação(ões) concluída(s) aguardando verificação de eficácia',d:'Etapa Checar do PDCA',b:'Verificar',f:()=>setView('acoes')});
+      if((alertas.semComunicacao||[]).length) prio.push({cor:C.blue,t:alertas.semComunicacao.length+' evento(s) com dano sem comunicação ao paciente registrada',d:'PNQSP 2026 · últimos 90 dias',b:'Registrar',f:()=>{setFiltroNotif('semComunicacao');setView('notificacoes');}});
+      if((alertas.triagemPendentes||[]).length) prio.push({cor:C.blue,t:alertas.triagemPendentes.length+' notificação(ões) aguardando triagem',d:'Sem subtipo definido, não entram nos indicadores',b:'Triar',f:()=>{setFiltroNotif('triagem');setView('notificacoes');}});
+      if(backupAtrasado) prio.push({cor:C.muted,t:ultBackup?'Último backup há mais de 30 dias':'Nenhum backup feito neste aparelho',d:'Cópia de segurança dos dados e anexos',b:'Fazer backup',f:()=>setView('admin')});
+      const card={background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16};
+      const marinha=ehMarinha(hospital||DEFAULT_HOSPITAL);
+      return(<>
+        <div style={card}>
+          <div style={{fontSize:13.5,fontWeight:900,color:C.text}}>Ciclo da qualidade</div>
+          <div style={{fontSize:11.5,color:C.muted,margin:'2px 0 12px'}}>Do evento notificado ao resultado. Toque em uma etapa para ver o detalhe.</div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10}}>
+            {etapas.map((x,i)=><button key={x.t} onClick={x.ir} style={{textAlign:'left',background:C.surface,border:'1px solid '+C.border,borderTop:'3px solid '+COR_ST(x.st),borderRadius:12,padding:'11px 12px',cursor:'pointer'}}>
+              <div style={{fontSize:10.5,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em'}}>{i+1}. {x.t}</div>
+              <div style={{fontSize:22,fontWeight:900,color:x.st==='ok'?C.text:COR_ST(x.st),margin:'4px 0 2px'}}>{x.v}</div>
+              <div style={{fontSize:10.5,color:C.muted,lineHeight:1.35}}>{x.sub}</div>
+            </button>)}
+          </div>
+        </div>
+        {prontidao&&<button onClick={()=>setView('inspecao')} style={{...card,display:'flex',alignItems:'center',gap:14,cursor:'pointer',textAlign:'left',width:'100%'}}>
+          <div style={{width:52,height:52,borderRadius:26,flexShrink:0,background:'conic-gradient('+(prontidao.pct>=90?C.green:prontidao.pct>=70?C.yellow:C.red)+' '+prontidao.pct+'%, '+C.border+' 0)',display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{width:42,height:42,borderRadius:21,background:C.card,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900,color:C.text}}>{prontidao.pct}%</div></div>
+          <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:800,color:C.text}}>{marinha?'Preparação para a inspeção da DSM':'Preparação para auditoria'}</div>
+            <div style={{fontSize:11.5,color:C.muted,marginTop:2}}>{prontidao.itens.filter(x=>x.st==='pendente').length} pendente(s) e {prontidao.itens.filter(x=>x.st==='atencao').length} em atenção · veja o que falta e onde está cada evidência</div></div>
+          <IconChev size={16} color={C.teal}/>
+        </button>}
+        <div style={card}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',gap:10,marginBottom:6}}>
+            <div style={{fontSize:13.5,fontWeight:900,color:C.text}}>Prioridades de hoje</div>
+            {prio.length>0&&<span style={{fontSize:11,color:C.muted}}>{Math.min(5,prio.length)} de {prio.length}</span>}
+          </div>
+          {prio.length===0?<div style={{fontSize:12.5,color:C.green,fontWeight:700,padding:'6px 0'}}>Tudo em dia. Nenhuma pendência para hoje.</div>
+          :prio.slice(0,5).map((x,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 0',borderTop:i?'1px solid '+C.border:'none'}}>
+            <span style={{width:8,height:8,borderRadius:4,background:x.cor,flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:12.5,fontWeight:700,color:C.text}}>{x.t}</div><div style={{fontSize:11,color:C.muted,marginTop:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{x.d}</div></div>
+            <button onClick={x.f} style={{background:'transparent',border:'1px solid '+C.teal,color:C.teal,borderRadius:8,padding:'6px 12px',fontSize:11.5,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap'}}>{x.b}</button>
+          </div>)}
+          {prio.length>0&&<button onClick={()=>setVerTodas(v=>!v)} style={{marginTop:8,background:'none',border:'none',color:C.teal,fontSize:12,fontWeight:700,cursor:'pointer',padding:0}}>{verTodas?'Ocultar a lista completa':'Ver a lista completa de pendências'}</button>}
+        </div>
+      </>);
+    })()}
     {/* ── Painel Ação Necessária: fila priorizada com CTA direto ── */}
-    {gestorMode&&!loading&&(()=>{ 
+    {gestorMode&&!loading&&verTodas&&(()=>{ 
       const ultBackup=(()=>{try{return localStorage.getItem('nai_ultimo_backup_'+(hospital||DEFAULT_HOSPITAL).id);}catch{return null;}})();
       const backupAtrasado=!ultBackup||(Date.now()-new Date(ultBackup).getTime())>30*86400000;
       const totalPend=alertas.rcaPendentes.length+alertas.planosAtrasados.length+alertas.efetPendentes.length+alertas.protsVencidos.length+((alertas.triagemPendentes||[]).length>0?1:0)+(alertas.docsInst||[]).length+(backupAtrasado?1:0)+((alertas.semComunicacao||[]).length>0?1:0);
@@ -5516,42 +5843,14 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {gestorMode&&configured&&<GestorPendenciasSubnucleos sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} showToast={showToast} onAbrirSub={setPainelSub} key={'pend'+homeTick+'_'+refreshKey}/>}
 
-    {/* Cards de métricas principais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
-      <StatCard icon={String.fromCodePoint(128197)} label={mesAtual.charAt(0).toUpperCase()+mesAtual.slice(1)} value={loading?'...':s.total} sub={loading?'':diffLabel} color={diffColor}/>
-      <StatCard icon={String.fromCodePoint(127973)} label="Seg. Paciente" value={loading?'...':s.sp} sub={s.total?`${Math.round(s.sp/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.blue}/>
-      <StatCard icon={String.fromCodePoint(128203)} label="Administrativas" value={loading?'...':s.adm} sub={s.total?`${Math.round(s.adm/Math.max(s.total,1)*100)}% do mês`:'-'} color={C.purple}/>
-    </div>
-
-    {/* Indicadores NSP */}
-    {gestorMode&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-      <div onClick={()=>{setFiltroNotif('sentinela');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.sentinela>0?C.red:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.sentinela>0?C.red:C.muted}}>{s.sentinela}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sentinela</div>
-      </div>
-      <div onClick={()=>{setFiltroNotif('semRCA');setView('notificacoes');}} style={{background:C.card,border:'1px solid '+(s.semRCA>0?C.yellow:C.border),borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-        <div style={{fontSize:20,fontWeight:900,color:s.semRCA>0?C.yellow:C.muted}}>{s.semRCA}</div>
-        <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Sem Análise</div>
-      </div>
-      <div onClick={()=>setView('saq_dashboard')} style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:10,padding:'10px 8px',textAlign:'center',cursor:'pointer'}}>
-      <div style={{fontSize:13,fontWeight:900,color:C.teal}}>{String.fromCodePoint(128203)}</div>
-      <div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginTop:2}}>Cultura</div>
-      </div>
-    </div>}
-
-    {/* Dias sem sentinela */}
-    {gestorMode&&s.diasSemSentinela!==null&&<div style={{background:s.diasSemSentinela>=30?C.green+'18':C.yellow+'18',border:'1px solid '+(s.diasSemSentinela>=30?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:12}}>
-      <div style={{fontSize:32,fontWeight:900,color:s.diasSemSentinela>=30?C.green:C.yellow,lineHeight:1}}>{s.diasSemSentinela}</div>
-      <div><div style={{fontSize:13,fontWeight:700,color:s.diasSemSentinela>=30?C.green:C.yellow}}>dias sem evento sentinela</div><div style={{fontSize:11,color:C.muted}}>Meta ONA: 90 dias</div></div>
-    </div>}
-
+    {gestorMode&&<div style={{fontSize:13.5,fontWeight:900,color:C.text,marginTop:4}}>Notificações do mês</div>}
     {gestorMode&&<ListaMensal sbUrl={sbUrl} sbKey={sbKey} refreshKey={refreshKey} hospital={hospital} onSelect={()=>setView('notificacoes')}/>}
 
-    {/* Botão notificar */}
-    <button onClick={()=>setView('notificar')} style={{background:'linear-gradient(135deg,'+C.teal+'22,'+C.blue+'33)',border:'1px solid '+C.teal+'55',borderRadius:16,padding:'18px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',width:'100%'}}>
-      <div style={{textAlign:'left'}}><div style={{fontSize:16,fontWeight:800,color:C.teal}}>+ Nova Notificação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Registre um evento agora</div></div>
-      <IconMsg size={26} color={C.teal}/>
+    <button onClick={()=>setView('notificar')} style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer'}}>
+      <div style={{textAlign:'left'}}><div style={{fontSize:13.5,fontWeight:800,color:C.teal}}>+ Nova notificação</div><div style={{fontSize:11.5,color:C.muted,marginTop:2}}>Registrar um evento agora</div></div>
+      <IconMsg size={22} color={C.teal}/>
     </button>
+    {gestorMode&&<AvisoInstalarComputador/>}
 
   </div>);
 }
@@ -5801,6 +6100,7 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
   const pular=()=>{
     const pulos={
       nip:'idade',
+      nome_pac:'idade',
       idade:'sexo',
       sexo:'desfecho',
       data_admissao:'motivo_internacao',
@@ -5816,6 +6116,11 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
     };
     addMsg('user','Não informado');
     avancar({...dados},proximo,perguntas[proximo]);
+  };
+  // Quem notifica nem sempre tem os dados do paciente: pula o bloco inteiro de uma vez (o NSP completa depois)
+  const pularPaciente=()=>{
+    addMsg('user','Prefiro não informar os dados do paciente');
+    avancar({...dados},'desfecho','Qual foi o desfecho para o paciente?');
   };
 
   const gerarResumo=async(d)=>{
@@ -6156,6 +6461,9 @@ idade:'Idade do paciente',
           <div style={{padding:'4px 14px 0',display:'flex',justifyContent:'flex-end'}}>
             <button onClick={pular} style={{background:'none',border:'none',color:C.muted,fontSize:12,cursor:'pointer',textDecoration:'underline'}}>
               Pular (não informar)
+            </button>
+            <button onClick={pularPaciente} style={{background:'none',border:'none',color:C.muted,fontSize:12,cursor:'pointer',textDecoration:'underline',marginLeft:14}}>
+              Pular todos os dados do paciente
             </button>
           </div>
         )}
@@ -6644,7 +6952,7 @@ ${grupos.map(g=>`<h2>${g.t} — ${g.s}</h2><table>${g.itens.map(i=>`<tr><td>${es
   };
   const anos=[];for(let a=anoAtual;a>=anoAtual-3;a--) anos.push(String(a));
   return(<div>
-    <BackHeader title='Painel PNQSP' subtitle={'Estrutura · processo · resultado — '+PNQSP_REF}
+    <BackHeader title='Política Nacional (PNQSP)' subtitle={'Estrutura · processo · resultado — '+PNQSP_REF}
       right={d&&<button onClick={imprimir} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'6px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Imprimir</button>}/>
     <div style={{padding:16,display:'flex',flexDirection:'column',gap:14}}>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.6}}>A Política Nacional de Qualidade e Segurança do Paciente (2026) acompanha os serviços por indicadores de <b style={{color:C.text}}>estrutura, processo e resultado</b>, valoriza a <b style={{color:C.text}}>experiência do paciente</b> e a <b style={{color:C.text}}>comunicação transparente</b> dos eventos adversos. Ela não substitui a RDC 36/2013: o NSP, a notificação e o PSP continuam obrigatórios. Toque em um indicador para ir à tela correspondente.</div>
@@ -7523,7 +7831,7 @@ ESTRUTURA:
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital||DEFAULT_HOSPITAL} onClose={()=>setShowRelatorio(false)}/>}
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
       <div style={{display:'flex',alignItems:'baseline',gap:10}}>
-        <div style={{fontSize:17,fontWeight:900,color:C.text}}>Analytics</div>
+        <div style={{fontSize:17,fontWeight:900,color:C.text}}>Gráficos e análise mensal</div>
         <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'✓ Dados reais':sbUrl?'✓ Carregando...':'✓ Dados de exemplo'}</div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
@@ -9547,7 +9855,7 @@ function NotificaAI() {
   const [webhookUrl,setWebhookUrl]=useState('');
   const [showConfig,setShowConfig]=useState(false);
   const [toast,setToast]=useState(null);
-  const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('nai_theme')||'dark';}catch{return'dark';}});
+  const [theme,setTheme]=useState(()=>{try{return localStorage.getItem('nai_theme')||'light';}catch{return'light';}});
   C=THEMES[theme]||THEMES.dark;
   const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);try{localStorage.setItem('nai_theme',n);}catch{}};
 
@@ -9576,6 +9884,10 @@ function NotificaAI() {
   const [refreshKey,setRefreshKey]=useState(0);
   const triggerRefresh=()=>setRefreshKey(k=>k+1);
   const [filtroNotif,setFiltroNotif]=useState(null);
+  const [showGuia,setShowGuia]=useState(false);
+  const chaveGuia=gestorMode?'nai_guia_gestor_v1':profileMode==='membro_nsp'?'nai_guia_sub_v1':null;
+  useEffect(()=>{if(!chaveGuia)return;try{if(!localStorage.getItem(chaveGuia))setShowGuia(true);}catch{}},[chaveGuia]);
+  const fecharGuia=()=>{setShowGuia(false);try{chaveGuia&&localStorage.setItem(chaveGuia,'1');}catch{}};
 
   const HNSA={
     url:'https://lnzvkfbcpnfmfvbdafab.supabase.co',
@@ -9618,25 +9930,34 @@ function NotificaAI() {
   const showToast=(msg,type='success')=>{setToast({msg,type,id:Date.now()});setTimeout(()=>setToast(null),4500);};
 
   const pubTabs=[{id:'notificar',label:'Notificar',icon:IconMsg},{id:'acompanhar',label:'Acompanhar',icon:IconAudit},{id:'experiencia',label:'Avaliar atendimento',curto:'Avaliar',icon:IconHeart},{id:'capacitacao',label:'Capacitação online',curto:'Capacitação',icon:IconBook},{id:'saq_publico',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+  // Menu do gestor pelo ciclo da qualidade: o que aconteceu -> o que fazemos -> resultados -> prestacao de contas
+  const marinha=ehMarinha(hospital);
   const gestorTabs=[
-    {id:'home',label:'Painel',icon:IconHome,grupo:'Dia a dia'},
-    {id:'notificacoes',label:'Notificações',icon:IconMsg,grupo:'Dia a dia'},
-    {id:'acoes',label:'Plano de ação',curto:'Ações',icon:IconAudit,grupo:'Dia a dia'},
-    {id:'treinamentos',label:'Treinamentos e reuniões',curto:'Treinamentos',icon:IconBook,grupo:'Dia a dia'},
-    {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Documentos'},
-    {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Documentos'},
-    {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Indicadores e relatórios'},
-    {id:'pnqsp',label:'Painel PNQSP',icon:IconShield,grupo:'Indicadores e relatórios'},
-    {id:'relatorio_dsm',label:'Relatório DSM / ANVISA',icon:IconShield,grupo:'Indicadores e relatórios'},
-    {id:'analytics',label:'Análises e gráficos',icon:IconBar,grupo:'Indicadores e relatórios'},
-    {id:'auditar',label:'Auditoria (dossiê)',icon:IconAudit,grupo:'Indicadores e relatórios'},
-    {id:'saq_dashboard',label:'Pesquisa de cultura',icon:IconBar,grupo:'Equipe e cultura'},
-    {id:'experiencia_dash',label:'Experiência do paciente',icon:IconHeart,grupo:'Equipe e cultura'},
-    {id:'capacitacao_dash',label:'Capacitação online',icon:IconBook,grupo:'Equipe e cultura'},
-    {id:'central',label:'Central de Conhecimento',icon:IconBook,grupo:'Equipe e cultura'},
-    {id:'admin',label:'Admin · usuários e backup',icon:IconGear,grupo:'Administração'},
+    {id:'home',label:'Visão geral',curto:'Início',icon:IconHome,grupo:'Início',fixo:true,desc:'O hospital em um olhar e as prioridades de hoje'},
+    {id:'inspecao',label:marinha?'Preparação para a inspeção':'Preparação para auditoria',icon:IconShield,grupo:'Início',desc:marinha?'O que a DSM vai conferir e onde está cada evidência':'O que a auditoria confere e onde está cada evidência'},
+    {id:'notificacoes',label:'Notificações e análises',curto:'Notificações',icon:IconMsg,grupo:'Ocorrências',fixo:true,desc:'Eventos notificados, análise de causa (RCA) e NOTIVISA'},
+    {id:'acoes',label:'Planos de ação',curto:'Ações',icon:IconAudit,grupo:'Melhoria contínua',fixo:true,desc:'Execução das ações (PDCA) e verificação de eficácia'},
+    {id:'treinamentos',label:'Treinamentos e reuniões',curto:'Treinamentos',icon:IconBook,grupo:'Melhoria contínua',desc:'Registro com lista de presença e ata'},
+    {id:'capacitacao_dash',label:'Capacitação online',icon:IconBook,grupo:'Melhoria contínua',desc:'Curso dos protocolos, resultados e certificados'},
+    {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Resultados',fixo:true,desc:'Panorama por período, lançamentos mensais e metas'},
+    {id:'analytics',label:'Gráficos e análise mensal',icon:IconBar,grupo:'Resultados',desc:'Gráficos e a apresentação (PPT) da análise mensal'},
+    {id:'saq_dashboard',label:'Cultura de segurança',icon:IconBar,grupo:'Resultados',desc:'Resultado da pesquisa de cultura (HSOPSC)'},
+    {id:'experiencia_dash',label:'Experiência do paciente',icon:IconHeart,grupo:'Resultados',desc:'Avaliação dos pacientes e acompanhantes'},
+    {id:'protocolos',label:'Protocolos e portarias',icon:IconShield,grupo:'Prestação de contas',desc:'Documentos institucionais e protocolos com validade'},
+    {id:'documentos_nsp',label:'Biblioteca de documentos',icon:IconBook,grupo:'Prestação de contas',desc:'Todos os arquivos anexados em um só lugar'},
+    {id:'relatorio_dsm',label:marinha?'Relatório DSM e ANVISA':'Relatório e avaliação ANVISA',icon:IconShield,grupo:'Prestação de contas',desc:marinha?'Relatório semestral, Excel da Circular 24/2023 e avaliação ANVISA':'Relatório semestral e avaliação nacional da ANVISA'},
+    {id:'pnqsp',label:'Política Nacional (PNQSP)',icon:IconShield,grupo:'Prestação de contas',desc:'Indicadores de estrutura, processo e resultado da Portaria 11.527/2026'},
+    {id:'auditar',label:'Dossiê de evidências',icon:IconAudit,grupo:'Prestação de contas',desc:'PDF, apresentação e planilha com todas as evidências'},
+    {id:'central',label:'Central de Conhecimento',icon:IconBook,grupo:'Apoio',desc:'Materiais, vídeos e educação em saúde'},
+    {id:'admin',label:'Administração',icon:IconGear,grupo:'Apoio',desc:'Usuários, códigos de acesso dos subnúcleos e backup'},
   ];
-  const membroTabs=[{id:'membro_nsp',label:'Painel NSP',icon:IconHome},{id:'indicadores',label:'Indicadores',icon:IconBar},{id:'capacitacao_dash',label:'Capacitação',icon:IconBook},{id:'saq_dashboard',label:'Pesquisa',icon:IconBar},{id:'central',label:'Central de Conhecimento',icon:IconBook}];
+
+  const membroTabs=[
+    {id:'membro_nsp',label:'Meu subnúcleo',curto:'Subnúcleo',icon:IconHome,fixo:true,desc:'O que falta, a rotina e cada tarefa do subnúcleo'},
+    {id:'indicadores',label:'Indicadores',icon:IconBar,fixo:true,desc:'Panorama por período e lançamentos mensais'},
+    {id:'capacitacao_dash',label:'Capacitação online',curto:'Capacitação',icon:IconBook,fixo:true,desc:'Resultados do curso do seu protocolo'},
+    {id:'saq_dashboard',label:'Cultura de segurança',curto:'Cultura',icon:IconBar,fixo:true,desc:'Resultado da pesquisa de cultura'},
+    {id:'central',label:'Central de Conhecimento',icon:IconBook,desc:'Materiais e vídeos de educação em saúde'}];
   const tabs=gestorMode?gestorTabs:profileMode==='membro_nsp'?membroTabs:pubTabs;
 
   return(<>
@@ -9671,6 +9992,7 @@ function NotificaAI() {
       {showPin&&<PinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}
         onSuccess={(role,info)=>{setProfileMode(role);setUserId((info&&info.id)||null);setUserName((info&&info.label)||null);setUserSubnucleo((info&&info.subnucleo)||null);setGestorMode(role==='gestor');setShowPin(false);setView(role==='membro_nsp'?'membro_nsp':'home');}}
         onClose={()=>setShowPin(false)}/>}
+      {showGuia&&chaveGuia&&<GuiaPrimeiroAcesso passos={gestorMode?passosGuiaGestor(hospital):PASSOS_GUIA_SUBNUCLEO} onFechar={fecharGuia}/>}
       {showAlterarPin&&<AlterarPinModal sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} userId={userId} showToast={showToast} onClose={()=>setShowAlterarPin(false)}/>}
       {showConfig&&<ConfigPanel sbUrl={sbUrl} sbKey={sbKey} webhookUrl={webhookUrl} onSave={handleSaveConfig} onClose={()=>setShowConfig(false)}/>}
 
@@ -9683,36 +10005,40 @@ function NotificaAI() {
             <div style={{fontSize:9,color:C.muted}}>{hospital?.short_name||''}</div>
           </div>
         </div>
-        {tabs.map(({id,label,icon:Icon,grupo},idx)=>{
+        {(gestorMode||profileMode==='membro_nsp')&&<BuscaNavegacao tabs={tabs} onIr={setView}/>}
+        {tabs.map(({id,label,icon:Icon,grupo,desc},idx)=>{
           const active=view===id;
           const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
-          return(<React.Fragment key={id}>{cab&&<div style={{fontSize:9,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em',padding:idx===0?'0 12px 4px':'12px 12px 4px'}}>{grupo}</div>}<button onClick={()=>setView(id)} style={{width:'100%',background:active?C.teal+'15':'transparent',border:'none',borderLeft:'3px solid '+(active?C.teal:'transparent'),borderRadius:'0 8px 8px 0',padding:'10px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:2,textAlign:'left'}}>
-            <Icon size={17} sw={active?2.4:1.8} color={active?C.teal:C.muted}/>
-            <span style={{fontSize:12,fontWeight:active?700:500,color:active?C.teal:C.text}}>{label}</span>
-            {active&&<div style={{marginLeft:'auto',width:5,height:5,borderRadius:'50%',background:C.teal}}/>}
+          return(<React.Fragment key={id}>{cab&&<div style={{fontSize:9.5,fontWeight:800,color:C.muted,textTransform:'uppercase',letterSpacing:'0.08em',padding:idx===0?'2px 12px 5px':'14px 12px 5px'}}>{grupo}</div>}<button onClick={()=>setView(id)} title={desc||label} aria-current={active?'page':undefined} style={{width:'100%',background:active?C.teal:'transparent',border:'none',borderRadius:9,padding:'8px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginBottom:2,textAlign:'left'}}>
+            <Icon size={17} sw={active?2.3:1.8} color={active?'#FFFFFF':C.muted}/>
+            <span style={{fontSize:12.5,fontWeight:active?700:500,color:active?'#FFFFFF':C.text}}>{label}</span>
           </button></React.Fragment>);
         })}
-        <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:10}}>
-          <a href="/?escolher=1" style={{display:'block',fontSize:10,color:C.muted,textDecoration:'none',padding:'0 8px 8px'}}>Trocar instituição</a>
-          {userId&&<button onClick={()=>setShowAlterarPin(true)} style={{width:'100%',background:'none',border:'none',textAlign:'left',fontSize:10,color:C.muted,padding:'0 8px 8px',cursor:'pointer'}}>Alterar meu PIN</button>}
+        {(gestorMode||profileMode==='membro_nsp')&&<button onClick={()=>setShowGuia(true)} style={{width:'100%',background:'transparent',border:'none',borderRadius:9,padding:'8px 12px',display:'flex',alignItems:'center',gap:10,cursor:'pointer',marginTop:10,textAlign:'left'}}>
+          <IconAjuda size={17} sw={1.8} color={C.muted}/><span style={{fontSize:12.5,fontWeight:500,color:C.text}}>Como usar</span></button>}
+        <div style={{marginTop:'auto',borderTop:'1px solid '+C.border,paddingTop:12}}>
           <BotaoInstalar compacto/>
-          {!profileMode
-            ?<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:15}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:11,color:C.muted}}>Fazer login</span>
-            </button>
-            :<button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:11,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||''} — Sair</span>
-            </button>}
-          <button onClick={toggleTheme} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',display:'flex',alignItems:'center',gap:8,cursor:'pointer'}}>
-            <span style={{fontSize:15}}>{theme==='dark'?String.fromCodePoint(9728):String.fromCodePoint(127769)}</span>
-            <span style={{fontSize:11,color:C.muted}}>Tema {theme==='dark'?'claro':'escuro'}</span>
-          </button>
+          {profileMode?<div style={{display:'flex',alignItems:'center',gap:10,padding:'4px 6px 10px'}}>
+            <div style={{width:34,height:34,borderRadius:17,background:C.teal+'1f',color:C.teal,display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:900,flexShrink:0}}>{String(userName||PROFILES[profileMode]?.label||'?').split(/\s+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>
+            <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:800,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{userName||PROFILES[profileMode]?.label||'Usuário'}</div>
+              <div style={{fontSize:9.5,fontWeight:800,color:C.teal,textTransform:'uppercase',letterSpacing:'0.06em'}}>{gestorMode?'Gestor do NSP':(SUBNUCLEOS_HNSA.find(s=>s.id===userSubnucleo)||{}).label||PROFILES[profileMode]?.label||''}</div></div>
+            <button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');}} title="Sair" aria-label="Sair" style={{background:'none',border:'1px solid '+C.border,borderRadius:8,padding:'6px 8px',cursor:'pointer',color:C.muted,fontSize:11,fontWeight:700}}>Sair</button>
+          </div>
+          :<button onClick={()=>setShowPin(true)} style={{width:'100%',background:C.teal,border:'none',borderRadius:9,padding:'10px 12px',display:'flex',alignItems:'center',justifyContent:'center',gap:8,cursor:'pointer',marginBottom:8}}>
+            <span style={{fontSize:12.5,color:'#FFFFFF',fontWeight:800}}>Fazer login</span>
+          </button>}
+          <div style={{display:'flex',gap:10,flexWrap:'wrap',padding:'0 6px'}}>
+            {userId&&<button onClick={()=>setShowAlterarPin(true)} style={{background:'none',border:'none',fontSize:10.5,color:C.muted,cursor:'pointer',padding:0}}>Alterar meu PIN</button>}
+            <button onClick={toggleTheme} style={{background:'none',border:'none',fontSize:10.5,color:C.muted,cursor:'pointer',padding:0}}>Tema {theme==='dark'?'claro':'escuro'}</button>
+            <a href="/?escolher=1" style={{fontSize:10.5,color:C.muted,textDecoration:'none'}}>Trocar instituição</a>
+          </div>
         </div>
       </div>
 
       <div id='content-wrapper' style={{flex:1,overflowY:'auto',paddingBottom:68}}><div id='main-content'>
         {view==='home'     &&<HomeView setView={setView} sbUrl={sbUrl} sbKey={sbKey} onConfig={()=>setShowConfig(true)} showToast={showToast} gestorMode={gestorMode} testMode={testMode} hospital={hospital} refreshKey={refreshKey} setFiltroNotif={setFiltroNotif}/>}
         {view==='acompanhar'&&<AcompanharView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital}/>}
+        {view==='inspecao'&&gestorMode&&<PreparacaoInspecaoView sbUrl={sbUrl} sbKey={sbKey} hospital={hospital} setView={setView} setFiltroNotif={setFiltroNotif}/>}
         {view==='notificar'&&!profileMode&&<button onClick={()=>setView('capacitacao')} style={{display:'flex',alignItems:'center',gap:12,width:'calc(100% - 32px)',margin:'14px 16px 0',padding:'12px 14px',borderRadius:14,border:'1px solid '+C.teal+'55',background:'linear-gradient(135deg,'+C.teal+'1c,'+C.blue+'14)',cursor:'pointer',textAlign:'left'}}>
           <span style={{fontSize:26}}>{String.fromCodePoint(127891)}</span>
           <span style={{flex:1}}><span style={{display:'block',fontSize:13.5,fontWeight:800,color:C.text}}>Capacitação online dos protocolos</span><span style={{display:'block',fontSize:11.5,color:C.muted,marginTop:2}}>Para profissionais: trilha interativa e certificado. Continue de onde parou.</span></span>
@@ -9756,6 +10082,8 @@ function NotificaAI() {
           </div>
           <button onClick={()=>setShowMenu(false)} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:22}}>{String.fromCodePoint(10005)}</button>
         </div>
+        {(gestorMode||profileMode==='membro_nsp')&&<BuscaNavegacao tabs={tabs} onIr={id=>{setView(id);setShowMenu(false);}} compacta/>}
+        {(gestorMode||profileMode==='membro_nsp')&&<button onClick={()=>{setShowMenu(false);setShowGuia(true);}} style={{width:'100%',background:'none',border:'none',display:'flex',alignItems:'center',gap:10,padding:'4px 14px 10px',cursor:'pointer'}}><IconAjuda size={18} color={C.muted}/><span style={{fontSize:13,color:C.text}}>Como usar</span></button>}
         {tabs.map(({id,label,icon:Icon,grupo},idx)=>{
           const active=view===id;
           const cab=grupo&&(idx===0||tabs[idx-1].grupo!==grupo);
@@ -9788,7 +10116,7 @@ function NotificaAI() {
 
       <div id='bottom-nav' style={{position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',width:'100%',maxWidth:480,background:C.surface,borderTop:'1px solid '+C.border,display:'flex',paddingBottom:'env(safe-area-inset-bottom,8px)',paddingTop:8,zIndex:100}}>
         {/* Abas fixas: as 4 primeiras do perfil ativo */}
-        {tabs.slice(0,4).map(({id,label:labelLongo,curto,icon:Icon})=>{const label=curto||labelLongo;
+        {(tabs.some(t=>t.fixo)?tabs.filter(t=>t.fixo):tabs).slice(0,4).map(({id,label:labelLongo,curto,icon:Icon})=>{const label=curto||labelLongo;
           const active=view===id;
           return(<button key={id} onClick={()=>setView(id)} style={{flex:1,background:'none',border:'none',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:3,color:active?C.teal:C.muted,padding:'4px 0'}}>
             <Icon size={22} sw={active?2.5:1.8}/>
@@ -10252,7 +10580,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
   };
 
   return(<div style={{padding:'16px 0 80px',display:'flex',flexDirection:'column',gap:10}}>
-    <BackHeader title='Protocolos Institucionais' subtitle='Controle de validade - RDC 36/2013'/>
+    <BackHeader title='Protocolos e portarias' subtitle='Documentos institucionais e protocolos, com controle de validade (RDC 36/2013)'/>
     {vencidos.length>0&&<div style={{background:C.red+'15',border:'1px solid '+C.red+'44',borderRadius:12,padding:'12px 14px'}}>
       <div style={{fontSize:13,fontWeight:700,color:C.red,marginBottom:4}}>{vencidos.length} protocolo(s) com revisao vencida</div>
       {vencidos.map(d=>{const r=registros[d.nome];return(<div key={d.crit} style={{fontSize:12,color:C.muted}}>- {d.nome} - venceu em {r?.proxima_revisao?new Date(r.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR'):'-'}</div>);})}
@@ -10626,7 +10954,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
   ];
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
-    {!embedded&&<BackHeader title='Indicadores Mensais DSM' subtitle='Dados quantitativos para o relatorio C.1-C.15'/>}
+    {!embedded&&<BackHeader title='Indicadores mensais' subtitle='Dados quantitativos do relatório (C.1 a C.15)'/>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
@@ -10833,7 +11161,7 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
   const ST={aberto:{label:'Em andamento',color:C.teal},finalizado:{label:'Finalizado',color:C.blue},enviado_dsm:{label:'Enviado DSM',color:C.green}};
 
   return(<div style={{padding:embedded?'0':'16px 0 80px'}}>
-    {!embedded&&<BackHeader title='Semestres DSM' subtitle='Gestao e envio do relatorio a DSM'/>}
+    {!embedded&&<BackHeader title='Semestres DSM' subtitle='Geração e envio do relatório à DSM'/>}
     {embedded&&<div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>Ciclo de vida do relatorio semestral: gere o consolidado oficial (XLSX no Storage) ao fim do semestre e marque quando for enviado a DSM.</div>}
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       {grid.map(({ano,semestre})=>{
@@ -10952,7 +11280,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 
   return(<div style={{padding:'16px 0 80px'}}>
-    <BackHeader title='Biblioteca de Documentos' subtitle='Protocolos, listas de presenca e relatorios NSP'/>
+    <BackHeader title='Biblioteca de documentos' subtitle='Protocolos, listas de presença e relatórios do NSP'/>
 
     {/* UPLOAD PELO GESTOR */}
     <div style={{background:C.card,border:'1px solid '+C.teal+'33',borderRadius:12,padding:'12px 14px',marginBottom:14,borderLeft:'3px solid '+C.teal}}>

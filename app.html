@@ -160,7 +160,7 @@ const DEFAULT_HOSPITAL = {
   org_header:['MARINHA DO BRASIL','DIRETORIA DE SAÚDE DA MARINHA'], diretor_titulo:'Diretor-Geral HNSA',
   logo:'ancora', sectors:['UPG','Ala A','Centro Cirúrgico','SEP','Oncologia','Odontologia'],
   sectorsInternacao:['UPG','Ala A','Centro Cirúrgico','SEP'], // setores com leito/internacao - usados em Indicadores (paciente-dia). Oncologia e so ambulatorial.
-  nsp_label:'NSP',
+  nsp_label:'NSP', distrito:'2º Distrito Naval',
 };
 // HNSA (ou sem contratante no link) continua usando DEFAULT_HOSPITAL, sem depender do banco.
 // Outro contratante: busca em hospitals; se nao existir (ou falhar), retorna null e o app
@@ -179,7 +179,7 @@ async function loadHospital(url, key, id) {
     return { id:h.id||id, name:h.name||h.short_name||id, short_name:h.short_name||h.name||id,
       logo:h.logo||'hospital', logo_url:h.logo_url||null, sectors:h.sectors||DEFAULT_HOSPITAL.sectors, sectorsInternacao:h.sectorsInternacao||h.sectors||DEFAULT_HOSPITAL.sectorsInternacao, nsp_label:h.nsp_label||'NSP',
       subnucleos:Array.isArray(h.subnucleos)&&h.subnucleos.length?h.subnucleos:null,
-      org_header:Array.isArray(h.org_header)?h.org_header:[], diretor_titulo:h.diretor_titulo||'Diretor(a) Técnico(a)' };
+      org_header:Array.isArray(h.org_header)?h.org_header:[], distrito:h.distrito||null, diretor_titulo:h.diretor_titulo||'Diretor(a) Técnico(a)' };
   } catch { return null; }
 }
 
@@ -921,6 +921,11 @@ function PreparacaoInspecaoView({sbUrl,sbKey,hospital,setView,setFiltroNotif,mod
     ['Dossiê consolidado','PDF, apresentação e planilha com todas as evidências','auditar'],
   ];
   return(<div style={{padding:16,maxWidth:980,margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
+    {modoAuditor&&mar&&<div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}>
+      <div style={{fontSize:11.5,color:C.muted}}>Diretoria de Saúde da Marinha{h.distrito?' › '+h.distrito:''} › <b style={{color:C.text}}>{siglaH(h)}</b></div>
+      <div style={{display:'flex',alignItems:'center',gap:8,background:C.card,border:'1px solid '+C.border,borderRadius:9,padding:'6px 12px',fontSize:12}}>
+        <span style={{color:C.muted}}>Organização militar</span><b style={{color:C.text}}>{siglaH(h)}</b><span style={{color:C.muted,fontSize:10}}>{String.fromCodePoint(9662)}</span></div>
+    </div>}
     <div><div style={{fontSize:20,fontWeight:900,color:C.text}}>{titulo}</div>
       <div style={{fontSize:12.5,color:C.muted,marginTop:3,lineHeight:1.5}}>{modoAuditor?'Itens conferidos no '+siglaH(h)+', com a situação registrada na plataforma. Toque em um item para abrir a evidência.':'O que '+(mar?'a DSM':'a auditoria')+' costuma conferir, com a situação de cada item. Toque em um item para ir até onde ele se resolve.'}</div></div>
     <div style={{...card,display:'flex',gap:18,alignItems:'center',flexWrap:'wrap'}}>

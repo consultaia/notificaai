@@ -383,6 +383,10 @@ function computeStats(notifications) {
     else mm[k].adm++;
   });
   const monthly=Object.entries(mm).sort(([a],[b])=>a.localeCompare(b)).slice(-6).map(([,v])=>v);
+  // todos os meses do periodo, sem buracos (mes sem notificacao aparece com zero)
+  const chaves=Object.keys(mm).sort();const monthlyAll=[];
+  if(chaves.length){let [y,m]=chaves[0].split('-').map(Number);const [yf,mf]=chaves[chaves.length-1].split('-').map(Number);
+    while(y<yf||(y===yf&&m<=mf)){const k=`${y}-${String(m).padStart(2,'0')}`;const v=mm[k]||{sp:0,adm:0};monthlyAll.push({k,sp:v.sp,adm:v.adm});m++;if(m>12){m=1;y++;}}}
   const critSector=sectorData.reduce((m,s)=>s.eventos>m.eventos?s:m,sectorData[0]||{setor:'-',eventos:0});
   const isSentinela=n=>n.gravidade==='Evento sentinela'||n.event_subtype==='Evento sentinela'||n.occurrence_subtype==='Evento sentinela';
   const sevts=notifications.filter(isSentinela).sort((a,b)=>new Date(b.event_date||b.created_at)-new Date(a.event_date||a.created_at));
@@ -393,7 +397,7 @@ function computeStats(notifications) {
   const ratioNM=notifications.length>0?Math.round(nmCount/notifications.length*100):0;
   const txC=notifications.length>0?Math.round(concl/notifications.length*100):0;
   const culturaScore=Math.min(100,Math.round(ratioNM*0.4+txC*0.4+Math.min(nSets,5)/5*20));
-  return{total,totalPrev,sp,ccih,adm,sentinela,sentinelaMes,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
+  return{total,totalPrev,sp,ccih,adm,sentinela,sentinelaMes,semRCA,sectorData,typeData,heatmap,heatmapPeak,monthly,monthlyAll,critSector,diasSemSentinela,culturaScore,ratioNM,txC,nSets};
 }
 
 const WORKER_URL='https://notificaai-proxy.janan-almeida.workers.dev';
@@ -483,6 +487,43 @@ function Dots({color}) {
     {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:'50%',background:color||C.teal,animation:'pulse 1.2s '+(i*0.2)+'s ease-in-out infinite'}}/>)}
   </div>);
 }
+// Barras mensais empilhadas (seguranca do paciente + administrativas), com o total escrito em cada mes
+function BarrasMensais({data,altura=150}){
+  const ref=useRef(null);
+  useEffect(()=>{const el=ref.current;if(el)el.scrollLeft=el.scrollWidth;},[data&&data.length]);
+  if(!data||!data.length) return <div style={{fontSize:12,color:C.muted,padding:'20px 0'}}>Sem notificações no período.</div>;
+  const max=Math.max(1,...data.map(d=>d.sp+d.adm));
+  const NM=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const largo=data.length>14;
+  return(<div ref={ref} style={{overflowX:largo?'auto':'visible',paddingBottom:2}}>
+    <div style={{display:'flex',alignItems:'flex-end',gap:largo?6:10,minWidth:largo?data.length*40:'auto',height:altura+38}}>
+      {data.map((d,i)=>{const tot=d.sp+d.adm;const [y,m]=d.k.split('-');const hT=Math.round(tot/max*altura);const hS=tot?Math.round(d.sp/tot*hT):0;
+        return(<div key={d.k} title={NM[m-1]+'/'+y+': '+tot+' notificação(ões) · '+d.sp+' segurança do paciente · '+d.adm+' administrativa(s)'} style={{flex:1,minWidth:largo?34:0,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-end',height:'100%'}}>
+          <div style={{fontSize:11,fontWeight:800,color:tot?C.text:C.muted,marginBottom:3}}>{tot}</div>
+          <div style={{width:'100%',maxWidth:42,height:Math.max(hT,tot?3:1),display:'flex',flexDirection:'column',borderRadius:'5px 5px 0 0',overflow:'hidden',background:tot?'transparent':C.border}}>
+            <div style={{flex:hT-hS,background:C.purple,opacity:.85}}/>
+            <div style={{flex:hS,background:C.teal}}/>
+          </div>
+          <div style={{fontSize:10.5,color:C.muted,marginTop:5,lineHeight:1.1,textAlign:'center'}}>{NM[m-1]}{(m==='01'||i===0)&&<div style={{fontSize:9}}>{y}</div>}</div>
+        </div>);})}
+    </div>
+  </div>);
+}
+// Barras horizontais (nome inteiro do setor, sem cortar)
+function BarrasHorizontais({data,xKey,yKey,cor,max=10}){
+  if(!data||!data.length) return <div style={{fontSize:12,color:C.muted}}>Sem dados no período.</div>;
+  const lista=[...data].sort((a,b)=>(b[yKey]||0)-(a[yKey]||0));
+  const vis=lista.slice(0,max),resto=lista.slice(max).reduce((s,d)=>s+(d[yKey]||0),0);
+  const mx=Math.max(1,...vis.map(d=>d[yKey]||0));
+  return(<div style={{display:'flex',flexDirection:'column',gap:7}}>
+    {vis.map(d=><div key={d[xKey]} style={{display:'flex',alignItems:'center',gap:10}}>
+      <div style={{width:'34%',minWidth:110,fontSize:11.5,color:C.text,textAlign:'right',lineHeight:1.25}}>{d[xKey]}</div>
+      <div style={{flex:1,background:C.surface,borderRadius:5,height:16}}><div style={{width:((d[yKey]||0)/mx*100)+'%',height:'100%',background:cor,borderRadius:5,minWidth:(d[yKey]||0)?3:0}}/></div>
+      <div style={{width:34,fontSize:12,fontWeight:800,color:C.text}}>{d[yKey]||0}</div>
+    </div>)}
+    {resto>0&&<div style={{fontSize:10.5,color:C.muted,textAlign:'right'}}>+ {lista.length-max} outros setores com {resto} notificação(ões)</div>}
+  </div>);
+}
 function LineChart({data,lines,height=170}) {
   if(!data||!data.length) return null;
   const all=data.flatMap(d=>lines.map(l=>d[l.key]||0));
@@ -517,7 +558,7 @@ function BarChart({data,xKey,yKey,color,height=170}) {
   const trunc=s=>{s=String(s??'');return s.length>9?s.slice(0,8)+'…':s;};
   const gridN=4;
   return(<div style={{overflowX:data.length>6?'auto':'visible',width:'100%'}}>
-    <svg width={w} height={h} viewBox={'0 0 '+w+' '+h} style={{width:data.length>6?w:'100%',height:'auto',display:'block'}}>
+    <svg width={w} height={h} viewBox={'0 0 '+w+' '+h} style={{width:w,maxWidth:data.length>6?'none':'100%',height:'auto',display:'block'}}>
       {Array.from({length:gridN+1}).map((_,i)=>{
         const y=h-pad-(i/gridN)*(h-pad*2-16);
         return(<g key={i}>
@@ -3665,7 +3706,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
 // a nenhum subnucleo (RCP, brigada de incendio, integracao, biosseguranca...).
 // NAO entra em SUBNUCLEOS_HNSA de proposito: essa lista alimenta o relatorio DSM,
 // o checklist ANVISA e os indicadores, onde so cabem os 7 subnucleos oficiais.
-const SUB_OUTROS={id:'outros',label:'Outros treinamentos institucionais',icon:String.fromCodePoint(127891),color:'#64748B'};
+const SUB_OUTROS={id:'outros',label:'Outros',icon:String.fromCodePoint(127891),color:'#64748B'};
 
 const SUBNUCLEOS_HNSA=[
   {id:'comunicacao',label:'Comunicação efetiva',icon:String.fromCodePoint(128172),color:'#1D6FE8'},
@@ -3678,7 +3719,18 @@ const SUBNUCLEOS_HNSA=[
 ];
 
 // Usada exclusivamente pela aba Treinamentos (subnucleos + Outros)
-const SUBS_TREINAMENTO=[...SUBNUCLEOS_HNSA,SUB_OUTROS];
+// Setores de apoio: treinamentos e reunioes fora dos subnucleos (ficam separados e nao entram nos criterios da DSM)
+const SETORES_APOIO=[
+  {id:'apoio_radiologia',label:'Radiologia',icon:String.fromCodePoint(129659),color:'#0EA5E9'},
+  {id:'apoio_lavanderia',label:'Lavanderia',icon:String.fromCodePoint(129530),color:'#6366F1'},
+  {id:'apoio_nutricao',label:'Nutrição',icon:String.fromCodePoint(127869),color:'#16A34A'},
+  {id:'apoio_gases',label:'Rede de gases medicinais',icon:String.fromCodePoint(129745),color:'#0891B2'},
+  {id:'apoio_estrutural',label:'Estrutura predial',icon:String.fromCodePoint(127959),color:'#A16207'},
+  {id:'apoio_equipamentos',label:'Equipamentos',icon:String.fromCodePoint(128295),color:'#475569'},
+  SUB_OUTROS,
+];
+const ehSetorApoio=id=>SETORES_APOIO.some(s=>s.id===id);
+const SUBS_TREINAMENTO=[...SUBNUCLEOS_HNSA,...SETORES_APOIO];
 
 // Contratante com lista propria em hospitals.subnucleos ([{id,label,icon?,color?}]) substitui
 // a lista padrao acima. Altera os arrays no lugar porque sao lidos por varias telas.
@@ -3688,7 +3740,7 @@ function aplicarSubnucleosDoHospital(h){
   if(!lista||!lista.length) return;
   const novos=lista.map((x,i)=>({id:String(x.id),label:String(x.label),icon:x.icon||String.fromCodePoint(128204),color:x.color||CORES_SUB[i%CORES_SUB.length]}));
   SUBNUCLEOS_HNSA.splice(0,SUBNUCLEOS_HNSA.length,...novos);
-  SUBS_TREINAMENTO.splice(0,SUBS_TREINAMENTO.length,...novos,SUB_OUTROS);
+  SUBS_TREINAMENTO.splice(0,SUBS_TREINAMENTO.length,...novos,...SETORES_APOIO);
 }
 
 function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode}) {
@@ -3698,6 +3750,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
   const [showForm,setShowForm]=useState(false);
   const [saving,setSaving]=useState(false);
   const [subnucleoAtivo,setSubnucleoAtivo]=useState('todos');
+  const [verApoio,setVerApoio]=useState(false);
   const [periodoFiltro,setPeriodoFiltro]=useState('semestre_atual');
   const [customDe,setCustomDe]=useState('');
   const [customAte,setCustomAte]=useState('');
@@ -3818,17 +3871,18 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     {showForm&&canEdit&&<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:14,padding:16,marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Novo registro</div>
       <div style={{display:'flex',gap:8,marginBottom:10}}>
-        {[['treinamento','Treinamento'],['reuniao','Reuniao subnucleo'],['reuniao_mensal','Reuniao NSP Mensal'],['reuniao_extraordinaria','Reuniao Extraordinaria']].map(([v,l])=>(
+        {[['treinamento','Treinamento'],['reuniao','Reunião do subnúcleo ou setor'],['reuniao_mensal','Reunião mensal do NSP'],['reuniao_extraordinaria','Reunião extraordinária']].map(([v,l])=>(
           <button key={v} onClick={()=>setForm(f=>({...f,tipo:v,subnucleo:(v==='reuniao_mensal'||v==='reuniao_extraordinaria')?'nsp_pleno':f.subnucleo}))} style={{flex:1,padding:'7px 4px',borderRadius:8,border:'1px solid '+(form.tipo===v?C.teal:C.border),background:form.tipo===v?C.teal+'22':C.card,color:form.tipo===v?C.teal:C.muted,fontSize:9,fontWeight:700,cursor:'pointer',textAlign:'center'}}>{l}</button>
         ))}
       </div>
       {(form.tipo==='treinamento'||form.tipo==='reuniao')&&<div>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnucleo *</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4,marginTop:8}}>Subnúcleo ou setor de apoio *</label>
       <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none',marginBottom:4}}>
-        {SUBS_TREINAMENTO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+        <optgroup label="Subnúcleos do NSP">{SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
+        <optgroup label="Setores de apoio (fora dos subnúcleos)">{SETORES_APOIO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
       </select>
-      {form.subnucleo==='outros'&&<div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>
-        Para treinamentos institucionais fora dos subnucleos (RCP, brigada de incendio, integracao, biosseguranca). Ficam no acervo e no pacote de auditoria, mas nao entram nos criterios do relatorio DSM.
+      {ehSetorApoio(form.subnucleo)&&<div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>
+        {form.subnucleo==='outros'?'Para treinamentos institucionais fora dos subnúcleos e setores (RCP, brigada de incêndio, integração, biossegurança). ':''}Fica separado dos subnúcleos: entra no acervo e no pacote de auditoria, mas não nos critérios do relatório DSM.
       </div>}</div>}
       <input value={form.protocolo} onChange={e=>setForm({...form,protocolo:e.target.value})} placeholder="Ex: Higienizacao das Maos, Prevencao de Quedas" style={inp}/>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
@@ -3892,10 +3946,9 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         ))}
         {reunioesNSP.length>3&&<div style={{fontSize:10,color:C.muted,textAlign:'center',marginTop:4}}>+{reunioesNSP.length-3} mais. Filtre por tipo para ver todas.</div>}
       </div>
-    {/* Cards por subnucleo */}
-    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnúcleo (toque para ver os registros)</div>
-    <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
-      {SUBS_TREINAMENTO.map(s=>{
+    {/* Cards por subnucleo e, separados, os setores de apoio */}
+    {(()=>{const cartoes=lista=>(<div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
+      {lista.map(s=>{
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
         const ativo=subnucleoAtivo===s.id;
         const regsSub=ativo?filteredPeriodo:[];
@@ -3906,7 +3959,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
             <div style={{fontSize:12,fontWeight:700,color:C.text}}>{s.label}</div>
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>{t.treinamentos} treinamento(s) · {t.reunioes} reuniao(oes) · {t.participantes} participantes</div>
           </div>
-          {(t.treinamentos===0&&t.reunioes===0&&s.id!=='outros')&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
+          {(t.treinamentos===0&&t.reunioes===0&&!ehSetorApoio(s.id))&&<div style={{background:C.red+'22',color:C.red,borderRadius:6,padding:'2px 8px',fontSize:9,fontWeight:700}}>Sem registro</div>}
           <span style={{fontSize:16,color:ativo?s.color:C.muted,transform:ativo?'rotate(90deg)':'none',transition:'transform .15s',flexShrink:0}}>{String.fromCodePoint(8250)}</span>
         </button>
         {ativo&&<div style={{borderLeft:'2px solid '+s.color,marginLeft:14,paddingLeft:10,marginTop:-2}}>
@@ -3916,7 +3969,23 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         </div>}
         </React.Fragment>);
       })}
-    </div>
+    </div>);
+    const totApoio=SETORES_APOIO.reduce((acc,s)=>{const t=totaisPorSub[s.id]||{};return {tr:acc.tr+(t.treinamentos||0),pa:acc.pa+(t.participantes||0)};},{tr:0,pa:0});
+    return(<React.Fragment>
+      <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Subnúcleos do NSP (toque para ver os registros)</div>
+      {cartoes(SUBNUCLEOS_HNSA)}
+      {(()=>{const aberto=verApoio||ehSetorApoio(subnucleoAtivo);return(<React.Fragment>
+      <button onClick={()=>{setVerApoio(!aberto);if(aberto&&ehSetorApoio(subnucleoAtivo))setSubnucleoAtivo('todos');}} aria-expanded={aberto}
+        style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:C.card,border:'1px dashed '+C.border,borderRadius:12,padding:'11px 14px',cursor:'pointer',textAlign:'left',marginBottom:aberto?8:16}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.text}}>Setores de apoio</div>
+          <div style={{fontSize:10,color:C.muted,marginTop:2}}>Radiologia, lavanderia, nutrição, gases, estrutura, equipamentos e outros · fora dos subnúcleos · {totApoio.tr} treinamento(s) no período</div>
+        </div>
+        <span style={{fontSize:16,color:C.muted,transform:aberto?'rotate(90deg)':'none',transition:'transform .15s',flexShrink:0}}>{String.fromCodePoint(8250)}</span>
+      </button>
+      {aberto&&cartoes(SETORES_APOIO)}
+      </React.Fragment>);})()}
+    </React.Fragment>);})()}
 
     {/* Formulario */}
     {/* Lista de registros */}
@@ -8096,15 +8165,15 @@ ESTRUTURA:
 
     {tab==='graficos'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>Evolução Mensal</div>
-        <div style={{display:'flex',gap:14,marginBottom:10}}>
-          {[['SP',C.teal],['Adm',C.purple]].map(([l,c])=><div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.muted}}><div style={{width:10,height:10,borderRadius:2,background:c}}/>{l}</div>)}
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:2}}>Notificações por mês</div>
+        <div style={{display:'flex',gap:14,marginBottom:12,flexWrap:'wrap'}}>
+          {[['Segurança do paciente',C.teal],['Administrativas',C.purple]].map(([l,c])=><div key={l} style={{display:'flex',alignItems:'center',gap:4,fontSize:11,color:C.muted}}><div style={{width:10,height:10,borderRadius:2,background:c}}/>{l}</div>)}
         </div>
-        <LineChart data={sf.monthly?.length?sf.monthly:MOCK_MONTHLY} lines={[{key:'sp',color:C.teal},{key:'adm',color:C.purple}]} height={110}/>
+        <BarrasMensais data={sf.monthlyAll||[]}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Eventos por Setor</div>
-        <BarChart data={sf.sectorData} xKey="setor" yKey="eventos" color={C.blue} height={110}/>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Notificações por setor</div>
+        <BarrasHorizontais data={sf.sectorData} xKey="setor" yKey="eventos" cor={C.blue}/>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Distribuição por Tipo</div>

@@ -418,8 +418,10 @@ async function callWorker(messages,system) {
   try {
     const res=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
     const data=await res.json();
-    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    return data.choices?.[0]?.message?.content||'Erro ao processar.';
+    if(!res.ok||data.error) throw new Error((data.error&&(data.error.message||JSON.stringify(data.error)))||('HTTP '+res.status));
+    const txt=data.choices?.[0]?.message?.content;
+    if(!txt||!String(txt).trim()) throw new Error('resposta vazia');
+    return txt;
   } catch(e) {
     // NUNCA devolver a mensagem de erro como se fosse resposta da IA: o texto acabava
     // exibido ao profissional como "resumo" e podia ser salvo no banco. Lancamos o erro
@@ -1028,7 +1030,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     if(espera>0) { setBloqueio(Math.ceil(espera/1000)); setPin(''); return; }
     setBloqueio(0); setPerfilDesativado(false); setSemServidor(false);
     setLoading(true);
-    let matched=null,workerFora=false;
+    let matched=null,workerFora=false,bancoFora=false;
     if(sbUrl&&sbKey) {
       try {
         const hs=await hashPinCandidatos(pin, hospital?.id);
@@ -1043,7 +1045,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
           matched={key:perfil,id:rows[0].id,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
-      } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
+      } catch(e) { console.warn('PIN Supabase falhou',e); bancoFora=true; }
     }
     if(!matched) {
       // PIN padrao (PROFILES) so vale para perfil que ainda NAO tem usuario ativo cadastrado
@@ -1063,7 +1065,8 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     }
     setLoading(false);
     if(matched) { PIN_TENTATIVAS.falhas=0; onSuccess(matched.key,matched); }
-    else if(workerFora) {
+    else if(workerFora||bancoFora) {
+      // servidor ou banco nao responderam: nao e PIN errado e nao conta como tentativa
       // o servidor que confere o codigo nao respondeu: nao e PIN errado e nao conta como tentativa
       setSemServidor(true); setPin('');
     }
@@ -1547,6 +1550,7 @@ function RCAPanel({notification,sbUrl,sbKey,showToast,onClose,onSaved,autor}) {
   const [loading,setLoading]=useState(false);
   const [tab,setTab]=useState('porques');
   const [saving,setSaving]=useState(false);
+  const gravadosRef=useRef({acoes:new Set(),comentario:false}); // o que ja foi gravado (tentar de novo nao duplica)
   // Modelo em branco: a analise pode ser feita sem a IA (antes, se a IA falhasse, nao havia como analisar)
   const modeloEmBranco=()=>({
     cinco_porques:[{pergunta:'Por que ocorreu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Causa raiz:',resposta:''}],
@@ -1594,35 +1598,11 @@ Formato exato:
           });
           parsed=JSON.parse(repaired);
         } catch(e2) {
-          // Fallback 2: montar RCA básico com texto da resposta
-          console.warn('RCA JSON parse falhou, usando fallback estrutural');
-          parsed={
-            cinco_porques:[
-              {pergunta:'Por que ocorreu?',resposta:'Análise gerada. Edite conforme necessário.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Fator identificado pela IA.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Processo ou protocolo envolvido.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Fator organizacional ou de gestão.'},
-              {pergunta:'Causa raiz:',resposta:'Revisar o relato e editar esta causa raiz.'},
-            ],
-            ishikawa:[
-              {categoria:'Pessoa',cor:'#EF4444',causas:['Verificar fatores humanos']},
-              {categoria:'Processo',cor:'#F59E0B',causas:['Verificar protocolo relacionado']},
-              {categoria:'Equipamento',cor:'#8B5CF6',causas:['Verificar equipamentos envolvidos']},
-              {categoria:'Ambiente',cor:'#1D6FE8',causas:['Verificar condições do ambiente']},
-              {categoria:'Gestão',cor:'#00C9B8',causas:['Verificar fatores organizacionais']},
-            ],
-            fatores:[
-              {icone:'humano',tipo:'Fator humano',descricao:'Revisar fatores humanos envolvidos.'},
-              {icone:'processo',tipo:'Fator de processo',descricao:'Revisar processo ou protocolo.'},
-              {icone:'ambiente',tipo:'Fator ambiental',descricao:'Revisar condições ambientais.'},
-              {icone:'gestao',tipo:'Fator organizacional',descricao:'Revisar aspectos de gestão.'},
-            ],
-            plano:[
-              {acao:'Revisar protocolo relacionado ao evento',responsavel:'Coordenador NSP',prazo:'15 dias'},
-              {acao:'Capacitar equipe envolvida',responsavel:'Chefia do setor',prazo:'30 dias'},
-              {acao:'Monitorar recorrência do evento',responsavel:'NSP',prazo:'60 dias'},
-            ]
-          };
+          // a IA respondeu num formato invalido: abre o modelo em branco (antes preenchia textos genericos como se fossem da IA)
+          console.warn('RCA JSON parse falhou');
+          parsed=null;
+          showToast('A IA respondeu num formato inválido. O modelo em branco foi aberto: preencha a análise.','error');
+          setRca(modeloEmBranco());setLoading(false);return;
         }
       }
       if(parsed) setRca(parsed);
@@ -1638,8 +1618,10 @@ Formato exato:
       // 1) acoes do plano viram acoes reais do plano de acao (antes nao eram gravadas)
       const prazoData=pz=>{const s=String(pz||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d+)\s*(dia|semana|mes|mês)/i);let dias=30;if(m){const n=Number(m[1]);dias=/semana/i.test(m[2])?n*7:/m/i.test(m[2])?n*30:n;}return new Date(Date.now()+dias*864e5).toISOString().slice(0,10);};
       const acoes=(rca&&rca.plano||[]).filter(x=>String(x.acao||'').trim());
-      let gravadas=0;
-      for(const x of acoes){try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);}}
+      let gravadas=0,falhas=0;
+      for(const x of acoes){const chave=String(x.acao).trim()+'|'+(x.responsavel||'')+'|'+(x.prazo||'');if(gravadosRef.current.acoes.has(chave)){gravadas++;continue;}
+        try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadosRef.current.acoes.add(chave);gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);falhas++;}}
+      if(falhas){showToast(falhas+' ação(ões) do plano não foram salvas (falha de conexão). Nada se perdeu na tela: toque em Finalizar de novo.','error');setSaving(false);return;}
       // 2) o conteudo da analise fica registrado nas atualizacoes do plano
       if(rca){const linhas=['Análise de causa raiz (RCA)'];
         (rca.cinco_porques||[]).filter(p=>String(p.resposta||'').trim()).forEach((p,i)=>linhas.push((i+1)+'. '+p.pergunta+' '+p.resposta));
@@ -1648,12 +1630,12 @@ Formato exato:
         const fat=(rca.fatores||[]).filter(f=>String(f.descricao||'').trim());
         if(fat.length)linhas.push('Fatores: '+fat.map(f=>f.tipo+': '+f.descricao).join(' | '));
         if(acoes.length)linhas.push('Ações definidas: '+acoes.map(x=>x.acao).join('; '));
-        if(linhas.length>1)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
+        if(linhas.length>1&&!gravadosRef.current.comentario)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});gravadosRef.current.comentario=true;}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||USUARIO_ATUAL||'nsp',rca_concluido_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'RCA_CONCLUIDO','rca_gerado','false','true',autor||'nsp',autor||'nsp');
       showToast('Análise salva!'+(gravadas?' '+gravadas+' ação(ões) enviadas ao plano de ação.':''),'success');
       if(onSaved) onSaved(); else onClose();
-    } catch { showToast('Erro ao salvar','error'); }
+    } catch(e) { showToast('Erro ao salvar a análise. Toque em Finalizar de novo (o que já foi gravado não se repete).','error'); }
     setSaving(false);
   };
 
@@ -2027,7 +2009,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
     try{
       if(status==='concluido'&&ev){const ac=acoes.find(x=>x.id===id)||{id,notification_id:notification.id,hospital_id:notification.hospital_id};await registrarEvidenciaAcao(sbUrl,sbKey,{...ac,notification_id:notification.id,hospital_id:notification.hospital_id},ev,'NSP');}
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${id}`,{status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})});
-      if(status==='concluido'){
+      if(status==='concluido'){delete RASCUNHO_EVID[id];
         await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_CONCLUIDO','status','em_andamento','concluido',USUARIO_ATUAL||'gestor','gestor');
       }
       await load();showToast(status==='concluido'?'Ação concluída. Verifique a eficácia depois.':'Status atualizado','success');
@@ -2298,15 +2280,22 @@ const etapaDaAcao=a=>{
 const ehReuniao=t=>/reuniao/.test(t.tipo||'');
 
 // Ao concluir uma acao, registra o que foi feito e a evidencia nas atualizacoes do plano (acao_comentarios)
+// Rascunho da evidencia por acao: se a gravacao falhar, o texto continua ao reabrir; e a mesma evidencia nao e gravada duas vezes
+const RASCUNHO_EVID={};const EVID_GRAVADA=new Set();
 async function registrarEvidenciaAcao(sbUrl,sbKey,acao,ev,setor){
   if(!ev||!ev.texto) return;
+  const chaveEv=acao.id+'|'+ev.texto+'|'+(ev.link||'');
+  if(EVID_GRAVADA.has(chaveEv)) return;
   const texto='Ação concluída: '+(acao.acao||'')+'\nO que foi feito: '+ev.texto+(ev.link?'\nEvidência: '+ev.link:'');
-  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||setor||null,texto,created_at:new Date().toISOString()});}
+  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||setor||null,texto,created_at:new Date().toISOString()});EVID_GRAVADA.add(chaveEv);}
   catch(e){throw new Error('a evidência não foi registrada ('+e.message+'). A ação não foi concluída: tente de novo.');}
 }
 function ConcluirAcaoModal({acao,sbUrl,sbKey,onConfirmar,onFechar}){
-  const [texto,setTexto]=useState('');
-  const [link,setLink]=useState('');
+  const rasc=RASCUNHO_EVID[acao.id]||{};
+  const [texto,setTextoS]=useState(rasc.texto||'');
+  const [link,setLinkS]=useState(rasc.link||'');
+  const setTexto=v=>{setTextoS(v);RASCUNHO_EVID[acao.id]={...(RASCUNHO_EVID[acao.id]||{}),texto:v};};
+  const setLink=v=>{setLinkS(v);RASCUNHO_EVID[acao.id]={...(RASCUNHO_EVID[acao.id]||{}),link:v};};
   return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000a',zIndex:380,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:16,maxWidth:460,width:'100%',padding:20}}>
       <div style={{fontSize:16,fontWeight:900,color:C.text}}>Concluir ação</div>
@@ -2513,7 +2502,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   };
   const concluir=async(a2,ev)=>{
     setBusy(a2.id);
-    try{await registrarEvidenciaAcao(sbUrl,sbKey,a2,ev,'NSP');await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
+    try{await registrarEvidenciaAcao(sbUrl,sbKey,a2,ev,'NSP');await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});delete RASCUNHO_EVID[a2.id];await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
     catch(e){showToast('Erro: '+e.message,'error');}
     setBusy(null);
   };
@@ -3872,7 +3861,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       await load();setShowForm(false);
       setForm({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
       showToast('Registro salvo!','success');
-    }catch{showToast('Erro ao salvar. Execute o SQL de criacao da tabela.','error');}
+    }catch(e){showToast('Não foi possível salvar o registro (conexão ou servidor). Os dados continuam no formulário: tente de novo.','error');}
     setSaving(false);
   };
 
@@ -3883,8 +3872,8 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     const semAtual=hoje.getMonth()<6?1:2;
     if(periodoFiltro==='semestre_atual'){
       return semAtual===1
-        ?{de:`${ano}-01-01`,ate:`${ano}-06-30`,label:`1o Semestre ${ano} (DSM)`}
-        :{de:`${ano}-07-01`,ate:`${ano}-12-31`,label:`2o Semestre ${ano} (DSM)`};
+        ?{de:`${ano}-01-01`,ate:`${ano}-06-30`,label:`1º semestre ${ano}${ehMarinha(h)?' (DSM)':''}`}
+        :{de:`${ano}-07-01`,ate:`${ano}-12-31`,label:`2º semestre ${ano}${ehMarinha(h)?' (DSM)':''}`};
     }
     if(periodoFiltro==='ano_anterior') return{de:`${ano-1}-01-01`,ate:`${ano-1}-12-31`,label:`Ano ${ano-1} (ANVISA)`};
     if(periodoFiltro==='ano_atual') return{de:`${ano}-01-01`,ate:`${ano}-12-31`,label:`Ano ${ano}`};
@@ -3944,7 +3933,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         <div style={{fontSize:10,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Período de visualizacao</div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {[
-            {id:'semestre_atual',label:'Semestre atual (DSM)'},
+            {id:'semestre_atual',label:ehMarinha(h)?'Semestre atual (DSM)':'Semestre atual'},
             {id:'ano_anterior',label:'Ano anterior (ANVISA)'},
             {id:'ano_atual',label:'Ano atual'},
             {id:'todos',label:'Todos'},
@@ -5415,6 +5404,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     setBusyAcao(x.id);
     try{if(status==='concluido')await registrarEvidenciaAcao(sbUrl,sbKey,x,ev,sub?sub.label:'Subnúcleo');
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${x.id}`,status==='concluido'?{status,concluido_em:new Date().toISOString()}:{status});
+      if(status==='concluido')delete RASCUNHO_EVID[x.id];
       sbAuditLog(sbUrl,sbKey,h.id,x.notification_id,status==='concluido'?'ACAO_CONCLUIDA':'ACAO_INICIADA','status',x.status||'pendente',status,sub?sub.label:'subnucleo','membro_nsp').catch(()=>{});
       setAcoesAll(as=>as.map(y=>y.id===x.id?{...y,status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})}:y));
       showToast(status==='concluido'?'Ação concluída. O NSP vai verificar a eficácia.':'Ação em andamento','success');}
@@ -6568,14 +6558,14 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
             try{const ep=await sbSelect(sbUrl,sbKey,'setor_emails',`hospital_id=eq.${h.id}&setor=eq.${EMAIL_NSP_CHAVE}&select=email&limit=1`);if(ep&&ep[0]&&ep[0].email)emailNSP=ep[0].email;}catch(e){}
             // Tentar rota /email do Worker (substitui n8n)
             const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
-            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
+            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,notification_id:res?.[0]?.id||null,hospital_id:h.id,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
             // o Worker responde 200 com ok:false quando nao ha destinatario: nao e sucesso
             let jw=null;try{jw=await whResp.clone().json();}catch(e){}
             emailOk=whResp.ok&&!(jw&&jw.ok===false);
             if(!emailOk){
               // Fallback: tentar o webhook original (n8n) se configurado
               if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
-                const wr=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>null);
+                const wr=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,notification_id:res?.[0]?.id||null,hospital_id:h.id,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>null);
                 if(wr&&wr.ok)emailOk=true;
               }
             }
@@ -9202,9 +9192,9 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
           try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(p.nome))}&select=id,codigo,nome,setor,profissao&order=updated_at.desc`);if(d&&d.length===1)ex=d[0];}catch(e){}
           if(ex) p={id:ex.id,codigo:ex.codigo,nome:ex.nome,setor:ex.setor,profissao:ex.profissao};
           else{
-            const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:local});
+            const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:local,...(p.senha_hash_pend?{senha_hash:p.senha_hash_pend}:{})});
             if(!(r&&r[0]&&r[0].id)) return;
-            p={...p,id:r[0].id};
+            const {senha_hash_pend,...semHash}=p;p={...semHash,id:r[0].id};
           }
           setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));}catch{}
         }
@@ -9247,11 +9237,14 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       catch(e){}
     }
     const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
+    const hsCad=await hashSenhaCapac(pinNovo,h.id,p.nome).catch(()=>null);
+    if(hsCad)p.senha_hash_pend=hsCad; // so o hash, para a sincronizacao (sai daqui assim que o cadastro chega ao banco)
     try{if(sbUrl&&sbKey){
-      const base={hospital_id:h.id,...p,progresso:prog};
-      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:await hashSenhaCapac(pinNovo,h.id,p.nome)});}
+      const {senha_hash_pend,...pBase}=p;
+      const base={hospital_id:h.id,...pBase,progresso:prog};
+      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:hsCad||await hashSenhaCapac(pinNovo,h.id,p.nome)});}
       catch(e){if(!/nome_chave|senha_hash|PGRST204/.test(e.message))throw e;r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',base);}
-      if(r&&r[0])p.id=r[0].id;}}
+      if(r&&r[0]){p.id=r[0].id;delete p.senha_hash_pend;}}}
     catch(e){if(!faltaSQL004(e)&&!/capacitacao_participantes/.test(e.message)) toast('Sem conexão: seu progresso fica salvo só neste aparelho por enquanto.','error');}
     setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify({nome:p.nome,setor:p.setor,profissao:p.profissao}));}catch{}
     setMostrarCodigo(true);setOcupado(false);topo();
@@ -10714,7 +10707,7 @@ function buildStoragePathBase(tipo, meta, originalName) {
   const safe = s => (s||'').replace(/[^a-zA-Z0-9\-_.]/g,'_').replace(/__+/g,'_').trim();
   const ano  = meta.ano       || String(new Date().getFullYear());
   const sem  = meta.semestre  || (new Date().getMonth()<6?'1':'2');
-  const mes  = new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/\. |\./, '');
+  const mes  = safe(new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/[^a-zA-Z0-9]/g,''));
   // sufixo unico: antes, dois anexos com o mesmo nome (ex.: mesma data) se sobrescreviam e todos os registros abriam o ultimo arquivo
   const uid = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   if(tipo==='protocolo') return `protocolos/${ano}/${sem}S/${meta.crit||'XX'}-${safe((meta.nomeProt||'').slice(0,20))}-Rev${mes}-${uid}.${ext}`;

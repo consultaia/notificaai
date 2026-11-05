@@ -93,7 +93,7 @@
       var dominios = typeof SAQ_DOMINIOS !== 'undefined' ? SAQ_DOMINIOS : [];
       var ciclo = typeof saqCicloAtual === 'function' ? saqCicloAtual() : String(new Date().getFullYear());
       for (var q = 0; q < 24; q++) {
-        var resp = {}; dominios.forEach(function (dm) { dm.itens.forEach(function (it, ii) { resp[dm.id + '_' + ii] = Math.min(5, Math.max(1, Math.round(3.4 + (rnd() - 0.4) * 2.4))); }); });
+        var resp = {}; dominios.forEach(function (dm) { dm.itens.forEach(function (it, ii) { resp[dm.id + '_' + ii] = Math.min(4, Math.max(0, Math.round(2.4 + (rnd() - 0.4) * 2.4))); }); });
         DB.saq_respostas.push({ id: uuid(), created_at: diasAtras(Math.floor(rnd() * 60)).toISOString(), hospital_id: HID, setor: pick(SETORES), categoria: pick(['Enfermagem', 'Medicina', 'Técnico de enfermagem', 'Apoio']), ciclo: ciclo, respostas: resp });
       }
     } catch (e) { }

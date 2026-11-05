@@ -337,11 +337,12 @@ const MOCK_TYPES=[{name:'Queda',value:35,color:'#EF4444'},{name:'Medicação',va
 const MOCK_HEATMAP=[{turno:'Dia',v:[3,6,7,6,6,7,3]},{turno:'Noite',v:[4,6,5,7,5,4,3]}];
 const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-function computeStats(notifications) {
+function computeStats(notifications,periodoInteiro) {
   const now=new Date(),tm=now.getMonth(),ty=now.getFullYear();
   const pm=tm===0?11:tm-1,py=tm===0?ty-1:ty;
-  const isTM=n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
-  const isPM=n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
+  // periodoInteiro: as notificacoes ja sao do periodo escolhido (ex.: relatorio de outubro); antes so o mes corrente era contado
+  const isTM=n=>{if(periodoInteiro)return true;const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===tm&&d.getFullYear()===ty;};
+  const isPM=n=>{if(periodoInteiro)return false;const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getMonth()===pm&&d.getFullYear()===py;};
   const thisM=notifications.filter(isTM),prevM=notifications.filter(isPM);
   const isValid=n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih'||n.notification_type==='administrativa';const total=thisM.filter(isValid).length,totalPrev=prevM.filter(isValid).length;
   const sp=thisM.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
@@ -1292,8 +1293,8 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
     try{
       const payload={nome:form.nome,perfil:form.perfil,subnucleo:form.perfil==='membro_nsp'?(form.subnucleo||null):null,ativo:form.ativo};
       if(form.pin) payload.pin_hash=await hashPin(form.pin, hospital?.id);
-      if(form.pin&&!editing){
-        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(await hashPinCandidatos(form.pin, hospital?.id))}&limit=1`);
+      if(form.pin){ // ao criar e ao editar: dois usuarios com o mesmo PIN fazem um entrar na conta do outro
+        const ex=await sbSelect(sbUrl,sbKey,'nsp_usuarios',`${filtroHashes(await hashPinCandidatos(form.pin, hospital?.id))}${editing?'&id=neq.'+editing:''}&limit=1`);
         if(ex&&ex.length>0){showToast('Este PIN já está em uso','error');setSaving(false);return;}
       }
       if(editing) await sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${editing}`,payload);
@@ -1647,8 +1648,8 @@ Formato exato:
         const fat=(rca.fatores||[]).filter(f=>String(f.descricao||'').trim());
         if(fat.length)linhas.push('Fatores: '+fat.map(f=>f.tipo+': '+f.descricao).join(' | '));
         if(acoes.length)linhas.push('Ações definidas: '+acoes.map(x=>x.acao).join('; '));
-        if(linhas.length>1)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||null,texto:linhas.join('\n')});}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
-      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||'nsp',rca_concluido_em:new Date().toISOString()});
+        if(linhas.length>1)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
+      await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||USUARIO_ATUAL||'nsp',rca_concluido_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'RCA_CONCLUIDO','rca_gerado','false','true',autor||'nsp',autor||'nsp');
       showToast('Análise salva!'+(gravadas?' '+gravadas+' ação(ões) enviadas ao plano de ação.':''),'success');
       if(onSaved) onSaved(); else onClose();
@@ -1948,6 +1949,8 @@ td.c{text-align:center;white-space:nowrap}td.esc{height:34px}
 function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
   const [acoes,setAcoes]=useState([]);
   const [loading,setLoading]=useState(true);
+  const [concluirAcao,setConcluirAcao]=useState(null);
+  const [erroTabelas,setErroTabelas]=useState(false); // instrucao tecnica so aparece se o banco falhar
   const [showForm,setShowForm]=useState(false);
   const [saving,setSaving]=useState(false);
   const [form,setForm]=useState({acao:'',responsavel:'',prazo:'',prioridade:'media'});
@@ -1961,12 +1964,12 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
     setLoading(true);
     try{
       const d=await sbSelect(sbUrl,sbKey,'plano_acoes',`notification_id=eq.${notification.id}&order=created_at.asc`);
-      setAcoes(d||[]);
-    }catch{setAcoes([]);}
+      setAcoes(d||[]);setErroTabelas(false);
+    }catch{setAcoes([]);setErroTabelas(true);}
     try{
       const c=await sbSelect(sbUrl,sbKey,'acao_comentarios',`notification_id=eq.${notification.id}&order=created_at.asc`);
       setComentarios(c||[]);
-    }catch{setComentarios([]);}
+    }catch{setComentarios([]);setErroTabelas(true);}
     setLoading(false);
   };
   useEffect(()=>{load();},[]);
@@ -2020,14 +2023,15 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
     setSaving(false);
   };
 
-  const updateStatus=async(id,status)=>{
+  const updateStatus=async(id,status,ev)=>{
     try{
+      if(status==='concluido'&&ev){const ac=acoes.find(x=>x.id===id)||{id,notification_id:notification.id,hospital_id:notification.hospital_id};await registrarEvidenciaAcao(sbUrl,sbKey,{...ac,notification_id:notification.id,hospital_id:notification.hospital_id},ev,'NSP');}
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${id}`,{status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})});
       if(status==='concluido'){
-        await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_CONCLUIDO','status','em_andamento','concluido','gestor','gestor');
+        await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_CONCLUIDO','status','em_andamento','concluido',USUARIO_ATUAL||'gestor','gestor');
       }
-      await load();showToast('OK Status atualizado!','success');
-    }catch{showToast('Erro','error');}
+      await load();showToast(status==='concluido'?'Ação concluída. Verifique a eficácia depois.':'Status atualizado','success');
+    }catch(e){showToast('Erro: '+((e&&e.message)||'tente de novo'),'error');}
   };
 
   const delAcao=async(id)=>{
@@ -2040,7 +2044,8 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
   const PRIO={alta:{label:'Alta',color:C.red},media:{label:'Média',color:C.yellow},baixa:{label:'Baixa',color:C.green}};
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10};
 
-  const vencidas=acoes.filter(a=>a.status!=='concluido'&&a.status!=='cancelado'&&new Date(a.prazo)<new Date());
+  const hojeP=new Date().toLocaleDateString('en-CA');
+  const vencidas=acoes.filter(a=>a.status!=='concluido'&&a.status!=='cancelado'&&a.prazo&&String(a.prazo).slice(0,10)<hojeP);
   const concluidas=acoes.filter(a=>a.status==='concluido').length;
   const pct=acoes.length>0?Math.round(concluidas/acoes.length*100):0;
 
@@ -2082,26 +2087,26 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
       {acoes.map(a=>{
         const st=STATUS[a.status]||STATUS.pendente;
         const pr=PRIO[a.prioridade]||PRIO.media;
-        const vencida=a.status!=='concluido'&&a.status!=='cancelado'&&new Date(a.prazo)<new Date();
+        const vencida=a.status!=='concluido'&&a.status!=='cancelado'&&a.prazo&&String(a.prazo).slice(0,10)<hojeP;
         return(<div key={a.id} style={{background:C.card,border:'1px solid '+(vencida?C.red:C.border),borderRadius:12,padding:'12px 14px',marginBottom:8}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
             <div style={{flex:1,marginRight:8}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:3}}>{a.acao}</div>
               <div style={{display:'flex',gap:8,flexWrap:'wrap',fontSize:10,color:C.muted}}>
                 <span>{String.fromCodePoint(128100)+' '+(a.responsavel||'-')}</span>
-                <span style={{color:vencida?C.red:C.muted}}>⏱ {new Date(a.prazo).toLocaleDateString('pt-BR')}{vencida?' atencao VENCIDO':''}</span>
+                <span style={{color:vencida?C.red:C.muted}}>⏱ {a.prazo?new Date(String(a.prazo).slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR'):'-'}{vencida?' · VENCIDO':''}</span>
                 <span style={{color:pr.color,fontWeight:700}}>{pr.label}</span>
               </div>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
               <div style={{background:st.color+'22',color:st.color,borderRadius:6,padding:'3px 8px',fontSize:10,fontWeight:700}}>{st.label}</div>
-              <button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>{String.fromCodePoint(128465)}</button>
+              {!fechadoEm&&<button onClick={()=>delAcao(a.id)} style={{background:'none',border:'none',cursor:'pointer',color:C.red,fontSize:14,padding:2}}>{String.fromCodePoint(128465)}</button>}
             </div>
           </div>
           {a.status!=='concluido'&&a.status!=='cancelado'&&(
             <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
               {a.status==='pendente'&&<button onClick={()=>updateStatus(a.id,'em_andamento')} style={{background:C.blue+'22',border:'1px solid '+C.blue+'44',borderRadius:7,padding:'5px 10px',color:C.blue,fontSize:11,fontWeight:700,cursor:'pointer'}}>▶ Iniciar</button>}
-              {(a.status==='pendente'||a.status==='em_andamento')&&<button onClick={()=>updateStatus(a.id,'concluido')} style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:7,padding:'5px 10px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluir</button>}
+              {(a.status==='pendente'||a.status==='em_andamento')&&<button onClick={()=>setConcluirAcao(a)} style={{background:C.green+'22',border:'1px solid '+C.green+'44',borderRadius:7,padding:'5px 10px',color:C.green,fontSize:11,fontWeight:700,cursor:'pointer'}}>✓ Concluir</button>}
               <button onClick={()=>updateStatus(a.id,'cancelado')} style={{background:C.muted+'15',border:'1px solid '+C.muted+'33',borderRadius:7,padding:'5px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
             </div>
           )}
@@ -2120,6 +2125,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
         </div>);
       })}
 
+      {concluirAcao&&<ConcluirAcaoModal acao={concluirAcao} sbUrl={sbUrl} sbKey={sbKey} onFechar={()=>setConcluirAcao(null)} onConfirmar={ev=>{const x=concluirAcao;setConcluirAcao(null);updateStatus(x.id,'concluido',ev);}}/>}
       {/* Form nova ação */}
       {showForm&&(<div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:12,padding:'14px',marginBottom:12}}>
         <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Nova ação</div>
@@ -2179,7 +2185,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
         </button>
       </div>}
 
-      <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
+      {erroTabelas&&<div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'10px 12px',marginTop:12}}>
         <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>⚠ Para persistir o plano de ação, execute no Supabase SQL Editor:<br/>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10}}>CREATE TABLE IF NOT EXISTS plano_acoes (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), notification_id UUID, hospital_id TEXT, acao TEXT, responsavel TEXT, prazo DATE, prioridade TEXT DEFAULT 'media', status TEXT DEFAULT 'pendente', concluido_em TIMESTAMPTZ, efetividade_verificada TEXT, efetividade_em TIMESTAMPTZ);</span>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10,display:'block',marginTop:6}}>CREATE TABLE IF NOT EXISTS audit_log (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT NOW(), hospital_id TEXT, notification_id UUID, acao TEXT, campo TEXT, valor_anterior TEXT, valor_novo TEXT, usuario TEXT, perfil TEXT);</span>
@@ -2189,7 +2195,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
           <span style={{fontFamily:'monospace',color:'#F97316',fontSize:10,display:'block',marginTop:6}}>-- Adicionar campos de auditoria na tabela existente (rodar uma vez):</span>
           <span style={{fontFamily:'monospace',color:'#9ECFFF',fontSize:10,display:'block'}}>ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rca_autor TEXT; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rca_concluido_em TIMESTAMPTZ; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS notivisa_enviado_em TIMESTAMPTZ; ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;</span>
         </div>
-      </div>
+      </div>}
     </div>
   </div>);
 }
@@ -2295,7 +2301,7 @@ const ehReuniao=t=>/reuniao/.test(t.tipo||'');
 async function registrarEvidenciaAcao(sbUrl,sbKey,acao,ev,setor){
   if(!ev||!ev.texto) return;
   const texto='Ação concluída: '+(acao.acao||'')+'\nO que foi feito: '+ev.texto+(ev.link?'\nEvidência: '+ev.link:'');
-  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:setor||null,texto,created_at:new Date().toISOString()});}
+  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||setor||null,texto,created_at:new Date().toISOString()});}
   catch(e){throw new Error('a evidência não foi registrada ('+e.message+'). A ação não foi concluída: tente de novo.');}
 }
 function ConcluirAcaoModal({acao,sbUrl,sbKey,onConfirmar,onFechar}){
@@ -2473,6 +2479,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const [nots,setNots]=useState({});
   const [treins,setTreins]=useState([]);
   const [busy,setBusy]=useState(null);
+  const [pedirEvid,setPedirEvid]=useState(null); // concluir sempre com o que foi feito (evidencia)
   const [aba,setAba]=useState('panorama');
   const carregar=async()=>{
     try{
@@ -2553,17 +2560,18 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
     <div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div>
     {abas}
+    {pedirEvid&&<ConcluirAcaoModal acao={pedirEvid} sbUrl={sbUrl} sbKey={sbKey} onFechar={()=>setPedirEvid(null)} onConfirmar={ev=>{const x=pedirEvid;setPedirEvid(null);concluir(x,ev);}}/>}
     <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{'Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.'}</div>
     <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
       {kpi(vencidas.length,'Vencidas','#EF4444')}{kpi(proximas.length,'Vencem em 7 dias','#F59E0B')}{kpi(emDia.length,'Em dia',C.teal)}{kpi(aguardaEfic.length,'Aguardam efic\u00e1cia'+(eficAtrasada.length?' ('+eficAtrasada.length+' h\u00e1 +30d)':''),'#8B5CF6')}
     </div>
     {vencidas.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#EF4444',marginBottom:8}}>VENCIDAS</div>
       {vencidas.map(a2=>linha(a2,'#EF4444',Math.ceil((new Date(hoje)-new Date(a2.prazo))/864e5)+'d atraso',
-        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>concluir(a2),busy===a2.id)}</div>))}
+        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>setPedirEvid(a2),busy===a2.id)}</div>))}
     </div>}
     {proximas.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#F59E0B',marginBottom:8}}>VENCEM EM 7 DIAS</div>
       {proximas.map(a2=>linha(a2,'#F59E0B','at\u00e9 '+new Date(a2.prazo+'T12:00:00').toLocaleDateString('pt-BR'),
-        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>concluir(a2),busy===a2.id)}</div>))}
+        <div style={{marginTop:8}}>{btn('Marcar conclu\u00edda','#22C55E',()=>setPedirEvid(a2),busy===a2.id)}</div>))}
     </div>}
     {aguardaEfic.length>0&&<div><div style={{fontSize:12,fontWeight:800,color:'#8B5CF6',marginBottom:8}}>{'CONCLU\u00cdDAS \u2014 AGUARDAM VERIFICA\u00c7\u00c3O DE EFIC\u00c1CIA'}</div>
       {aguardaEfic.map(a2=>linha(a2,'#8B5CF6',a2.concluido_em?('conclu\u00edda '+new Date(a2.concluido_em).toLocaleDateString('pt-BR')):'conclu\u00edda',
@@ -3175,7 +3183,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
   const [loadingIA,setLoadingIA]=useState(false);
   const [narrativaIA,setNarrativaIA]=useState('');
   const [dados,setDados]=useState(null);
-  const [mes,setMes]=useState(()=>{const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;});
+  const [mes,setMes]=useState(()=>mesReferencia()); // o relatorio e do mes que fechou
   const MESES_PT=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const [gestor,setGestor]=useState('');
   const [diretoria,setDiretoria]=useState('');
@@ -3206,7 +3214,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
         if(!d) return false;
         return d>=inicio&&d<=fim;
       });
-      const s=computeStats(nots);
+      const s=computeStats(nots,true);
       const cfg=(cfgArr||[])[0]||{};
       const hoje=new Date().toISOString().slice(0,10);
       const protsVencidos=(protsAll||[]).filter(p=>p.proxima_revisao&&p.proxima_revisao<hoje);
@@ -3775,13 +3783,14 @@ function aplicarSubnucleosDoHospital(h){
 
 // Editar um registro de treinamento ou reuniao (data, participantes, tema e trocar a lista de presenca)
 function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir}){
-  const [f,setF]=useState({data:r.data||'',participantes:r.participantes||'',protocolo:r.protocolo||'',descricao:r.descricao||'',link_gdrive:r.link_gdrive||''});
+  const [f,setF]=useState({data:r.data||'',participantes:r.participantes||'',protocolo:r.protocolo||'',descricao:r.descricao||'',link_gdrive:r.link_gdrive||'',subnucleo:r.subnucleo||'',responsavel:r.responsavel||''});
+  const reuniaoNSP=r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria';
   const [salvando,setSalvando]=useState(false);
   const inp={width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none',marginBottom:8};
   const salvar=async()=>{
     if(!f.data||!Number(f.participantes)){showToast('Informe a data e o número de participantes','error');return;}
     setSalvando(true);
-    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null});
+    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null,...(podeExcluir&&!reuniaoNSP&&f.subnucleo?{subnucleo:f.subnucleo}:{}),responsavel:String(f.responsavel||'').trim()||null});
       showToast('Registro atualizado','success');onSalvo&&onSalvo();}
     catch(e){showToast('Erro ao salvar: '+e.message,'error');}
     setSalvando(false);
@@ -3800,8 +3809,15 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data *</div><input type="date" value={f.data} onChange={e=>setF({...f,data:e.target.value})} style={inp}/></div>
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Participantes *</div><input type="number" min="1" value={f.participantes} onChange={e=>setF({...f,participantes:e.target.value})} style={inp}/></div>
     </div>
+    {podeExcluir&&!reuniaoNSP&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Subnúcleo ou setor de apoio</div>
+    <select value={f.subnucleo} onChange={e=>setF({...f,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
+      <optgroup label="Subnúcleos do NSP">{SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
+      <optgroup label="Setores de apoio">{SETORES_APOIO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
+    </select></React.Fragment>}
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema ou protocolo</div>
     <input value={f.protocolo} onChange={e=>setF({...f,protocolo:e.target.value})} style={inp}/>
+    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Responsável</div>
+    <input value={f.responsavel} onChange={e=>setF({...f,responsavel:e.target.value})} placeholder="Nome de quem ministrou ou registrou" style={inp}/>
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Descrição ou pauta</div>
     <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}}/>
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presença / ata</div>
@@ -4938,7 +4954,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
   </div>);
 }
 
-function AuditarView({sbUrl,sbKey,showToast,hospital}) {
+function AuditarView({sbUrl,sbKey,showToast,hospital,modoAuditor}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [periodo,setPeriodo]=useState('tudo');
   const [customDe,setCustomDe]=useState('');
@@ -5159,12 +5175,13 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
       ]),'Resumo');
 
       if(nots.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome','description'],
-          ['ID','Criado em','Data do evento','Setor','Tipo','Subtipo','Gravidade','Status','RCA gerado','RCA autor','RCA concluido em','Notivisa enviado','Notivisa enviado em','Desfecho','Descricao']),'Notificacoes');
+        // auditor: sem o relato livre (pode conter nome ou dados do paciente)
+        buildStyledSheet(nots,['id','created_at','event_date','sector','notification_type','event_subtype','gravidade','status','rca_gerado','rca_autor','rca_concluido_em','notivisa_enviado','notivisa_enviado_em','patient_outcome',...(modoAuditor?[]:['description'])],
+          ['ID','Criado em','Data do evento','Setor','Tipo','Subtipo','Gravidade','Status','RCA gerado','RCA autor','RCA concluido em','Notivisa enviado','Notivisa enviado em','Desfecho',...(modoAuditor?[]:['Descricao'])]),'Notificacoes');
 
       if(auditLog.length) XLSX.utils.book_append_sheet(wb,
-        buildStyledSheet(auditLog,['created_at','notification_id','acao','campo','valor_anterior','valor_novo','usuario','perfil'],
-          ['Data/Hora','Notificacao ID','Acao','Campo','Valor anterior','Valor novo','Usuario','Perfil']),'Auditoria');
+        buildStyledSheet(auditLog,['created_at','notification_id','acao','campo',...(modoAuditor?[]:['valor_anterior','valor_novo']),'usuario','perfil'],
+          ['Data/Hora','Notificacao ID','Acao','Campo',...(modoAuditor?[]:['Valor anterior','Valor novo']),'Usuario','Perfil']),'Auditoria');
 
       if(treins.length) XLSX.utils.book_append_sheet(wb,
         buildStyledSheet(treins,['data','tipo','subnucleo','protocolo','participantes','responsavel','link_gdrive'],
@@ -5338,7 +5355,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         subnucleo:subId||userSubnucleo||'nsp_pleno',
         protocolo:formTrein.protocolo||null,data:formTrein.data||null,
         participantes:Number(formTrein.participantes)||0,
-        descricao:formTrein.protocolo||null,responsavel:profileMode||'membro_nsp',
+        descricao:formTrein.protocolo||null,responsavel:USUARIO_ATUAL||(profileMode==='gestor'?'Gestor do NSP':'Membro do subnúcleo'),
         link_gdrive:formTrein.link_gdrive||null,
       });
       showToast('Registro salvo!'+(formTrein.link_gdrive?'':' Anexe a lista de presença: sem ela o treinamento não comprova na inspeção.'),'success');
@@ -6089,7 +6106,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         const h=Math.floor(-rest/3600000);
         return{txt:'prazo de 72h vencido ha '+(h>=48?Math.floor(h/24)+'d':h+'h'),cor:C.red};
       };
-      const diasVenc=p=>Math.max(1,Math.floor((Date.now()-new Date(p.prazo).getTime())/86400000));
+      const diasVenc=p=>Math.max(1,Math.floor((Date.now()-new Date(String(p.prazo).slice(0,10)+'T23:59:59').getTime())/86400000)+1);
       const row={display:'flex',justifyContent:'space-between',alignItems:'center',gap:8,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'9px 12px',marginBottom:6};
       const btn=cor=>({fontSize:10,background:cor,color:'#fff',border:'none',borderRadius:6,padding:'5px 10px',cursor:'pointer',fontWeight:800,flexShrink:0});
       if(totalPend===0) return(<div style={{background:C.green+'12',border:'1px solid '+C.green+'44',borderRadius:12,padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}>
@@ -6376,7 +6393,12 @@ function NotificarView({sbUrl,sbKey,webhookUrl,testMode,showToast,hospital,nspEm
       }
 
       case 'idade':{
-        if(valor&&valor!=='nao_informar'&&valor!=='Não informar') d.patient_age=parseInt(valor)||valor;
+        if(valor&&valor!=='nao_informar'&&valor!=='Não informar'){
+          // so numero em anos (antes aceitava texto e salvava 'Texto anos')
+          const m=String(valor).trim().match(/^(\d{1,3})(\s*anos?)?$/i);
+          if(!m||Number(m[1])>120){avancar(d,'idade','Digite só o número da idade, em anos (para bebês com menos de 1 ano, digite 0). Ou toque em Não informar.');break;}
+          d.patient_age=Number(m[1]);
+        }
         avancar(d,'sexo','Sexo do paciente:');
         break;
       }
@@ -8156,7 +8178,7 @@ const filtered=rawData.filter(n=>{
   return true;
 });
   // com período escolhido, mostra o período (mesmo vazio) em vez de voltar para o histórico inteiro
-  const filteredStats=React.useMemo(()=>(dateFrom||dateTo)?computeStats(filtered):null,[filtered,dateFrom,dateTo]);
+  const filteredStats=React.useMemo(()=>(dateFrom||dateTo)?computeStats(filtered,true):null,[filtered,dateFrom,dateTo]);
   const byMonth=Array.from({length:12},(_,i)=>{
     const anoAtual=new Date().getFullYear();const items=filtered.filter(n=>{const d=new Date(n.event_date?n.event_date+'T12:00:00':n.created_at);return d.getFullYear()===anoAtual&&d.getMonth()===i;});
     return{mes:MESES[i],total:items.length,sp:items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length,ccih:0,adm:items.filter(n=>n.notification_type==='administrativa').length};
@@ -10275,6 +10297,7 @@ function NotificaAI() {
 
   const [profileMode,setProfileMode]=useState(null);
   const [userName,setUserName]=useState(null);
+  useEffect(()=>{USUARIO_ATUAL=userName||null;},[userName]);
   const [userSubnucleo,setUserSubnucleo]=useState(null);
   const [userId,setUserId]=useState(null); // id em nsp_usuarios (null quando entrou com PIN padrao)
   const [showAlterarPin,setShowAlterarPin]=useState(false);
@@ -10318,7 +10341,8 @@ function NotificaAI() {
         const r=await window.storage.get('notificai-sb');
         const c=r?.value?JSON.parse(r.value):HNSA;
         setSbUrl(c.url||HNSA.url);setSbKey(c.key||HNSA.key);
-        setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');
+        if(window.NAI_DEMO){setWebhookUrl('');setNspEmail('nsp@hospital-demonstracao.exemplo');}
+        else{setWebhookUrl(c.webhook||HNSA.webhook);setNspEmail(c.email||'');}
         setTestMode(c.testMode!==undefined?c.testMode:true);
         const hId=getHospitalIdFromUrl()||'hnsa';
         const h=await loadHospital(c.url||HNSA.url,c.key||HNSA.key,hId);
@@ -10489,7 +10513,7 @@ function NotificaAI() {
         {view==='notificacoes'&&<NotificacoesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} onMutate={triggerRefresh} filtroInicial={filtroNotif} onClearFiltro={()=>setFiltroNotif(null)}/>}
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
-        {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
+        {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} modoAuditor={profileMode==='auditor'}/>}
         {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} somenteLeitura={auditorMode}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
@@ -10679,6 +10703,8 @@ function computeCriteriosANVISA(dados, cfgLocal) {
 // Instituicao atual (definida ao carregar o hospital). O HNSA usa a raiz do bucket (arquivos ja existentes);
 // as demais instituicoes ficam numa pasta propria, para nao ver nem sobrescrever arquivos de outra.
 let HOSPITAL_STORAGE='hnsa';
+// Nome de quem esta logado (para registrar quem fez: analise, evidencia, treinamento)
+let USUARIO_ATUAL=null;
 const prefixoStorage=()=>HOSPITAL_STORAGE&&HOSPITAL_STORAGE!=='hnsa'?HOSPITAL_STORAGE.replace(/[^a-zA-Z0-9_-]/g,'_')+'/':'';
 function buildStoragePath(tipo, meta, originalName) {
   return prefixoStorage()+buildStoragePathBase(tipo, meta, originalName);

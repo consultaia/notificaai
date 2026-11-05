@@ -314,7 +314,7 @@ function getTitle(n){
 function escHtml(t){
   return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-const ACENTOS_EXIBICAO={lesao:'lesão',pressao:'pressão',medicacao:'medicação',identificacao:'identificação',circunstancia:'circunstância',comunicacao:'comunicação',documentacao:'documentação',
+const ACENTOS_EXIBICAO={lesao:'lesão',laboratorio:'laboratório',pressao:'pressão',medicacao:'medicação',identificacao:'identificação',circunstancia:'circunstância',comunicacao:'comunicação',documentacao:'documentação',
   seguranca:'segurança',organica:'orgânica',infeccao:'infecção',prescricao:'prescrição',administracao:'administração',higienizacao:'higienização',maos:'mãos',prevencao:'prevenção',
   farmacia:'farmácia',manutencao:'manutenção',hotelaria:'hotelaria',nutricao:'nutrição',agressao:'agressão',transfusao:'transfusão',sitio:'sítio',cirurgico:'cirúrgico',urinario:'urinário',
   trato:'trato',ventilacao:'ventilação',mecanica:'mecânica',corrente:'corrente',sanguinea:'sanguínea',equipamento:'equipamento',passagem:'passagem',plantao:'plantão',informacao:'informação'};
@@ -323,6 +323,8 @@ function acentuar(t){
   const s=String(t||'').replace(/[A-Za-zÀ-ú]+/g,w=>{const r=ACENTOS_EXIBICAO[w.toLowerCase()];if(!r)return w;return w[0]===w[0].toUpperCase()?r[0].toUpperCase()+r.slice(1):r;});
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
+// Cópia de todas as notificações: guardada em setor_emails com esta chave (sem mudança no banco)
+const COPIA_NOTIFICACOES='_copia_notificacoes';
 function md(t){
   return escHtml(t).replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,;:])/g,'$1<em>$2</em>').replace(/\n/g,'<br/>');
 }
@@ -1175,25 +1177,34 @@ function SetorEmailsManager({sbUrl,sbKey,showToast,hospital}) {
     setSaving(setor);
     try {
       await sbUpsertDSM(sbUrl,sbKey,'setor_emails',{hospital_id:h.id, setor, email:(emails[setor]||'').trim()||null, updated_at:new Date().toISOString()},'hospital_id,setor');
-      showToast('E-mail do setor salvo!', 'success');
+      showToast(setor===COPIA_NOTIFICACOES?'Cópia das notificações salva!':'E-mail do setor salvo!', 'success');
     } catch(e) { showToast('Erro ao salvar: '+e.message, 'error'); }
     setSaving(null);
   };
 
   return (<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:16}}>
-    <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:4}}>E-mails por Setor</div>
+    <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:4}}>E-mails das notificações</div>
+    <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:14}}>
+      <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>Cópia de todas as notificações (opcional)</div>
+      <div style={{fontSize:11,color:C.muted,margin:'3px 0 8px',lineHeight:1.5}}>Recebe uma cópia de cada notificação, com os dados do paciente. Use apenas e-mail institucional ou autorizado (LGPD). Em branco, ninguém além do NSP e do setor recebe.</div>
+      <div style={{display:'flex',gap:8}}>
+        <input type="email" value={emails[COPIA_NOTIFICACOES]||''} onChange={e=>setEmails(prev=>({...prev,[COPIA_NOTIFICACOES]:e.target.value}))} placeholder="não configurado" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+        <button onClick={()=>salvar(COPIA_NOTIFICACOES)} disabled={saving===COPIA_NOTIFICACOES} style={{fontSize:11,fontWeight:800,padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:C.teal,color:'#FFFFFF'}}>{saving===COPIA_NOTIFICACOES?'Salvando...':'Salvar'}</button>
+      </div>
+    </div>
+    <div style={{fontSize:12.5,fontWeight:800,color:C.text,marginBottom:4}}>Por setor ou tipo de evento</div>
     <div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.5}}>
-      Quando uma notificacao for do setor/tipo abaixo, o e-mail cadastrado aqui recebe copia, alem do e-mail principal do NSP. Deixe em branco os setores que ainda nao tem e-mail definido.
+      Quando a notificação for do setor ou tipo abaixo, o e-mail cadastrado recebe cópia, além do e-mail principal do NSP. Deixe em branco os que ainda não têm e-mail definido.
     </div>
     {loading && <div style={{textAlign:'center',color:C.muted,padding:12}}><Dots/></div>}
     {!loading && CHAVES_UNICAS.map(setor => (
       <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
-        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{setor}</div>
+        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
         <input
           type="email"
           value={emails[setor]||''}
           onChange={e=>setEmails(prev=>({...prev,[setor]:e.target.value}))}
-          placeholder="nao configurado"
+          placeholder="não configurado"
           style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
         />
         <button onClick={()=>salvar(setor)} disabled={saving===setor}
@@ -6344,14 +6355,16 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
                 if(se&&se[0]&&se[0].email) setorEmail=se[0].email;
               }
             }catch(e){/* tabela setor_emails pode nao existir ainda - segue sem cc extra */}
+            let copiaEmail=null;
+            try{const cp=await sbSelect(sbUrl,sbKey,'setor_emails',`hospital_id=eq.${h.id}&setor=eq.${COPIA_NOTIFICACOES}&select=email&limit=1`);if(cp&&cp[0]&&cp[0].email)copiaEmail=cp[0].email;}catch(e){}
             // Tentar rota /email do Worker (substitui n8n)
             const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
-            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})});
+            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
             emailOk=whResp.ok;
             if(!whResp.ok){
               // Fallback: tentar o webhook original (n8n) se configurado
               if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
-                await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})}).catch(()=>{});
+                await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>{});
               }
             }
           }catch(whErr){

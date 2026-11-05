@@ -55,6 +55,7 @@ function isAllowedOrigin(request) {
 }
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const FROM_EMAIL = 'NotificaAI <nsp@notificaai.ia.br>';
+// Endereco do administrador: so recebe se for cadastrado como copia em Administracao.
 const EMAIL_ADMIN = 'janan.almeida@gmail.com';
 const DOMINIOS_PADRAO = ['marinha.mil.br'];
 
@@ -199,12 +200,18 @@ async function handleEmail(request, env) {
   const recusados = [];
   const filtrar = e => { if (!e) return null; if (destinatarioPermitido(e, env)) return String(e).trim(); recusados.push(e); return null; };
   const principal = filtrar(nsp_email);
-  const to = [principal || EMAIL_ADMIN];
+  // Copia geral e configuravel (Administracao > E-mails das notificacoes); nenhum endereco fixo recebe copia.
   const cc = [];
-  [nsp_email_cc, setor_email, EMAIL_ADMIN].map(filtrar).forEach(e => {
-    if (e && !to.includes(e) && !cc.includes(e)) cc.push(e);
+  [nsp_email_cc, setor_email].map(filtrar).forEach(e => {
+    if (e && e !== principal && !cc.includes(e)) cc.push(e);
   });
+  const reserva = filtrar(env.EMAIL_RESERVA);
+  const to = principal ? [principal] : cc.length ? [cc.shift()] : reserva ? [reserva] : [];
   if (recusados.length) console.warn('Destinatarios recusados:', recusados.join(', '));
+  if (!to.length) {
+    // A notificacao ja esta salva no banco; so nao ha para quem avisar por e-mail.
+    return new Response(JSON.stringify({ ok: false, skipped: 'sem destinatario configurado' }), { status: 200, headers: corsHeaders });
+  }
 
   const tipoLabel =
     notification_type === 'seguranca_paciente' ? '🔴 Segurança do Paciente'

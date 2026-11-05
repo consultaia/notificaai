@@ -314,7 +314,7 @@ function getTitle(n){
 function escHtml(t){
   return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-const ACENTOS_EXIBICAO={lesao:'lesão',pressao:'pressão',medicacao:'medicação',identificacao:'identificação',circunstancia:'circunstância',comunicacao:'comunicação',documentacao:'documentação',
+const ACENTOS_EXIBICAO={lesao:'lesão',laboratorio:'laboratório',pressao:'pressão',medicacao:'medicação',identificacao:'identificação',circunstancia:'circunstância',comunicacao:'comunicação',documentacao:'documentação',
   seguranca:'segurança',organica:'orgânica',infeccao:'infecção',prescricao:'prescrição',administracao:'administração',higienizacao:'higienização',maos:'mãos',prevencao:'prevenção',
   farmacia:'farmácia',manutencao:'manutenção',hotelaria:'hotelaria',nutricao:'nutrição',agressao:'agressão',transfusao:'transfusão',sitio:'sítio',cirurgico:'cirúrgico',urinario:'urinário',
   trato:'trato',ventilacao:'ventilação',mecanica:'mecânica',corrente:'corrente',sanguinea:'sanguínea',equipamento:'equipamento',passagem:'passagem',plantao:'plantão',informacao:'informação'};
@@ -323,6 +323,8 @@ function acentuar(t){
   const s=String(t||'').replace(/[A-Za-zÀ-ú]+/g,w=>{const r=ACENTOS_EXIBICAO[w.toLowerCase()];if(!r)return w;return w[0]===w[0].toUpperCase()?r[0].toUpperCase()+r.slice(1):r;});
   return s.charAt(0).toUpperCase()+s.slice(1);
 }
+// Cópia de todas as notificações: guardada em setor_emails com esta chave (sem mudança no banco)
+const COPIA_NOTIFICACOES='_copia_notificacoes';
 function md(t){
   return escHtml(t).replace(/\*\*(.*?)\*\*/g,`<strong style="color:${C.teal}">$1</strong>`).replace(/(^|\s)_([^_\n]+)_(?=\s|$|[.,;:])/g,'$1<em>$2</em>').replace(/\n/g,'<br/>');
 }
@@ -1175,25 +1177,34 @@ function SetorEmailsManager({sbUrl,sbKey,showToast,hospital}) {
     setSaving(setor);
     try {
       await sbUpsertDSM(sbUrl,sbKey,'setor_emails',{hospital_id:h.id, setor, email:(emails[setor]||'').trim()||null, updated_at:new Date().toISOString()},'hospital_id,setor');
-      showToast('E-mail do setor salvo!', 'success');
+      showToast(setor===COPIA_NOTIFICACOES?'Cópia das notificações salva!':'E-mail do setor salvo!', 'success');
     } catch(e) { showToast('Erro ao salvar: '+e.message, 'error'); }
     setSaving(null);
   };
 
   return (<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginBottom:16}}>
-    <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:4}}>E-mails por Setor</div>
+    <div style={{fontSize:14,fontWeight:800,color:C.text,marginBottom:4}}>E-mails das notificações</div>
+    <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:14}}>
+      <div style={{fontSize:12.5,fontWeight:800,color:C.text}}>Cópia de todas as notificações (opcional)</div>
+      <div style={{fontSize:11,color:C.muted,margin:'3px 0 8px',lineHeight:1.5}}>Recebe uma cópia de cada notificação, com os dados do paciente. Use apenas e-mail institucional ou autorizado (LGPD). Em branco, ninguém além do NSP e do setor recebe.</div>
+      <div style={{display:'flex',gap:8}}>
+        <input type="email" value={emails[COPIA_NOTIFICACOES]||''} onChange={e=>setEmails(prev=>({...prev,[COPIA_NOTIFICACOES]:e.target.value}))} placeholder="não configurado" style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+        <button onClick={()=>salvar(COPIA_NOTIFICACOES)} disabled={saving===COPIA_NOTIFICACOES} style={{fontSize:11,fontWeight:800,padding:'8px 14px',borderRadius:8,border:'none',cursor:'pointer',background:C.teal,color:'#FFFFFF'}}>{saving===COPIA_NOTIFICACOES?'Salvando...':'Salvar'}</button>
+      </div>
+    </div>
+    <div style={{fontSize:12.5,fontWeight:800,color:C.text,marginBottom:4}}>Por setor ou tipo de evento</div>
     <div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.5}}>
-      Quando uma notificacao for do setor/tipo abaixo, o e-mail cadastrado aqui recebe copia, alem do e-mail principal do NSP. Deixe em branco os setores que ainda nao tem e-mail definido.
+      Quando a notificação for do setor ou tipo abaixo, o e-mail cadastrado recebe cópia, além do e-mail principal do NSP. Deixe em branco os que ainda não têm e-mail definido.
     </div>
     {loading && <div style={{textAlign:'center',color:C.muted,padding:12}}><Dots/></div>}
     {!loading && CHAVES_UNICAS.map(setor => (
       <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
-        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{setor}</div>
+        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
         <input
           type="email"
           value={emails[setor]||''}
           onChange={e=>setEmails(prev=>({...prev,[setor]:e.target.value}))}
-          placeholder="nao configurado"
+          placeholder="não configurado"
           style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
         />
         <button onClick={()=>salvar(setor)} disabled={saving===setor}
@@ -2629,12 +2640,20 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
   const nomeMesC=m=>new Date(m+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','');
   const ICT={sobe:String.fromCodePoint(9650),desce:String.fromCodePoint(9660)};
 
+  // Valor de cada mês escrito na barra. A escala considera a meta, para um mês baixo não parecer pico
+  // (antes a barra mais alta era sempre o maior valor do período, mesmo muito abaixo da meta).
+  const fmtV=v=>Number(v.toFixed(v!==0&&Math.abs(v)<1?2:Math.abs(v)<10?1:0)).toLocaleString('pt-BR');
+  const metaNum=it=>{const m=String(it.meta||'').replace(',','.').match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):null;};
   const mini=(g,it)=>{
     const vals=porMes.map(x=>{const i2=achar(x.r,g.titulo,it.n);return {m:x.m,v:i2?numV(i2.v):null,ok:i2?i2.ok:null};});
-    const max=Math.max(...vals.map(x=>x.v||0),0)||1;
-    return(<div style={{display:'flex',alignItems:'flex-end',gap:3,height:42,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
-      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':x.v+(it.un?' '+it.un:''))} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
-        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*30)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
+    const mt=metaNum(it);
+    const max=Math.max(...vals.map(x=>x.v||0),mt&&mt>0?mt:0,0)||1;
+    const H=30;const yMeta=mt&&mt>0?Math.round(mt/max*H):null;
+    return(<div style={{position:'relative',display:'flex',alignItems:'flex-end',gap:3,height:H+26,marginTop:8}} aria-label={'Evolução mensal de '+it.n}>
+      {yMeta!==null&&<div title={'Meta '+it.meta} style={{position:'absolute',left:0,right:0,bottom:11+yMeta,borderTop:'1px dashed '+C.muted,opacity:0.55,pointerEvents:'none'}}/>}
+      {vals.map(x=><div key={x.m} title={nomeMesC(x.m)+': '+(x.v===null?'sem dado':fmtV(x.v)+(it.un?' '+it.un:''))} style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',alignItems:'center',gap:2}}>
+        <span style={{fontSize:7.5,fontWeight:700,color:x.v===null?C.muted:C.text,lineHeight:1,whiteSpace:'nowrap'}}>{x.v===null?'–':fmtV(x.v)}</span>
+        <div style={{width:'100%',maxWidth:16,height:x.v===null?3:Math.max(3,Math.round(x.v/max*H)),borderRadius:2,background:x.v===null?C.border:x.ok===null?g.cor:(x.ok?'#22C55E':'#EF4444'),opacity:x.v===null?0.6:1}}/>
         <span style={{fontSize:7.5,color:C.muted,lineHeight:1}}>{nomeMesC(x.m).slice(0,3)}</span>
       </div>)}
     </div>);
@@ -2679,7 +2698,7 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
       {atual.usouTotal&&'* Taxa calculada sobre o paciente-dia TOTAL na ausencia do denominador especifico (preencha em Por Setor para maior precisao). '}
       {'Taxas de periodo sao AGREGADAS (soma dos numeradores / soma dos denominadores de todos os meses lancados) — metodo correto, diferente de tirar media dos percentuais mensais. '}
       N/D = denominador ou numerador ainda nao alimentado no periodo (abas Por Setor e DSM). Prevalencia pontual (ex: prevalencia de LPP em um dia de censo) exige coleta propria de censo pontual, ainda nao registrada no sistema — os valores acima sao incidencias, densidades e conformidades.
-      <div style={{marginTop:6}}>Barras: um mês por coluna (verde dentro da meta, vermelho fora, cinza sem dado). Toque no cartão para ver o cálculo.</div>
+      <div style={{marginTop:6}}>Barras: um mês por coluna, com o valor do mês escrito acima (verde dentro da meta, vermelho fora, cinza sem dado). A linha tracejada marca a meta. Toque no cartão para ver o cálculo.</div>
     </div>
   </div>);
 }
@@ -6344,14 +6363,16 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
                 if(se&&se[0]&&se[0].email) setorEmail=se[0].email;
               }
             }catch(e){/* tabela setor_emails pode nao existir ainda - segue sem cc extra */}
+            let copiaEmail=null;
+            try{const cp=await sbSelect(sbUrl,sbKey,'setor_emails',`hospital_id=eq.${h.id}&setor=eq.${COPIA_NOTIFICACOES}&select=email&limit=1`);if(cp&&cp[0]&&cp[0].email)copiaEmail=cp[0].email;}catch(e){}
             // Tentar rota /email do Worker (substitui n8n)
             const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
-            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})});
+            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
             emailOk=whResp.ok;
             if(!whResp.ok){
               // Fallback: tentar o webhook original (n8n) se configurado
               if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
-                await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:'janan.almeida@gmail.com',setor_email:setorEmail,is_test:false})}).catch(()=>{});
+                await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:nspEmail,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>{});
               }
             }
           }catch(whErr){
@@ -7879,7 +7900,7 @@ if(!window.PptxGenJS){showToast('Biblioteca de PPT ainda carregando, tente novam
           const pts=meses6.map((m,j)=>({m,v:valor(porMes6[j],k.n)})).filter(x=>x.v!==null);
           if(pts.length){
             sl.addChart(pres.charts.LINE,[{name:'Resultado',labels:pts.map(x=>nomeM(x.m)),values:pts.map(x=>x.v)},{name:'Meta',labels:pts.map(x=>nomeM(x.m)),values:pts.map(()=>k.meta)}],
-              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:false});
+              {x,y:y+0.28,w:4.4,h:2.4,chartColors:[C2.teal,C2.red],lineSize:2,lineDataSymbol:'circle',lineDataSymbolSize:5,showLegend:true,legendPos:'b',legendFontSize:8,valAxisLabelColor:C2.gray,catAxisLabelColor:C2.gray,catAxisLabelFontSize:8,valAxisLabelFontSize:8,showValue:true,dataLabelFontSize:7,dataLabelColor:C2.navy,dataLabelPosition:'t'});
           } else sl.addText('Sem dados lançados nos últimos 6 meses (Indicadores > DSM / Por Setor).',{x,y:y+1.1,w:4.4,h:0.5,fontSize:9.5,color:C2.gray,align:'center',margin:0});
         });
         sl.addText('Linha vermelha: meta. Meses sem lançamento não aparecem no gráfico. Detalhes na plataforma: Indicadores > Panorama.',{x:0.45,y:6.75,w:9.1,h:0.3,fontSize:7.5,italic:true,color:C2.gray,margin:0});

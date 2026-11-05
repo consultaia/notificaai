@@ -746,7 +746,7 @@ const PALAVRAS_TELA={
   experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz',
   central:'central de conhecimento videos materiais educacao em saude',
   admin:'administracao usuarios pin senha backup acesso subnucleos e-mail',
-  membro_nsp:'painel do subnucleo o que falta',
+  membro_nsp:'meu subnucleo painel o que falta rotina notificacoes rca analise notivisa plano de acao acoes treinamento lista de presenca ata protocolo portaria indicadores lancar mensal',
 };
 function BuscaNavegacao({tabs,onIr,compacta}){
   const [q,setQ]=useState('');
@@ -1289,12 +1289,12 @@ function PinManager({sbUrl,sbKey,showToast,hospital}) {
         <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Perfil de acesso</label>
         <select value={form.perfil} onChange={e=>setForm({...form,perfil:e.target.value})} style={{...inp,appearance:'none'}}>
           <option value="gestor">Gestor - acesso total</option>
-          <option value="membro_nsp">Membro NSP - subnucleos e indicadores</option>
+          <option value="membro_nsp">Membro NSP - subnúcleos e indicadores</option>
         </select>
         {form.perfil==='membro_nsp'&&<React.Fragment>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Subnucleo do membro</label>
           <select value={form.subnucleo} onChange={e=>setForm({...form,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
-            <option value="">Sem subnucleo definido</option>
+            <option value="">Sem subnúcleo definido</option>
             {SUBNUCLEOS_HNSA.map(sn=><option key={sn.id} value={sn.id}>{sn.label}</option>)}
           </select>
         </React.Fragment>}
@@ -1559,7 +1559,7 @@ Formato exato:
         <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>
       </div>
       <div style={{background:C.card,border:'1px solid '+C.border,borderLeft:'3px solid '+C.red,borderRadius:10,padding:'10px 14px',marginBottom:14}}>
-        <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{notification.notification_type?.toUpperCase()} · {notification.sector}</div>
+        <div style={{fontSize:11,color:C.red,fontWeight:700,marginBottom:3}}>{({seguranca_paciente:'Segurança do paciente',ccih:'Infecção (IRAS)',administrativa:'Administrativa'})[notification.notification_type]||notification.notification_type} · {notification.sector}</div>
         <div style={{fontSize:13,color:C.text}}>{(notification.description||'-').slice(0,120)}</div>
       </div>
       {!rca&&!loading&&<button onClick={gerar} style={{width:'100%',background:'linear-gradient(135deg,'+C.teal+','+C.blue+')',border:'none',borderRadius:12,padding:'14px',color:'#06101F',fontWeight:800,fontSize:14,cursor:'pointer'}}>{String.fromCodePoint(129504)+' Analisar Causa Raiz com IA'}</button>}
@@ -1694,8 +1694,8 @@ Formato exato:
 
 function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {  const [step,setStep]=useState(1);  const [marking,setMarking]=useState(false);  const normTipo=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('medic')||s.includes('farmac')||s.includes('prescri')||s.includes('dispens')) return 'Erro de medicacao';    if(s.includes('queda')) return 'Queda';    if(s.includes('press')||s.includes('lpp')) return 'Lesao por pressao';    if(s.includes('infec')||s.includes('iras')||s.includes('pav')||s.includes('ipcs')||s.includes('itu')||s.includes('isc')) return 'Infeccao relacionada a assistencia';    if((s.includes('identif')||s.includes('pulseira'))&&!s.startsWith('perda de')) return 'Falha de identificacao';    if(s.includes('cirurg')||s.includes('lvcs')) return 'Falha em procedimento cirurgico';    if(s.includes('avp')||s.includes('acesso venoso')||s.includes('infiltr')||s.includes('flebite')||s.includes('extravasamento')) return 'Perda de acesso venoso periferico';    if(s.includes('sne')||s.includes('sng')||s.includes('sonda')||s.includes('nasoenter')||s.includes('nasogastr')||s.includes('svd')||s.includes('cateter urinario')||s.includes('sondagem')||s.includes('exteriori')) return 'Perda/exteriorizacao de dispositivo invasivo';    if(s.includes('comunic')||s.includes('sbar')||s.includes('prescricao verbal')) return 'Falha de comunicacao';    return 'Outros';  };  const normGrav=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('sentinela')) return 'Evento sentinela';    if(s.includes('grave')) return 'Evento adverso grave';    if(s.includes('moderado')) return 'Evento adverso moderado';    if(s.includes('leve')) return 'Evento adverso leve';    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstancia de risco';    return '';  };  const normTurno=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('mat')||s.includes('manha')) return 'Matutino';    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';    if(s.includes('not')||s.includes('noite')) return 'Noturno';    if(s.includes('dia')) return '';    return v;  };  const normSexo=(v,admReason)=>{    const src=(v||'')+(admReason||'');    if(!src) return '';    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';    if(s==='f') return 'Feminino';    if(s==='m') return 'Masculino';    return '';  };  const normAdmissao=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Adm:\s*(\d{4}-\d{2}-\d{2})/);    return m?m[1]:'';  };  const normMotivo=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Motivo:\s*([^|]+)/);    return m?m[1].trim():'';  };  const normDano=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Obito';    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Nao - dano reversivel';    return '';  };  const [form,setForm]=useState(()=>({    data_evento:notification.event_date||'',    turno:normTurno(notification.shift||''),    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),    dispositivo:notification.event_subtype||notification.occurrence_subtype||'',    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),    setor:notification.sector||'',    idade:notification.patient_age||'',    sexo:normSexo(notification.patient_sex||'',notification.admission_reason||''),    data_admissao:normAdmissao(notification.admission_reason||''),    motivo_internacao:normMotivo(notification.admission_reason||''),    descricao:notification.description||'',    acao_imediata:notification.measures_taken||'',    dano:normDano(notification.patient_outcome||''),    acao_corretiva:'',  }));  const [analise,setAnalise]=useState({    fatores_profissional:[],fatores_paciente:[],fatores_trabalho:[],    deteccao_como:'',deteccao_quem:[],    consequencias:[],atenuantes:[],acoes_melhoria:[],    estrategia_risco:'',obs_analise:'',  });  const [savingAnalise,setSavingAnalise]=useState(false);  React.useEffect(()=>{    if(!sbUrl||!sbKey||!notification.id) return;    fetch(`${sbUrl}/rest/v1/notivisa_analise?notification_id=eq.${notification.id}&select=*`,{      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}    }).then(r=>r.json()).catch(()=>[]).then(d=>{      if(d&&d[0]){const a=d[0];setAnalise({        fatores_profissional:a.fatores_profissional||[],fatores_paciente:a.fatores_paciente||[],        fatores_trabalho:a.fatores_trabalho||[],deteccao_como:a.deteccao_como||'',        deteccao_quem:a.deteccao_quem||[],consequencias:a.consequencias||[],        atenuantes:a.atenuantes||[],acoes_melhoria:a.acoes_melhoria||[],        estrategia_risco:a.estrategia_risco||'',obs_analise:a.obs_analise||'',      });}    }).catch(()=>{});  },[notification.id]);  const salvarAnalise=async()=>{    if(!sbUrl||!sbKey) return;    setSavingAnalise(true);    try{      await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');      showToast('Analise salva!','success');    }catch(e){showToast('Erro: '+e.message,'error');}    setSavingAnalise(false);  };  const marcarEnviado=async()=>{    if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}    setMarking(true);    try{await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{notivisa_enviado:true,notivisa_enviado_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'NOTIVISA_ENVIADO','notivisa_enviado','false','true','usuario','gestor');
-      showToast('Marcado como enviado!','success');onClose();}    catch{showToast('Erro','error');}    setMarking(false);  };  const toggleArr=(arr,val)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val];  const scrollRef=React.useRef(null);  const scrollPos=React.useRef(0);  const setAnaliseScroll=(fn)=>{if(scrollRef.current)scrollPos.current=scrollRef.current.scrollTop;setAnalise(fn);};  React.useLayoutEffect(()=>{if(scrollRef.current&&scrollPos.current>0)scrollRef.current.scrollTop=scrollPos.current;},[analise]);  const ChkGroup=({title,items,field,color})=>{    const val=analise[field]||[];    return(<div style={{marginBottom:14}}>      <div style={{fontSize:11,fontWeight:800,color:color||C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>{title}</div>      <div style={{display:'flex',flexWrap:'wrap',gap:5}}>        {items.map(item=>(<button key={item} type='button' onClick={e=>{e.preventDefault();e.stopPropagation();setAnaliseScroll(a=>({...a,[field]:toggleArr(a[field]||[],item)}))}}          style={{padding:'4px 10px',borderRadius:16,            border:'1px solid '+(val.includes(item)?color||C.teal:C.border),            background:val.includes(item)?(color||C.teal)+'22':'transparent',            color:val.includes(item)?color||C.teal:C.muted,            fontSize:11,cursor:'pointer',fontWeight:val.includes(item)?700:400}}>          {item}        </button>))}      </div>    </div>);  };  const faixaIdade=(n)=>{    const i=parseInt(n);if(!i) return 'Nao informado';    if(i<1) return 'Menos de 1 ano';if(i<=4) return '1 a 4 anos';if(i<=9) return '5 a 9 anos';    if(i<=14) return '10 a 14 anos';if(i<=19) return '15 a 19 anos';if(i<=29) return '20 a 29 anos';    if(i<=39) return '30 a 39 anos';if(i<=49) return '40 a 49 anos';if(i<=59) return '50 a 59 anos';    if(i<=65) return '60 a 65 anos';if(i<=70) return '66 a 70 anos';if(i<=75) return '71 a 75 anos';    if(i<=80) return '76 a 80 anos';if(i<=85) return '81 a 85 anos';if(i<=95) return '86 a 95 anos';    return 'Acima de 95 anos';  };  const turnoPeriodo=(t)=>{    if(!t) return '-';    const s=t.toLowerCase();    if(s.includes('mat')||s.includes('ves')) return 'Durante o dia (07:00h as 19:00h)';    if(s.includes('not')) return 'Durante a noite (19:00h as 07:00h)';    return t;  };  const gerarPDF=()=>{    const tags=(arr)=>arr&&arr.length?arr.join(' | '):'-';    const sec=(titulo,campos)=>`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">${titulo}</div>${campos.map(([l,v])=>`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">${l}</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px">${v||'-'}</div></div>`).join('')}</div>`;    const badgeLine=(arr)=>arr&&arr.length?arr.map(f=>`<span style="display:inline-block;background:#e8f4fd;color:#1565c0;border-radius:3px;padding:2px 6px;font-size:10px;margin:2px">${f}</span>`).join(''):'-';    const html=`<!DOCTYPE html><html><head><meta charset=UTF-8><title>Notivisa ${(notification.id||'').slice(0,8).toUpperCase()}</title><style>body{font-family:Arial,sans-serif;max-width:750px;margin:30px auto;color:#222;font-size:12px;}.hdr{background:#c8102e;color:#fff;padding:16px;border-radius:6px;margin-bottom:16px;}.hdr h1{margin:0;font-size:15px;}.hdr p{margin:4px 0 0;font-size:10px;opacity:.85;}.footer{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;font-size:11px;color:#856404;margin-top:20px;}</style></head><body><div class="hdr"><h1>Formulario de Notificacao - Notivisa</h1><p>SNVS/ANVISA | HNSA - Hospital Naval de Salvador | Protocolo: ${(notification.id||'').slice(0,8).toUpperCase()} | ${new Date().toLocaleDateString('pt-BR')}</p></div>${notification.ai_summary||notification.description?`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">Resumo da Notificacao (Referencia Clinica)</div>${notification.ai_summary?`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px">Resumo IA</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px;line-height:1.6">${notification.ai_summary}</div></div>`:''}${notification.description?`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px">Relato original</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px;line-height:1.5">${notification.description}</div></div>`:''}</div>`:''}
-${sec('1. Classificacao do Incidente',[  ['Tipo de incidente',form.tipo||'-'],  ['Dispositivo/sonda/cateter envolvido',form.dispositivo||'-'],  ['Gravidade do dano',form.gravidade||'-'],  ['Dano permanente',form.dano||'-'],])}${sec('2. Relato',[  ['Descricao do incidente',form.descricao||'-'],  ['Acao imediata tomada',form.acao_imediata||'-'],  ['Acao corretiva planejada',form.acao_corretiva||'-'],])}${sec('3. Data / Periodo / Local',[  ['Data do incidente',form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-'],  ['Turno',form.turno||'-'],  ['Periodo',turnoPeriodo(form.turno)],  ['Tipo de servico','Hospital'],  ['Unidade/Setor',form.setor||'-'],  ['Fase da assistencia','Durante a prestacao de cuidados'],])}${sec('4. Caracteristicas do Paciente',[  ['Sexo',form.sexo||'Nao informado'],  ['Idade',form.idade?(form.idade+' anos ('+faixaIdade(form.idade)+')') :'Nao informado'],  ['Raca/cor','Nao informado'],  ['Data de admissao/atendimento',form.data_admissao?new Date(form.data_admissao+'T12:00:00').toLocaleDateString('pt-BR'):'Nao informado'],  ['Motivo da busca pelo servico',form.motivo_internacao||'Nao informado'],])}${analise.deteccao_como||analise.deteccao_quem.length?sec('5. Deteccao',[  ['Como foi identificado',analise.deteccao_como||'-'],  ['Pessoas envolvidas',tags(analise.deteccao_quem)],]):''}${analise.fatores_profissional.length||analise.fatores_paciente.length||analise.fatores_trabalho.length?`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">6. Fatores Contribuintes</div>${analise.fatores_profissional.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Do Profissional</div><div>${badgeLine(analise.fatores_profissional)}</div></div>`:''}${analise.fatores_paciente.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Do Paciente/Familiar</div><div>${badgeLine(analise.fatores_paciente)}</div></div>`:''}${analise.fatores_trabalho.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Trabalho/Ambiente/Organizacao</div><div>${badgeLine(analise.fatores_trabalho)}</div></div>`:''}</div>`:''}${analise.consequencias.length?sec('7. Consequencias Organizacionais',[['Consequencias',tags(analise.consequencias)]]):''}${analise.atenuantes.length?sec('8. Fatores Atenuantes do Dano',[['Fatores atenuantes',tags(analise.atenuantes)]]):''}${analise.acoes_melhoria.length||analise.estrategia_risco?sec('9. Acoes de Melhoria e Reducao de Risco',[  ['Acoes de melhoria',tags(analise.acoes_melhoria)],  ['Status das estrategias de reducao de risco',analise.estrategia_risco||'-'],]):''}${analise.obs_analise?sec('10. Observacoes do Membro NSP',[['Observacoes',analise.obs_analise]]):''}<div class="footer">Guia de preenchimento gerado pelo NotificaAI - HNSA. NAO substitui o envio oficial em notivisa.anvisa.gov.br | Protocolo: ${(notification.id||'').slice(0,8).toUpperCase()}</div></body></html>`;    const b=new Blob([html],{type:'text/html'});    const u=URL.createObjectURL(b);    const a=document.createElement('a');    a.href=u;    a.download='Notivisa_'+(form.setor||'HNSA').replace(/\s/g,'_')+'_'+(form.data_evento||new Date().toISOString().slice(0,10))+'_'+((notification.id||'').slice(0,8).toUpperCase())+'.html';    a.click();URL.revokeObjectURL(u);  };  const FATORES_PROF=['Percepcao/compreensao','Resolucao de problemas','Correlacao ilusoria','Efeitos de Halo','Erro tecnico na execucao','Baseado em regras','Falta de habilidade','Problemas de atencao','Sobrecarga/fadiga','Excesso de confianca','Nao cumprimento de protocolos','Violacao de rotinas','Comportamento arriscado','Comportamento negligente','Fatores emocionais'];  const FATORES_PAC=['Percepcao/compreensao','Problemas de atencao','Fadiga/exaustao','Nao cumprimento de orientacoes','Comportamento de risco','Comportamento negligente','Dificuldade de compreensao','Fatores emocionais','Condicoes clinicas'];  const FATORES_TRAB=['Infraestrutura inadequada','Ausencia de barreiras fisicas','Interrupcoes/barulho','Manutencao/equipamentos','Problemas com protocolos/politicas','Decisoes organizacionais','Dimensionamento de pessoal','Gestao de recursos materiais','Apoio administrativo'];  const DETECCAO_QUEM=['Proprio paciente','Familiar/cuidador','Profissional de saude','Outro profissional do servico','Outro paciente'];  const CONSEQUENCIAS=['Aumento de recursos necessarios','Reclamacao formal','Implicacoes legais','Aumento de gastos financeiros','Reputacao comprometida','Nao houve consequencias'];  const ATENUANTES=['Boa supervisao/lideranca','Bom trabalho de equipe','Comunicacao efetiva','Reconhecimento e notificacao','Treinamento/capacitacao','Protocolo eficaz disponivel','Medidas de cuidado empreendidas','Explicacao ao paciente','Boa sorte/casualidade'];  const ACOES_MELHORIA=['Gestao da lesao','Gestao da doenca','Disclosure/pedido de desculpas','Formacao/treinamento das equipes','Mudanca da cultura organizacional','Discussao com equipes e gestores','Notificacao local','Gestao de reclamacoes','Ainda nao realizadas'];  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:10};  const grid2={display:'grid',gridTemplateColumns:'1fr 1fr',gap:10};  return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}} ref={scrollRef}>      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)+' Formulario Notivisa'}</div>        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>      </div>      <div style={{display:'flex',background:C.card,borderRadius:8,padding:2,gap:2,marginBottom:14}}>        {['Campos','Analise','Revisao','Envio'].map((l,i)=>(          <div key={i} onClick={()=>i<step-1?setStep(i+1):null}            style={{flex:1,textAlign:'center',padding:'7px',borderRadius:6,fontSize:10,fontWeight:700,              background:step===i+1?C.teal:'transparent',              color:step===i+1?'#06101F':step>i+1?C.green:C.muted,              cursor:i<step-1?'pointer':'default'}}>            {step>i+1?'Ok ':''}{l}          </div>        ))}      </div>      {step===1&&(<div>        <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:12,color:C.yellow,lineHeight:1.6}}>          {String.fromCodePoint(9888)+' Campos preenchidos automaticamente. Revise antes de continuar.'}        </div>        {(notification.ai_summary||notification.description)&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',marginBottom:12}}>          <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>Resumo da notificacao (referencia)</div>          {notification.ai_summary&&<div style={{fontSize:12,color:C.text,lineHeight:1.6,marginBottom:notification.description?8:0}}>{notification.ai_summary}</div>}          {notification.description&&<div style={{fontSize:11,color:C.muted,lineHeight:1.5,borderTop:notification.ai_summary?'1px solid '+C.border:'none',paddingTop:notification.ai_summary?6:0}}><strong>Relato original:</strong> {notification.description}</div>}        </div>}        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Data *</label><input type="date" value={form.data_evento} onChange={e=>setForm({...form,data_evento:e.target.value})} style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Turno *</label>            <select value={form.turno} onChange={e=>setForm({...form,turno:e.target.value})} style={{...inp,appearance:'none'}}>              <option value="">Selecione</option><option>Matutino</option><option>Vespertino</option><option>Noturno</option>            </select>          </div>        </div>        <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Setor *</label><input value={form.setor} onChange={e=>setForm({...form,setor:e.target.value})} style={inp}/></div>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Tipo de incidente *</label>        <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Erro de medicacao</option><option>Queda</option>          <option>Lesao por pressao</option><option>Infeccao relacionada a assistencia</option>          <option>Falha de identificacao</option><option>Falha em procedimento cirurgico</option>          <option>Perda de acesso venoso periferico</option><option>Perda/exteriorizacao de dispositivo invasivo</option>          <option>Falha de comunicacao</option><option>Outros</option>        </select>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Dispositivo / sonda / cateter envolvido</label>        <input value={form.dispositivo} onChange={e=>setForm({...form,dispositivo:e.target.value})} placeholder="Ex: SNE, AVP, SVD, CVC..." style={inp}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Gravidade *</label>        <select value={form.gravidade} onChange={e=>setForm({...form,gravidade:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Circunstancia de risco</option><option>Near miss</option>          <option>Incidente sem dano</option><option>Evento adverso leve</option>          <option>Evento adverso moderado</option><option>Evento adverso grave</option><option>Evento sentinela</option>        </select>        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Idade</label><input type="number" value={form.idade} onChange={e=>setForm({...form,idade:e.target.value})} placeholder="anos" style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Sexo</label>            <select value={form.sexo} onChange={e=>setForm({...form,sexo:e.target.value})} style={{...inp,appearance:'none'}}>              <option value="">Selecione</option><option>Masculino</option><option>Feminino</option><option>Nao informado</option>            </select>          </div>        </div>        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Data de admissao</label><input type="date" value={form.data_admissao} onChange={e=>setForm({...form,data_admissao:e.target.value})} style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Motivo da internacao</label><input value={form.motivo_internacao} onChange={e=>setForm({...form,motivo_internacao:e.target.value})} placeholder="Ex: ICC descompensada" style={inp}/></div>        </div>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Descricao do incidente *</label>        <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={3} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Acao imediata tomada *</label>        <textarea value={form.acao_imediata} onChange={e=>setForm({...form,acao_imediata:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Dano permanente?</label>        <select value={form.dano} onChange={e=>setForm({...form,dano:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Nao - dano reversivel</option>          <option>Sim - dano permanente parcial</option><option>Sim - dano permanente total</option><option>Obito</option>        </select>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Acao corretiva planejada</label>        <textarea value={form.acao_corretiva} onChange={e=>setForm({...form,acao_corretiva:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <button onClick={()=>setStep(2)} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:4}}>Analise NSP {String.fromCodePoint(8594)}</button>      </div>)}      {step===2&&(<div>        <div style={{background:C.blue+'10',border:'1px solid '+C.blue+'33',borderRadius:8,padding:'8px 12px',marginBottom:14,fontSize:12,color:C.blue,lineHeight:1.6}}>          {String.fromCodePoint(128203)+' Preencha os fatores identificados na analise. Salve antes de continuar.'}        </div>        <div style={{marginBottom:14}}>          <div style={{fontSize:11,fontWeight:800,color:C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Como o incidente foi identificado</div>          <input value={analise.deteccao_como} onChange={e=>setAnalise(a=>({...a,deteccao_como:e.target.value}))} placeholder="Descreva como o incidente foi identificado..." style={inp}/>          <div style={{fontSize:11,fontWeight:800,color:C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Quem detectou</div>          <div style={{display:'flex',flexWrap:'wrap',gap:5}}>            {DETECCAO_QUEM.map(item=>(<button key={item} type='button' onClick={e=>{e.preventDefault();e.stopPropagation();setAnaliseScroll(a=>({...a,deteccao_quem:toggleArr(a.deteccao_quem,item)}))}}              style={{padding:'4px 10px',borderRadius:16,border:'1px solid '+(analise.deteccao_quem.includes(item)?C.teal:C.border),                background:analise.deteccao_quem.includes(item)?C.teal+'22':'transparent',                color:analise.deteccao_quem.includes(item)?C.teal:C.muted,fontSize:11,cursor:'pointer',fontWeight:analise.deteccao_quem.includes(item)?700:400}}>              {item}            </button>))}          </div>        </div>        <ChkGroup title="Fatores contribuintes — do profissional" items={FATORES_PROF} field="fatores_profissional" color='#8B5CF6'/>        <ChkGroup title="Fatores contribuintes — do paciente/familiar" items={FATORES_PAC} field="fatores_paciente" color='#F59E0B'/>        <ChkGroup title="Fatores contribuintes — trabalho/ambiente/organizacao" items={FATORES_TRAB} field="fatores_trabalho" color='#EF4444'/>        <ChkGroup title="Consequencias organizacionais" items={CONSEQUENCIAS} field="consequencias" color={C.red}/>        <ChkGroup title="Fatores atenuantes do dano" items={ATENUANTES} field="atenuantes" color={C.green}/>        <ChkGroup title="Acoes de melhoria realizadas/planejadas" items={ACOES_MELHORIA} field="acoes_melhoria" color={C.blue}/>        <div style={{marginBottom:14}}>          <label style={{fontSize:11,fontWeight:800,color:C.blue,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Status das estrategias de reducao de risco</label>          <select value={analise.estrategia_risco} onChange={e=>setAnalise(a=>({...a,estrategia_risco:e.target.value}))} style={{...inp,appearance:'none'}}>            <option value="">Selecione</option>            <option>Ainda nao foram adotadas acoes</option>            <option>As estrategias estao em execucao</option>            <option>Todas as estrategias foram implementadas</option>          </select>        </div>        <div style={{marginBottom:14}}>          <label style={{fontSize:11,fontWeight:800,color:C.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Observacoes do Membro NSP</label>          <textarea value={analise.obs_analise} onChange={e=>setAnalise(a=>({...a,obs_analise:e.target.value}))} rows={3} placeholder="Observacoes adicionais..." style={{...inp,resize:'none',fontFamily:'inherit'}}/>        </div>        <div style={{display:'flex',gap:8}}>          <button onClick={()=>setStep(1)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Campos</button>          <button onClick={salvarAnalise} disabled={savingAnalise} style={{flex:1,background:savingAnalise?C.border:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontSize:12,fontWeight:800,cursor:savingAnalise?'default':'pointer'}}>            {savingAnalise?'Salvando...':'Salvar'}          </button>          <button onClick={()=>setStep(3)} style={{flex:1,background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar {String.fromCodePoint(8594)}</button>        </div>      </div>)}      {step===3&&(<div>        <div style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',marginBottom:14}}>          <div style={{background:'#c8102e',color:'white',padding:'14px 16px'}}>            <div style={{fontSize:13,fontWeight:700}}>Formulario de Notificacao - Seguranca do Paciente</div>            <div style={{fontSize:10,opacity:.8,marginTop:2}}>SNVS/ANVISA - Notivisa | NotificaAI | {new Date().toLocaleDateString('pt-BR')}</div>          </div>          <div style={{padding:'12px 16px'}}>            {[              ['Data / Turno',(form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-')+' | '+(form.turno||'-')],              ['Tipo',form.tipo||'-'],['Dispositivo',form.dispositivo||'-'],['Gravidade',form.gravidade||'-'],              ['Setor',form.setor||'-'],['Paciente',(form.idade?form.idade+' anos ':'')+form.sexo],              ['Admissao',form.data_admissao?new Date(form.data_admissao+'T12:00:00').toLocaleDateString('pt-BR'):'-'],              ['Motivo internacao',form.motivo_internacao||'-'],              ['Descricao',form.descricao||'-'],['Acao imediata',form.acao_imediata||'-'],              ['Dano permanente',form.dano||'-'],['Acao corretiva',form.acao_corretiva||'-'],            ].map(([l,v])=>(<div key={l} style={{marginBottom:7,paddingBottom:7,borderBottom:'1px solid #eee'}}>              <div style={{fontSize:9,fontWeight:700,color:'#666',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>{l}</div>              <div style={{fontSize:12,color:'#1a1a1a',background:'#f5f5f5',borderRadius:4,padding:'5px 8px'}}>{v||'-'}</div>            </div>))}            {(analise.fatores_profissional.length||analise.fatores_paciente.length||analise.fatores_trabalho.length)>0&&(              <div style={{marginBottom:7,paddingBottom:7,borderBottom:'1px solid #eee'}}>                <div style={{fontSize:9,fontWeight:700,color:'#666',textTransform:'uppercase',marginBottom:3}}>Fatores Contribuintes</div>                {analise.fatores_profissional.length>0&&<div style={{fontSize:11,marginBottom:2}}><strong>Prof:</strong> {analise.fatores_profissional.join(', ')}</div>}                {analise.fatores_paciente.length>0&&<div style={{fontSize:11,marginBottom:2}}><strong>Pac:</strong> {analise.fatores_paciente.join(', ')}</div>}                {analise.fatores_trabalho.length>0&&<div style={{fontSize:11}}><strong>Amb:</strong> {analise.fatores_trabalho.join(', ')}</div>}              </div>            )}            <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:6,padding:'8px',marginTop:6}}>              <div style={{fontSize:10,color:'#856404'}}>{String.fromCodePoint(9888)+' Nao substitui o envio oficial. Acesse notivisa.anvisa.gov.br'}</div>            </div>          </div>        </div>        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>          <button onClick={()=>setStep(2)} style={{flex:1,minWidth:70,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Analise</button>          <button onClick={gerarPDF} style={{flex:2,minWidth:120,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8659)+' Baixar PDF'}</button>          <button onClick={()=>setStep(4)} style={{flex:1,minWidth:70,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar {String.fromCodePoint(8594)}</button>        </div>      </div>)}      {step===4&&(<div style={{textAlign:'center',padding:'16px 0'}}>        <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'14px',marginBottom:14}}>          <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:8}}>Passos para notificar no Notivisa</div>          {[['01','Baixe o PDF completo','Use o botao "Baixar PDF" na etapa anterior'],            ['02','Acesse notivisa.anvisa.gov.br','Login com credencial institucional'],            ['03','Preencha com o PDF ao lado','Transfira os campos (5-10 min vs 40 min sem o guia)'],          ].map(([n,t,d])=>(            <div key={n} style={{display:'flex',gap:10,marginBottom:8,textAlign:'left'}}>              <div style={{fontSize:13,fontWeight:900,color:C.teal,minWidth:24}}>{n}</div>              <div><div style={{fontSize:12,fontWeight:700,color:C.text}}>{t}</div><div style={{fontSize:11,color:C.muted}}>{d}</div></div>            </div>          ))}        </div>        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>          <button onClick={()=>setStep(3)} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Revisao</button>          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,minWidth:100,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>{String.fromCodePoint(127760)+' Abrir Notivisa'}</a>          <button onClick={marcarEnviado} disabled={marking} style={{flex:2,minWidth:140,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:marking?'default':'pointer'}}>            {marking?'Salvando...':'Ok Marcar como enviado'}          </button>        </div>      </div>)}    </div>  </div>);}
+      showToast('Marcado como enviado!','success');onClose();}    catch{showToast('Erro','error');}    setMarking(false);  };  const toggleArr=(arr,val)=>arr.includes(val)?arr.filter(x=>x!==val):[...arr,val];  const scrollRef=React.useRef(null);  const scrollPos=React.useRef(0);  const setAnaliseScroll=(fn)=>{if(scrollRef.current)scrollPos.current=scrollRef.current.scrollTop;setAnalise(fn);};  React.useLayoutEffect(()=>{if(scrollRef.current&&scrollPos.current>0)scrollRef.current.scrollTop=scrollPos.current;},[analise]);  const ChkGroup=({title,items,field,color})=>{    const val=analise[field]||[];    return(<div style={{marginBottom:14}}>      <div style={{fontSize:11,fontWeight:800,color:color||C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>{title}</div>      <div style={{display:'flex',flexWrap:'wrap',gap:5}}>        {items.map(item=>(<button key={item} type='button' onClick={e=>{e.preventDefault();e.stopPropagation();setAnaliseScroll(a=>({...a,[field]:toggleArr(a[field]||[],item)}))}}          style={{padding:'4px 10px',borderRadius:16,            border:'1px solid '+(val.includes(item)?color||C.teal:C.border),            background:val.includes(item)?(color||C.teal)+'22':'transparent',            color:val.includes(item)?color||C.teal:C.muted,            fontSize:11,cursor:'pointer',fontWeight:val.includes(item)?700:400}}>          {item}        </button>))}      </div>    </div>);  };  const faixaIdade=(n)=>{    const i=parseInt(n);if(!i) return 'Nao informado';    if(i<1) return 'Menos de 1 ano';if(i<=4) return '1 a 4 anos';if(i<=9) return '5 a 9 anos';    if(i<=14) return '10 a 14 anos';if(i<=19) return '15 a 19 anos';if(i<=29) return '20 a 29 anos';    if(i<=39) return '30 a 39 anos';if(i<=49) return '40 a 49 anos';if(i<=59) return '50 a 59 anos';    if(i<=65) return '60 a 65 anos';if(i<=70) return '66 a 70 anos';if(i<=75) return '71 a 75 anos';    if(i<=80) return '76 a 80 anos';if(i<=85) return '81 a 85 anos';if(i<=95) return '86 a 95 anos';    return 'Acima de 95 anos';  };  const turnoPeriodo=(t)=>{    if(!t) return '-';    const s=t.toLowerCase();    if(s.includes('mat')||s.includes('ves')) return 'Durante o dia (07:00h as 19:00h)';    if(s.includes('not')) return 'Durante a noite (19:00h as 07:00h)';    return t;  };  const gerarPDF=()=>{    const tags=(arr)=>arr&&arr.length?arr.join(' | '):'-';    const sec=(titulo,campos)=>`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">${titulo}</div>${campos.map(([l,v])=>`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">${l}</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px">${v||'-'}</div></div>`).join('')}</div>`;    const badgeLine=(arr)=>arr&&arr.length?arr.map(f=>`<span style="display:inline-block;background:#e8f4fd;color:#1565c0;border-radius:3px;padding:2px 6px;font-size:10px;margin:2px">${f}</span>`).join(''):'-';    const html=`<!DOCTYPE html><html><head><meta charset=UTF-8><title>Notivisa ${(notification.id||'').slice(0,8).toUpperCase()}</title><style>body{font-family:Arial,sans-serif;max-width:750px;margin:30px auto;color:#222;font-size:12px;}.hdr{background:#c8102e;color:#fff;padding:16px;border-radius:6px;margin-bottom:16px;}.hdr h1{margin:0;font-size:15px;}.hdr p{margin:4px 0 0;font-size:10px;opacity:.85;}.footer{background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:10px;font-size:11px;color:#856404;margin-top:20px;}</style></head><body><div class="hdr"><h1>Formulário de Notificação - Notivisa</h1><p>SNVS/ANVISA | HNSA - Hospital Naval de Salvador | Protocolo: ${(notification.id||'').slice(0,8).toUpperCase()} | ${new Date().toLocaleDateString('pt-BR')}</p></div>${notification.ai_summary||notification.description?`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">Resumo da Notificação (Referência Clinica)</div>${notification.ai_summary?`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px">Resumo IA</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px;line-height:1.6">${notification.ai_summary}</div></div>`:''}${notification.description?`<div style="margin-bottom:5px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:2px">Relato original</div><div style="background:#f5f5f5;border-radius:4px;padding:6px 9px;font-size:11px;line-height:1.5">${notification.description}</div></div>`:''}</div>`:''}
+${sec('1. Classificacao do Incidente',[  ['Tipo de incidente',form.tipo||'-'],  ['Dispositivo/sonda/cateter envolvido',form.dispositivo||'-'],  ['Gravidade do dano',form.gravidade||'-'],  ['Dano permanente',form.dano||'-'],])}${sec('2. Relato',[  ['Descricao do incidente',form.descricao||'-'],  ['Acao imediata tomada',form.acao_imediata||'-'],  ['Acao corretiva planejada',form.acao_corretiva||'-'],])}${sec('3. Data / Periodo / Local',[  ['Data do incidente',form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-'],  ['Turno',form.turno||'-'],  ['Periodo',turnoPeriodo(form.turno)],  ['Tipo de servico','Hospital'],  ['Unidade/Setor',form.setor||'-'],  ['Fase da assistencia','Durante a prestacao de cuidados'],])}${sec('4. Caracteristicas do Paciente',[  ['Sexo',form.sexo||'Nao informado'],  ['Idade',form.idade?(form.idade+' anos ('+faixaIdade(form.idade)+')') :'Nao informado'],  ['Raca/cor','Nao informado'],  ['Data de admissao/atendimento',form.data_admissao?new Date(form.data_admissao+'T12:00:00').toLocaleDateString('pt-BR'):'Nao informado'],  ['Motivo da busca pelo servico',form.motivo_internacao||'Nao informado'],])}${analise.deteccao_como||analise.deteccao_quem.length?sec('5. Deteccao',[  ['Como foi identificado',analise.deteccao_como||'-'],  ['Pessoas envolvidas',tags(analise.deteccao_quem)],]):''}${analise.fatores_profissional.length||analise.fatores_paciente.length||analise.fatores_trabalho.length?`<div style="margin-bottom:14px"><div style="background:#003087;color:#fff;padding:7px 12px;border-radius:4px;font-size:11px;font-weight:700;margin-bottom:6px">6. Fatores Contribuintes</div>${analise.fatores_profissional.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Do Profissional</div><div>${badgeLine(analise.fatores_profissional)}</div></div>`:''}${analise.fatores_paciente.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Do Paciente/Familiar</div><div>${badgeLine(analise.fatores_paciente)}</div></div>`:''}${analise.fatores_trabalho.length?`<div style="margin-bottom:6px"><div style="font-size:9px;color:#666;text-transform:uppercase;margin-bottom:3px">Trabalho/Ambiente/Organizacao</div><div>${badgeLine(analise.fatores_trabalho)}</div></div>`:''}</div>`:''}${analise.consequencias.length?sec('7. Consequencias Organizacionais',[['Consequencias',tags(analise.consequencias)]]):''}${analise.atenuantes.length?sec('8. Fatores Atenuantes do Dano',[['Fatores atenuantes',tags(analise.atenuantes)]]):''}${analise.acoes_melhoria.length||analise.estrategia_risco?sec('9. Acoes de Melhoria e Reducao de Risco',[  ['Acoes de melhoria',tags(analise.acoes_melhoria)],  ['Status das estrategias de reducao de risco',analise.estrategia_risco||'-'],]):''}${analise.obs_analise?sec('10. Observacoes do Membro NSP',[['Observacoes',analise.obs_analise]]):''}<div class="footer">Guia de preenchimento gerado pelo NotificaAI - HNSA. NAO substitui o envio oficial em notivisa.anvisa.gov.br | Protocolo: ${(notification.id||'').slice(0,8).toUpperCase()}</div></body></html>`;    const b=new Blob([html],{type:'text/html'});    const u=URL.createObjectURL(b);    const a=document.createElement('a');    a.href=u;    a.download='Notivisa_'+(form.setor||'HNSA').replace(/\s/g,'_')+'_'+(form.data_evento||new Date().toISOString().slice(0,10))+'_'+((notification.id||'').slice(0,8).toUpperCase())+'.html';    a.click();URL.revokeObjectURL(u);  };  const FATORES_PROF=['Percepcao/compreensao','Resolucao de problemas','Correlacao ilusoria','Efeitos de Halo','Erro tecnico na execucao','Baseado em regras','Falta de habilidade','Problemas de atencao','Sobrecarga/fadiga','Excesso de confianca','Nao cumprimento de protocolos','Violacao de rotinas','Comportamento arriscado','Comportamento negligente','Fatores emocionais'];  const FATORES_PAC=['Percepcao/compreensao','Problemas de atencao','Fadiga/exaustao','Nao cumprimento de orientacoes','Comportamento de risco','Comportamento negligente','Dificuldade de compreensao','Fatores emocionais','Condicoes clinicas'];  const FATORES_TRAB=['Infraestrutura inadequada','Ausencia de barreiras fisicas','Interrupcoes/barulho','Manutencao/equipamentos','Problemas com protocolos/politicas','Decisoes organizacionais','Dimensionamento de pessoal','Gestao de recursos materiais','Apoio administrativo'];  const DETECCAO_QUEM=['Proprio paciente','Familiar/cuidador','Profissional de saude','Outro profissional do servico','Outro paciente'];  const CONSEQUENCIAS=['Aumento de recursos necessarios','Reclamacao formal','Implicacoes legais','Aumento de gastos financeiros','Reputacao comprometida','Nao houve consequencias'];  const ATENUANTES=['Boa supervisao/lideranca','Bom trabalho de equipe','Comunicacao efetiva','Reconhecimento e notificacao','Treinamento/capacitacao','Protocolo eficaz disponivel','Medidas de cuidado empreendidas','Explicacao ao paciente','Boa sorte/casualidade'];  const ACOES_MELHORIA=['Gestao da lesao','Gestao da doenca','Disclosure/pedido de desculpas','Formacao/treinamento das equipes','Mudanca da cultura organizacional','Discussao com equipes e gestores','Notificacao local','Gestao de reclamacoes','Ainda nao realizadas'];  const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,outline:'none',width:'100%',marginBottom:10};  const grid2={display:'grid',gridTemplateColumns:'1fr 1fr',gap:10};  return(<div style={{position:'fixed',inset:0,background:'#000b',zIndex:200,display:'flex',alignItems:'flex-end'}}>    <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,margin:'0 auto',border:'1px solid '+C.border,maxHeight:'92vh',overflowY:'auto'}} ref={scrollRef}>      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>        <div style={{fontSize:15,fontWeight:800,color:C.text}}>{String.fromCodePoint(128203)+' Formulario Notivisa'}</div>        <button onClick={onClose} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:20}}>{String.fromCodePoint(10005)}</button>      </div>      <div style={{display:'flex',background:C.card,borderRadius:8,padding:2,gap:2,marginBottom:14}}>        {['Campos','Analise','Revisao','Envio'].map((l,i)=>(          <div key={i} onClick={()=>i<step-1?setStep(i+1):null}            style={{flex:1,textAlign:'center',padding:'7px',borderRadius:6,fontSize:10,fontWeight:700,              background:step===i+1?C.teal:'transparent',              color:step===i+1?'#06101F':step>i+1?C.green:C.muted,              cursor:i<step-1?'pointer':'default'}}>            {step>i+1?'Ok ':''}{l}          </div>        ))}      </div>      {step===1&&(<div>        <div style={{background:C.yellow+'10',border:'1px solid '+C.yellow+'33',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:12,color:C.yellow,lineHeight:1.6}}>          {String.fromCodePoint(9888)+' Campos preenchidos automaticamente. Revise antes de continuar.'}        </div>        {(notification.ai_summary||notification.description)&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',marginBottom:12}}>          <div style={{fontSize:10,fontWeight:700,color:C.muted,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:6}}>Resumo da notificação (referência)</div>          {notification.ai_summary&&<div style={{fontSize:12,color:C.text,lineHeight:1.6,marginBottom:notification.description?8:0}}>{notification.ai_summary}</div>}          {notification.description&&<div style={{fontSize:11,color:C.muted,lineHeight:1.5,borderTop:notification.ai_summary?'1px solid '+C.border:'none',paddingTop:notification.ai_summary?6:0}}><strong>Relato original:</strong> {notification.description}</div>}        </div>}        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Data *</label><input type="date" value={form.data_evento} onChange={e=>setForm({...form,data_evento:e.target.value})} style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Turno *</label>            <select value={form.turno} onChange={e=>setForm({...form,turno:e.target.value})} style={{...inp,appearance:'none'}}>              <option value="">Selecione</option><option>Matutino</option><option>Vespertino</option><option>Noturno</option>            </select>          </div>        </div>        <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Setor *</label><input value={form.setor} onChange={e=>setForm({...form,setor:e.target.value})} style={inp}/></div>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Tipo de incidente *</label>        <select value={form.tipo} onChange={e=>setForm({...form,tipo:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Erro de medicação</option><option>Queda</option>          <option>Lesão por pressão</option><option>Infeccao relacionada a assistencia</option>          <option>Falha de identificação</option><option>Falha em procedimento cirurgico</option>          <option>Perda de acesso venoso periferico</option><option>Perda/exteriorizacao de dispositivo invasivo</option>          <option>Falha de comunicação</option><option>Outros</option>        </select>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Dispositivo / sonda / cateter envolvido</label>        <input value={form.dispositivo} onChange={e=>setForm({...form,dispositivo:e.target.value})} placeholder="Ex: SNE, AVP, SVD, CVC..." style={inp}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Gravidade *</label>        <select value={form.gravidade} onChange={e=>setForm({...form,gravidade:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Circunstância de risco</option><option>Near miss</option>          <option>Incidente sem dano</option><option>Evento adverso leve</option>          <option>Evento adverso moderado</option><option>Evento adverso grave</option><option>Evento sentinela</option>        </select>        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Idade</label><input type="number" value={form.idade} onChange={e=>setForm({...form,idade:e.target.value})} placeholder="anos" style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Sexo</label>            <select value={form.sexo} onChange={e=>setForm({...form,sexo:e.target.value})} style={{...inp,appearance:'none'}}>              <option value="">Selecione</option><option>Masculino</option><option>Feminino</option><option>Não informado</option>            </select>          </div>        </div>        <div style={grid2}>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Data de admissao</label><input type="date" value={form.data_admissao} onChange={e=>setForm({...form,data_admissao:e.target.value})} style={inp}/></div>          <div><label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Motivo da internacao</label><input value={form.motivo_internacao} onChange={e=>setForm({...form,motivo_internacao:e.target.value})} placeholder="Ex: ICC descompensada" style={inp}/></div>        </div>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Descrição do incidente *</label>        <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={3} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Ação imediata tomada *</label>        <textarea value={form.acao_imediata} onChange={e=>setForm({...form,acao_imediata:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Dano permanente?</label>        <select value={form.dano} onChange={e=>setForm({...form,dano:e.target.value})} style={{...inp,appearance:'none'}}>          <option value="">Selecione</option><option>Não - dano reversível</option>          <option>Sim - dano permanente parcial</option><option>Sim - dano permanente total</option><option>Obito</option>        </select>        <label style={{fontSize:10,color:C.muted,display:'block',marginBottom:4}}>Ação corretiva planejada</label>        <textarea value={form.acao_corretiva} onChange={e=>setForm({...form,acao_corretiva:e.target.value})} rows={2} style={{...inp,resize:'none',fontFamily:'inherit'}}/>        <button onClick={()=>setStep(2)} style={{width:'100%',background:C.teal,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:4}}>Analise NSP {String.fromCodePoint(8594)}</button>      </div>)}      {step===2&&(<div>        <div style={{background:C.blue+'10',border:'1px solid '+C.blue+'33',borderRadius:8,padding:'8px 12px',marginBottom:14,fontSize:12,color:C.blue,lineHeight:1.6}}>          {String.fromCodePoint(128203)+' Preencha os fatores identificados na analise. Salve antes de continuar.'}        </div>        <div style={{marginBottom:14}}>          <div style={{fontSize:11,fontWeight:800,color:C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Como o incidente foi identificado</div>          <input value={analise.deteccao_como} onChange={e=>setAnalise(a=>({...a,deteccao_como:e.target.value}))} placeholder="Descreva como o incidente foi identificado..." style={inp}/>          <div style={{fontSize:11,fontWeight:800,color:C.teal,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Quem detectou</div>          <div style={{display:'flex',flexWrap:'wrap',gap:5}}>            {DETECCAO_QUEM.map(item=>(<button key={item} type='button' onClick={e=>{e.preventDefault();e.stopPropagation();setAnaliseScroll(a=>({...a,deteccao_quem:toggleArr(a.deteccao_quem,item)}))}}              style={{padding:'4px 10px',borderRadius:16,border:'1px solid '+(analise.deteccao_quem.includes(item)?C.teal:C.border),                background:analise.deteccao_quem.includes(item)?C.teal+'22':'transparent',                color:analise.deteccao_quem.includes(item)?C.teal:C.muted,fontSize:11,cursor:'pointer',fontWeight:analise.deteccao_quem.includes(item)?700:400}}>              {item}            </button>))}          </div>        </div>        <ChkGroup title="Fatores contribuintes — do profissional" items={FATORES_PROF} field="fatores_profissional" color='#8B5CF6'/>        <ChkGroup title="Fatores contribuintes — do paciente/familiar" items={FATORES_PAC} field="fatores_paciente" color='#F59E0B'/>        <ChkGroup title="Fatores contribuintes — trabalho/ambiente/organizacao" items={FATORES_TRAB} field="fatores_trabalho" color='#EF4444'/>        <ChkGroup title="Consequencias organizacionais" items={CONSEQUENCIAS} field="consequencias" color={C.red}/>        <ChkGroup title="Fatores atenuantes do dano" items={ATENUANTES} field="atenuantes" color={C.green}/>        <ChkGroup title="Acoes de melhoria realizadas/planejadas" items={ACOES_MELHORIA} field="acoes_melhoria" color={C.blue}/>        <div style={{marginBottom:14}}>          <label style={{fontSize:11,fontWeight:800,color:C.blue,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Status das estrategias de reducao de risco</label>          <select value={analise.estrategia_risco} onChange={e=>setAnalise(a=>({...a,estrategia_risco:e.target.value}))} style={{...inp,appearance:'none'}}>            <option value="">Selecione</option>            <option>Ainda não foram adotadas ações</option>            <option>As estrategias estao em execucao</option>            <option>Todas as estrategias foram implementadas</option>          </select>        </div>        <div style={{marginBottom:14}}>          <label style={{fontSize:11,fontWeight:800,color:C.muted,display:'block',marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Observacoes do Membro NSP</label>          <textarea value={analise.obs_analise} onChange={e=>setAnalise(a=>({...a,obs_analise:e.target.value}))} rows={3} placeholder="Observacoes adicionais..." style={{...inp,resize:'none',fontFamily:'inherit'}}/>        </div>        <div style={{display:'flex',gap:8}}>          <button onClick={()=>setStep(1)} style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Campos</button>          <button onClick={salvarAnalise} disabled={savingAnalise} style={{flex:1,background:savingAnalise?C.border:C.blue,border:'none',borderRadius:10,padding:'11px',color:'#fff',fontSize:12,fontWeight:800,cursor:savingAnalise?'default':'pointer'}}>            {savingAnalise?'Salvando...':'Salvar'}          </button>          <button onClick={()=>setStep(3)} style={{flex:1,background:C.teal,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Revisar {String.fromCodePoint(8594)}</button>        </div>      </div>)}      {step===3&&(<div>        <div style={{background:'white',color:'#1a1a1a',borderRadius:10,overflow:'hidden',marginBottom:14}}>          <div style={{background:'#c8102e',color:'white',padding:'14px 16px'}}>            <div style={{fontSize:13,fontWeight:700}}>Formulário de Notificação - Segurança do Paciente</div>            <div style={{fontSize:10,opacity:.8,marginTop:2}}>SNVS/ANVISA - Notivisa | NotificaAI | {new Date().toLocaleDateString('pt-BR')}</div>          </div>          <div style={{padding:'12px 16px'}}>            {[              ['Data / Turno',(form.data_evento?new Date(form.data_evento+'T12:00:00').toLocaleDateString('pt-BR'):'-')+' | '+(form.turno||'-')],              ['Tipo',form.tipo||'-'],['Dispositivo',form.dispositivo||'-'],['Gravidade',form.gravidade||'-'],              ['Setor',form.setor||'-'],['Paciente',(form.idade?form.idade+' anos ':'')+form.sexo],              ['Admissao',form.data_admissao?new Date(form.data_admissao+'T12:00:00').toLocaleDateString('pt-BR'):'-'],              ['Motivo internacao',form.motivo_internacao||'-'],              ['Descricao',form.descricao||'-'],['Acao imediata',form.acao_imediata||'-'],              ['Dano permanente',form.dano||'-'],['Acao corretiva',form.acao_corretiva||'-'],            ].map(([l,v])=>(<div key={l} style={{marginBottom:7,paddingBottom:7,borderBottom:'1px solid #eee'}}>              <div style={{fontSize:9,fontWeight:700,color:'#666',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>{l}</div>              <div style={{fontSize:12,color:'#1a1a1a',background:'#f5f5f5',borderRadius:4,padding:'5px 8px'}}>{v||'-'}</div>            </div>))}            {(analise.fatores_profissional.length||analise.fatores_paciente.length||analise.fatores_trabalho.length)>0&&(              <div style={{marginBottom:7,paddingBottom:7,borderBottom:'1px solid #eee'}}>                <div style={{fontSize:9,fontWeight:700,color:'#666',textTransform:'uppercase',marginBottom:3}}>Fatores Contribuintes</div>                {analise.fatores_profissional.length>0&&<div style={{fontSize:11,marginBottom:2}}><strong>Prof:</strong> {analise.fatores_profissional.join(', ')}</div>}                {analise.fatores_paciente.length>0&&<div style={{fontSize:11,marginBottom:2}}><strong>Pac:</strong> {analise.fatores_paciente.join(', ')}</div>}                {analise.fatores_trabalho.length>0&&<div style={{fontSize:11}}><strong>Amb:</strong> {analise.fatores_trabalho.join(', ')}</div>}              </div>            )}            <div style={{background:'#fff3cd',border:'1px solid #ffc107',borderRadius:6,padding:'8px',marginTop:6}}>              <div style={{fontSize:10,color:'#856404'}}>{String.fromCodePoint(9888)+' Nao substitui o envio oficial. Acesse notivisa.anvisa.gov.br'}</div>            </div>          </div>        </div>        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>          <button onClick={()=>setStep(2)} style={{flex:1,minWidth:70,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Analise</button>          <button onClick={gerarPDF} style={{flex:2,minWidth:120,background:C.blue,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8659)+' Baixar PDF'}</button>          <button onClick={()=>setStep(4)} style={{flex:1,minWidth:70,background:C.teal,border:'none',borderRadius:10,padding:'10px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>Enviar {String.fromCodePoint(8594)}</button>        </div>      </div>)}      {step===4&&(<div style={{textAlign:'center',padding:'16px 0'}}>        <div style={{background:C.teal+'10',border:'1px solid '+C.teal+'33',borderRadius:10,padding:'14px',marginBottom:14}}>          <div style={{fontSize:13,fontWeight:700,color:C.teal,marginBottom:8}}>Passos para notificar no Notivisa</div>          {[['01','Baixe o PDF completo','Use o botao "Baixar PDF" na etapa anterior'],            ['02','Acesse notivisa.anvisa.gov.br','Login com credencial institucional'],            ['03','Preencha com o PDF ao lado','Transfira os campos (5-10 min vs 40 min sem o guia)'],          ].map(([n,t,d])=>(            <div key={n} style={{display:'flex',gap:10,marginBottom:8,textAlign:'left'}}>              <div style={{fontSize:13,fontWeight:900,color:C.teal,minWidth:24}}>{n}</div>              <div><div style={{fontSize:12,fontWeight:700,color:C.text}}>{t}</div><div style={{fontSize:11,color:C.muted}}>{d}</div></div>            </div>          ))}        </div>        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>          <button onClick={()=>setStep(3)} style={{flex:1,minWidth:80,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>{String.fromCodePoint(8592)} Revisao</button>          <a href="https://notivisa.anvisa.gov.br" target="_blank" rel="noreferrer" style={{flex:1,minWidth:100,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.muted,fontSize:12,fontWeight:700,textDecoration:'none',display:'flex',alignItems:'center',justifyContent:'center'}}>{String.fromCodePoint(127760)+' Abrir Notivisa'}</a>          <button onClick={marcarEnviado} disabled={marking} style={{flex:2,minWidth:140,background:C.green,border:'none',borderRadius:10,padding:'11px',color:'#06101F',fontSize:12,fontWeight:800,cursor:marking?'default':'pointer'}}>            {marking?'Salvando...':'Ok Marcar como enviado'}          </button>        </div>      </div>)}    </div>  </div>);}
 function MatrizRisco({notification,sbUrl,sbKey,showToast,onClose,onSaved}) {
   const PROB=[
     {v:1,label:'Raro',desc:'Pode ocorrer em circunstâncias excepcionais'},
@@ -2101,9 +2101,9 @@ function ChecklistANVISAView({sbUrl,sbKey,showToast,hospital,perfil,userSubnucle
   return(<div>
     {!isGestor&&<div style={{background:(subInfo?.color||C.teal)+'15',border:'1px solid '+(subInfo?.color||C.teal)+'44',borderRadius:10,padding:'10px 14px',marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:subInfo?.color||C.teal}}>Checklist ANVISA - {subInfo?.label||userSubnucleo}</div>
-      <div style={{fontSize:10,color:C.muted,marginTop:2}}>Dados dos ultimos 12 meses. Itens que dependem de outros subnucleos ou do gestor nao aparecem aqui.</div>
+      <div style={{fontSize:10,color:C.muted,marginTop:2}}>Dados dos últimos 12 meses. Itens que dependem de outros subnúcleos ou do gestor não aparecem aqui.</div>
     </div>}
-    {visiveis.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum criterio ANVISA associado a este subnucleo.</div>}
+    {visiveis.length===0&&<div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhum criterio ANVISA associado a este subnúcleo.</div>}
     {visiveis.map(Item)}
     {institucionais.length>0&&<div style={{marginTop:16}}>
       <div style={{fontSize:11,fontWeight:800,color:C.muted,marginBottom:8}}>Itens institucionais (responsabilidade do gestor)</div>
@@ -2129,9 +2129,37 @@ const etapaDaAcao=a=>{
 };
 const ehReuniao=t=>/reuniao/.test(t.tipo||'');
 
-function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerificar,irParaLista,subFixo,podeVerificar=true}){
+// Ao concluir uma acao, registra o que foi feito e a evidencia nas atualizacoes do plano (acao_comentarios)
+async function registrarEvidenciaAcao(sbUrl,sbKey,acao,ev,setor){
+  if(!ev||!ev.texto) return;
+  const texto='Ação concluída: '+(acao.acao||'')+'\nO que foi feito: '+ev.texto+(ev.link?'\nEvidência: '+ev.link:'');
+  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:setor||null,texto,created_at:new Date().toISOString()});}catch(e){console.warn('evidencia',e.message);}
+}
+function ConcluirAcaoModal({acao,sbUrl,sbKey,onConfirmar,onFechar}){
+  const [texto,setTexto]=useState('');
+  const [link,setLink]=useState('');
+  return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000a',zIndex:380,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+    <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:16,maxWidth:460,width:'100%',padding:20}}>
+      <div style={{fontSize:16,fontWeight:900,color:C.text}}>Concluir ação</div>
+      <div style={{fontSize:12.5,color:C.muted,margin:'4px 0 14px',lineHeight:1.5}}>{acao.acao}</div>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,marginBottom:6}}>O que foi feito? *</div>
+      <textarea value={texto} onChange={e=>setTexto(e.target.value)} rows={3} placeholder="Ex.: POP revisado e divulgado na passagem de plantão; equipe treinada em 12/11." style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',color:C.text,fontSize:13,fontFamily:'inherit',outline:'none',resize:'vertical'}}/>
+      <div style={{fontSize:12,fontWeight:800,color:C.text,margin:'12px 0 6px'}}>Evidência (foto, PDF, lista de presença)</div>
+      {link?<div style={{fontSize:12,color:C.green,fontWeight:700}}>Arquivo anexado · <a href={link} target="_blank" rel="noreferrer" style={{color:C.teal}}>ver</a> · <button onClick={()=>setLink('')} style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:11}}>trocar</button></div>
+        :<StorageUploadBtn tipo="outros" sbUrl={sbUrl} sbKey={sbKey} label="Anexar evidência" meta={{}} onUploaded={setLink}/>}
+      <div style={{fontSize:10.5,color:C.muted,marginTop:6,lineHeight:1.45}}>A evidência é o que comprova a ação numa inspeção. Depois, o NSP verifica a eficácia.</div>
+      <div style={{display:'flex',gap:8,marginTop:16}}>
+        <button onClick={onFechar} style={{flex:1,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px',color:C.text,fontWeight:700,fontSize:13,cursor:'pointer'}}>Cancelar</button>
+        <button onClick={()=>texto.trim()&&onConfirmar({texto:texto.trim(),link})} disabled={!texto.trim()} style={{flex:2,background:texto.trim()?C.teal:C.border,border:'none',borderRadius:10,padding:'11px',color:texto.trim()?'#FFFFFF':C.muted,fontWeight:800,fontSize:13,cursor:texto.trim()?'pointer':'default'}}>Concluir ação</button>
+      </div>
+    </div>
+  </div>);
+}
+
+function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerificar,irParaLista,subFixo,podeVerificar=true,sbUrl,sbKey}){
   const hoje=new Date().toISOString().slice(0,10);
   const [subSelLivre,setSubSel]=useState('todos');
+  const [concluindo,setConcluindo]=useState(null);
   const subSel=subFixo||subSelLivre;
   const subDaAcao=a=>{const n=nots[a.notification_id];if(!n)return null;const s=SUBNUCLEOS_HNSA.find(x=>notifDoSubnucleo(n,x.id));return s?s.id:null;};
   const lista=acoes.filter(a=>etapaDaAcao(a)&&(subSel==='todos'||subDaAcao(a)===subSel));
@@ -2177,6 +2205,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   const mini=(l,cor,fn)=><button onClick={e=>{e.stopPropagation();fn();}} disabled={!!busy} style={{padding:'5px 9px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10.5,fontWeight:800,cursor:busy?'default':'pointer'}}>{l}</button>;
 
   return(<div style={{display:'flex',flexDirection:'column',gap:14}}>
+    {concluindo&&<ConcluirAcaoModal acao={concluindo} sbUrl={sbUrl} sbKey={sbKey} onFechar={()=>setConcluindo(null)} onConfirmar={ev=>{const x=concluindo;setConcluindo(null);onConcluir(x,ev);}}/>}
     {!subFixo&&<div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2}}>
       {[{id:'todos',label:'Todos',icon:IC.hosp,color:C.teal},...SUBNUCLEOS_HNSA].map(s=><button key={s.id} onClick={()=>setSubSel(s.id)} style={{flexShrink:0,fontSize:11.5,padding:'7px 12px',borderRadius:18,border:'1px solid '+(subSel===s.id?s.color:C.border),background:subSel===s.id?s.color+'22':'transparent',color:subSel===s.id?s.color:C.muted,fontWeight:800,cursor:'pointer'}}>{s.icon} {s.label}</button>)}
     </div>}
@@ -2211,7 +2240,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
               <div style={{fontSize:10,color:v?C.red:C.muted,marginTop:3}}>{s?s.icon+' ':''}{a.responsavel||'sem responsável'} · {a.prazo?(v?'venceu ':'até ')+dt(a.prazo):'sem prazo'}</div>
               <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
                 {e.id==='afazer'&&onIniciar&&mini('Iniciar','#3B82F6',()=>onIniciar(a))}
-                {(e.id==='afazer'||e.id==='andamento')&&onConcluir&&mini('Concluir','#22C55E',()=>onConcluir(a))}
+                {(e.id==='afazer'||e.id==='andamento')&&onConcluir&&mini('Concluir','#22C55E',()=>setConcluindo(a))}
                 {e.id==='eficacia'&&!podeVerificar&&<span style={{fontSize:10,color:C.purple,fontWeight:700}}>Aguarda a verificação do NSP</span>}
                 {e.id==='eficacia'&&podeVerificar&&<>{mini('Efetiva','#22C55E',()=>onVerificar(a,'efetiva'))}{mini('Parcial','#F59E0B',()=>onVerificar(a,'parcial'))}{mini('Não resolveu','#EF4444',()=>onVerificar(a,'inefetiva'))}</>}
                 {e.id==='eficaz'&&<span style={{fontSize:10,color:C.green,fontWeight:700}}>{a.efetividade_verificada==='parcial'?'Parcialmente efetiva':'Efetiva'}{a.efetividade_em?' · '+dt(a.efetividade_em):''}</span>}
@@ -2308,9 +2337,9 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
     catch(e){showToast('Erro: '+e.message,'error');}
     setBusy(null);
   };
-  const concluir=async(a2)=>{
+  const concluir=async(a2,ev)=>{
     setBusy(a2.id);
-    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
+    try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});await registrarEvidenciaAcao(sbUrl,sbKey,a2,ev,'NSP');await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
     catch(e){showToast('Erro: '+e.message,'error');}
     setBusy(null);
   };
@@ -2352,7 +2381,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital}) {
   if(aba==='panorama') return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
     <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>Plano de ação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Como as ações das notificações estão sendo executadas, junto com os treinamentos e as reuniões do NSP</div></div>
     {abas}
-    <PanoramaPlanoAcao acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={iniciar} onConcluir={concluir} onVerificar={verificar} irParaLista={()=>setAba('lista')}/>
+    <PanoramaPlanoAcao sbUrl={sbUrl} sbKey={sbKey} acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={iniciar} onConcluir={concluir} onVerificar={verificar} irParaLista={()=>setAba('lista')}/>
   </div>);
   return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
     <div style={{fontSize:19,fontWeight:900,color:C.text}}>Plano de ação</div>
@@ -2586,11 +2615,11 @@ function IndicadoresHubView({sbUrl,sbKey,showToast,hospital,usuario,perfil,userS
   return(<div style={{padding:'0 0 80px'}}>
     <BackHeader title='Indicadores' subtitle='Panorama por período, lançamentos mensais e metas'/>
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3,marginBottom:14}}>
-      {tb('panorama','Panorama')}{tb('setor','Por Setor')}{tb('dsm','DSM C.1-C.15')}{tb('anvisa','Checklist ANVISA')}
+      {tb('panorama','Panorama')}{tb('setor','Por setor')}{perfil!=='membro_nsp'&&tb('dsm',ehMarinha(hospital)?'Lançamentos mensais (DSM)':'Lançamentos mensais')}{tb('anvisa','Checklist ANVISA')}
     </div>
     {aba==='panorama'&&<PanoramaMensalView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
     {aba==='setor'&&<IndicadoresView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} embedded userSubnucleo={userSubnucleo}/>}
-    {aba==='dsm'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
+    {aba==='dsm'&&perfil!=='membro_nsp'&&<IndicadoresDSMMensaisView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} usuario={usuario} perfil={perfil} userSubnucleo={userSubnucleo} embedded/>}
     {aba==='anvisa'&&<ChecklistANVISAView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} perfil={perfil} userSubnucleo={userSubnucleo}/>}
   </div>);
 }
@@ -2834,11 +2863,11 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
     {!embedded&&<BackHeader title='Indicadores de Processo' subtitle='RDC 36/2013 · PNQSP 2026 · Metas OMS · por setor'/>}
     {subInfo&&subCfg&&<div style={{background:(subInfo.color||C.teal)+'15',border:'1px solid '+(subInfo.color||C.teal)+'55',borderLeft:'4px solid '+(subInfo.color||C.teal),borderRadius:10,padding:'10px 14px',marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:subInfo.color||C.teal}}>Visao do subnucleo: {subInfo.label}</div>
-      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Preencha o paciente-dia dos seus setores, lance os casos do controle manual e clique em Calcular para ver a taxa de incidencia por setor. Apenas os indicadores da sua area sao exibidos.</div>
+      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Preencha o paciente-dia dos seus setores, lance os casos do controle manual e clique em Calcular para ver a taxa de incidencia por setor. Apenas os indicadores da sua area são exibidos.</div>
     </div>}
     {subInfo&&!subCfg&&<div style={{background:C.blue+'12',border:'1px solid '+C.blue+'44',borderRadius:10,padding:'10px 14px',marginBottom:12}}>
       <div style={{fontSize:12,fontWeight:800,color:C.blue}}>Subnucleo: {subInfo.label}</div>
-      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Os indicadores deste subnucleo sao de conformidade e sao alimentados na aba DSM - C.1 a C.15. Aqui voce ve o panorama geral de taxas por setor.</div>
+      <div style={{fontSize:10,color:C.muted,lineHeight:1.5,marginTop:2}}>Os indicadores deste subnúcleo são de conformidade e são alimentados na aba DSM - C.1 a C.15. Aqui voce ve o panorama geral de taxas por setor.</div>
     </div>}
     <div style={{padding:'16px',display:'flex',flexDirection:'column',gap:14}}>
 
@@ -2846,14 +2875,14 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Parametros de calculo</div>
 
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mes de referencia</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
       <input type="month" value={mesRef} onChange={e=>setMesRef(e.target.value)}
         style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
 
       {/* Paciente-dia por setor — tudo junto, um card por setor */}
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Paciente-dia por Setor</div>
-        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preencha o total geral (soma dos dias de internacao no mes) e, se aplicavel ao setor, os denominadores especificos — cada taxa (LPP, AVP) usa seu proprio denominador de risco, nao o total geral.</div>
+        <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preencha o total geral (soma dos dias de internacao no mês) e, se aplicavel ao setor, os denominadores especificos — cada taxa (LPP, AVP) usa seu proprio denominador de risco, não o total geral.</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
           {setores.map(s=>{
             const temLpp=!subCfg||subCfg.lpp, temAvp=!subCfg||subCfg.avp;
@@ -2872,7 +2901,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
                 <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Paciente-dia em uso de AVP</label>
                 <input type="number" value={pdAvp[s]||''} onChange={e=>setPdAvp(s,e.target.value)} placeholder="0"
                   style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:8}}/>
-                <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Perdas de AVP no mes (lancamento manual)</label>
+                <label style={{fontSize:9,color:C.blue,display:'block',marginBottom:3}}>Perdas de AVP no mês (lançamento manual)</label>
                 <input type="number" value={(casosManuais.avp&&casosManuais.avp[s])||''} onChange={e=>setCM('avp',s,e.target.value)} placeholder="auto"
                   style={{background:C.surface,border:'1px solid '+((casosManuais.avp&&casosManuais.avp[s])?C.blue+'88':C.border),borderRadius:8,padding:'8px 10px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
               </React.Fragment>}
@@ -2885,7 +2914,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
 
       {/* Ajuste manual de casos por setor: cobre a subnotificacao com o controle manual do NSP */}
       {CM_VISIVEIS.length>0&&<div style={{background:C.surface,border:'1px dashed '+C.purple+'66',borderRadius:10,padding:'12px 14px',marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Casos do mes — lancamento manual por setor (opcional)</div>
+        <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:4}}>Casos do mês — lançamento manual por setor (opcional)</div>
         <div style={{fontSize:10,color:C.muted,marginBottom:10,lineHeight:1.5}}>Se o seu controle manual capturou casos que nao foram notificados no sistema (subnotificacao), lance aqui o TOTAL real do mes no setor onde ocorreu. O valor preenchido substitui a contagem automatica daquele setor e do geral; em branco, vale a contagem das notificacoes. Perda de AVP e lancada no bloco proprio acima.</div>
         {CM_VISIVEIS.map(([k,label])=>(
           <div key={k} style={{marginBottom:10}}>
@@ -2958,7 +2987,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       {setoresComDados.map(s=><SetorCard key={s} titulo={s} cor={C.blue} dados={dados.porSetor[s]} icon={String.fromCodePoint(128309)}/>)}
 
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px'}}>
-        <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>As taxas sao calculadas com base nas notificacoes registradas. A qualidade depende da completude das notificacoes. Indicadores subnotificados subestimam os valores reais.</div>
+        <div style={{fontSize:10,color:C.muted,lineHeight:1.6}}>As taxas são calculadas com base nas notificações registradas. A qualidade depende da completude das notificações. Indicadores subnotificados subestimam os valores reais.</div>
       </div>
     </div>}
   </div>
@@ -3172,7 +3201,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
 
             {/* 5. Narrativa IA */}
         {narrativaIA&&<div style={{marginBottom:16}}>
-          <h2 style={{fontSize:14,borderBottom:'2px solid #c8102e',paddingBottom:4,marginBottom:10,color:'#1a1a1a'}}>5. Analise Narrativa</h2>
+          <h2 style={{fontSize:14,borderBottom:'2px solid #c8102e',paddingBottom:4,marginBottom:10,color:'#1a1a1a'}}>5. Análise Narrativa</h2>
           <div style={{background:'#f9f9f9',borderRadius:6,padding:'12px 14px',fontSize:12,lineHeight:1.7,color:'#1a1a1a',whiteSpace:'pre-wrap'}}>{narrativaIA}</div>
           <div style={{fontSize:10,color:'#999',marginTop:6,textAlign:'right'}}>Gerado por IA - NotificaAI NSP</div>
         </div>}
@@ -3279,10 +3308,10 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
       +'<h2>Data / Turno</h2><p>'+(n.event_date?new Date(n.event_date+'T12:00:00').toLocaleDateString('pt-BR'):'-')+(n.shift?' - '+n.shift:'')+'</p>'
       +'<h2>Setor</h2><p>'+(n.sector||'-')+'</p>'
       +'<h2>Paciente</h2><p>'+(n.patient_age?n.patient_age+' anos':'')+(n.patient_sex?' - '+n.patient_sex:'')+'</p>'
-      +(n.admission_reason?'<h2>NIP / Identificacao</h2><p>'+n.admission_reason+'</p>':'')
+      +(n.admission_reason?'<h2>NIP / Identificação</h2><p>'+n.admission_reason+'</p>':'')
       +(n.event_subtype==='Perda de AVP'&&n.avp_motivo?'<h2>Motivo da perda do AVP</h2><p>'+n.avp_motivo+'</p>':'')
       +(n.patient_admission?'<h2>Data de Admissao</h2><p>'+new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')+'</p>':'')
-      +'<h2>Descricao</h2><p>'+(n.description||'-')+'</p>'
+      +'<h2>Descrição</h2><p>'+(n.description||'-')+'</p>'
       +'<h2>Medidas tomadas</h2><p>'+(n.measures_taken||'-')+'</p>'
       +'<h2>Desfecho</h2><p>'+(n.patient_outcome||'-')+'</p>'
       +'<h2>Evitavel</h2><p>'+(n.was_preventable===true?'Sim':n.was_preventable===false?'Nao':'Nao informado')+'</p>'
@@ -3336,14 +3365,14 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     {editTarget&&<div style={{position:'fixed',inset:0,background:'#000a',zIndex:300,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
       <div style={{background:C.surface,borderRadius:'20px 20px 0 0',padding:'20px 16px 32px',width:'100%',maxWidth:520,maxHeight:'80vh',overflowY:'auto'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-          <div style={{fontSize:15,fontWeight:800,color:C.text}}>Corrigir notificacao</div>
+          <div style={{fontSize:15,fontWeight:800,color:C.text}}>Corrigir notificação</div>
           <button onClick={()=>setEditTarget(null)} style={{background:'none',border:'none',color:C.muted,fontSize:20,cursor:'pointer'}}>x</button>
         </div>
         <div style={{fontSize:11,color:C.muted,marginBottom:14}}>Notificacao: {editTarget.description?.slice(0,50)||'sem descricao'}</div>
         <label style={{fontSize:11,color:C.muted,fontWeight:700,display:'block',marginBottom:4}}>Tipo</label>
         <select value={editForm.notification_type||''} onChange={e=>setEditForm(f=>({...f,notification_type:e.target.value,event_subtype:''}))}
           style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,marginBottom:12,appearance:'none'}}>
-          <option value="seguranca_paciente">Seguranca do Paciente (SP)</option>
+          <option value="seguranca_paciente">Segurança do Paciente (SP)</option>
           <option value="administrativa">Administrativa</option>
           
         </select>
@@ -3403,7 +3432,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
       <select value={filtroTipo} onChange={e=>{setFiltroTipo(e.target.value);setPagina(1);}} style={{...sel}}>
         <option value="todos">Todos os tipos</option>
-        <option value="seguranca_paciente">Seguranca do Paciente</option>
+        <option value="seguranca_paciente">Segurança do Paciente</option>
         <option value="administrativa">Administrativa</option>
       </select>
       <select value={filtroSetor} onChange={e=>{setFiltroSetor(e.target.value);setPagina(1);}} style={{...sel}}>
@@ -3432,7 +3461,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     <div style={{fontSize:11,color:C.muted,marginBottom:8}}>{filtered.length} resultado(s)</div>
 
     {loading&&<div style={{textAlign:'center',padding:40}}><Dots/></div>}
-    {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificacao encontrada</div>}
+    {!loading&&pagAtual.length===0&&<div style={{textAlign:'center',color:C.muted,padding:40,fontSize:13}}>Nenhuma notificação encontrada</div>}
 
     {/* Grid agrupado por mes */}
     {!loading&&pagAtual.length>0&&(()=>{
@@ -3502,8 +3531,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                     {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
                       <button onClick={ev=>{ev.stopPropagation();setEditForm({notification_type:n.notification_type,event_subtype:n.event_subtype||n.occurrence_subtype||'',sector:n.sector||''});setEditTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.orange+'20',color:C.orange,border:'1px solid '+C.orange+'33',borderRadius:6,cursor:'pointer',fontWeight:700}}>Corrigir tipo</button>
-                  {isSP&&<button onClick={ev=>{ev.stopPropagation();setNotiVisaTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.teal,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Formulario Notivisa completo</button>}
-                      {isSP&&<button onClick={ev=>{ev.stopPropagation();setPlanoTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.green+'20',color:C.green,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Plano de Acao</button>}
+                  {isSP&&<button onClick={ev=>{ev.stopPropagation();setNotiVisaTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.teal,color:'#fff',border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Formulário Notivisa completo</button>}
+                      {isSP&&<button onClick={ev=>{ev.stopPropagation();setPlanoTarget(n);}} style={{fontSize:10,padding:'5px 10px',background:C.green+'20',color:C.green,border:'none',borderRadius:6,cursor:'pointer',fontWeight:700}}>Plano de Ação</button>}
                       <button onClick={ev=>{ev.stopPropagation();deletar(n);}} disabled={deletando===n.id} style={{fontSize:10,padding:'5px 10px',background:C.red+'15',color:C.red,border:'1px solid '+C.red+'33',borderRadius:6,cursor:'pointer',fontWeight:700,marginLeft:'auto'}}>{deletando===n.id?'Excluindo...':'Excluir'}</button>
                     </div>
                   </div>}
@@ -3519,7 +3548,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     {totalPags>1&&<div style={{display:'flex',justifyContent:'center',gap:8,marginTop:16,flexWrap:'wrap'}}>
       <button onClick={()=>setPagina(p=>Math.max(1,p-1))} disabled={pagina===1} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===1?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===1?'default':'pointer'}}>Anterior</button>
       <span style={{padding:'7px 14px',fontSize:12,color:C.muted}}>{pagina}/{totalPags}</span>
-      <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Proxima</button>
+      <button onClick={()=>setPagina(p=>Math.min(totalPags,p+1))} disabled={pagina===totalPags} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 14px',color:pagina===totalPags?C.muted:C.teal,fontSize:12,fontWeight:700,cursor:pagina===totalPags?'default':'pointer'}}>Próxima</button>
     </div>}
   </div>
   </div>);
@@ -3653,7 +3682,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     <div style={{padding:'16px'}}>
       {/* Filtro de periodo */}
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:'10px 14px',marginBottom:10}}>
-        <div style={{fontSize:10,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Periodo de visualizacao</div>
+        <div style={{fontSize:10,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Período de visualizacao</div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {[
             {id:'semestre_atual',label:'Semestre atual (DSM)'},
@@ -3705,11 +3734,11 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
           <input type="number" value={form.participantes} onChange={e=>setForm({...form,participantes:e.target.value})} placeholder="Ex: 45" style={inp}/>
         </div>
       </div>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Responsavel</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Responsável</label>
       <input value={form.responsavel} onChange={e=>setForm({...form,responsavel:e.target.value})} placeholder="Nome ou cargo" style={inp}/>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descricao / Pauta</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Descrição / Pauta</label>
       <textarea value={form.descricao} onChange={e=>setForm({...form,descricao:e.target.value})} rows={2} placeholder="Resumo do conteudo abordado" style={{...inp,resize:'none',fontFamily:'inherit'}}/>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Lista de presenca / Ata (PDF ou foto)</label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Lista de presença / Ata (PDF ou foto)</label>
       {form.link_gdrive
         ? <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
             <span style={{fontSize:11,color:C.green,fontWeight:700}}>{String.fromCodePoint(9989)} Anexada</span>
@@ -3737,15 +3766,15 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       <div style={{background:C.card,border:'1px solid '+C.teal+'44',borderRadius:12,padding:'12px 14px',marginBottom:4}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
           <div>
-            <div style={{fontSize:12,fontWeight:800,color:C.teal}}>Reunioes do NSP (Nucleo Pleno)</div>
+            <div style={{fontSize:12,fontWeight:800,color:C.teal}}>Reuniões do NSP (Núcleo Pleno)</div>
             <div style={{fontSize:10,color:C.muted,marginTop:2}}>Mensais + extraordinarias · todos os membros</div>
           </div>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:18,fontWeight:900,color:C.teal}}>{reunioesNSP.length}</div>
-            <div style={{fontSize:9,color:C.muted}}>reuniao(oes)</div>
+            <div style={{fontSize:9,color:C.muted}}>reunião(ões)</div>
           </div>
         </div>
-        {reunioesNSP.length===0?<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Nenhuma reuniao registrada</div>:reunioesNSP.slice(0,3).map(r=>(
+        {reunioesNSP.length===0?<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Nenhuma reunião registrada</div>:reunioesNSP.slice(0,3).map(r=>(
           <div key={r.id} style={{background:C.surface,borderRadius:8,padding:'8px 10px',marginBottom:4,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <div>
               <div style={{fontSize:11,fontWeight:700,color:C.text}}>{r.tipo==='reuniao_mensal'?'Reuniao Mensal':'Reuniao Extraordinaria'} {r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):''}</div>
@@ -3757,7 +3786,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         {reunioesNSP.length>3&&<div style={{fontSize:10,color:C.muted,textAlign:'center',marginTop:4}}>+{reunioesNSP.length-3} mais. Filtre por tipo para ver todas.</div>}
       </div>
     {/* Cards por subnucleo */}
-    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnucleo (toque para ver os registros)</div>
+    <div style={{fontSize:11,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Resumo por subnúcleo (toque para ver os registros)</div>
     <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:16}}>
       {SUBS_TREINAMENTO.map(s=>{
         const t=totaisPorSub[s.id]||{treinamentos:0,reunioes:0,participantes:0};
@@ -4266,11 +4295,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
     {tab==='config'&&<div style={{display:'flex',flexDirection:'column',gap:10}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Assinatura do relatorio</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:6}}>Assinatura do relatório</div>
         <div style={{fontSize:11,color:C.muted,marginBottom:10,lineHeight:1.5}}>Preenchido uma vez, fica salvo e entra automaticamente em todos os relatorios.</div>
-        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsavel</label>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor NSP / Responsável</label>
         <input value={gestor} onChange={e=>setGestor(e.target.value)} placeholder="Ex: Nome do(a) coordenador(a) do NSP" style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:10}}/>
-        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Boas praticas gerais do NSP (sera incluido no relatorio)</label>
+        <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Boas práticas gerais do NSP (será incluido no relatório)</label>
         <textarea value={boasPraticasNSP} onChange={e=>setBoasPraticasNSP(e.target.value)} rows={3}
           placeholder='Boas praticas gerais do NSP...'
           style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:12,width:'100%',resize:'vertical',marginBottom:12}}/>
@@ -4324,7 +4353,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           </div>);
         })}
 
-        <div style={{fontSize:11,fontWeight:700,color:C.text,margin:'14px 0 6px'}}>Caracteristicas do servico (para C.7 e C.11-C.14 da avaliacao ANVISA)</div>
+        <div style={{fontSize:11,fontWeight:700,color:C.text,margin:'14px 0 6px'}}>Características do serviço (para C.7 e C.11-C.14 da avaliação ANVISA)</div>
         <div style={{fontSize:10,color:C.muted,marginBottom:8,lineHeight:1.5}}>Marque o que se aplica a {siglaH(h)}. Itens desmarcados aparecem como "Nao se aplica" no checklist.</div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:14}}>
           {[
@@ -4355,9 +4384,9 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
     </div>}
 
     {(tab==='dsm'||tab==='anvisa')&&!dados&&<div style={{textAlign:'center',padding:40,color:C.muted}}>
-      {loading?(<div><Dots/><div style={{fontSize:12,marginTop:12}}>Compilando dados do semestre — notificacoes, treinamentos, protocolos e indicadores...</div></div>)
+      {loading?(<div><Dots/><div style={{fontSize:12,marginTop:12}}>Compilando dados do semestre — notificações, treinamentos, protocolos e indicadores...</div></div>)
       :(<div>
-        <div style={{fontSize:13,marginBottom:16}}>Nao foi possivel carregar os dados do semestre.</div>
+        <div style={{fontSize:13,marginBottom:16}}>Não foi possível carregar os dados do semestre.</div>
         <button onClick={gerar} style={{background:C.teal,border:'none',borderRadius:10,padding:'10px 20px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer'}}>Tentar novamente</button>
       </div>)}
     </div>}
@@ -4384,14 +4413,14 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
         <div style={{background:'#003087',color:'white',padding:'16px 20px'}}>
           {orgLinhas(h).length>0&&<div style={{fontSize:10,opacity:.8}}>{orgLinhas(h).join(' - ')}</div>}
           <div style={{fontSize:16,fontWeight:700,marginTop:4}}>{nomeH(h).toUpperCase()}</div>
-          <div style={{fontSize:13,marginTop:2}}>Indicadores de Monitoramento - Nucleo de Seguranca do Paciente</div>
+          <div style={{fontSize:13,marginTop:2}}>Indicadores de Monitoramento - Núcleo de Segurança do Paciente</div>
           <div style={{fontSize:11,opacity:.8,marginTop:4}}>{label} | Gerado em {new Date().toLocaleDateString('pt-BR')}</div>
         </div>
         <div style={{padding:'16px 20px'}}>
           {/* 1. Notificacoes no periodo */}
-          <h2>1. Notificacoes no Periodo</h2>
+          <h2>1. Notificações no Período</h2>
           <table>
-            <thead><tr><th>Mes</th><th>Total</th><th>Seg. Paciente</th><th>Quedas</th><th>LPP</th></tr></thead>
+            <thead><tr><th>Mês</th><th>Total</th><th>Seg. Paciente</th><th>Quedas</th><th>LPP</th></tr></thead>
             <tbody>
               {dados.porMes.map((m,i)=>(
                 <tr key={i}><td>{meses[i]}</td><td style={{textAlign:'center',fontWeight:700}}>{m.total||'-'}</td><td style={{textAlign:'center'}}>{m.sp||'-'}</td><td style={{textAlign:'center'}}>{m.quedas||'-'}</td><td style={{textAlign:'center'}}>{m.lpp||'-'}</td></tr>
@@ -4440,7 +4469,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             {dados.reunioes.length>=2?<span style={{color:'#059669',fontWeight:700}}> (Conforme - minimo 2 por semestre)</span>:<span style={{color:'#dc2626',fontWeight:700}}> (Abaixo do minimo - requer 2 por semestre)</span>}
           </div>
           <table>
-            <thead><tr><th>Data</th><th>Tipo</th><th>Pauta / Descricao</th><th>Participantes</th><th>Comprovante</th></tr></thead>
+            <thead><tr><th>Data</th><th>Tipo</th><th>Pauta / Descrição</th><th>Participantes</th><th>Comprovante</th></tr></thead>
             <tbody>
               {dados.reunioes.length>0?dados.reunioes.map((r,i)=>(
                 <tr key={i}>
@@ -4450,7 +4479,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
                   <td style={{textAlign:'center'}}>{r.participantes||'-'}</td>
                   <td>{r.link_gdrive?<a href={r.link_gdrive} style={{color:'#003087'}}>Ver ata</a>:'Pendente'}</td>
                 </tr>
-              )):<tr><td colSpan={5} style={{textAlign:'center',color:'#999'}}>Nenhuma reuniao registrada no periodo</td></tr>}
+              )):<tr><td colSpan={5} style={{textAlign:'center',color:'#999'}}>Nenhuma reunião registrada no período</td></tr>}
             </tbody>
           </table>
 
@@ -4465,7 +4494,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
                 {sub.porMes.some(v=>v>0)&&<span> | Por mes: {meses.map((m,i)=>sub.porMes[i]>0?`${m}: ${sub.porMes[i]}`:null).filter(Boolean).join(', ')}</span>}
               </div>
               {sub.links.length>0&&<div style={{fontSize:10,color:'#666'}}>Comprovantes: {sub.links.map((l,i)=><span key={i}><a href={l.link} style={{color:'#003087'}}>{l.desc||new Date(l.data+'T12:00:00').toLocaleDateString('pt-BR')}</a>{i<sub.links.length-1?', ':''}</span>)}</div>}
-              {sub.treinamentos===0&&<div style={{color:'#dc2626',fontSize:10,fontWeight:700}}>Sem treinamentos registrados no periodo</div>}
+              {sub.treinamentos===0&&<div style={{color:'#dc2626',fontSize:10,fontWeight:700}}>Sem treinamentos registrados no período</div>}
             </div>);
           })}
 
@@ -4475,16 +4504,16 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             <thead><tr><th>Indicador</th><th>Quantidade</th><th>Observacao</th></tr></thead>
             <tbody>
               <tr><td>Eventos sentinela</td><td style={{textAlign:'center',fontWeight:700,color:dados.sentinela>0?'#dc2626':'#059669'}}>{dados.sentinela}</td><td>{dados.sentinela===0?'Nenhum evento sentinela no periodo':'RCA obrigatorio para cada evento'}</td></tr>
-              <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificacao</td></tr>
-              <tr><td>Notificacoes com RCA concluido</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
-              <tr><td>Notificacoes enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
+              <tr><td>Near miss notificados</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.gravidade==='Near miss').length}</td><td>Indicador de cultura proativa de notificação</td></tr>
+              <tr><td>Notificações com RCA concluído</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.rca_gerado).length}</td><td>-</td></tr>
+              <tr><td>Notificações enviadas ao Notivisa</td><td style={{textAlign:'center',fontWeight:700}}>{dados.nots.filter(n=>n.notivisa_enviado).length}</td><td>Minimo: notificar em 10 meses/ano (ANVISA)</td></tr>
             </tbody>
           </table>
 
           {/* 5. Protocolos */}
           <h2>5. Status dos Protocolos</h2>
           <table>
-            <thead><tr><th>Protocolo</th><th>Data aprovacao</th><th>Proxima revisao</th><th>Status</th></tr></thead>
+            <thead><tr><th>Protocolo</th><th>Data aprovação</th><th>Próxima revisão</th><th>Status</th></tr></thead>
             <tbody>
               {dados.protocolos.length>0?dados.protocolos.map((p,i)=>{
                 const vencido=p.proxima_revisao&&p.proxima_revisao<new Date().toISOString().slice(0,10);
@@ -4500,7 +4529,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
           {/* Cultura de segurança — SAQ */}
           {(dados.saqResp||[]).length>0&&(<div style={{marginBottom:20}}>
-            <h2>6. Pesquisa de Cultura de Seguranca (HSOPSC)</h2>
+            <h2>6. Pesquisa de Cultura de Segurança (HSOPSC)</h2>
             <table>
               <thead><tr><th>Metrica</th><th>Valor</th></tr></thead>
               <tbody>
@@ -4514,7 +4543,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
           {(dados.planosAbertos||[]).length>0&&(<div style={{marginBottom:20}}>
             <h2>{(dados.saqResp||[]).length>0?'7':'6'}. Planos de Acao em Andamento</h2>
             <table>
-              <thead><tr><th>Acao</th><th>Responsavel</th><th>Prazo</th><th>Prioridade</th><th>Status</th></tr></thead>
+              <thead><tr><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Prioridade</th><th>Status</th></tr></thead>
               <tbody>
                 {(dados.planosAbertos||[]).slice(0,10).map((p,i)=>(<tr key={i}>
                   <td>{p.acao||'-'}</td>
@@ -4561,11 +4590,11 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
 
 {tab==='anvisa'&&dados&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
         <div style={{display:'flex',gap:8,alignItems:'center'}}>
-          <div style={{fontSize:11,color:C.muted,flex:1}}>Periodo avaliado: <span style={{fontWeight:800,color:C.text}}>{anvisaModoAno?'Ano completo de '+semestre.split('-')[0]:getSemestreDatas().label}</span></div>
+          <div style={{fontSize:11,color:C.muted,flex:1}}>Período avaliado: <span style={{fontWeight:800,color:C.text}}>{anvisaModoAno?'Ano completo de '+semestre.split('-')[0]:getSemestreDatas().label}</span></div>
           <button onClick={()=>{setAnvisaModoAno(false);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(!anvisaModoAno?C.teal:C.border),background:!anvisaModoAno?C.teal+'22':'transparent',color:!anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:!anvisaModoAno?700:500,cursor:'pointer'}}>Semestre</button>
           <button onClick={()=>{setAnvisaModoAno(true);setTimeout(gerar,0);}} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaModoAno?C.teal:C.border),background:anvisaModoAno?C.teal+'22':'transparent',color:anvisaModoAno?C.teal:C.muted,fontSize:11,fontWeight:anvisaModoAno?700:500,cursor:'pointer'}}>Ano completo</button>
         </div>
-        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliacao Nacional das Praticas de Seguranca do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013 · PNQSP (Portaria GM/MS n. 11.527/2026)</div>
+        <div style={{fontSize:11,color:C.muted,marginBottom:4}}>Avaliação Nacional das Praticas de Segurança do Paciente 2026 - ANVISA · Plano Integrado 2026-2030 (Portaria MS/Anvisa n. 80/2026) · RDC 36/2013 · PNQSP (Portaria GM/MS n. 11.527/2026)</div>
         {/* Card de documentos institucionais — status direto na aba ANVISA */}
         <div style={{background:C.card,border:'1px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)+'44',borderRadius:12,padding:'12px 14px',borderLeft:'3px solid '+((cfgLocal.numero_portaria_nsp&&cfgLocal.data_atualizacao_psp)?C.green:C.yellow)}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
@@ -4613,7 +4642,7 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
               <div style={{flex:1}}>
                 <div style={{fontSize:16,fontWeight:900,color:nivel.color}}>{nivel.label}</div>
                 <div style={{fontSize:12,color:C.muted,marginTop:4}}>{score} de {criterios.length} criterios atendidos · {label}</div>
-                {!reqMinOk&&<div style={{fontSize:11,color:C.red,fontWeight:700,marginTop:4}}>Criterios obrigatorios pendentes - risco de nao conformidade na avaliacao ANVISA</div>}
+                {!reqMinOk&&<div style={{fontSize:11,color:C.red,fontWeight:700,marginTop:4}}>Critérios obrigatórios pendentes - risco de não conformidade na avaliação ANVISA</div>}
               </div>
             </div>
 
@@ -4637,9 +4666,9 @@ function RelatorioDSMView({sbUrl,sbKey,showToast,hospital}) {
             </div>
 
             <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:14,marginTop:8}}>
-              <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>Indicadores que requerem lancamento manual</div>
+              <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:8}}>Indicadores que requerem lançamento manual</div>
               <div style={{fontSize:11,color:C.muted,lineHeight:1.7}}>
-                Os indicadores abaixo nao sao calculados automaticamente. Lance-os na aba <strong>Indicadores</strong> para completar a avaliacao:<br/>
+                Os indicadores abaixo nao sao calculados automaticamente. Lance-os na aba <strong>Indicadores</strong> para completar a avaliação:<br/>
                 C.3.1 Consumo alcool gel (mL/1000 p-d) · C.3.2 Consumo sabonete · C.3.3 Adesao HM % ·
                 C.4.1 Pulseira identificacao % · C.4.2 EA falha identificacao ·
                 C.6.1 Adesao LVCS % · C.7.4 Incidencia LPP · C.8.2 Quedas com dano %
@@ -4810,9 +4839,9 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
         <h1>Dossie de Auditoria — ${h.name||h.short_name||''}</h1>
         <div class="cabecalho">${range.label} · Gerado em ${new Date().toLocaleString('pt-BR')}${cfg.gestor_nsp?' · Responsavel: '+cfg.gestor_nsp:''}</div>
         ${sec('Documentos Institucionais',[
-          ['Portaria do NSP',temPortNSP?`<span class="ok">Cadastrada</span> — N ${cfg.numero_portaria_nsp||'-'} de ${fmtD(cfg.data_portaria_nsp)}`:'<span class="nok">Nao cadastrada</span>'],
-          ['Portaria da CCIH',(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)?`N ${cfg.numero_portaria_ccih||'-'} de ${fmtD(cfg.data_portaria_ccih)}`:'<span class="nok">Nao cadastrada</span>'],
-          ['Plano de Seguranca do Paciente',cfg.data_atualizacao_psp?(pspVig?'<span class="ok">Vigente</span>':'<span class="nok">Vencido</span>')+' — atualizado em '+fmtD(cfg.data_atualizacao_psp):'<span class="nok">Nao cadastrado</span>'],
+          ['Portaria do NSP',temPortNSP?`<span class="ok">Cadastrada</span> — N ${cfg.numero_portaria_nsp||'-'} de ${fmtD(cfg.data_portaria_nsp)}`:'<span class="nok">Não cadastrada</span>'],
+          ['Portaria da CCIH',(cfg.numero_portaria_ccih||cfg.data_portaria_ccih)?`N ${cfg.numero_portaria_ccih||'-'} de ${fmtD(cfg.data_portaria_ccih)}`:'<span class="nok">Não cadastrada</span>'],
+          ['Plano de Seguranca do Paciente',cfg.data_atualizacao_psp?(pspVig?'<span class="ok">Vigente</span>':'<span class="nok">Vencido</span>')+' — atualizado em '+fmtD(cfg.data_atualizacao_psp):'<span class="nok">Não cadastrado</span>'],
         ])}
         ${sec('Protocolos Institucionais',[
           ['Total cadastrados',protocolos.length],
@@ -4826,7 +4855,7 @@ function AuditarView({sbUrl,sbKey,showToast,hospital}) {
           ['Eventos graves com RCA concluida',graves.length?`${gravesRCA} de ${graves.length}`:'N/A'],
           ['Fichas Notivisa enviadas',nots.filter(n=>n.notivisa_enviado).length],
         ])}
-        <h2>Setores com mais notificacoes</h2>
+        <h2>Setores com mais notificações</h2>
         <table>${topSet.map(([st,n2])=>`<tr><th>${st}</th><td>${n2}</td></tr>`).join('')}</table>
         ${sec('Educacao Permanente',[
           ['Treinamentos e reunioes registrados',treins.length],
@@ -4950,7 +4979,7 @@ function MembroNSPView({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucleo
     <div style={{textAlign:'center',marginBottom:28}}>
       <div style={{fontSize:28,marginBottom:8}}>{String.fromCodePoint(127973)}</div>
       <div style={{fontSize:18,fontWeight:800,color:C.text,marginBottom:4}}>Bem-vindo ao NSP</div>
-      <div style={{fontSize:13,color:C.muted}}>Selecione seu subnucleo para continuar</div>
+      <div style={{fontSize:13,color:C.muted}}>Selecione seu subnúcleo para continuar</div>
     </div>
     <div style={{display:'flex',flexDirection:'column',gap:10}}>
       {SUBNUCLEOS_HNSA.map(s=>(<button key={s.id} onClick={()=>setUserSubnucleo(s.id)}
@@ -4996,6 +5025,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const [notiVisaMembro,setNotiVisaMembro]=useState(null);
   const [aba,setAba]=useState('resumo');
   const [acoesAll,setAcoesAll]=useState([]);
+  const [verTodosTrein,setVerTodosTrein]=useState({});
   const [busyAcao,setBusyAcao]=useState(null);
   const [pendIndItens,setPendIndItens]=useState({itens:[],mes:''});
   const [pendProtItens,setPendProtItens]=useState([]);
@@ -5038,7 +5068,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   };
 
   const salvarTrein=async(subId)=>{
-    if(!formTrein.participantes) return showToast('Informe o numero de participantes','error');
+    if(!formTrein.data) return showToast('Informe a data do treinamento','error');
+    if(!String(formTrein.protocolo||'').trim()) return showToast('Informe o tema ou protocolo abordado','error');
+    if(!formTrein.participantes||Number(formTrein.participantes)<1) return showToast('Informe o número de participantes','error');
     setSavingTrein(true);
     try{
       await sbInsert(sbUrl,sbKey,'treinamentos_nsp',{
@@ -5049,11 +5081,11 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         descricao:formTrein.protocolo||null,responsavel:profileMode||'membro_nsp',
         link_gdrive:formTrein.link_gdrive||null,
       });
-      showToast('Registro salvo!'+(formTrein.link_gdrive?'':' Lembre-se de anexar a lista de presenca.'),'success');
+      showToast('Registro salvo!'+(formTrein.link_gdrive?'':' Anexe a lista de presença: sem ela o treinamento não comprova na inspeção.'),'success');
       setShowFormTrein(null);
       setFormTrein({tipo:'treinamento',qtd:1,participantes:'',protocolo:'',data:new Date().toISOString().slice(0,10),link_gdrive:''});
       carregar();
-    }catch{showToast('Erro ao salvar','error');}
+    }catch{showToast('Erro ao salvar. Tente de novo.','error');}
     setSavingTrein(false);
   };
 
@@ -5082,7 +5114,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
   // Notificacoes do subnucleo selecionado; as de seguranca do paciente sem RCA vem primeiro
   const notifDoSub=notifDoSubnucleo;
-  const semRCA=n=>!n.rca_gerado&&n.notification_type==='seguranca_paciente';
+  const semRCA=n=>!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
   const notifsDoFiltro=notifications.filter(n=>notifDoSub(n,verTodasNotif?'todos':filtroSub)).sort((a,b)=>(semRCA(b)?1:0)-(semRCA(a)?1:0)).slice(0,30);
   const pendNotif=notifications.filter(n=>notifDoSub(n,filtroSub)&&semRCA(n)).length;
   const subAtivo=filtroSub==='todos'?userSubnucleo:filtroSub;
@@ -5100,10 +5132,12 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const acoesSub=acoesAll.filter(x=>{const n=notsMap[x.notification_id];return n&&notifDoSub(n,subAtivo)&&!['cancelado'].includes(x.status);});
   const acoesAbertas=acoesSub.filter(x=>!['concluido','concluida'].includes(x.status));
   const pendAcoes=acoesAbertas.filter(x=>x.prazo&&x.prazo<hojeS).length;
-  const totalPend=pendInd+pendProt+pendNotif+pendTrein+pendEvid+(pendAcoes?1:0);
-  const mudarAcao=async(x,status)=>{
+  // conta 1 por tarefa pendente (igual aos itens do "O que falta")
+  const totalPend=[pendInd,pendProt,pendNotif,pendTrein,treinSemestre>0?pendEvid:0,pendAcoes].filter(x=>x>0).length;
+  const mudarAcao=async(x,status,ev)=>{
     setBusyAcao(x.id);
     try{await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${x.id}`,status==='concluido'?{status,concluido_em:new Date().toISOString()}:{status});
+      if(status==='concluido')await registrarEvidenciaAcao(sbUrl,sbKey,x,ev,sub?sub.label:'Subnúcleo');
       sbAuditLog(sbUrl,sbKey,h.id,x.notification_id,status==='concluido'?'ACAO_CONCLUIDA':'ACAO_INICIADA','status',x.status||'pendente',status,sub?sub.label:'subnucleo','membro_nsp').catch(()=>{});
       setAcoesAll(as=>as.map(y=>y.id===x.id?{...y,status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})}:y));
       showToast(status==='concluido'?'Ação concluída. O NSP vai verificar a eficácia.':'Ação em andamento','success');}
@@ -5132,7 +5166,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
     <div style={{padding:'16px 0'}}>
     {/* Abas do subnucleo: o conteudo de todas fica montado (escondido) para os contadores funcionarem */}
-    <div className='abas-sub' style={{display:'flex',gap:6,overflowX:'auto',marginBottom:14,paddingBottom:2,scrollbarWidth:'none'}}>
+    <div className='abas-sub' style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:14,paddingBottom:2}}>
       {ABAS.map(t=>(<button key={t.id} onClick={()=>setAba(t.id)} style={{flexShrink:0,display:'flex',alignItems:'center',gap:6,padding:'9px 14px',borderRadius:10,border:'1px solid '+(aba===t.id?(sub?.color||C.teal):C.border),background:aba===t.id?(sub?.color||C.teal)+'22':C.card,color:aba===t.id?C.text:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>
         {t.label}
         {t.badge>0&&<span style={{background:C.red,color:'#fff',borderRadius:9,padding:'1px 7px',fontSize:10,fontWeight:800}}>{t.badge}</span>}
@@ -5191,15 +5225,15 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       </div>
     </div>
     <div style={mostra('acoes')}>
-      <PanoramaPlanoAcao acoes={acoesAll} nots={notsMap} treins={s.treins||[]} busy={busyAcao} subFixo={subAtivo}
-        onIniciar={x=>mudarAcao(x,'em_andamento')} onConcluir={x=>mudarAcao(x,'concluido')} podeVerificar={false} irParaLista={()=>{}}/>
+      <PanoramaPlanoAcao sbUrl={sbUrl} sbKey={sbKey} acoes={acoesAll} nots={notsMap} treins={s.treins||[]} busy={busyAcao} subFixo={subAtivo}
+        onIniciar={x=>mudarAcao(x,'em_andamento')} onConcluir={(x,ev)=>mudarAcao(x,'concluido',ev)} podeVerificar={false} irParaLista={()=>{}}/>
     </div>
     <div style={mostra('notificacoes')}>
     {/* Notificacoes para analise */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div>
-          <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes para analise</div>
+          <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificações para análise</div>
           <div style={{fontSize:11,color:C.muted,marginTop:2}}>{verTodasNotif?'Todas as notificações do hospital':pendNotif>0?pendNotif+' sem RCA (aparecem primeiro)':'Somente leitura'}</div>
         </div>
         <div style={{display:'flex',background:C.surface,borderRadius:8,padding:3,gap:2,flexShrink:0}}>
@@ -5215,7 +5249,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       </div>
       {(()=>{
         const visiveis=notifsDoFiltro;
-        if(visiveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificacao encontrada</div>;
+        if(visiveis.length===0) return <div style={{textAlign:'center',color:C.muted,padding:20,fontSize:12}}>Nenhuma notificação encontrada</div>;
         return visiveis.map((n,i)=>{
           const tag=getTag(n);
           const titulo=getTitle(n);
@@ -5229,9 +5263,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                 {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                {!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:9,background:C.yellow,color:'#000',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
-                {n.notification_type==='seguranca_paciente'&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:9,background:C.blue,color:'#fff',borderRadius:4,padding:'3px 7px',fontWeight:800,border:'none',cursor:'pointer'}}>Ficha Notivisa</button>}
-                {n.gravidade==='Evento sentinela'&&<div style={{fontSize:9,background:C.red+'22',color:C.red,borderRadius:4,padding:'2px 5px',fontWeight:700}}>SENTINELA</div>}
+                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:12,background:'transparent',color:C.teal,borderRadius:8,padding:'8px 12px',minHeight:36,fontWeight:700,border:'1px solid '+C.teal,cursor:'pointer'}}>Ficha Notivisa</button>}
+                {n.gravidade==='Evento sentinela'&&<div style={{fontSize:10,background:C.red+'1a',color:C.red,borderRadius:6,padding:'3px 7px',fontWeight:800,textAlign:'center'}}>Sentinela</div>}
               </div>
             </div>
           </div>);
@@ -5242,7 +5276,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     </div>
     <div style={mostra('treinamentos')}>
     {/* Treinamentos do subnucleo */}
-    {!travado&&<div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Subnucleos - Treinamentos</div>}
+    {!travado&&<div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:10}}>Treinamentos dos subnúcleos</div>}
     {!travado&&<div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
       <button onClick={()=>setFiltroSub('todos')} style={{padding:'5px 12px',borderRadius:16,border:'none',background:filtroSub==='todos'?C.teal:'transparent',color:filtroSub==='todos'?'#06101F':C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Todos</button>
       {SUBNUCLEOS_HNSA.map(sub=>(
@@ -5275,7 +5309,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           </div>
           <div style={{flex:1,background:C.teal+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
             <div style={{fontSize:18,fontWeight:800,color:C.teal}}>{regs.filter(t=>t.tipo==='reuniao').length}</div>
-            <div style={{fontSize:9,color:C.muted}}>Reunioes</div>
+            <div style={{fontSize:9,color:C.muted}}>Reuniões</div>
           </div>
           <div style={{flex:1,background:C.blue+'15',borderRadius:8,padding:'6px 10px',textAlign:'center'}}>
             <div style={{fontSize:18,fontWeight:800,color:C.blue}}>{totalPart}</div>
@@ -5283,57 +5317,64 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
           </div>
         </div>}
         {showFormTrein===sub.id&&(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px',marginTop:8}}>
-          <div style={{display:'flex',gap:6,marginBottom:8}}>
+          {profileMode!=='membro_nsp'&&<div style={{display:'flex',gap:6,marginBottom:8}}>
             {['treinamento','reuniao'].map(t=>(
               <button key={t} onClick={()=>setFormTrein(f=>({...f,tipo:t}))}
                 style={{flex:1,padding:'6px',borderRadius:8,border:'1px solid '+(formTrein.tipo===t?sub.color:C.border),background:formTrein.tipo===t?sub.color+'22':'transparent',color:formTrein.tipo===t?sub.color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer',textTransform:'capitalize'}}>
-                {t==='treinamento'?'Treinamento':'Reuniao NSP'}
+                {t==='treinamento'?'Treinamento':'Reunião do NSP'}
               </button>
             ))}
-          </div>
+          </div>}
           <div style={{marginBottom:8}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data *</div>
             <input type='date' value={formTrein.data} onChange={e=>setFormTrein(f=>({...f,data:e.target.value}))}
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
           <div style={{marginBottom:8}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Numero de participantes *</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Número de participantes *</div>
             <input type='number' min='1' value={formTrein.participantes} onChange={e=>setFormTrein(f=>({...f,participantes:e.target.value}))}
               placeholder='Ex: 12'
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema / Protocolo abordado</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema ou protocolo abordado *</div>
             <input type='text' value={formTrein.protocolo} onChange={e=>setFormTrein(f=>({...f,protocolo:e.target.value}))}
-              placeholder='Ex: Higienizacao das maos...'
+              placeholder='Ex.: Higiene das mãos nos 5 momentos'
               style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:12,outline:'none'}}/>
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presenca (assinaturas)</div>
+            <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presença (assinaturas)</div>
             {formTrein.link_gdrive
               ? <div style={{display:'flex',alignItems:'center',gap:8}}>
                   <span style={{fontSize:11,color:C.green,fontWeight:700}}>{String.fromCodePoint(9989)} Anexada</span>
                   <a href={formTrein.link_gdrive} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.teal}}>Ver</a>
                   <button onClick={()=>setFormTrein(f=>({...f,link_gdrive:''}))} style={{fontSize:10,color:C.muted,background:'none',border:'none',cursor:'pointer'}}>Trocar</button>
                 </div>
-              : <StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista de presenca'
+              : <StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista de presença'
                   meta={{subnucleo:sub.id,data:formTrein.data||new Date().toISOString().slice(0,10),participantes:formTrein.participantes||'',
                     ano:String(new Date((formTrein.data||new Date().toISOString().slice(0,10))+'T12:00:00').getFullYear()),
                     semestre:new Date((formTrein.data||new Date().toISOString().slice(0,10))+'T12:00:00').getMonth()<6?'1':'2'}}
                   onUploaded={link=>setFormTrein(f=>({...f,link_gdrive:link}))}/>}
-            <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>Foto ou PDF da folha de assinaturas. Sem isso o registro nao aparece na Biblioteca de Documentos do gestor.</div>
+            <div style={{fontSize:9,color:C.muted,marginTop:4,lineHeight:1.4}}>Foto ou PDF da folha de assinaturas. Sem ela o treinamento não comprova na inspeção e não aparece na Biblioteca de documentos.</div>
           </div>
           <button onClick={()=>salvarTrein(sub.id)} disabled={savingTrein}
             style={{width:'100%',background:sub.color,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>
             {savingTrein?'Salvando...':'Salvar registro'}
           </button>
         </div>)}
-        {regs.slice(0,2).map((r,i)=>(
-          <div key={i} style={{borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:6}}>
-            <div style={{fontSize:11,color:C.text}}>{r.protocolo||r.descricao||r.tipo||'-'}</div>
-            <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} - {r.participantes||0} participantes</div>
+        {regs.slice(0,verTodosTrein[sub.id]?regs.length:3).map((r,i)=>(
+          <div key={r.id||i} style={{display:'flex',alignItems:'center',gap:10,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8,marginTop:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:11.5,color:C.text}}>{r.protocolo||r.descricao||(r.tipo==='treinamento'?'Treinamento':'Reunião')}</div>
+              <div style={{fontSize:10,color:C.muted}}>{r.data?new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'-'} · {r.participantes||0} participantes</div>
+            </div>
+            {r.link_gdrive?<a href={r.link_gdrive} target='_blank' rel='noreferrer' style={{fontSize:11,color:C.green,fontWeight:700,whiteSpace:'nowrap'}}>Lista anexada</a>
+              :<StorageUploadBtn tipo='treinamento' sbUrl={sbUrl} sbKey={sbKey} label='Anexar lista'
+                meta={{subnucleo:sub.id,data:r.data||new Date().toISOString().slice(0,10),participantes:r.participantes||'',ano:String((r.data||new Date().toISOString()).slice(0,4)),semestre:Number((r.data||new Date().toISOString()).slice(5,7))<=6?'1':'2'}}
+                onUploaded={async link=>{try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{link_gdrive:link});showToast('Lista de presença anexada','success');carregar();}catch(e){showToast('Erro ao anexar: '+e.message,'error');}}}/>}
           </div>
         ))}
+        {regs.length>3&&<button onClick={()=>setVerTodosTrein(v=>({...v,[sub.id]:!v[sub.id]}))} style={{marginTop:8,background:'none',border:'none',color:C.teal,fontSize:11.5,fontWeight:700,cursor:'pointer',padding:0}}>{verTodosTrein[sub.id]?'Mostrar menos':'Ver todos os '+regs.length+' registros'}</button>}
       </div>);
     })}
 
@@ -5362,7 +5403,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     {/* Panorama do mes */}
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'14px 16px',marginBottom:14}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do Mes</div>
+        <div style={{fontSize:13,fontWeight:700,color:C.text}}>Panorama do mês (hospital inteiro)</div>
         <div style={{display:'flex',alignItems:'center',gap:6}}>
           <button onClick={()=>navMes(-1)} style={{background:'none',border:'none',color:C.teal,fontSize:18,cursor:'pointer',padding:'0 2px'}}>{String.fromCodePoint(8249)}</button>
           <span style={{fontSize:12,fontWeight:700,color:C.text,minWidth:64,textAlign:'center'}}>{MESES[Number(mesSel.split('-')[1])-1]}/{mesSel.split('-')[0]}</span>
@@ -5413,7 +5454,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
             </div>
           ))}
         </div>}
-        {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificacao neste mes</div>}
+        {notsMes.length===0&&<div style={{textAlign:'center',padding:'12px 0',fontSize:12,color:C.muted}}>Nenhuma notificação neste mês</div>}
       </div>)}
     </div>
 
@@ -5577,6 +5618,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
             {chip(l.protocolos.length,'protocolo'+(l.protocolos.length>1?'s':''),C.red)}
             {chip(l.semRCA,'sem RCA',C.orange)}
             {chip(l.semestresSemTrein.length,(l.semestresSemTrein.length>1?'semestres':'semestre')+' sem treinamento',C.purple)}
+            {chip(l.semLista||0,'sem lista de presença',C.purple)}
           </div>
           <span style={{fontSize:14,color:C.muted,transform:op?'rotate(90deg)':'none',transition:'transform .15s'}}>{String.fromCodePoint(8250)}</span>
         </div>
@@ -5586,7 +5628,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
           </div>}
           {l.protocolos.length>0&&<div><b style={{color:C.text}}>Protocolos:</b> {l.protocolos.join(' · ')}</div>}
           {l.semRCA>0&&<div><b style={{color:C.text}}>Notificações do período sem RCA:</b> {l.semRCA}</div>}
-          <div><b style={{color:C.text}}>Treinamentos no período:</b> {l.treinSemestre}{l.semestresSemTrein.length>0?' — sem treinamento: '+l.semestresSemTrein.join(', '):''}</div>
+          <div><b style={{color:C.text}}>Treinamentos no período:</b> {l.treinSemestre}{l.semestresSemTrein.length>0?' — sem treinamento: '+l.semestresSemTrein.join(', '):''}{l.semLista?' — '+l.semLista+' sem lista de presença':''}</div>
           {l.total===0&&<div style={{color:C.green,fontWeight:700}}>Tudo em dia neste período.</div>}
           {onAbrirSub&&<div style={{marginTop:8}}><button onClick={()=>onAbrirSub(l.sn.id)} style={{background:l.sn.color,border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>{l.temPin?'Abrir painel do subnúcleo':'Preencher pelo subnúcleo'}</button></div>}
         </div>}
@@ -5693,7 +5735,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
 
     {/* Alertas de status */}
     {!configured&&<div onClick={onConfig} style={{background:C.yellow+'18',border:'1px solid '+C.yellow+'44',borderRadius:12,padding:'13px 16px',cursor:'pointer'}}>
-      <div style={{fontSize:13,fontWeight:700,color:C.yellow}}>Atencao Banco de dados não configurado</div>
+      <div style={{fontSize:13,fontWeight:700,color:C.yellow}}>Atenção Banco de dados não configurado</div>
       <div style={{fontSize:12,color:C.muted,marginTop:3}}>Toque para conectar o Supabase e ativar persistência.</div>
     </div>}
     {false&&<div style={{background:C.green+'18',border:'1px solid '+C.green+'44',borderRadius:12,padding:'10px 16px',display:'flex',alignItems:'center',gap:10}}>
@@ -6280,9 +6322,10 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
       {v:'Perda de TOT',l:'Perda de TOT (tubo orotraqueal)'},
       {v:'Perda de CVC',l:'Perda de CVC (cateter venoso central)'},
       {v:'Perda de CVD',l:'Perda de CVD (cateter vesical)'},
+      {v:'Falha de comunicação',l:'Falha de comunicação / passagem de plantão'},
       {v:'Falha nas rotinas assistenciais',l:'Falha nas rotinas assistenciais'},
       {v:'Falha de equipamento',l:'Falha de equipamento'},
-      {v:'Circunstancia de risco',l:'Circunstancia de risco (condicao insegura, nada aconteceu)'},
+      {v:'Circunstancia de risco',l:'Circunstância de risco (condição insegura, nada aconteceu)'},
       {v:'Near miss',l:'Near miss (quase erro, processo chegou a iniciar)'},
       {v:'Evento sentinela',l:'Evento sentinela'},
       {v:'Outro',l:'Outro evento'},
@@ -7022,10 +7065,10 @@ function SAQPublicoView({sbUrl,sbKey,hospital,showToast}) {
 
   if(etapa==='intro') return(
     <div style={{padding:'24px 16px',maxWidth:480,margin:'0 auto'}}>
-      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Clima de Seguranca</div>
+      <div style={{fontSize:18,fontWeight:900,color:C.text,marginBottom:4}}>Pesquisa de Clima de Segurança</div>
       <div style={{fontSize:12,color:C.muted,lineHeight:1.7,marginBottom:20}}>
         Instrumento validado internacionalmente - SAQ (Sexton et al., 2006), adaptado para o {h.short_name}.<br/><br/>
-        {String.fromCodePoint(128274)} <strong style={{color:C.text}}>100% anonimo</strong> - nao pedimos seu nome, apenas setor e (opcional) categoria profissional. Os resultados so sao analisados de forma agregada por setor, nunca individualmente.<br/><br/>
+        {String.fromCodePoint(128274)} <strong style={{color:C.text}}>100% anonimo</strong> - não pedimos seu nome, apenas setor e (opcional) categoria profissional. Os resultados só são analisados de forma agregada por setor, nunca individualmente.<br/><br/>
         Leva cerca de 5 minutos. Responda com base na sua experiencia nos ultimos 30 dias no seu setor.
       </div>
 
@@ -7150,7 +7193,7 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:14,paddingBottom:80}}>
     <div>
-      <div style={{fontSize:17,fontWeight:900,color:C.text}}>Cultura de Seguranca</div>
+      <div style={{fontSize:17,fontWeight:900,color:C.text}}>Cultura de Segurança</div>
       <div style={{fontSize:11,color:C.muted}}>SAQ - Safety Attitudes Questionnaire (Sexton et al., 2006) · respostas anonimas</div>
     </div>
 
@@ -7165,7 +7208,7 @@ function SAQDashboardView({sbUrl,sbKey,hospital,showToast}) {
     {loading&&<div style={{textAlign:'center',color:C.muted,padding:20}}><Dots/></div>}
 
     {!loading&&doCiclo.length===0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:20,textAlign:'center'}}>
-      <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Ainda nao ha respostas para este ciclo.<br/>Divulgue o link publico da pesquisa para a equipe (aba "Cultura" no menu publico, ou um QR code afixado no setor).</div>
+      <div style={{fontSize:13,color:C.muted,lineHeight:1.7}}>Ainda não há respostas para este ciclo.<br/>Divulgue o link publico da pesquisa para a equipe (aba "Cultura" no menu publico, ou um QR code afixado no setor).</div>
     </div>}
 
     {!loading&&doCiclo.length>0&&<>
@@ -7847,7 +7890,7 @@ ESTRUTURA:
     <div style={{display:'flex',background:C.surface,borderRadius:10,padding:4,gap:3}}>
       {tb('graficos','Gráficos')}{tb('calor','Calor')}{tb('integrado','Integrado')}{tb('ia','IA')}{tb('relatorio','Relatório')}
     </div>
-      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'8px 12px',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}><span style={{fontSize:10,color:C.muted,fontWeight:700,flexShrink:0}}>Periodo:</span>{[{l:'Este mes',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'Mes ant.',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'1o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},{l:'2o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},{l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},{l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}}].map(({l,fn})=>(<button key={l} onClick={fn} style={{padding:'3px 8px',borderRadius:6,border:'1px solid '+C.border,background:C.surface,color:C.muted,fontSize:9,fontWeight:700,cursor:'pointer'}}>{l}</button>))}<input type='date' value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.muted}}>-</span><input type='date' value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.teal,fontWeight:700,marginLeft:4}}>{filtered.length} notif.</span></div>
+      <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'8px 12px',display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}><span style={{fontSize:10,color:C.muted,fontWeight:700,flexShrink:0}}>Período:</span>{[{l:'Este mes',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'Mes ant.',fn:()=>{const d=new Date();d.setMonth(d.getMonth()-1);const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},{l:'1o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-06-30');}},{l:'2o sem.',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-07-01');setDateTo(y+'-12-31');}},{l:'Este ano',fn:()=>{const y=new Date().getFullYear();setDateFrom(y+'-01-01');setDateTo(y+'-12-31');}},{l:'Tudo',fn:()=>{setDateFrom('');setDateTo('');}}].map(({l,fn})=>(<button key={l} onClick={fn} style={{padding:'3px 8px',borderRadius:6,border:'1px solid '+C.border,background:C.surface,color:C.muted,fontSize:9,fontWeight:700,cursor:'pointer'}}>{l}</button>))}<input type='date' value={dateFrom} onChange={e=>setDateFrom(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.muted}}>-</span><input type='date' value={dateTo} onChange={e=>setDateTo(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'3px 6px',color:C.text,fontSize:10,width:110}}/><span style={{fontSize:10,color:C.teal,fontWeight:700,marginLeft:4}}>{filtered.length} notif.</span></div>
 
     {tab==='graficos'&&<div style={{display:'flex',flexDirection:'column',gap:14}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:'16px 12px'}}>
@@ -7932,7 +7975,7 @@ ESTRUTURA:
       </div>
       {(analyticsExtra.prots||[]).some(p=>p.proxima_revisao&&p.proxima_revisao<new Date().toISOString().slice(0,10))&&(
         <div style={{background:C.card,border:'1px solid '+C.red+'44',borderRadius:12,padding:14,borderLeft:'3px solid '+C.red}}>
-          <div style={{fontSize:12,fontWeight:800,color:C.red,marginBottom:8}}>Protocolos com revisao vencida</div>
+          <div style={{fontSize:12,fontWeight:800,color:C.red,marginBottom:8}}>Protocolos com revisão vencida</div>
           {(analyticsExtra.prots||[]).filter(p=>p.proxima_revisao&&p.proxima_revisao<new Date().toISOString().slice(0,10)).map((p,i)=>(
             <div key={i} style={{fontSize:11,color:C.text,marginBottom:4,display:'flex',justifyContent:'space-between'}}>
               <span>{p.nome}</span><span style={{color:C.red,fontWeight:700}}>Venceu {new Date(p.proxima_revisao+'T12:00:00').toLocaleDateString('pt-BR')}</span>
@@ -7950,7 +7993,7 @@ ESTRUTURA:
         </div>)}
       {(analyticsExtra.planos||[]).filter(p=>p.status!=='concluido').length>0&&(
         <div style={{background:C.card,border:'1px solid '+C.yellow+'44',borderRadius:12,padding:14,borderLeft:'3px solid '+C.yellow}}>
-          <div style={{fontSize:12,fontWeight:800,color:C.yellow,marginBottom:8}}>Planos de Acao em Aberto</div>
+          <div style={{fontSize:12,fontWeight:800,color:C.yellow,marginBottom:8}}>Planos de Ação em Aberto</div>
           {(analyticsExtra.planos||[]).filter(p=>p.status!=='concluido').slice(0,5).map((p,i)=>(
             <div key={i} style={{marginBottom:6,paddingBottom:6,borderBottom:'1px solid '+C.border}}>
               <div style={{fontSize:11,fontWeight:600}}>{p.acao}</div>
@@ -7966,9 +8009,9 @@ ESTRUTURA:
     </div>}
 {tab==='ia'&&<div style={{display:'flex',flexDirection:'column',gap:12}}>
       <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
-        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Analise por IA</div>
-        <div style={{fontSize:12,color:C.muted,marginBottom:12,lineHeight:1.6}}>Narrativa pronta para ata ou relatorio mensal. Escolha o periodo antes de gerar.</div>
-        <div style={{fontSize:11,color:C.muted,fontWeight:700,marginBottom:6}}>Periodo rapido</div>
+        <div style={{fontSize:14,fontWeight:700,color:C.text,marginBottom:6}}>Análise por IA</div>
+        <div style={{fontSize:12,color:C.muted,marginBottom:12,lineHeight:1.6}}>Narrativa pronta para ata ou relatório mensal. Escolha o período antes de gerar.</div>
+        <div style={{fontSize:11,color:C.muted,fontWeight:700,marginBottom:6}}>Período rápido</div>
         <div style={{display:'flex',gap:5,flexWrap:'wrap',marginBottom:10}}>
           {[
             {l:'Este mes',fn:()=>{const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');setDateFrom(y+'-'+m+'-01');setDateTo(y+'-'+m+'-'+new Date(y,d.getMonth()+1,0).getDate());}},
@@ -8247,7 +8290,7 @@ body{background:#666}
 <div class="noprint">Paisagem \u00b7 Escala 100% \u00b7 Frente/verso margem curta<button onclick="window.print()">Imprimir</button></div>
 <div class="pg"><img src="${base}assets/folder-frente.jpg" onerror="document.getElementById('e').style.display='block'"/></div>
 <div class="pg"><img src="${base}assets/folder-verso.jpg"/></div>
-<div class="err" id="e">Nao foi possivel carregar as imagens do folder.<br/>Confira se os arquivos <b>assets/folder-frente.jpg</b> e <b>assets/folder-verso.jpg</b> foram enviados junto do index.html no servidor.</div>
+<div class="err" id="e">Não foi possível carregar as imagens do folder.<br/>Confira se os arquivos <b>assets/folder-frente.jpg</b> e <b>assets/folder-verso.jpg</b> foram enviados junto do index.html no servidor.</div>
 </body></html>`);
     w.document.close();
   };
@@ -9789,7 +9832,7 @@ function AdminPanel({onConfig,sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEma
 
     <div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:12}}>
-        <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificacoes</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total</div></div>
+        <div><div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificações</div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{notifications.length} total</div></div>
         <button onClick={loadNots} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'5px 10px',color:C.teal,fontSize:11,fontWeight:700,cursor:'pointer'}}>Atualizar</button>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:12}}>
@@ -9801,7 +9844,7 @@ function AdminPanel({onConfig,sbUrl,sbKey,nspEmail,testMode,webhookUrl,onSaveEma
         {confirmClear?'CLIQUE NOVAMENTE para excluir '+testCount+' testes':'Limpar '+testCount+' notificacoes de teste'}
       </button>}
       {loading&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Carregando...</div>}
-      {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificacao</div>}
+      {!loading&&filtered.length===0&&<div style={{textAlign:'center',color:C.muted,fontSize:12,padding:20}}>Nenhuma notificação</div>}
       {filtered.slice(0,20).map(n=>{const tag=getTag(n);const title=getTitle(n);return(
         <div key={n.id} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'10px 12px',marginBottom:6,display:'flex',alignItems:'center',gap:10}}>
           <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,minWidth:38,textAlign:'center'}}>{tag.label}</div>
@@ -9831,7 +9874,7 @@ function Splash({leaving,hospital}) {
     </div>
     <div style={{fontSize:11,color:'#5A7AA0',letterSpacing:'0.18em',textTransform:'uppercase',marginBottom:6,minHeight:14}}>{hospital?.name||''}</div>
     <div style={{fontSize:26,fontWeight:900,letterSpacing:'-0.01em',color:'#FFFFFF',fontFamily:'system-ui,sans-serif'}}>NotificaAI</div>
-    <div style={{fontSize:12,color:'#3A6080',marginTop:6,letterSpacing:'0.08em'}}>Seguranca do Paciente</div>
+    <div style={{fontSize:12,color:'#3A6080',marginTop:6,letterSpacing:'0.08em'}}>Segurança do Paciente</div>
     <div style={{position:'absolute',bottom:0,left:0,right:0,height:3,background:'#0D1F3C'}}>
       <div style={{height:'100%',background:'linear-gradient(90deg,#00C9B1,#1D6FE8)',animation:'splashBar 1.6s ease-in-out forwards'}}/>
     </div>
@@ -10347,7 +10390,7 @@ function notifDoSubnucleo(n,f){
   const subtype=(n.event_subtype||n.occurrence_subtype||'').toLowerCase();
   if(f==='queda') return subtype.startsWith('queda');
   if(f==='lpp') return subtype.includes('press')||subtype.includes('lpp');
-  if(f==='medicamentos') return subtype.includes('medic')||subtype.includes('farmac');
+  if(f==='medicamentos') return n.notification_type!=='administrativa'&&(subtype.includes('medic')||subtype.includes('farmac'));
   if(f==='identificacao') return subtype.startsWith('falha na identif')||subtype.startsWith('falha de identif');
   if(f==='comunicacao') return subtype.includes('comuni')||subtype.includes('sbar');
   if(f==='cirurgia') return subtype.includes('cirurg');
@@ -10412,70 +10455,83 @@ function calcPendenciasSub(subId,{notifs,protsPorNome,dsmPorMes,pdPorMes,treins,
     return null;
   }).filter(Boolean);
   const dataN=n=>n.event_date||(n.created_at||'').slice(0,10);
-  const semRCA=(notifs||[]).filter(n=>{const d=dataN(n);return notifDoSubnucleo(n,subId)&&!n.rca_gerado&&n.notification_type==='seguranca_paciente'&&d>=faixa.ini&&d<=faixa.fim;}).length;
+  const semRCA=(notifs||[]).filter(n=>{const d=dataN(n);return notifDoSubnucleo(n,subId)&&!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&d>=faixa.ini&&d<=faixa.fim;}).length;
   const treinsSub=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento'&&(t.data||'')>=faixa.ini&&(t.data||'')<=faixa.fim);
   const semestresSemTrein=faixa.semestres.filter(sx=>{const f=faixaSemestre(sx.split('-')[0]+'-'+(sx.endsWith('-1')?'01':'07'));return !treinsSub.some(t=>t.data>=f.ini&&t.data<=f.fim);})
     .map(sx=>(sx.endsWith('-1')?'1º':'2º')+' sem/'+sx.split('-')[0]);
   const treinSemestre=treinsSub.length;
-  const total=nIndicadores+protocolos.length+semRCA+semestresSemTrein.length;
-  return {indicadores,indicadoresMeses,nIndicadores,protocolos,semRCA,treinSemestre,semestresSemTrein,total};
+  const semLista=treinsSub.filter(t=>!t.link_gdrive).length;
+  const total=nIndicadores+protocolos.length+semRCA+semestresSemTrein.length+semLista;
+  return {indicadores,indicadoresMeses,nIndicadores,protocolos,semRCA,treinSemestre,semestresSemTrein,semLista,total};
 }
 
-const SUB_PROTOCOLOS={comunicacao:['C5'],lpp:['C7'],queda:['C8'],medicamentos:['C9'],identificacao:['C4'],cirurgia:['C6','C13'],ccih:['C3','C10','C11','C12']};
+const SUB_PROTOCOLOS={comunicacao:['C5'],lpp:['C7'],queda:['C8'],medicamentos:['C9'],identificacao:['C4'],cirurgia:['C6','C13'],ccih:['C3','C10','C11','C12','C14']};
 
 const DSM_CAMPOS_SUB={
   comunicacao:[],
   identificacao:[
-    {label:'Pacientes com pulseira de identificacao',key:'pacientes_identificados'},
-    {label:'Total de pacientes atendidos/internados',key:'pacientes_atendidos'},
+    {label:'Pacientes com pulseira de identificação',key:'pacientes_identificados'},
+    {label:'Total de pacientes atendidos ou internados',key:'pacientes_atendidos'},
   ],
   queda:[
-    {label:'Prontuarios com avaliacao de risco de queda',key:'queda_prontuarios_ok'},
-    {label:'Total de prontuarios analisados',key:'queda_prontuarios_total'},
+    {label:'Prontuários com avaliação de risco de queda',key:'queda_prontuarios_ok'},
+    {label:'Total de prontuários analisados',key:'queda_prontuarios_total'},
     {label:'Quedas com dano ao paciente',key:'quedas_com_dano'},
-    {label:'Total de quedas no mes',key:'quedas_total'},
+    {label:'Total de quedas no mês',key:'quedas_total'},
   ],
   lpp:[
-    {label:'Avaliacoes de risco LPP na admissao',key:'lpp_avaliacao_admissao'},
+    {label:'Avaliações de risco de LPP na admissão',key:'lpp_avaliacao_admissao'},
     {label:'Total de pacientes admitidos',key:'total_admitidos'},
-    {label:'Pacientes com risco e medidas preventivas LPP',key:'lpp_medidas_preventivas'},
-    {label:'Pacientes classificados com risco LPP',key:'lpp_pacientes_risco'},
-    {label:'Avaliacao diaria de risco LPP',key:'lpp_avaliacao_diaria'},
-    {label:'Pacientes internados com risco LPP',key:'lpp_internados_risco'},
+    {label:'Pacientes com risco e medidas preventivas de LPP',key:'lpp_medidas_preventivas'},
+    {label:'Pacientes classificados com risco de LPP',key:'lpp_pacientes_risco'},
+    {label:'Avaliações diárias de risco de LPP',key:'lpp_avaliacao_diaria'},
+    {label:'Pacientes internados com risco de LPP',key:'lpp_internados_risco'},
     {label:'Casos novos de LPP',key:'lpp_casos_novos'},
-    {label:'Pacientes-dia expostos ao risco LPP',key:'lpp_paciente_dia_risco'},
+    {label:'Pacientes-dia expostos ao risco de LPP',key:'lpp_paciente_dia_risco'},
   ],
   medicamentos:[
     {label:'Medicamentos prescritos com erro',key:'erros_prescricao'},
     {label:'Total de medicamentos prescritos',key:'total_prescricoes'},
     {label:'Medicamentos dispensados com erro',key:'erros_dispensacao'},
     {label:'Total de medicamentos dispensados',key:'total_dispensacoes'},
-    {label:'Erros na administracao de medicamentos',key:'erros_administracao'},
+    {label:'Erros na administração de medicamentos',key:'erros_administracao'},
     {label:'Total de doses administradas',key:'total_doses'},
   ],
   cirurgia:[
-    {label:'LVCS preenchidas adequadamente',key:'lvcs_preenchidas'},
+    {label:'Listas de verificação (LVCS) preenchidas adequadamente',key:'lvcs_preenchidas'},
     {label:'Total de cirurgias realizadas',key:'cirurgias_realizadas'},
     {label:'Antibioticoprofilaxia no momento adequado',key:'antibiotico_adequado'},
-    {label:'Total de cirurgias (antibiotico)',key:'cirurgias_periodo'},
-    {label:'Obitos cirurgicos em ate 7 dias',key:'obitos_cirurgicos_7d'},
+    {label:'Total de cirurgias (antibioticoprofilaxia)',key:'cirurgias_periodo'},
+    {label:'Óbitos cirúrgicos em até 7 dias',key:'obitos_cirurgicos_7d'},
     {label:'Total de cirurgias (mortalidade)',key:'total_cirurgias'},
-    {label:'ISC - infeccoes do sitio cirurgico',key:'isc_casos'},
-    {label:'Total de procedimentos cirurgicos',key:'procedimentos_cirurgicos'},
+    {label:'Infecções do sítio cirúrgico (ISC)',key:'isc_casos'},
+    {label:'Total de procedimentos cirúrgicos',key:'procedimentos_cirurgicos'},
   ],
   ccih:[
-    {label:'Alcool gel 70% consumido (mL)',key:'alcool_gel_ml',grupo:'Consumo'},
+    {label:'Ações de higiene das mãos realizadas (observadas)',key:'hm_acoes_realizadas',grupo:'Higiene das mãos'},
+    {label:'Oportunidades de higiene das mãos observadas',key:'hm_oportunidades',grupo:'Higiene das mãos'},
+    {label:'Álcool gel 70% consumido (mL)',key:'alcool_gel_ml',grupo:'Consumo'},
     {label:'Clorexidina consumida (mL)',key:'clorexidina_ml',grupo:'Consumo'},
-    {label:'Sabonete liquido consumido (mL)',key:'sabonete_ml',grupo:'Consumo'},
+    {label:'Sabonete líquido consumido (mL)',key:'sabonete_ml',grupo:'Consumo'},
     {label:'Pacientes-dia total',key:'paciente_dia_total',grupo:'Consumo'},
     {label:'Casos novos de PAV',key:'pav_casos_novos',grupo:'PAV'},
-    {label:'Pacientes em ventilacao mecanica',key:'pacientes_vm',grupo:'PAV'},
+    {label:'Pacientes em ventilação mecânica',key:'pacientes_vm',grupo:'PAV'},
     {label:'IRAS associadas a CVC (IPCS)',key:'ipcs_cvc',grupo:'CVC'},
-    {label:'Cateter-dia CVC',key:'cateter_dia_cvc',grupo:'CVC'},
+    {label:'Cateter-dia de CVC',key:'cateter_dia_cvc',grupo:'CVC'},
     {label:'ITU associadas ao CVD',key:'itu_cvd',grupo:'CVD'},
     {label:'Pacientes-dia com CVD',key:'paciente_dia_cvd',grupo:'CVD'},
   ],
 };
+// Pares numerador/denominador: o numerador nunca pode passar do denominador
+const PARES_INDICADOR=[['pacientes_identificados','pacientes_atendidos'],['queda_prontuarios_ok','queda_prontuarios_total'],['quedas_com_dano','quedas_total'],
+  ['lpp_avaliacao_admissao','total_admitidos'],['lpp_medidas_preventivas','lpp_pacientes_risco'],['erros_prescricao','total_prescricoes'],['erros_dispensacao','total_dispensacoes'],
+  ['erros_administracao','total_doses'],['lvcs_preenchidas','cirurgias_realizadas'],['antibiotico_adequado','cirurgias_periodo'],['obitos_cirurgicos_7d','total_cirurgias'],
+  ['isc_casos','procedimentos_cirurgicos'],['hm_acoes_realizadas','hm_oportunidades']];
+function validarIndicadores(vals,rotulo){
+  for(const [k,v] of Object.entries(vals)){if(v!==''&&v!==null&&v!==undefined&&(isNaN(Number(v))||Number(v)<0))return 'O campo "'+rotulo(k)+'" não pode ser negativo.';}
+  for(const [n,d] of PARES_INDICADOR){const vn=vals[n],vd=vals[d];if(vn!==''&&vn!=null&&vd!==''&&vd!=null&&Number(vn)>Number(vd))return '"'+rotulo(n)+'" ('+vn+') não pode ser maior que "'+rotulo(d)+'" ('+vd+'). Confira os números.';}
+  return null;
+}
 
 function dsmPct(n,d){if(!d||d===0)return null;return((n||0)/d*100).toFixed(1);}
 function dsmSum(rows,f){return rows.reduce((a,r)=>a+(Number(r[f])||0),0);}
@@ -10616,7 +10672,7 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         {!ed&&st==='missing'&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para anexar o documento. Alimenta os criterios da avaliacao ANVISA automaticamente.</div>}
         {ed&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            {d.kNum!==undefined&&<div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],numero:e.target.value}}))} placeholder='Ex: 001/2024' style={inp}/></div>}
+            {d.kNum!==undefined&&<div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / código</label><input type='text' value={ed.numero} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],numero:e.target.value}}))} placeholder='Ex: 001/2024' style={inp}/></div>}
             {d.kData!==undefined&&<div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>{d.validade3?'Data da ultima atualizacao':'Data do documento'}</label><input type='date' value={ed.data} onChange={e=>setDocEdit(x=>({...x,[d.id]:{...x[d.id],data:e.target.value}}))} style={inp}/></div>}
           </div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
@@ -10662,11 +10718,11 @@ function ProtocolosView({sbUrl,sbKey,showToast,hospital}) {
         {!ed&&!r&&!isNA&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar" para informar a data e link do documento.</div>}
         {ed&&<div style={{marginTop:10,display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovação *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / código</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Vencimento (próxima revisão)</label><input type='date' value={ed.proxima_revisao||''} onChange={e=>{setEdit(def.crit,'proxima_revisao',e.target.value);setEdit(def.crit,'venc_manual',true);}} style={inp}/><div style={{fontSize:10,color:C.muted,marginTop:3}}>Sugerido: aprovação + {VALIDADE_DOC_ANOS} anos. Pode alterar.{ed.venc_manual&&ed.aprovado_em&&<button type='button' onClick={()=>{setEdit(def.crit,'proxima_revisao',vencimentoPadrao(ed.aprovado_em));setEdit(def.crit,'venc_manual',false);}} style={{marginLeft:6,background:'none',border:'none',color:C.teal,fontSize:10,cursor:'pointer',textDecoration:'underline'}}>usar {VALIDADE_DOC_ANOS} anos</button>}</div></div>
-          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsável</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
               <input type='text' value={ed.link} onChange={e=>setEdit(def.crit,'link',e.target.value)} placeholder='https://' style={{...inp,flex:1}}/>
@@ -10718,8 +10774,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
       showToast('Protocolo atualizado!','success');
       setEditando(e=>{const n={...e};delete n[def.crit];return n;});
       carregar();
-    }catch(e){showToast('Erro: '+e.message,'error');}
-    setEditando(e=>({...e,[def.crit]:{...e[def.crit],saving:false}}));
+    }catch(e){showToast('Erro: '+e.message,'error');setEditando(x=>x[def.crit]?{...x,[def.crit]:{...x[def.crit],saving:false}}:x);}
   };
 
   const getStatus=(def)=>{
@@ -10733,7 +10788,7 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
   const nPend=meusProt.filter(d=>{const st=getStatus(d).s;return st==='vencido'||st==='missing';}).length;
   const itensPend=meusProt.filter(d=>{const st=getStatus(d).s;return st==='vencido'||st==='missing';}).map(d=>d.crit+' '+d.nome+(getStatus(d).s==='vencido'?' (vencido)':' (não cadastrado)'));
   useEffect(()=>{if(onPendentes)onPendentes(nPend,itensPend);},[nPend,itensPend.join('|')]);
-  if(!meusProt.length)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,fontSize:12,color:C.muted}}>Nenhum protocolo vinculado a este subnucleo.</div>);
+  if(!meusProt.length)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,fontSize:12,color:C.muted}}>Nenhum protocolo vinculado a este subnúcleo.</div>);
   const inp={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',width:'100%'};
 
   return(<div style={{background:C.card,border:'1px solid '+(sub.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub.color||C.teal)}}>
@@ -10766,11 +10821,11 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
         {!ed&&!r&&<div style={{fontSize:11,color:C.muted,fontStyle:'italic'}}>Clique em "+ Registrar".</div>}
         {ed&&<div style={{display:'flex',flexDirection:'column',gap:8}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovacao *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
-            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / codigo</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Data de aprovação *</label><input type='date' value={ed.aprovado_em} onChange={e=>{const v=e.target.value;setEdit(def.crit,'aprovado_em',v);if(!ed.venc_manual)setEdit(def.crit,'proxima_revisao',vencimentoPadrao(v)||'');}} style={inp}/></div>
+            <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>N / código</label><input type='text' value={ed.numero} onChange={e=>setEdit(def.crit,'numero',e.target.value)} placeholder='POP-NSP-003' style={inp}/></div>
           </div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Vencimento (próxima revisão)</label><input type='date' value={ed.proxima_revisao||''} onChange={e=>{setEdit(def.crit,'proxima_revisao',e.target.value);setEdit(def.crit,'venc_manual',true);}} style={inp}/><div style={{fontSize:10,color:C.muted,marginTop:3}}>Sugerido: aprovação + {VALIDADE_DOC_ANOS} anos. Pode alterar.{ed.venc_manual&&ed.aprovado_em&&<button type='button' onClick={()=>{setEdit(def.crit,'proxima_revisao',vencimentoPadrao(ed.aprovado_em));setEdit(def.crit,'venc_manual',false);}} style={{marginLeft:6,background:'none',border:'none',color:C.teal,fontSize:10,cursor:'pointer',textDecoration:'underline'}}>usar {VALIDADE_DOC_ANOS} anos</button>}</div></div>
-          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsavel</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
+          <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Responsável</label><input type='text' value={ed.responsavel} onChange={e=>setEdit(def.crit,'responsavel',e.target.value)} placeholder='Nome ou cargo' style={inp}/></div>
           <div><label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Link do documento</label>
             <div style={{display:'flex',gap:6}}>
               <input type='text' value={ed.link} onChange={e=>setEdit(def.crit,'link',e.target.value)} placeholder='https://' style={{...inp,flex:1}}/>
@@ -10830,26 +10885,29 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
     const payload={hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()};
     if(!vazio(form.paciente_dia_total)) payload.paciente_dia_total=Number(form.paciente_dia_total);
     campos.forEach(f=>{payload[f.key]=form[f.key]!==''?Number(form[f.key]):null;});
-    try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');showToast('Indicadores salvos!','success');}
+    const erroVal=validarIndicadores({...form},k=>(campos.find(f=>f.key===k)||{label:k==='paciente_dia_total'?'Pacientes-dia total':k}).label);
+    if(erroVal){showToast(erroVal,'error');setSalvando(false);return;}
+    try{await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',payload,'hospital_id,mes');showToast('Indicadores salvos!','success');
+      sbAuditLog(sbUrl,sbKey,h.id,null,'DSM_INDICADORES_SALVOS','mes','',payload.mes||'',userSubnucleo||'subnucleo','membro_nsp').catch(()=>{});}
     catch(e){showToast('Erro: '+e.message,'error');}
     setSalvando(false);
   };
 
   if(campos.length===0)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:14}}>
     <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores - {sub?.label||userSubnucleo}</div>
-    <div style={{fontSize:12,color:C.muted}}>Seu subnucleo nao possui indicadores quantitativos mensais. Registre treinamentos acima.</div>
+    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não possui indicadores quantitativos mensais. Registre treinamentos acima.</div>
   </div>);
 
   return(<div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>
     <div style={{marginBottom:12}}>
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
-      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mes. O gestor ve no Relatorio DSM.</div>
+      <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados do mês. O gestor ve no Relatório DSM.</div>
     </div>
     {faltando.length>0
       ?<div style={{background:C.yellow+'15',border:'1px solid '+C.yellow+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.text,lineHeight:1.6}}>
         <b style={{color:C.yellow}}>Falta preencher ({faltando.length}):</b> {faltando.map(f=>f.label).join(' · ')}
       </div>
-      :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido neste mes.</div>}
+      :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido neste mês.</div>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
       <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',padding:'8px 12px',cursor:'pointer'}}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
@@ -10857,7 +10915,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       </button>
     </div>
     <div style={{marginBottom:10}}>
-      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mes <span style={{color:C.teal}}>(compartilhado entre os subnucleos{usaPD?'':' · opcional para você'})</span></label>
+      <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:3}}>Pacientes-dia total no mês <span style={{color:C.teal}}>(compartilhado entre os subnucleos{usaPD?'':' · opcional para você'})</span></label>
       <input type='number' min={0} value={form.paciente_dia_total} placeholder={pdSetores?String(pdSetores):''} onChange={e=>set('paciente_dia_total',e.target.value)} style={estiloCampo('paciente_dia_total')}/>
       {vazio(form.paciente_dia_total)&&pdSetores&&<div style={{fontSize:10,color:C.muted,marginTop:3}}>Usando {pdSetores} (soma lançada em Indicadores › Por Setor).</div>}
     </div>
@@ -10927,6 +10985,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
     if(carregandoMes){showToast('Aguarde carregar o mês antes de salvar','error');return;}
     const alterados={};alteradosRef.current.forEach(k=>{alterados[k]=form[k]===undefined?null:form[k];});
     if(!Object.keys(alterados).length){showToast('Nenhum campo alterado','success');return;}
+    {const todos=Object.values(DSM_CAMPOS_SUB).flat();const erroVal=validarIndicadores({...form},k=>(todos.find(f=>f.key===k)||{label:k}).label);if(erroVal){showToast(erroVal,'error');return;}}
     setSalvando(true);
     try{
       await sbUpsertDSM(sbUrl,sbKey,'indicadores_dsm',{...alterados,hospital_id:h.id,mes:mesRef,updated_at:new Date().toISOString()},'hospital_id,mes');
@@ -10967,7 +11026,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
       const nComp=grupos.filter(completo).length;
       return(<div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'12px 14px',marginBottom:14}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}}>
-          <div style={{fontSize:12,fontWeight:800,color:C.text}}>Completude do mes por subnucleo</div>
+          <div style={{fontSize:12,fontWeight:800,color:C.text}}>Completude do mês por subnúcleo</div>
           <div style={{fontSize:11,fontWeight:800,color:nComp===grupos.length?C.green:C.yellow}}>{nComp} de {grupos.length} blocos completos</div>
         </div>
         <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
@@ -10982,7 +11041,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
             </div>);
           })}
         </div>
-        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Cada subnucleo alimenta os seus blocos ao longo do mes; o bloco fica verde quando todos os campos estao preenchidos. Toda gravacao e registrada na trilha de auditoria com autor e perfil.</div>
+        <div style={{fontSize:10,color:C.muted,marginTop:8,lineHeight:1.5}}>Cada subnúcleo alimenta os seus blocos ao longo do mês; o bloco fica verde quando todos os campos estao preenchidos. Toda gravacao e registrada na trilha de auditoria com autor e perfil.</div>
       </div>);
     })()}
     {[...grupos].sort((a,b)=>{
@@ -10997,7 +11056,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
         <span>{g.titulo}</span>
         <span style={{display:'flex',gap:6,alignItems:'center'}}>
           {sn&&<span style={{fontSize:9,fontWeight:800,color:sn.color,background:sn.color+'18',border:'1px solid '+sn.color+'44',borderRadius:6,padding:'2px 8px',whiteSpace:'nowrap'}}>{sn.label}</span>}
-          {meu&&<span style={{fontSize:9,fontWeight:800,color:'#06101F',background:sn?sn.color:C.teal,borderRadius:6,padding:'2px 8px'}}>Seu subnucleo</span>}
+          {meu&&<span style={{fontSize:9,fontWeight:800,color:'#06101F',background:sn?sn.color:C.teal,borderRadius:6,padding:'2px 8px'}}>Seu subnúcleo</span>}
         </span>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:10}}>
@@ -11086,7 +11145,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
       })()}
     </div>}
     {hist.length>0&&<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:12,padding:14,marginTop:4}}>
-      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>Historico recente</div>
+      <div style={{fontSize:12,fontWeight:700,color:C.muted,marginBottom:8}}>Histórico recente</div>
       <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
         <thead><tr style={{background:C.surface}}>{['Mes','Pac.-dia','Alcool gel (mL)','LPP novos','Quedas'].map(h=>(<th key={h} style={{padding:'7px 10px',textAlign:'left',fontWeight:700,borderBottom:'1px solid '+C.border}}>{h}</th>))}</tr></thead>
         <tbody>{hist.map((r,i)=>(<tr key={r.mes} style={{background:i%2===0?'transparent':C.surface}}>
@@ -11162,7 +11221,7 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
 
   return(<div style={{padding:embedded?'0':'16px 0 80px'}}>
     {!embedded&&<BackHeader title='Semestres DSM' subtitle='Geração e envio do relatório à DSM'/>}
-    {embedded&&<div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>Ciclo de vida do relatorio semestral: gere o consolidado oficial (XLSX no Storage) ao fim do semestre e marque quando for enviado a DSM.</div>}
+    {embedded&&<div style={{fontSize:11,color:C.muted,marginBottom:12,lineHeight:1.6}}>Ciclo de vida do relatório semestral: gere o consolidado oficial (XLSX no Storage) ao fim do semestre e marque quando for enviado a DSM.</div>}
     <div style={{display:'flex',flexDirection:'column',gap:12}}>
       {grid.map(({ano,semestre})=>{
         const reg=getSem(ano,semestre);const key=`${ano}-${semestre}`;
@@ -11182,7 +11241,7 @@ function SemestresDSMView({sbUrl,sbKey,showToast,hospital,embedded}) {
           {reg&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:12}}>
             {[{label:'Meses c/ dados',n:`${reg.meses_preenchidos||0}/6`,cor:C.teal},{label:'Notificacoes',n:reg.total_notificacoes||0,cor:C.red},{label:'Treinamentos',n:reg.total_treinamentos||0,cor:C.blue}].map(({label,n,cor})=>(<div key={label} style={{background:C.surface,borderRadius:8,padding:'8px',textAlign:'center'}}><div style={{fontSize:18,fontWeight:800,color:cor}}>{n}</div><div style={{fontSize:10,color:C.muted}}>{label}</div></div>))}
           </div>}
-          {reg?.drive_relatorio_link&&<div style={{marginBottom:10}}><a href={reg.drive_relatorio_link} target='_blank' rel='noreferrer' style={{display:'inline-flex',alignItems:'center',gap:6,background:C.blue+'18',color:C.blue,borderRadius:8,padding:'6px 12px',fontSize:12,fontWeight:700,textDecoration:'none'}}>Relatorio (Storage)</a>{reg.finalizado_em&&<span style={{fontSize:11,color:C.muted,marginLeft:8}}>Gerado em {new Date(reg.finalizado_em).toLocaleDateString('pt-BR')}</span>}</div>}
+          {reg?.drive_relatorio_link&&<div style={{marginBottom:10}}><a href={reg.drive_relatorio_link} target='_blank' rel='noreferrer' style={{display:'inline-flex',alignItems:'center',gap:6,background:C.blue+'18',color:C.blue,borderRadius:8,padding:'6px 12px',fontSize:12,fontWeight:700,textDecoration:'none'}}>Relatório (Storage)</a>{reg.finalizado_em&&<span style={{fontSize:11,color:C.muted,marginLeft:8}}>Gerado em {new Date(reg.finalizado_em).toLocaleDateString('pt-BR')}</span>}</div>}
           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             {(!reg||reg.status==='aberto')&&<button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{flex:1,background:isFin?C.border:C.teal,border:'none',borderRadius:10,padding:'10px',color:isFin?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:isFin?'default':'pointer',minWidth:160}}>{isFin?'Gerando...':'Gerar e salvar no Storage'}</button>}
             {reg?.status==='finalizado'&&<><button onClick={()=>finalizar(ano,semestre)} disabled={isFin} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'9px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Regerar</button><button onClick={()=>marcarEnviado(reg)} style={{flex:1,background:C.green,border:'none',borderRadius:10,padding:'10px',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer'}}>Marcar como Enviado a DSM</button></>}
@@ -11289,7 +11348,7 @@ function DocumentosNSPView({sbUrl,sbKey,showToast,hospital}) {
         <select value={uploadTipo} onChange={e=>setUploadTipo(e.target.value)} style={{padding:'8px 12px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:12,outline:'none'}}>
           <option value='protocolo'>Protocolo</option>
           <option value='treinamento'>Lista de treinamento</option>
-          <option value='relatorio'>Relatorio</option>
+          <option value='relatorio'>Relatório</option>
           <option value='institucional'>Documento institucional (Portaria/PSP)</option>
         </select>
         <input value={uploadNome} onChange={e=>setUploadNome(e.target.value)} placeholder='Nome do documento' style={{flex:1,minWidth:160,padding:'8px 12px',background:C.surface,border:'1px solid '+C.border,borderRadius:8,color:C.text,fontSize:12,outline:'none'}}/>

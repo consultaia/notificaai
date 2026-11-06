@@ -2643,7 +2643,8 @@ function PdcaView({sbUrl,sbKey,showToast,hospital,somenteLeitura}){
     const sit=situacaoPDCA(n,d.dec);const todas=porN[n.id]||[];const acs=todas.filter(x=>etapaDaAcao(x));
     if(!sit.precisa&&!acs.length) return null;
     const etapa=etapaPDCA(n,todas,sit);
-    return {n,sit,acs,etapa,rca:d.rca[n.id],desde:desdeEtapa(n,acs,etapa),
+    const sitCard=etapa!=='iniciar'?{...sit,iniciado:true}:sit;
+    return {n,sit:sitCard,acs,etapa,rca:d.rca[n.id],desde:desdeEtapa(n,acs,etapa),
       feitas:acs.filter(x=>['eficacia','eficaz'].includes(etapaDaAcao(x))).length,
       vencidas:acs.filter(x=>['afazer','andamento'].includes(etapaDaAcao(x))&&x.prazo&&String(x.prazo).slice(0,10)<hoje).length};
   }).filter(Boolean);
@@ -7289,7 +7290,7 @@ function situacaoPDCA(n,dec){
   const d=dec&&n&&dec[n.id];
   if(d) return {nivel:d.sim?(auto.nivel==='obrigatorio'?'obrigatorio':'sim'):'nao',precisa:d.sim,iniciado:d.sim,manual:true,autor:d.autor,em:d.em,motivo:d.motivo,auto};
   // exigido pela regra e ainda nao iniciado: aparece sinalizado com o botao Iniciar PDCA
-  return {...auto,precisa:auto.nivel==='obrigatorio'||auto.nivel==='sim',iniciado:false,classificar:auto.nivel==='avaliar',auto};
+  return {...auto,precisa:auto.nivel==='obrigatorio'||auto.nivel==='sim',iniciado:!!(n&&n.rca_gerado),classificar:auto.nivel==='avaliar',auto};
 }
 const ROTULO_PDCA={obrigatorio:['PDCA obrigatório','#DC2626'],sim:['Precisa de PDCA','#EA580C'],nao:['Sem PDCA · monitorar','#64748B'],avaliar:['Classificar PDCA','#CA8A04']};
 async function iniciarPDCA(sbUrl,sbKey,n,setor,motivo){

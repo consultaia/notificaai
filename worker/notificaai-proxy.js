@@ -433,14 +433,26 @@ async function montarLembrete(env, hospitalId) {
   const hoje = agora.toISOString().slice(0, 10);
   const h = encodeURIComponent(hospitalId);
 
-  const [hosp, dsm, mens, prots, notifs, treins] = await Promise.all([
+  const [hosp, dsm, mens, prots, notifsTodas, treins, decis] = await Promise.all([
     sbGet(env, `hospitals?id=eq.${h}&select=name,short_name&limit=1`).catch(() => []),
     sbGet(env, `indicadores_dsm?hospital_id=eq.${h}&mes=eq.${mes}-01&select=*`).catch(() => []),
     sbGet(env, `indicadores_mensais?hospital_id=eq.${h}&mes_ref=eq.${mes}&select=pd_setores`).catch(() => []),
     sbGet(env, `protocolos?hospital_id=eq.${h}&select=nome,aprovado_em,proxima_revisao`),
-    sbGet(env, `notifications?hospital_id=eq.${h}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&rca_gerado=not.is.true&select=notification_type,event_subtype,occurrence_subtype,infection_topography&limit=5000`),
+    sbGet(env, `notifications?hospital_id=eq.${h}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&rca_gerado=not.is.true&select=id,notification_type,event_subtype,occurrence_subtype,infection_topography,patient_outcome,gravidade&limit=5000`),
     sbGet(env, `treinamentos_nsp?hospital_id=eq.${h}&tipo=eq.treinamento&data=gte.${semIni}&data=lte.${semFim}&select=subnucleo`),
+    sbGet(env, `acao_comentarios?hospital_id=eq.${h}&texto=like.PDCA%3A*&select=notification_id,texto,created_at&order=created_at.asc`).catch(() => []),
   ]);
+  // Mesma regra de PDCA do app: so cobra analise das notificacoes que precisam de PDCA
+  // (obito, dano grave, sentinela, dano moderado ou leve, ou classificadas como 'precisa' pelo NSP)
+  const decPDCA = {};
+  (decis || []).forEach(c => { const r = String(c.texto || '').match(/^PDCA: (SIM|NAO)/); if (r) decPDCA[c.notification_id] = r[1] === 'SIM'; });
+  const semAc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const precisaPDCA = n => {
+    if (n.id in decPDCA) return decPDCA[n.id];
+    const s = semAc((n.patient_outcome || '') + ' | ' + (n.gravidade || '') + ' | ' + (n.event_subtype || ''));
+    return /obito|dano grave|sentinela|evento adverso grave|never event|dano moderado|dano leve/.test(s);
+  };
+  const notifs = (notifsTodas || []).filter(precisaPDCA);
   const nomeHosp = (hosp[0] && (hosp[0].name || hosp[0].short_name)) || (hospitalId === 'hnsa' ? 'Hospital Naval de Salvador' : hospitalId);
   const row = dsm[0] || {};
   const pdSetores = mens[0] && mens[0].pd_setores ? Object.values(mens[0].pd_setores).reduce((a, v) => a + (Number(v) || 0), 0) : 0;
@@ -484,7 +496,7 @@ async function montarLembrete(env, hospitalId) {
     <table style="width:100%;border-collapse:collapse;font-size:12px">
       <tr style="background:#f1f5f9;color:#475569;text-transform:uppercase;font-size:10px">
         <th style="padding:8px 10px;text-align:left">Subnúcleo</th><th style="padding:8px">Indicadores ${esc(MESES[ref.getUTCMonth()].slice(0, 3))}</th>
-        <th style="padding:8px">Protocolos</th><th style="padding:8px">Sem RCA</th><th style="padding:8px">Treinamento ${s1 ? '1º' : '2º'} sem</th>
+        <th style="padding:8px">Protocolos</th><th style="padding:8px">PDCA sem análise</th><th style="padding:8px">Treinamento ${s1 ? '1º' : '2º'} sem</th>
       </tr>${tabela}
     </table>
     <div style="text-align:center;margin-top:22px">

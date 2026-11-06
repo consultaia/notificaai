@@ -530,6 +530,27 @@ function BarrasHorizontais({data,xKey,yKey,cor,max=10}){
     {resto>0&&<div style={{fontSize:10.5,color:C.muted,textAlign:'right'}}>+ {lista.length-max} outros setores com {resto} notificação(ões)</div>}
   </div>);
 }
+// Escolha de mes e ano por listas: o Firefox nao tem o seletor de mes (input type=month vira texto livre e gera 'Invalid Date')
+const NOMES_MES_SEL=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function MesAno({value,onChange,max,min,vazio,style,ariaLabel}){
+  const hoje=new Date();const anoHoje=hoje.getFullYear();
+  const ok=/^\d{4}-\d{2}$/.test(value||'');
+  const [a,m]=ok?value.split('-').map(Number):[null,null];
+  const anoMax=max?Number(max.slice(0,4)):anoHoje+1;const anoMin=min?Number(min.slice(0,4)):2020;
+  const anos=[];for(let y=anoMax;y>=anoMin;y--)anos.push(y);
+  const st={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 8px',color:C.text,fontSize:12.5,outline:'none',cursor:'pointer',...(style||{})};
+  const emite=(ny,nm)=>{if(!ny||!nm){if(vazio)onChange('');return;}let v=ny+'-'+String(nm).padStart(2,'0');if(max&&v>max)v=max;if(min&&v<min)v=min;onChange(v);};
+  return(<span style={{display:'inline-flex',gap:6,flexWrap:'wrap',alignItems:'center'}} aria-label={ariaLabel||'Mês e ano'}>
+    <select value={m||''} onChange={e=>emite(a||anoMax,Number(e.target.value)||null)} style={{...st,width:'auto'}} aria-label="Mês">
+      {(vazio||!ok)&&<option value="">{vazio||'mês'}</option>}
+      {NOMES_MES_SEL.map((n,i)=><option key={i} value={i+1} disabled={!!(max&&a&&`${a}-${String(i+1).padStart(2,'0')}`>max)}>{n}</option>)}
+    </select>
+    <select value={a||''} onChange={e=>emite(Number(e.target.value)||null,m||1)} style={{...st,width:'auto'}} aria-label="Ano">
+      {(vazio||!ok)&&<option value="">{vazio?'—':'ano'}</option>}
+      {anos.map(y=><option key={y} value={y}>{y}</option>)}
+    </select>
+  </span>);
+}
 function LineChart({data,lines,height=170}) {
   if(!data||!data.length) return null;
   const all=data.flatMap(d=>lines.map(l=>d[l.key]||0));
@@ -2714,7 +2735,7 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
   const filtros=<div style={{display:'flex',flexDirection:'column',gap:8}}>
     <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>{mb('ytd','Acumulado do ano')}{mb('6m','Últimos 6 meses')}{mb('12m','Últimos 12 meses')}{mb('mes','Mês')}{mb('sem','Semestre')}{mb('ano','Ano')}</div>
     {(modo==='mes'||modo==='sem'||modo==='ano')&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={sel}/>}
+      {modo==='mes'&&<MesAno value={mes} onChange={setMes}/>}
       {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={sel}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
       {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={sel}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
     </div>}
@@ -3062,8 +3083,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Parametros de calculo</div>
 
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
-      <input type="month" value={mesRef} onChange={e=>setMesRef(e.target.value)}
-        style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+      <MesAno value={mesRef} onChange={setMesRef}/>
 
       {/* Paciente-dia por setor — tudo junto, um card por setor */}
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
@@ -3296,7 +3316,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       {!dados&&(<div style={{display:'flex',flexDirection:'column',gap:10}}>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
-          <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <MesAno value={mes} onChange={setMes} max={mesReferencia()}/>
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor / Coordenador NSP</label>
@@ -3640,7 +3660,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     </div>
     <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
       <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder='Buscar...' style={{...sel,flex:1}}/>
-      <input type='month' value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}} style={{...sel,width:140}}/>
+      <MesAno value={filtroPeriodo} vazio="Todos os meses" onChange={v=>{setFiltroPeriodo(v);setPagina(1);}}/>
       {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA||filtroSemComunic)&&
         <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setFiltroSemComunic(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
           Limpar filtros
@@ -5871,7 +5891,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
     </div>
     <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}}>
       <div style={{display:'flex',background:C.surface,borderRadius:8,padding:3,gap:2}}>{tipoBtn('mes','Mês')}{tipoBtn('semestre','Semestre')}{tipoBtn('ano','Ano')}</div>
-      {per.tipo==='mes'&&<input type='month' value={per.mes} max={mesReferencia()} onChange={e=>e.target.value&&setPer(p=>({...p,mes:e.target.value}))} style={sel}/>}
+      {per.tipo==='mes'&&<MesAno value={per.mes} max={mesReferencia()} onChange={v=>v&&setPer(p=>({...p,mes:v}))}/>}
       {per.tipo==='semestre'&&<select value={per.sem} onChange={e=>setPer(p=>({...p,sem:e.target.value}))} style={sel}>{opcoesSem.map(o=><option key={o} value={o}>{(o.endsWith('-1')?'1º':'2º')+' semestre de '+o.split('-')[0]}</option>)}</select>}
       {per.tipo==='ano'&&<select value={per.ano} onChange={e=>setPer(p=>({...p,ano:e.target.value}))} style={sel}>{opcoesAno.map(o=><option key={o} value={o}>{o}</option>)}</select>}
       <button onClick={()=>setPer(p=>({...p,tipo:'ano',ano:String(anoAtual-1)}))} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaAtivo?C.teal:C.border),background:anvisaAtivo?C.teal+'22':'transparent',color:anvisaAtivo?C.teal:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>Avaliação anual ANVISA ({anoAtual-1})</button>
@@ -8270,7 +8290,7 @@ ESTRUTURA:
         <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'✓ Dados reais':sbUrl?'✓ Carregando...':'✓ Dados de exemplo'}</div>
       </div>
       <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-        <input type="month" value={mesPPT} onChange={e=>setMesPPT(e.target.value)} style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:10,padding:'6px 10px',color:C.text,fontSize:11,outline:'none'}}/>
+        <MesAno value={mesPPT} onChange={setMesPPT} style={{fontSize:11,padding:'6px 8px'}}/>
         <button onClick={gerarAnaliseMensalPPT} disabled={gerandoPPT} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:10,padding:'7px 14px',color:C.purple,fontSize:11,fontWeight:700,cursor:gerandoPPT?'default':'pointer',display:'flex',alignItems:'center',gap:5}}>
           {gerandoPPT?'Gerando...':String.fromCodePoint(128202)+' Gerar Analise Mensal'}
         </button>
@@ -11339,7 +11359,9 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   // Situacao de todos os meses do ano (janeiro ate o ultimo mes fechado): antes so o mes escolhido era cobrado
   const ref=mesReferencia();
-  const mesesAno=(()=>{const [a2,m2]=ref.split('-').map(Number);return Array.from({length:m2},(_,k)=>`${a2}-${String(k+1).padStart(2,'0')}`);})();
+  const anoRef=Number(ref.slice(0,4));
+  const [anoVer,setAnoVer]=useState(anoRef); // ano mostrado na faixa (o atual ou anteriores)
+  const mesesAno=(()=>{const [a2,m2]=ref.split('-').map(Number);const n=anoVer<a2?12:m2;return Array.from({length:n},(_,k)=>`${anoVer}-${String(k+1).padStart(2,'0')}`);})();
   useEffect(()=>{
     if(!sbUrl||!sbKey||campos.length===0){setSituacaoAno([]);return;}
     const ini=mesesAno[0],fim=mesesAno[mesesAno.length-1];
@@ -11357,11 +11379,13 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       // abre no mes pendente mais antigo, para o membro ir direto ao que falta
       if(!mesInicialOk.current){mesInicialOk.current=true;const p1=sit.find(x=>x.faltando.length);if(p1)setMes(p1.mes);}
     });
-  },[h.id,sbUrl,sbKey,userSubnucleo,versao]);
+  },[h.id,sbUrl,sbKey,userSubnucleo,versao,anoVer]);
   // o mes aberto na tela usa o que esta digitado agora
   const situacao=situacaoAno||[]; // so o que esta salvo no banco
   const mesesPend=situacao.filter(x=>x.faltando.length);
-  useEffect(()=>{if(onPendentes&&situacaoAno)onPendentes(mesesPend.length,mesesPend);},[mesesPend.map(x=>x.mes+':'+x.faltando.length).join('|'),!!situacaoAno]);
+  // o 'O que falta' cobra o ano atual (a faixa pode estar mostrando um ano anterior)
+  useEffect(()=>{if(onPendentes&&situacaoAno&&anoVer===anoRef)onPendentes(mesesPend.length,mesesPend);},[mesesPend.map(x=>x.mes+':'+x.faltando.length).join('|'),!!situacaoAno,anoVer]);
+  const trocarAno=y=>{setAnoVer(y);setSituacaoAno(null);mesInicialOk.current=false;setMes(y===anoRef?ref:`${y}-12`);};
   const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
   const set=(k,v)=>{setNaoSalvo(true);alteradosW.current.add(k);setForm(f=>({...f,[k]:v}));};
@@ -11371,6 +11395,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
     setSalvando(true);
     // Paciente-dia e compartilhado entre os subnucleos: so envia se preenchido aqui,
     // para um subnucleo nao apagar o valor lancado por outro.
+    if(!/^\d{4}-\d{2}$/.test(mes)){showToast('Escolha o mês na faixa acima antes de salvar.','error');setSalvando(false);return;}
     if(carregandoMesW){showToast('Aguarde carregar o mês antes de salvar','error');setSalvando(false);return;}
     if(erroMesW){showToast('Não foi possível carregar este mês. Verifique a conexão e abra o mês de novo antes de salvar.','error');setSalvando(false);return;}
     if(alteradosW.current.size===0){showToast('Nada foi alterado neste mês.','error');setSalvando(false);return;}
@@ -11398,9 +11423,14 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
       <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados de cada mês. O gestor vê no Relatório DSM.</div>
     </div>
+    <div role="tablist" aria-label="Ano" style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+      {[anoRef,anoRef-1,anoRef-2].map(y=><button key={y} role="tab" aria-selected={anoVer===y} onClick={()=>trocarAno(y)}
+        style={{padding:'6px 14px',borderRadius:16,cursor:'pointer',fontSize:12,fontWeight:800,border:'1px solid '+(anoVer===y?(sub?.color||C.teal):C.border),background:anoVer===y?(sub?.color||C.teal)+'1a':'transparent',color:anoVer===y?C.text:C.muted}}>{y}</button>)}
+    </div>
+    {!situacaoAno&&<div style={{fontSize:11.5,color:C.muted,marginBottom:12}}>Carregando os meses de {anoVer}...</div>}
     {situacaoAno&&situacaoAno.length>0&&<div style={{marginBottom:12}}>
       <div style={{fontSize:11.5,fontWeight:800,color:mesesPend.length?C.text:C.green,marginBottom:6}}>
-        {mesesPend.length?(mesesPend.length===1?'1 mês de '+ref.slice(0,4)+' com indicadores faltando':mesesPend.length+' meses de '+ref.slice(0,4)+' com indicadores faltando')+'. Toque no mês para preencher.':'Todos os meses de '+ref.slice(0,4)+' preenchidos.'}
+        {mesesPend.length?(mesesPend.length===1?'1 mês de '+anoVer+' com indicadores faltando':mesesPend.length+' meses de '+anoVer+' com indicadores faltando')+'. Toque no mês para preencher.':'Todos os meses de '+anoVer+' preenchidos.'}
       </div>
       <div role="tablist" aria-label="Escolha o mês" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(62px,1fr))',gap:6}}>
         {situacao.map(x=>{const sel=x.mes===mes;const tot=x.faltando.length;const cheio=tot===0;const nada=tot>=campos.length+(usaPD?1:0);
@@ -11420,7 +11450,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido em {new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long'})}.</div>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,flexWrap:'wrap'}}>
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div>
-      <input type='month' value={mes} max={ref} onChange={e=>e.target.value&&setMes(e.target.value)} aria-label="Outro mês" title="Outro mês (anos anteriores)" style={{...inp,width:'auto',padding:'6px 10px',cursor:'pointer',fontSize:12,color:C.muted}}/>
+
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>
@@ -11526,7 +11556,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {!embedded&&<BackHeader title='Indicadores mensais' subtitle='Dados quantitativos do relatório (C.1 a C.15)'/>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-      <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
+      <MesAno value={mes} onChange={v=>v&&setMes(v)}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>

@@ -80,7 +80,7 @@
   setTimeout(function(){
     if(document.getElementById('boot-error')) return; // ja tem erro mostrado
     var faltando=[];
-    if(typeof window.React==='undefined') faltando.push('React (cdnjs.cloudflare.com)');
+    if(typeof window.React==='undefined') faltando.push('React (/assets/vendor)');
     // Babel so e necessario na versao nao compilada (a versao publicada pelo GitHub Actions ja vem pronta)
     if(typeof window.Babel==='undefined'&&document.querySelector('script[type="text/babel"]')) faltando.push('Babel (cdnjs.cloudflare.com)');
     var opcionais=[];
@@ -92,15 +92,17 @@
     }
   }, 8000);
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<!-- bibliotecas hospedadas no proprio site: a rede do hospital pode bloquear CDNs externos -->
+<script src="/assets/vendor/react.production.min.js"></script>
+<script src="/assets/vendor/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js" crossorigin="anonymous" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous" defer></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js" crossorigin="anonymous" defer></script>
-<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js" crossorigin="anonymous" defer></script>
+<script src="/assets/vendor/papaparse.min.js" defer></script>
+<script src="/assets/vendor/jszip.min.js" defer></script>
+<script src="/assets/vendor/xlsx.min.js" defer></script>
+<script src="/assets/vendor/pptxgen.bundle.js" defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+input,select,textarea{max-width:100%}input[type=date],input[type=month]{min-width:0}
 html,body{background:#06101F;height:100%}
 @keyframes pulse{0%,100%{transform:translateY(0);opacity:.3}50%{transform:translateY(-5px);opacity:1}}
 @keyframes splashFadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
@@ -418,8 +420,10 @@ async function callWorker(messages,system) {
   try {
     const res=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs})});
     const data=await res.json();
-    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    return data.choices?.[0]?.message?.content||'Erro ao processar.';
+    if(!res.ok||data.error) throw new Error((data.error&&(data.error.message||JSON.stringify(data.error)))||('HTTP '+res.status));
+    const txt=data.choices?.[0]?.message?.content;
+    if(!txt||!String(txt).trim()) throw new Error('resposta vazia');
+    return txt;
   } catch(e) {
     // NUNCA devolver a mensagem de erro como se fosse resposta da IA: o texto acabava
     // exibido ao profissional como "resumo" e podia ser salvo no banco. Lancamos o erro
@@ -526,6 +530,27 @@ function BarrasHorizontais({data,xKey,yKey,cor,max=10}){
     </div>)}
     {resto>0&&<div style={{fontSize:10.5,color:C.muted,textAlign:'right'}}>+ {lista.length-max} outros setores com {resto} notificação(ões)</div>}
   </div>);
+}
+// Escolha de mes e ano por listas: o Firefox nao tem o seletor de mes (input type=month vira texto livre e gera 'Invalid Date')
+const NOMES_MES_SEL=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function MesAno({value,onChange,max,min,vazio,style,ariaLabel}){
+  const hoje=new Date();const anoHoje=hoje.getFullYear();
+  const ok=/^\d{4}-\d{2}$/.test(value||'');
+  const [a,m]=ok?value.split('-').map(Number):[null,null];
+  const anoMax=max?Number(max.slice(0,4)):anoHoje+1;const anoMin=min?Number(min.slice(0,4)):2020;
+  const anos=[];for(let y=anoMax;y>=anoMin;y--)anos.push(y);
+  const st={background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 8px',color:C.text,fontSize:12.5,outline:'none',cursor:'pointer',...(style||{})};
+  const emite=(ny,nm)=>{if(!ny||!nm){if(vazio)onChange('');return;}let v=ny+'-'+String(nm).padStart(2,'0');if(max&&v>max)v=max;if(min&&v<min)v=min;onChange(v);};
+  return(<span style={{display:'inline-flex',gap:6,flexWrap:'wrap',alignItems:'center'}} aria-label={ariaLabel||'Mês e ano'}>
+    <select value={m||''} onChange={e=>emite(a||anoMax,Number(e.target.value)||null)} style={{...st,width:'auto'}} aria-label="Mês">
+      {(vazio||!ok)&&<option value="">{vazio||'mês'}</option>}
+      {NOMES_MES_SEL.map((n,i)=><option key={i} value={i+1} disabled={!!(max&&a&&`${a}-${String(i+1).padStart(2,'0')}`>max)}>{n}</option>)}
+    </select>
+    <select value={a||''} onChange={e=>emite(Number(e.target.value)||null,m||1)} style={{...st,width:'auto'}} aria-label="Ano">
+      {(vazio||!ok)&&<option value="">{vazio?'—':'ano'}</option>}
+      {anos.map(y=><option key={y} value={y}>{y}</option>)}
+    </select>
+  </span>);
 }
 function LineChart({data,lines,height=170}) {
   if(!data||!data.length) return null;
@@ -787,20 +812,20 @@ const ehMarinha=h=>!!h&&(h.id==='hnsa'||(h.org_header||[]).join(' ').toUpperCase
 const PALAVRAS_TELA={
   home:'visao geral painel inicio pendencias resumo hoje',
   inspecao:'inspecao preparacao checklist prontidao visita auditoria dsm anvisa evidencias o que falta',
-  notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem',
+  notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem ishikawa 5 porques cinco porques',
   acoes:'plano de acao planos acoes pdca eficacia prazo responsavel execucao vencidas melhoria',
-  treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao',
+  treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao setores de apoio radiologia lavanderia nutricao gases estrutura predial equipamentos',
   capacitacao_dash:'curso online capacitacao certificado questionario apostila trilha pre teste pos teste',
   protocolos:'protocolo protocolos portaria psp plano de seguranca do paciente regimento pop validade revisao documento institucional',
   documentos_nsp:'biblioteca documentos anexos arquivos pdf comprovantes',
-  indicadores:'indicador indicadores taxa meta lpp queda higiene das maos iras paciente dia mensal lancar dsm panorama checklist',
+  indicadores:'indicador indicadores taxa meta lpp queda higiene das maos iras paciente dia pacientes-dia paciente-dia setor por setor mensal lancar dsm panorama checklist lvcs',
   pnqsp:'politica nacional pnqsp portaria 11527 estrutura processo resultado',
   relatorio_dsm:'relatorio semestral dsm anvisa circular 24 excel avaliacao nacional pacote zip envio',
-  analytics:'graficos analise mensal ppt apresentacao powerpoint mapa de calor',
+  analytics:'graficos analise mensal ppt apresentacao powerpoint mapa de calor exportar relatorio mensal',
   auditar:'dossie auditoria acreditacao ona evidencias pacote',
-  saq_dashboard:'cultura de seguranca hsopsc pesquisa questionario clima',
-  experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz qr code quarto folha dos quartos',
-  central:'central de conhecimento videos materiais educacao em saude',
+  saq_dashboard:'cultura de seguranca hsopsc saq pesquisa questionario clima',
+  experiencia_dash:'experiencia do paciente nps satisfacao avaliacao atendimento cartaz qr code qrcode quarto quartos folha dos quartos',
+  central:'central de conhecimento videos materiais educacao em saude cartilha folder cartaz qr code qrcode quarto quartos folha dos quartos',
   admin:'administracao usuarios pin senha backup acesso subnucleos e-mail',
   membro_nsp:'meu subnucleo painel o que falta rotina notificacoes rca analise notivisa plano de acao acoes treinamento lista de presenca ata protocolo portaria indicadores lancar mensal',
 };
@@ -823,6 +848,7 @@ function BuscaNavegacao({tabs,onIr,compacta}){
 // Guia curto mostrado no primeiro acesso (e reaberto em "Como usar")
 function GuiaPrimeiroAcesso({passos,onFechar}){
   const [i,setI]=useState(0);
+  useEffect(()=>{const f=e=>{if(e.key==='Escape')onFechar();};window.addEventListener('keydown',f);return()=>window.removeEventListener('keydown',f);},[]);
   const p=passos[i];
   return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000b',zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:18,maxWidth:440,width:'100%',padding:'24px 22px'}}>
@@ -1028,7 +1054,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     if(espera>0) { setBloqueio(Math.ceil(espera/1000)); setPin(''); return; }
     setBloqueio(0); setPerfilDesativado(false); setSemServidor(false);
     setLoading(true);
-    let matched=null,workerFora=false;
+    let matched=null,workerFora=false,bancoFora=false;
     if(sbUrl&&sbKey) {
       try {
         const hs=await hashPinCandidatos(pin, hospital?.id);
@@ -1043,7 +1069,7 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
           matched={key:perfil,id:rows[0].id,label:rows[0].nome,subnucleo:rows[0].subnucleo||null,color:PROFILES[perfil]?.color||C.teal,icon:PROFILES[perfil]?.icon||'[]'};
           sbPatch(sbUrl,sbKey,'nsp_usuarios',`id=eq.${rows[0].id}`,{ultimo_acesso:new Date().toISOString()}).catch(()=>{});
         }
-      } catch(e) { console.warn('PIN Supabase falhou, usando local',e); }
+      } catch(e) { console.warn('PIN Supabase falhou',e); bancoFora=true; }
     }
     if(!matched) {
       // PIN padrao (PROFILES) so vale para perfil que ainda NAO tem usuario ativo cadastrado
@@ -1063,7 +1089,8 @@ function PinModal({sbUrl,sbKey,onSuccess,onClose,hospital}) {
     }
     setLoading(false);
     if(matched) { PIN_TENTATIVAS.falhas=0; onSuccess(matched.key,matched); }
-    else if(workerFora) {
+    else if(workerFora||bancoFora) {
+      // servidor ou banco nao responderam: nao e PIN errado e nao conta como tentativa
       // o servidor que confere o codigo nao respondeu: nao e PIN errado e nao conta como tentativa
       setSemServidor(true); setPin('');
     }
@@ -1242,14 +1269,14 @@ function SetorEmailsManager({sbUrl,sbKey,showToast,hospital}) {
     </div>
     {loading && <div style={{textAlign:'center',color:C.muted,padding:12}}><Dots/></div>}
     {!loading && CHAVES_UNICAS.map(setor => (
-      <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8}}>
-        <div style={{width:150,fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
+      <div key={setor} style={{display:'flex',gap:8,alignItems:'center',marginBottom:8,flexWrap:'wrap'}}>
+        <div style={{width:150,maxWidth:'100%',fontSize:11,color:C.text,fontWeight:600,flexShrink:0}}>{acentuar(setor)}</div>
         <input
           type="email"
           value={emails[setor]||''}
           onChange={e=>setEmails(prev=>({...prev,[setor]:e.target.value}))}
           placeholder="não configurado"
-          style={{flex:1,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
+          style={{flex:1,minWidth:0,background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'7px 10px',color:C.text,fontSize:11,outline:'none'}}
         />
         <button onClick={()=>salvar(setor)} disabled={saving===setor}
           style={{fontSize:10,fontWeight:700,padding:'7px 12px',borderRadius:8,border:'none',cursor:saving===setor?'default':'pointer',background:saving===setor?C.border:C.teal,color:'#06101F',flexShrink:0}}>
@@ -1547,6 +1574,7 @@ function RCAPanel({notification,sbUrl,sbKey,showToast,onClose,onSaved,autor}) {
   const [loading,setLoading]=useState(false);
   const [tab,setTab]=useState('porques');
   const [saving,setSaving]=useState(false);
+  const gravadosRef=useRef({acoes:new Set(),comentario:false}); // o que ja foi gravado (tentar de novo nao duplica)
   // Modelo em branco: a analise pode ser feita sem a IA (antes, se a IA falhasse, nao havia como analisar)
   const modeloEmBranco=()=>({
     cinco_porques:[{pergunta:'Por que ocorreu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Por que isso aconteceu?',resposta:''},{pergunta:'Causa raiz:',resposta:''}],
@@ -1594,35 +1622,11 @@ Formato exato:
           });
           parsed=JSON.parse(repaired);
         } catch(e2) {
-          // Fallback 2: montar RCA básico com texto da resposta
-          console.warn('RCA JSON parse falhou, usando fallback estrutural');
-          parsed={
-            cinco_porques:[
-              {pergunta:'Por que ocorreu?',resposta:'Análise gerada. Edite conforme necessário.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Fator identificado pela IA.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Processo ou protocolo envolvido.'},
-              {pergunta:'Por que isso aconteceu?',resposta:'Fator organizacional ou de gestão.'},
-              {pergunta:'Causa raiz:',resposta:'Revisar o relato e editar esta causa raiz.'},
-            ],
-            ishikawa:[
-              {categoria:'Pessoa',cor:'#EF4444',causas:['Verificar fatores humanos']},
-              {categoria:'Processo',cor:'#F59E0B',causas:['Verificar protocolo relacionado']},
-              {categoria:'Equipamento',cor:'#8B5CF6',causas:['Verificar equipamentos envolvidos']},
-              {categoria:'Ambiente',cor:'#1D6FE8',causas:['Verificar condições do ambiente']},
-              {categoria:'Gestão',cor:'#00C9B8',causas:['Verificar fatores organizacionais']},
-            ],
-            fatores:[
-              {icone:'humano',tipo:'Fator humano',descricao:'Revisar fatores humanos envolvidos.'},
-              {icone:'processo',tipo:'Fator de processo',descricao:'Revisar processo ou protocolo.'},
-              {icone:'ambiente',tipo:'Fator ambiental',descricao:'Revisar condições ambientais.'},
-              {icone:'gestao',tipo:'Fator organizacional',descricao:'Revisar aspectos de gestão.'},
-            ],
-            plano:[
-              {acao:'Revisar protocolo relacionado ao evento',responsavel:'Coordenador NSP',prazo:'15 dias'},
-              {acao:'Capacitar equipe envolvida',responsavel:'Chefia do setor',prazo:'30 dias'},
-              {acao:'Monitorar recorrência do evento',responsavel:'NSP',prazo:'60 dias'},
-            ]
-          };
+          // a IA respondeu num formato invalido: abre o modelo em branco (antes preenchia textos genericos como se fossem da IA)
+          console.warn('RCA JSON parse falhou');
+          parsed=null;
+          showToast('A IA respondeu num formato inválido. O modelo em branco foi aberto: preencha a análise.','error');
+          setRca(modeloEmBranco());setLoading(false);return;
         }
       }
       if(parsed) setRca(parsed);
@@ -1638,8 +1642,10 @@ Formato exato:
       // 1) acoes do plano viram acoes reais do plano de acao (antes nao eram gravadas)
       const prazoData=pz=>{const s=String(pz||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d+)\s*(dia|semana|mes|mês)/i);let dias=30;if(m){const n=Number(m[1]);dias=/semana/i.test(m[2])?n*7:/m/i.test(m[2])?n*30:n;}return new Date(Date.now()+dias*864e5).toISOString().slice(0,10);};
       const acoes=(rca&&rca.plano||[]).filter(x=>String(x.acao||'').trim());
-      let gravadas=0;
-      for(const x of acoes){try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);}}
+      let gravadas=0,falhas=0;
+      for(const x of acoes){const chave=String(x.acao).trim()+'|'+(x.responsavel||'')+'|'+(x.prazo||'');if(gravadosRef.current.acoes.has(chave)){gravadas++;continue;}
+        try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadosRef.current.acoes.add(chave);gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);falhas++;}}
+      if(falhas){showToast(falhas+' ação(ões) do plano não foram salvas (falha de conexão). Nada se perdeu na tela: toque em Finalizar de novo.','error');setSaving(false);return;}
       // 2) o conteudo da analise fica registrado nas atualizacoes do plano
       if(rca){const linhas=['Análise de causa raiz (RCA)'];
         (rca.cinco_porques||[]).filter(p=>String(p.resposta||'').trim()).forEach((p,i)=>linhas.push((i+1)+'. '+p.pergunta+' '+p.resposta));
@@ -1648,12 +1654,12 @@ Formato exato:
         const fat=(rca.fatores||[]).filter(f=>String(f.descricao||'').trim());
         if(fat.length)linhas.push('Fatores: '+fat.map(f=>f.tipo+': '+f.descricao).join(' | '));
         if(acoes.length)linhas.push('Ações definidas: '+acoes.map(x=>x.acao).join('; '));
-        if(linhas.length>1)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
+        if(linhas.length>1&&!gravadosRef.current.comentario)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});gravadosRef.current.comentario=true;}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||USUARIO_ATUAL||'nsp',rca_concluido_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'RCA_CONCLUIDO','rca_gerado','false','true',autor||'nsp',autor||'nsp');
       showToast('Análise salva!'+(gravadas?' '+gravadas+' ação(ões) enviadas ao plano de ação.':''),'success');
       if(onSaved) onSaved(); else onClose();
-    } catch { showToast('Erro ao salvar','error'); }
+    } catch(e) { showToast('Erro ao salvar a análise. Toque em Finalizar de novo (o que já foi gravado não se repete).','error'); }
     setSaving(false);
   };
 
@@ -1800,7 +1806,19 @@ Formato exato:
   </div>);
 }
 
-function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {  const [step,setStep]=useState(1);  const [marking,setMarking]=useState(false);  const normTipo=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('medic')||s.includes('farmac')||s.includes('prescri')||s.includes('dispens')) return 'Erro de medicacao';    if(s.includes('queda')) return 'Queda';    if(s.includes('press')||s.includes('lpp')) return 'Lesao por pressao';    if(s.includes('infec')||s.includes('iras')||s.includes('pav')||s.includes('ipcs')||s.includes('itu')||s.includes('isc')) return 'Infeccao relacionada a assistencia';    if((s.includes('identif')||s.includes('pulseira'))&&!s.startsWith('perda de')) return 'Falha de identificacao';    if(s.includes('cirurg')||s.includes('lvcs')) return 'Falha em procedimento cirurgico';    if(s.includes('avp')||s.includes('acesso venoso')||s.includes('infiltr')||s.includes('flebite')||s.includes('extravasamento')) return 'Perda de acesso venoso periferico';    if(s.includes('sne')||s.includes('sng')||s.includes('sonda')||s.includes('nasoenter')||s.includes('nasogastr')||s.includes('svd')||s.includes('cateter urinario')||s.includes('sondagem')||s.includes('exteriori')) return 'Perda/exteriorizacao de dispositivo invasivo';    if(s.includes('comunic')||s.includes('sbar')||s.includes('prescricao verbal')) return 'Falha de comunicacao';    return 'Outros';  };  const normGrav=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('sentinela')) return 'Evento sentinela';    if(s.includes('grave')) return 'Evento adverso grave';    if(s.includes('moderado')) return 'Evento adverso moderado';    if(s.includes('leve')) return 'Evento adverso leve';    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstancia de risco';    return '';  };  const normTurno=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('mat')||s.includes('manha')) return 'Matutino';    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';    if(s.includes('not')||s.includes('noite')) return 'Noturno';    if(s.includes('dia')) return '';    return v;  };  const normSexo=(v,admReason)=>{    const src=(v||'')+(admReason||'');    if(!src) return '';    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';    if(s==='f') return 'Feminino';    if(s==='m') return 'Masculino';    return '';  };  const normAdmissao=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Adm:\s*(\d{4}-\d{2}-\d{2})/);    return m?m[1]:'';  };  const normMotivo=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Motivo:\s*([^|]+)/);    return m?m[1].trim():'';  };  const normDano=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Obito';    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Nao - dano reversivel';    return '';  };  const [form,setForm]=useState(()=>({    data_evento:notification.event_date||'',    turno:normTurno(notification.shift||''),    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),    dispositivo:notification.event_subtype||notification.occurrence_subtype||'',    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),    setor:notification.sector||'',    idade:notification.patient_age||'',    sexo:normSexo(notification.patient_sex||'',notification.admission_reason||''),    data_admissao:normAdmissao(notification.admission_reason||''),    motivo_internacao:normMotivo(notification.admission_reason||''),    descricao:notification.description||'',    acao_imediata:notification.measures_taken||'',    dano:normDano(notification.patient_outcome||''),    acao_corretiva:'',  }));  const [analise,setAnalise]=useState({    fatores_profissional:[],fatores_paciente:[],fatores_trabalho:[],    deteccao_como:'',deteccao_quem:[],    consequencias:[],atenuantes:[],acoes_melhoria:[],    estrategia_risco:'',obs_analise:'',  });  const [savingAnalise,setSavingAnalise]=useState(false);  React.useEffect(()=>{    if(!sbUrl||!sbKey||!notification.id) return;    fetch(`${sbUrl}/rest/v1/notivisa_analise?notification_id=eq.${notification.id}&select=*`,{      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}    }).then(r=>r.json()).catch(()=>[]).then(d=>{      if(d&&d[0]){const a=d[0];setAnalise({        fatores_profissional:a.fatores_profissional||[],fatores_paciente:a.fatores_paciente||[],        fatores_trabalho:a.fatores_trabalho||[],deteccao_como:a.deteccao_como||'',        deteccao_quem:a.deteccao_quem||[],consequencias:a.consequencias||[],        atenuantes:a.atenuantes||[],acoes_melhoria:a.acoes_melhoria||[],        estrategia_risco:a.estrategia_risco||'',obs_analise:a.obs_analise||'',      });}    }).catch(()=>{});  },[notification.id]);  const salvarAnalise=async()=>{    if(!sbUrl||!sbKey) return;    setSavingAnalise(true);    try{      await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');      showToast('Analise salva!','success');    }catch(e){showToast('Erro: '+e.message,'error');}    setSavingAnalise(false);  };  const marcarEnviado=async()=>{    if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}    setMarking(true);    try{
+function NotiVisaPanel({notification,sbUrl,sbKey,showToast,onClose}) {  const [step,setStep]=useState(1);  const [marking,setMarking]=useState(false);  const normTipo=(v)=>{    if(!v) return '';    const s=' '+v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ')+' ';
+    /* palavras inteiras ou inicio de palavra (antes 'isc' casava com 'risco' e 'itu' com 'situacao') */
+    const ini=(...xs)=>xs.some(x=>s.includes(' '+x));const pal=(...xs)=>xs.some(x=>s.includes(' '+x+' '));
+    if(ini('medicament','medicac','farmac','prescri','dispens')) return 'Erro de medicacao';
+    if(ini('queda','caiu','cair')) return 'Queda';
+    if(ini('lesao por pressao','ulcera por pressao')||pal('lpp','up')) return 'Lesao por pressao';
+    if(ini('infec')||pal('iras','pav','ipcs','itu','isc')) return 'Infeccao relacionada a assistencia';
+    if((ini('identif','pulseira'))&&!s.startsWith(' perda de')) return 'Falha de identificacao';
+    if(ini('cirurg')||pal('lvcs')) return 'Falha em procedimento cirurgico';
+    if(pal('avp')||ini('acesso venoso','infiltr','flebite','extravasamento')) return 'Perda de acesso venoso periferico';
+    if(pal('sne','sng','svd')||ini('sonda','nasoenter','nasogastr','cateter urinario','exteriori')) return 'Perda/exteriorizacao de dispositivo invasivo';
+    if(ini('comunic','prescricao verbal')||pal('sbar')) return 'Falha de comunicacao';
+    return 'Outros';  };  const normGrav=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('sentinela')) return 'Evento sentinela';    if(s.includes('grave')) return 'Evento adverso grave';    if(s.includes('moderado')) return 'Evento adverso moderado';    if(s.includes('leve')) return 'Evento adverso leve';    if(s.includes('sem dano')||s.includes('incidente')) return 'Incidente sem dano';    if(s.includes('near miss')||s.includes('quase')) return 'Near miss';    if(s.includes('risco')||s.includes('circunstancia')) return 'Circunstancia de risco';    return '';  };  const normTurno=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('mat')||s.includes('manha')) return 'Matutino';    if(s.includes('ves')||s.includes('tarde')) return 'Vespertino';    if(s.includes('not')||s.includes('noite')) return 'Noturno';    if(s.includes('dia')) return '';    return v;  };  const normSexo=(v,admReason)=>{    const src=(v||'')+(admReason||'');    if(!src) return '';    const s=src.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('feminino')||s.includes('fem ')) return 'Feminino';    if(s.includes('masculino')||s.includes('masc ')) return 'Masculino';    if(s==='f') return 'Feminino';    if(s==='m') return 'Masculino';    return '';  };  const normAdmissao=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Adm:\s*(\d{4}-\d{2}-\d{2})/);    return m?m[1]:'';  };  const normMotivo=(admReason)=>{    if(!admReason) return '';    const m=(admReason||'').match(/Motivo:\s*([^|]+)/);    return m?m[1].trim():'';  };  const normDano=(v)=>{    if(!v) return '';    const s=v.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');    if(s.includes('obito')||s.includes('morte')||s.includes('fatal')) return 'Obito';    if(s.includes('permanente total')||s.includes('irrevers')) return 'Sim - dano permanente total';    if(s.includes('permanente')||s.includes('parcial')) return 'Sim - dano permanente parcial';    if(s.includes('leve')||s.includes('revers')||s.includes('sem dano')||s.includes('minimo')) return 'Nao - dano reversivel';    return '';  };  const [form,setForm]=useState(()=>({    data_evento:notification.event_date||'',    turno:normTurno(notification.shift||''),    tipo:normTipo(notification.event_subtype||notification.occurrence_subtype||''),    dispositivo:(/sonda|sne|sng|svd|cateter|cvc|cvd|dreno|tubo|acesso|avp|dispositivo/i.test(notification.event_subtype||notification.occurrence_subtype||'')?(notification.event_subtype||notification.occurrence_subtype):''),    gravidade:normGrav(notification.gravidade||notification.patient_outcome||''),    setor:notification.sector||'',    idade:notification.patient_age||'',    sexo:normSexo(notification.patient_sex||'',notification.admission_reason||''),    data_admissao:normAdmissao(notification.admission_reason||''),    motivo_internacao:normMotivo(notification.admission_reason||''),    descricao:notification.description||'',    acao_imediata:notification.measures_taken||'',    dano:normDano(notification.patient_outcome||''),    acao_corretiva:'',  }));  const [analise,setAnalise]=useState({    fatores_profissional:[],fatores_paciente:[],fatores_trabalho:[],    deteccao_como:'',deteccao_quem:[],    consequencias:[],atenuantes:[],acoes_melhoria:[],    estrategia_risco:'',obs_analise:'',  });  const [savingAnalise,setSavingAnalise]=useState(false);  React.useEffect(()=>{    if(!sbUrl||!sbKey||!notification.id) return;    fetch(`${sbUrl}/rest/v1/notivisa_analise?notification_id=eq.${notification.id}&select=*`,{      headers:{'apikey':sbKey,'Authorization':'Bearer '+sbKey}    }).then(r=>r.json()).catch(()=>[]).then(d=>{      if(d&&d[0]){const a=d[0];setAnalise({        fatores_profissional:a.fatores_profissional||[],fatores_paciente:a.fatores_paciente||[],        fatores_trabalho:a.fatores_trabalho||[],deteccao_como:a.deteccao_como||'',        deteccao_quem:a.deteccao_quem||[],consequencias:a.consequencias||[],        atenuantes:a.atenuantes||[],acoes_melhoria:a.acoes_melhoria||[],        estrategia_risco:a.estrategia_risco||'',obs_analise:a.obs_analise||'',      });}    }).catch(()=>{});  },[notification.id]);  const salvarAnalise=async()=>{    if(!sbUrl||!sbKey) return;    setSavingAnalise(true);    try{      await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');      showToast('Analise salva!','success');    }catch(e){showToast('Erro: '+e.message,'error');}    setSavingAnalise(false);  };  const marcarEnviado=async()=>{    if(!sbUrl||!sbKey){showToast('Configure Supabase','error');return;}    setMarking(true);    try{
       /* antes, a analise e as correcoes digitadas se perdiam se a pessoa nao tocasse em Salvar */
       try{await sbUpsertDSM(sbUrl,sbKey,'notivisa_analise',{notification_id:notification.id,hospital_id:notification.hospital_id,...analise,updated_at:new Date().toISOString()},'notification_id');}catch(e){console.warn('analise NOTIVISA',e);}
       try{const tx=['NOTIVISA: notificação enviada à ANVISA'];if(form.acao_imediata)tx.push('Ação imediata: '+form.acao_imediata);if(form.acao_corretiva)tx.push('Ação corretiva planejada: '+form.acao_corretiva);if(form.gravidade)tx.push('Gravidade: '+form.gravidade);
@@ -2027,7 +2045,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
     try{
       if(status==='concluido'&&ev){const ac=acoes.find(x=>x.id===id)||{id,notification_id:notification.id,hospital_id:notification.hospital_id};await registrarEvidenciaAcao(sbUrl,sbKey,{...ac,notification_id:notification.id,hospital_id:notification.hospital_id},ev,'NSP');}
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${id}`,{status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})});
-      if(status==='concluido'){
+      if(status==='concluido'){delete RASCUNHO_EVID[id];
         await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_CONCLUIDO','status','em_andamento','concluido',USUARIO_ATUAL||'gestor','gestor');
       }
       await load();showToast(status==='concluido'?'Ação concluída. Verifique a eficácia depois.':'Status atualizado','success');
@@ -2298,15 +2316,22 @@ const etapaDaAcao=a=>{
 const ehReuniao=t=>/reuniao/.test(t.tipo||'');
 
 // Ao concluir uma acao, registra o que foi feito e a evidencia nas atualizacoes do plano (acao_comentarios)
+// Rascunho da evidencia por acao: se a gravacao falhar, o texto continua ao reabrir; e a mesma evidencia nao e gravada duas vezes
+const RASCUNHO_EVID={};const EVID_GRAVADA=new Set();
 async function registrarEvidenciaAcao(sbUrl,sbKey,acao,ev,setor){
   if(!ev||!ev.texto) return;
+  const chaveEv=acao.id+'|'+ev.texto+'|'+(ev.link||'');
+  if(EVID_GRAVADA.has(chaveEv)) return;
   const texto='Ação concluída: '+(acao.acao||'')+'\nO que foi feito: '+ev.texto+(ev.link?'\nEvidência: '+ev.link:'');
-  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||setor||null,texto,created_at:new Date().toISOString()});}
+  try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:acao.notification_id,hospital_id:acao.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||setor||null,texto,created_at:new Date().toISOString()});EVID_GRAVADA.add(chaveEv);}
   catch(e){throw new Error('a evidência não foi registrada ('+e.message+'). A ação não foi concluída: tente de novo.');}
 }
 function ConcluirAcaoModal({acao,sbUrl,sbKey,onConfirmar,onFechar}){
-  const [texto,setTexto]=useState('');
-  const [link,setLink]=useState('');
+  const rasc=RASCUNHO_EVID[acao.id]||{};
+  const [texto,setTextoS]=useState(rasc.texto||'');
+  const [link,setLinkS]=useState(rasc.link||'');
+  const setTexto=v=>{setTextoS(v);RASCUNHO_EVID[acao.id]={...(RASCUNHO_EVID[acao.id]||{}),texto:v};};
+  const setLink=v=>{setLinkS(v);RASCUNHO_EVID[acao.id]={...(RASCUNHO_EVID[acao.id]||{}),link:v};};
   return(<div role="dialog" aria-modal="true" style={{position:'fixed',inset:0,background:'#000a',zIndex:380,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
     <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:16,maxWidth:460,width:'100%',padding:20}}>
       <div style={{fontSize:16,fontWeight:900,color:C.text}}>Concluir ação</div>
@@ -2513,7 +2538,7 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   };
   const concluir=async(a2,ev)=>{
     setBusy(a2.id);
-    try{await registrarEvidenciaAcao(sbUrl,sbKey,a2,ev,'NSP');await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
+    try{await registrarEvidenciaAcao(sbUrl,sbKey,a2,ev,'NSP');await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a2.id}`,{status:'concluido',concluido_em:new Date().toISOString()});delete RASCUNHO_EVID[a2.id];await carregar();showToast('Acao concluida \u2014 aguarda verifica\u00e7\u00e3o de efic\u00e1cia','success');}
     catch(e){showToast('Erro: '+e.message,'error');}
     setBusy(null);
   };
@@ -2711,7 +2736,7 @@ function PanoramaMensalView({sbUrl,sbKey,showToast,hospital}) {
   const filtros=<div style={{display:'flex',flexDirection:'column',gap:8}}>
     <div style={{display:'flex',gap:6,overflowX:'auto',paddingBottom:2,scrollbarWidth:'none'}}>{mb('ytd','Acumulado do ano')}{mb('6m','Últimos 6 meses')}{mb('12m','Últimos 12 meses')}{mb('mes','Mês')}{mb('sem','Semestre')}{mb('ano','Ano')}</div>
     {(modo==='mes'||modo==='sem'||modo==='ano')&&<div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      {modo==='mes'&&<input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={sel}/>}
+      {modo==='mes'&&<MesAno value={mes} onChange={setMes}/>}
       {modo!=='mes'&&<select value={ano} onChange={e=>setAno(Number(e.target.value))} style={sel}>{anosOpts.map(a3=><option key={a3} value={a3}>{a3}</option>)}</select>}
       {modo==='sem'&&<select value={sem} onChange={e=>setSem(Number(e.target.value))} style={sel}><option value={1}>1º semestre</option><option value={2}>2º semestre</option></select>}
     </div>}
@@ -3059,8 +3084,7 @@ const warn=!nd&&!semMeta&&!ok&&(ind.menor?val<=ind.meta*1.3:val>=ind.meta*0.7);
       <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:12}}>Parametros de calculo</div>
 
       <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
-      <input type="month" value={mesRef} onChange={e=>setMesRef(e.target.value)}
-        style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 10px',color:C.text,fontSize:13,outline:'none',width:'100%',marginBottom:12}}/>
+      <MesAno value={mesRef} onChange={setMesRef}/>
 
       {/* Paciente-dia por setor — tudo junto, um card por setor */}
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:10,padding:'12px 14px',marginBottom:12}}>
@@ -3293,7 +3317,7 @@ function RelatorioMensalPanel({sbUrl,sbKey,showToast,hospital,onClose}) {
       {!dados&&(<div style={{display:'flex',flexDirection:'column',gap:10}}>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Mês de referência</label>
-          <input type="month" value={mes} onChange={e=>setMes(e.target.value)} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'9px 12px',color:C.text,fontSize:13,outline:'none',width:'100%'}}/>
+          <MesAno value={mes} onChange={setMes} max={mesReferencia()}/>
         </div>
         <div>
           <label style={{fontSize:11,color:C.muted,display:'block',marginBottom:4}}>Gestor / Coordenador NSP</label>
@@ -3637,7 +3661,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     </div>
     <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
       <input value={busca} onChange={e=>{setBusca(e.target.value);setPagina(1);}} placeholder='Buscar...' style={{...sel,flex:1}}/>
-      <input type='month' value={filtroPeriodo} onChange={e=>{setFiltroPeriodo(e.target.value);setPagina(1);}} style={{...sel,width:140}}/>
+      <MesAno value={filtroPeriodo} vazio="Todos os meses" onChange={v=>{setFiltroPeriodo(v);setPagina(1);}}/>
       {(filtroTipo!=='todos'||filtroSetor!=='todos'||filtroRCA!=='todos'||filtroNotivisa!=='todos'||filtroPeriodo||busca||filtroGravidade||filtroSemRCA||filtroSemComunic)&&
         <button onClick={()=>{setFiltroTipo('todos');setFiltroSetor('todos');setFiltroRCA('todos');setFiltroNotivisa('todos');setFiltroPeriodo('');setBusca('');setFiltroGravidade('');setFiltroSemRCA(false);setFiltroSemComunic(false);setPagina(1);}} style={{background:C.red+'22',border:'1px solid '+C.red+'44',borderRadius:8,padding:'7px 10px',color:C.red,fontSize:11,fontWeight:700,cursor:'pointer',whiteSpace:'nowrap'}}>
           Limpar filtros
@@ -3872,7 +3896,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
       await load();setShowForm(false);
       setForm({tipo:'treinamento',subnucleo:'comunicacao',protocolo:'',data:'',participantes:'',descricao:'',responsavel:'',link_gdrive:''});
       showToast('Registro salvo!','success');
-    }catch{showToast('Erro ao salvar. Execute o SQL de criacao da tabela.','error');}
+    }catch(e){showToast('Não foi possível salvar o registro (conexão ou servidor). Os dados continuam no formulário: tente de novo.','error');}
     setSaving(false);
   };
 
@@ -3883,8 +3907,8 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
     const semAtual=hoje.getMonth()<6?1:2;
     if(periodoFiltro==='semestre_atual'){
       return semAtual===1
-        ?{de:`${ano}-01-01`,ate:`${ano}-06-30`,label:`1o Semestre ${ano} (DSM)`}
-        :{de:`${ano}-07-01`,ate:`${ano}-12-31`,label:`2o Semestre ${ano} (DSM)`};
+        ?{de:`${ano}-01-01`,ate:`${ano}-06-30`,label:`1º semestre ${ano}${ehMarinha(h)?' (DSM)':''}`}
+        :{de:`${ano}-07-01`,ate:`${ano}-12-31`,label:`2º semestre ${ano}${ehMarinha(h)?' (DSM)':''}`};
     }
     if(periodoFiltro==='ano_anterior') return{de:`${ano-1}-01-01`,ate:`${ano-1}-12-31`,label:`Ano ${ano-1} (ANVISA)`};
     if(periodoFiltro==='ano_atual') return{de:`${ano}-01-01`,ate:`${ano}-12-31`,label:`Ano ${ano}`};
@@ -3944,7 +3968,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         <div style={{fontSize:10,fontWeight:700,color:C.muted,marginBottom:6,textTransform:'uppercase',letterSpacing:'0.05em'}}>Período de visualizacao</div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
           {[
-            {id:'semestre_atual',label:'Semestre atual (DSM)'},
+            {id:'semestre_atual',label:ehMarinha(h)?'Semestre atual (DSM)':'Semestre atual'},
             {id:'ano_anterior',label:'Ano anterior (ANVISA)'},
             {id:'ano_atual',label:'Ano atual'},
             {id:'todos',label:'Todos'},
@@ -5415,6 +5439,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     setBusyAcao(x.id);
     try{if(status==='concluido')await registrarEvidenciaAcao(sbUrl,sbKey,x,ev,sub?sub.label:'Subnúcleo');
       await sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${x.id}`,status==='concluido'?{status,concluido_em:new Date().toISOString()}:{status});
+      if(status==='concluido')delete RASCUNHO_EVID[x.id];
       sbAuditLog(sbUrl,sbKey,h.id,x.notification_id,status==='concluido'?'ACAO_CONCLUIDA':'ACAO_INICIADA','status',x.status||'pendente',status,sub?sub.label:'subnucleo','membro_nsp').catch(()=>{});
       setAcoesAll(as=>as.map(y=>y.id===x.id?{...y,status,...(status==='concluido'?{concluido_em:new Date().toISOString()}:{})}:y));
       showToast(status==='concluido'?'Ação concluída. O NSP vai verificar a eficácia.':'Ação em andamento','success');}
@@ -5464,7 +5489,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
         <div style={{fontSize:16,fontWeight:800,color:C.text,marginBottom:2}}>{profileMode==='gestor'?'Preenchendo como gestor: '+(sub?sub.label:''):(sub?'Subnúcleo de '+sub.label:'Seu subnúcleo')}</div>
         <div style={{fontSize:12,color:C.muted,marginBottom:14}}>{totalPend>0?'Veja o que falta para deixar seu subnúcleo em dia. Toque em um item para resolver.':'Seu subnúcleo está em dia. Obrigado!'}</div>
         {[
-          {ok:pendInd===0,aba:'indicadores',acao:'Preencher',
+          camposProprios(subAtivo).length>0&&{ok:pendInd===0,aba:'indicadores',acao:'Preencher',
             titulo:tituloInd,det:pendInd>0?detInd:''},
           {ok:pendProt===0,aba:'protocolos',acao:'Atualizar',
             titulo:pendProt>0?(pendProt+' protocolo'+(pendProt>1?'s':'')+' vencido'+(pendProt>1?'s':'')+' ou sem cadastro'):'Protocolos em dia',
@@ -5545,7 +5570,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                 {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
                 {(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:12,background:'transparent',color:C.teal,borderRadius:8,padding:'8px 12px',minHeight:36,fontWeight:700,border:'1px solid '+C.teal,cursor:'pointer'}}>Ficha Notivisa</button>}
                 {n.gravidade==='Evento sentinela'&&<div style={{fontSize:10,background:C.red+'1a',color:C.red,borderRadius:6,padding:'3px 7px',fontWeight:800,textAlign:'center'}}>Sentinela</div>}
               </div>
@@ -5674,7 +5699,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     </div>
     <div style={mostra('panorama')}>
     {/* Metricas totais */}
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10,marginBottom:14}}>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(92px,1fr))',gap:10,marginBottom:14}}>
       <StatCard icon={String.fromCodePoint(128202)} label='Total notificacoes' value={s.total} color={C.teal}/>
       <StatCard icon={String.fromCodePoint(127973)} label='Seg. Paciente' value={s.sp} color={C.red}/>
       <StatCard icon={String.fromCodePoint(128203)} label='Administrativas' value={s.adm} color={C.purple}/>
@@ -5867,7 +5892,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
     </div>
     <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:8}}>
       <div style={{display:'flex',background:C.surface,borderRadius:8,padding:3,gap:2}}>{tipoBtn('mes','Mês')}{tipoBtn('semestre','Semestre')}{tipoBtn('ano','Ano')}</div>
-      {per.tipo==='mes'&&<input type='month' value={per.mes} max={mesReferencia()} onChange={e=>e.target.value&&setPer(p=>({...p,mes:e.target.value}))} style={sel}/>}
+      {per.tipo==='mes'&&<MesAno value={per.mes} max={mesReferencia()} onChange={v=>v&&setPer(p=>({...p,mes:v}))}/>}
       {per.tipo==='semestre'&&<select value={per.sem} onChange={e=>setPer(p=>({...p,sem:e.target.value}))} style={sel}>{opcoesSem.map(o=><option key={o} value={o}>{(o.endsWith('-1')?'1º':'2º')+' semestre de '+o.split('-')[0]}</option>)}</select>}
       {per.tipo==='ano'&&<select value={per.ano} onChange={e=>setPer(p=>({...p,ano:e.target.value}))} style={sel}>{opcoesAno.map(o=><option key={o} value={o}>{o}</option>)}</select>}
       <button onClick={()=>setPer(p=>({...p,tipo:'ano',ano:String(anoAtual-1)}))} style={{padding:'6px 12px',borderRadius:8,border:'1px solid '+(anvisaAtivo?C.teal:C.border),background:anvisaAtivo?C.teal+'22':'transparent',color:anvisaAtivo?C.teal:C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>Avaliação anual ANVISA ({anoAtual-1})</button>
@@ -6568,14 +6593,14 @@ d.patient_age?`Idade: ${d.patient_age} anos`:'',
             try{const ep=await sbSelect(sbUrl,sbKey,'setor_emails',`hospital_id=eq.${h.id}&setor=eq.${EMAIL_NSP_CHAVE}&select=email&limit=1`);if(ep&&ep[0]&&ep[0].email)emailNSP=ep[0].email;}catch(e){}
             // Tentar rota /email do Worker (substitui n8n)
             const emailUrl=WORKER_URL.replace(/\/+$/,'')+'/email';
-            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
+            const whResp=await fetch(emailUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,notification_id:res?.[0]?.id||null,hospital_id:h.id,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})});
             // o Worker responde 200 com ok:false quando nao ha destinatario: nao e sucesso
             let jw=null;try{jw=await whResp.clone().json();}catch(e){}
             emailOk=whResp.ok&&!(jw&&jw.ok===false);
             if(!emailOk){
               // Fallback: tentar o webhook original (n8n) se configurado
               if(webhookUrl&&!webhookUrl.includes(WORKER_URL)){
-                const wr=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>null);
+                const wr=await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,protocolo,notification_id:res?.[0]?.id||null,hospital_id:h.id,hospital_name:h.name,nsp_email:emailNSP,nsp_email_cc:copiaEmail,setor_email:setorEmail,is_test:false})}).catch(()=>null);
                 if(wr&&wr.ok)emailOk=true;
               }
             }
@@ -7139,7 +7164,7 @@ function imprimirFolhaQuarto(h){
   ];
   const cab=(h.org_header||[]).map(l=>escHtml(l)).join(' · ');
   w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>QR codes para os quartos - ${escHtml(siglaH(h))}</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script src="${location.origin}/assets/vendor/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 portrait;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -7176,7 +7201,7 @@ ${itens.map(x=>`<div class="it" style="border-color:${x.cor}33;background:${x.fu
 function imprimirCartazQR(h,{link,titulo,aba,sub,pills}){
   const w=window.open('','_blank');if(!w) return;
   w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - ${aba}</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script src="${location.origin}/assets/vendor/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 portrait;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -8260,13 +8285,13 @@ ESTRUTURA:
 
   return(<div style={{padding:'20px 16px',display:'flex',flexDirection:'column',gap:16}}>
     {showRelatorio&&<RelatorioMensalPanel sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital||DEFAULT_HOSPITAL} onClose={()=>setShowRelatorio(false)}/>}
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <div style={{display:'flex',alignItems:'baseline',gap:10}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+      <div style={{display:'flex',alignItems:'baseline',gap:10,flexWrap:'wrap'}}>
         <div style={{fontSize:17,fontWeight:900,color:C.text}}>Gráficos e análise mensal</div>
         <div style={{fontSize:11,color:stats?C.green:sbUrl?C.muted:C.muted}}>{stats?'✓ Dados reais':sbUrl?'✓ Carregando...':'✓ Dados de exemplo'}</div>
       </div>
-      <div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <input type="month" value={mesPPT} onChange={e=>setMesPPT(e.target.value)} style={{background:C.card,border:'1px solid '+C.purple+'44',borderRadius:10,padding:'6px 10px',color:C.text,fontSize:11,outline:'none'}}/>
+      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+        <MesAno value={mesPPT} onChange={setMesPPT} style={{fontSize:11,padding:'6px 8px'}}/>
         <button onClick={gerarAnaliseMensalPPT} disabled={gerandoPPT} style={{background:C.purple+'18',border:'1px solid '+C.purple+'44',borderRadius:10,padding:'7px 14px',color:C.purple,fontSize:11,fontWeight:700,cursor:gerandoPPT?'default':'pointer',display:'flex',alignItems:'center',gap:5}}>
           {gerandoPPT?'Gerando...':String.fromCodePoint(128202)+' Gerar Analise Mensal'}
         </button>
@@ -8709,7 +8734,7 @@ body{background:#666}
   const imprimirCartaz=()=>{
     const w=window.open('','_blank');
     w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/><title>Cartaz - Hei, NotificaAI!</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script src="${location.origin}/assets/vendor/qrcode.min.js"><\/script>
 <style>
 @page{size:A4 portrait;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
@@ -9202,9 +9227,9 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
           try{const d=await sbSelect(sbUrl,sbKey,'capacitacao_participantes',`hospital_id=eq.${h.id}&nome_chave=eq.${encodeURIComponent(nomeChave(p.nome))}&select=id,codigo,nome,setor,profissao&order=updated_at.desc`);if(d&&d.length===1)ex=d[0];}catch(e){}
           if(ex) p={id:ex.id,codigo:ex.codigo,nome:ex.nome,setor:ex.setor,profissao:ex.profissao};
           else{
-            const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:local});
+            const r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{hospital_id:h.id,codigo:p.codigo,nome:p.nome,setor:p.setor,profissao:p.profissao,nome_chave:nomeChave(p.nome),progresso:local,...(p.senha_hash_pend?{senha_hash:p.senha_hash_pend}:{})});
             if(!(r&&r[0]&&r[0].id)) return;
-            p={...p,id:r[0].id};
+            const {senha_hash_pend,...semHash}=p;p={...semHash,id:r[0].id};
           }
           setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));}catch{}
         }
@@ -9247,11 +9272,14 @@ function CapacitacaoView({sbUrl,sbKey,hospital,showToast}){
       catch(e){}
     }
     const p={codigo:novoCodigoParticipante(),nome:cad.nome.trim().replace(/\s+/g,' ').slice(0,120),setor:cad.setor,profissao:divisao};
+    const hsCad=await hashSenhaCapac(pinNovo,h.id,p.nome).catch(()=>null);
+    if(hsCad)p.senha_hash_pend=hsCad; // so o hash, para a sincronizacao (sai daqui assim que o cadastro chega ao banco)
     try{if(sbUrl&&sbKey){
-      const base={hospital_id:h.id,...p,progresso:prog};
-      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:await hashSenhaCapac(pinNovo,h.id,p.nome)});}
+      const {senha_hash_pend,...pBase}=p;
+      const base={hospital_id:h.id,...pBase,progresso:prog};
+      let r;try{r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',{...base,nome_chave:nomeChave(p.nome),senha_hash:hsCad||await hashSenhaCapac(pinNovo,h.id,p.nome)});}
       catch(e){if(!/nome_chave|senha_hash|PGRST204/.test(e.message))throw e;r=await sbInsert(sbUrl,sbKey,'capacitacao_participantes',base);}
-      if(r&&r[0])p.id=r[0].id;}}
+      if(r&&r[0]){p.id=r[0].id;delete p.senha_hash_pend;}}}
     catch(e){if(!faltaSQL004(e)&&!/capacitacao_participantes/.test(e.message)) toast('Sem conexão: seu progresso fica salvo só neste aparelho por enquanto.','error');}
     setPart(p);try{localStorage.setItem(kPart,JSON.stringify(p));localStorage.setItem('nai_participante_'+h.id,JSON.stringify({nome:p.nome,setor:p.setor,profissao:p.profissao}));}catch{}
     setMostrarCodigo(true);setOcupado(false);topo();
@@ -9905,7 +9933,7 @@ function CapacitacaoDashboardView({sbUrl,sbKey,hospital,showToast,userSubnucleo,
       {erro&&erro!=='sql'&&<div style={{...card,color:C.red,fontSize:12}}>Erro ao carregar: {erro}</div>}
       <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
         {[['30','30 dias'],['90','3 meses'],['365','12 meses'],...anos.map(a=>[a,a])].map(([v,l])=><button key={v} onClick={()=>setPeriodo(v)} style={{fontSize:11,padding:'6px 12px',borderRadius:16,border:'1px solid '+(periodo===v?C.teal:C.border),background:periodo===v?C.teal+'20':'transparent',color:periodo===v?C.teal:C.muted,fontWeight:700,cursor:'pointer'}}>{l}</button>)}
-        {!travado&&<select value={modulo} onChange={e=>setModulo(e.target.value)} style={{fontSize:11,padding:'6px 10px',borderRadius:16,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700}}>
+        {!travado&&<select value={modulo} onChange={e=>setModulo(e.target.value)} style={{maxWidth:'100%',fontSize:11,padding:'6px 10px',borderRadius:16,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700}}>
           <option value="todos">Todos os módulos</option>{(mods||[]).map(m=><option key={m.id} value={m.id}>{m.titulo}</option>)}
         </select>}
       </div>
@@ -10558,11 +10586,12 @@ function NotificaAI() {
               <span style={{fontSize:20}}>{String.fromCodePoint(128272)}</span><span style={{fontSize:13,color:C.muted}}>Fazer login</span>
             </button>
             :<button onClick={()=>{setProfileMode(null);setUserId(null);setUserName(null);setGestorMode(false);setUserSubnucleo(null);setView('notificar');setShowMenu(false);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
-              <span style={{fontSize:20}}>{PROFILES[profileMode]?.icon||'desbloqueado'}</span>
-              <span style={{fontSize:13,color:PROFILES[profileMode]?.color||C.teal,fontWeight:700}}>{PROFILES[profileMode]?.label||'Sair'} - Sair</span>
+              <span style={{fontSize:20}}>{String.fromCodePoint(128682)}</span>
+              <span style={{fontSize:13,color:C.text,fontWeight:700}}>Sair{userName?' ('+userName+')':''}</span>
             </button>
           }
           <BotaoInstalar/>
+          <a href="/?escolher=1" style={{display:'block',textAlign:'center',fontSize:12,color:C.muted,textDecoration:'none',padding:'8px 0'}}>Trocar instituição</a>
           {userId&&<button onClick={()=>{setShowMenu(false);setShowAlterarPin(true);}} style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,cursor:'pointer',marginBottom:4}}>
             <span style={{fontSize:20}}>{String.fromCodePoint(128273)}</span><span style={{fontSize:13,color:C.muted}}>Alterar meu PIN</span>
           </button>}
@@ -10714,7 +10743,7 @@ function buildStoragePathBase(tipo, meta, originalName) {
   const safe = s => (s||'').replace(/[^a-zA-Z0-9\-_.]/g,'_').replace(/__+/g,'_').trim();
   const ano  = meta.ano       || String(new Date().getFullYear());
   const sem  = meta.semestre  || (new Date().getMonth()<6?'1':'2');
-  const mes  = new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/\. |\./, '');
+  const mes  = safe(new Date().toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace(/[^a-zA-Z0-9]/g,''));
   // sufixo unico: antes, dois anexos com o mesmo nome (ex.: mesma data) se sobrescreviam e todos os registros abriam o ultimo arquivo
   const uid = Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   if(tipo==='protocolo') return `protocolos/${ano}/${sem}S/${meta.crit||'XX'}-${safe((meta.nomeProt||'').slice(0,20))}-Rev${mes}-${uid}.${ext}`;
@@ -11242,9 +11271,9 @@ function ProtocoloSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucleo,
     {meusProt.map(def=>{
       const st=getStatus(def);const r=registros[def.nome];const ed=editando[def.crit];
       return(<div key={def.crit} style={{background:C.surface,borderRadius:10,padding:'12px 14px',marginBottom:10,borderLeft:'3px solid '+st.color}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:ed?10:4}}>
-          <div style={{flex:1}}>
-            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:ed?10:4,flexWrap:'wrap',gap:6}}>
+          <div style={{flex:'1 1 180px',minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:2,flexWrap:'wrap'}}>
               <span style={{background:C.teal+'22',color:C.teal,borderRadius:5,padding:'1px 7px',fontSize:10,fontWeight:800}}>{def.crit}</span>
               <span style={{fontSize:13,fontWeight:700,color:C.text}}>{def.nome}</span>
             </div>
@@ -11331,7 +11360,9 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   // Situacao de todos os meses do ano (janeiro ate o ultimo mes fechado): antes so o mes escolhido era cobrado
   const ref=mesReferencia();
-  const mesesAno=(()=>{const [a2,m2]=ref.split('-').map(Number);return Array.from({length:m2},(_,k)=>`${a2}-${String(k+1).padStart(2,'0')}`);})();
+  const anoRef=Number(ref.slice(0,4));
+  const [anoVer,setAnoVer]=useState(anoRef); // ano mostrado na faixa (o atual ou anteriores)
+  const mesesAno=(()=>{const [a2,m2]=ref.split('-').map(Number);const n=anoVer<a2?12:m2;return Array.from({length:n},(_,k)=>`${anoVer}-${String(k+1).padStart(2,'0')}`);})();
   useEffect(()=>{
     if(!sbUrl||!sbKey||campos.length===0){setSituacaoAno([]);return;}
     const ini=mesesAno[0],fim=mesesAno[mesesAno.length-1];
@@ -11349,11 +11380,13 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       // abre no mes pendente mais antigo, para o membro ir direto ao que falta
       if(!mesInicialOk.current){mesInicialOk.current=true;const p1=sit.find(x=>x.faltando.length);if(p1)setMes(p1.mes);}
     });
-  },[h.id,sbUrl,sbKey,userSubnucleo,versao]);
+  },[h.id,sbUrl,sbKey,userSubnucleo,versao,anoVer]);
   // o mes aberto na tela usa o que esta digitado agora
   const situacao=situacaoAno||[]; // so o que esta salvo no banco
   const mesesPend=situacao.filter(x=>x.faltando.length);
-  useEffect(()=>{if(onPendentes&&situacaoAno)onPendentes(mesesPend.length,mesesPend);},[mesesPend.map(x=>x.mes+':'+x.faltando.length).join('|'),!!situacaoAno]);
+  // o 'O que falta' cobra o ano atual (a faixa pode estar mostrando um ano anterior)
+  useEffect(()=>{if(onPendentes&&situacaoAno&&anoVer===anoRef)onPendentes(mesesPend.length,mesesPend);},[mesesPend.map(x=>x.mes+':'+x.faltando.length).join('|'),!!situacaoAno,anoVer]);
+  const trocarAno=y=>{setAnoVer(y);setSituacaoAno(null);mesInicialOk.current=false;setMes(y===anoRef?ref:`${y}-12`);};
   const estiloCampo=k=>({...inp,border:'1px solid '+(faltando.some(f=>f.key===k)?C.yellow:C.border)});
 
   const set=(k,v)=>{setNaoSalvo(true);alteradosW.current.add(k);setForm(f=>({...f,[k]:v}));};
@@ -11363,6 +11396,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
     setSalvando(true);
     // Paciente-dia e compartilhado entre os subnucleos: so envia se preenchido aqui,
     // para um subnucleo nao apagar o valor lancado por outro.
+    if(!/^\d{4}-\d{2}$/.test(mes)){showToast('Escolha o mês na faixa acima antes de salvar.','error');setSalvando(false);return;}
     if(carregandoMesW){showToast('Aguarde carregar o mês antes de salvar','error');setSalvando(false);return;}
     if(erroMesW){showToast('Não foi possível carregar este mês. Verifique a conexão e abra o mês de novo antes de salvar.','error');setSalvando(false);return;}
     if(alteradosW.current.size===0){showToast('Nada foi alterado neste mês.','error');setSalvando(false);return;}
@@ -11382,7 +11416,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
 
   if(campos.length===0)return(<div style={{background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:16,marginTop:14}}>
     <div style={{fontSize:13,fontWeight:700,color:C.text,marginBottom:4}}>{sub?.icon} Indicadores - {sub?.label||userSubnucleo}</div>
-    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não possui indicadores quantitativos mensais. Registre treinamentos acima.</div>
+    <div style={{fontSize:12,color:C.muted}}>Seu subnúcleo não tem indicadores mensais para lançar. Registre os treinamentos na aba Treinamentos e mantenha o protocolo em dia na aba Protocolos.</div>
   </div>);
 
   return(<div style={{background:C.card,border:'1px solid '+(sub?.color||C.teal)+'44',borderRadius:14,padding:16,marginTop:14,borderLeft:'3px solid '+(sub?.color||C.teal)}}>
@@ -11390,9 +11424,14 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{sub?.icon} Meus Indicadores - {sub?.label||userSubnucleo}</div>
       <div style={{fontSize:11,color:C.muted,marginTop:2}}>Preencha os dados de cada mês. O gestor vê no Relatório DSM.</div>
     </div>
+    <div role="tablist" aria-label="Ano" style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:8}}>
+      {[anoRef,anoRef-1,anoRef-2].map(y=><button key={y} role="tab" aria-selected={anoVer===y} onClick={()=>trocarAno(y)}
+        style={{padding:'6px 14px',borderRadius:16,cursor:'pointer',fontSize:12,fontWeight:800,border:'1px solid '+(anoVer===y?(sub?.color||C.teal):C.border),background:anoVer===y?(sub?.color||C.teal)+'1a':'transparent',color:anoVer===y?C.text:C.muted}}>{y}</button>)}
+    </div>
+    {!situacaoAno&&<div style={{fontSize:11.5,color:C.muted,marginBottom:12}}>Carregando os meses de {anoVer}...</div>}
     {situacaoAno&&situacaoAno.length>0&&<div style={{marginBottom:12}}>
       <div style={{fontSize:11.5,fontWeight:800,color:mesesPend.length?C.text:C.green,marginBottom:6}}>
-        {mesesPend.length?(mesesPend.length===1?'1 mês de '+ref.slice(0,4)+' com indicadores faltando':mesesPend.length+' meses de '+ref.slice(0,4)+' com indicadores faltando')+'. Toque no mês para preencher.':'Todos os meses de '+ref.slice(0,4)+' preenchidos.'}
+        {mesesPend.length?(mesesPend.length===1?'1 mês de '+anoVer+' com indicadores faltando':mesesPend.length+' meses de '+anoVer+' com indicadores faltando')+'. Toque no mês para preencher.':'Todos os meses de '+anoVer+' preenchidos.'}
       </div>
       <div role="tablist" aria-label="Escolha o mês" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(62px,1fr))',gap:6}}>
         {situacao.map(x=>{const sel=x.mes===mes;const tot=x.faltando.length;const cheio=tot===0;const nada=tot>=campos.length+(usaPD?1:0);
@@ -11412,7 +11451,7 @@ function IndicadoresSubnucleoWidget({sbUrl,sbKey,showToast,hospital,userSubnucle
       :<div style={{background:C.green+'15',border:'1px solid '+C.green+'44',borderRadius:10,padding:'10px 12px',marginBottom:12,fontSize:12,color:C.green,fontWeight:700}}>Tudo preenchido em {new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long'})}.</div>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14,flexWrap:'wrap'}}>
       <div style={{fontSize:13,fontWeight:800,color:C.text}}>{new Date(mes+'-15T12:00:00').toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</div>
-      <input type='month' value={mes} max={ref} onChange={e=>e.target.value&&setMes(e.target.value)} aria-label="Outro mês" title="Outro mês (anos anteriores)" style={{...inp,width:'auto',padding:'6px 10px',cursor:'pointer',fontSize:12,color:C.muted}}/>
+
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 20px',background:salvando?C.border:(sub?.color||C.teal),border:'none',borderRadius:10,color:salvando?C.muted:'#fff',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>
@@ -11518,7 +11557,7 @@ function IndicadoresDSMMensaisView({sbUrl,sbKey,showToast,hospital,usuario,perfi
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {!embedded&&<BackHeader title='Indicadores mensais' subtitle='Dados quantitativos do relatório (C.1 a C.15)'/>}
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16,flexWrap:'wrap'}}>
-      <input type='month' value={mes} onChange={e=>setMes(e.target.value)} style={{...inp,width:'auto',cursor:'pointer',padding:'9px 14px'}}/>
+      <MesAno value={mes} onChange={v=>v&&setMes(v)}/>
       <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px',background:salvando?C.border:C.teal,border:'none',borderRadius:10,color:salvando?C.muted:'#06101F',fontWeight:800,fontSize:13,cursor:salvando?'default':'pointer'}}>
         {salvando?'Salvando...':'Salvar'}
       </button>

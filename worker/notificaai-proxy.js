@@ -66,6 +66,17 @@ function esc(v) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
+const LIMITE_CORPO = 200000; // bytes
+async function lerJSON(request) {
+  const tam = Number(request.headers.get('Content-Length') || 0);
+  if (tam > LIMITE_CORPO) return null;
+  let txt;
+  try { txt = await request.text(); } catch { return null; }
+  if (!txt || txt.length > LIMITE_CORPO) return null;
+  try { const o = JSON.parse(txt); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : null; } catch { return null; }
+}
+// Links no e-mail oficial: neutralizados (evita usar o dominio do NSP para phishing)
+const semLinks = v => String(v == null ? '' : v).replace(/\b(?:https?:\/\/|www\.)\S+/gi, '[link removido]');
 const umaLinha = v => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').slice(0, 150);
 const slugValido = v => /^[a-z0-9-]{2,40}$/.test(String(v || '')) ? String(v) : 'hnsa';
 
@@ -133,13 +144,13 @@ export default {
 async function handleHashPin(request, env) {
   const corsHeaders = { 'Access-Control-Allow-Origin': resolveOrigin(request), 'Content-Type': 'application/json' };
 
-  let body;
-  try { body = await request.json(); }
-  catch { return new Response(JSON.stringify({ error: 'Payload invalido' }), { status: 400, headers: corsHeaders }); }
+  const body = await lerJSON(request);
+  if (!body) return new Response(JSON.stringify({ error: 'Payload invalido' }), { status: 400, headers: corsHeaders });
 
   const { pin, hospital_id } = body;
-  if (!pin || !hospital_id) {
-    return new Response(JSON.stringify({ error: 'pin e hospital_id sao obrigatorios' }), { status: 400, headers: corsHeaders });
+  // so PIN numerico curto e identificador de instituicao valido
+  if (typeof pin !== 'string' || !/^\d{4,8}$/.test(pin) || typeof hospital_id !== 'string' || !/^[a-z0-9_-]{2,40}$/i.test(hospital_id)) {
+    return new Response(JSON.stringify({ error: 'pin e hospital_id invalidos' }), { status: 400, headers: corsHeaders });
   }
 
   const pepper = env.PIN_PEPPER;
@@ -186,9 +197,29 @@ function destinatarioPermitido(email, env) {
 async function handleEmail(request, env) {
   const corsHeaders = { 'Access-Control-Allow-Origin': resolveOrigin(request), 'Content-Type': 'application/json' };
 
-  let body;
-  try { body = await request.json(); }
-  catch { return new Response(JSON.stringify({ error: 'Payload inválido' }), { status: 400, headers: corsHeaders }); }
+  const bruto = await lerJSON(request);
+  if (!bruto) return new Response(JSON.stringify({ error: 'Payload inválido' }), { status: 400, headers: corsHeaders });
+  // textos com tamanho limitado e sem links (o e-mail sai pelo dominio oficial do NSP)
+  const t = (v, n) => semLinks(v).slice(0, n);
+  const body = { ...bruto,
+    hospital_name: t(bruto.hospital_name, 120), sector: t(bruto.sector, 120), event_subtype: t(bruto.event_subtype, 120),
+    gravidade: t(bruto.gravidade, 60), description: t(bruto.description, 4000), measures_taken: t(bruto.measures_taken, 2000),
+    admission_reason: t(bruto.admission_reason, 500), shift: t(bruto.shift, 40), protocolo: t(bruto.protocolo, 20),
+    patient_age: t(bruto.patient_age, 10), event_date: t(bruto.event_date, 10), notification_type: t(bruto.notification_type, 40) };
+
+  // Com o banco configurado no Worker, so envia e-mail de notificacao que existe de fato e acabou de ser criada
+  if (env.SUPABASE_URL && env.SUPABASE_KEY) {
+    const nid = String(bruto.notification_id || '');
+    if (!/^[0-9a-f-]{36}$/i.test(nid)) return new Response(JSON.stringify({ error: 'notificacao nao informada' }), { status: 400, headers: corsHeaders });
+    try {
+      const rows = await sbGet(env, `notifications?id=eq.${nid}&select=id,hospital_id,created_at&limit=1`);
+      const n = rows && rows[0];
+      const recente = n && (Date.now() - new Date(n.created_at).getTime()) < 2 * 3600e3;
+      if (!n || !recente || (bruto.hospital_id && n.hospital_id !== bruto.hospital_id)) {
+        return new Response(JSON.stringify({ error: 'notificacao nao encontrada' }), { status: 403, headers: corsHeaders });
+      }
+    } catch (e) { console.error('Verificacao da notificacao falhou:', e.message); }
+  }
 
   const {
     nsp_email, nsp_email_cc, setor_email, hospital_name, hospital_id, protocolo,
@@ -306,12 +337,20 @@ async function handleEmail(request, env) {
 async function handleGroq(request, env) {
   const corsHeaders = { 'Access-Control-Allow-Origin': resolveOrigin(request), 'Content-Type': 'application/json' };
 
-  let body;
-  try { body = await request.json(); }
-  catch { return new Response(JSON.stringify({ error: 'Payload invalido' }), { status: 400, headers: corsHeaders }); }
+  const body = await lerJSON(request);
+  if (!body) return new Response(JSON.stringify({ error: 'Payload invalido' }), { status: 400, headers: corsHeaders });
 
-  const messages = Array.isArray(body.messages) ? body.messages : [];
-  const max_tokens = Math.min(Number(body.max_tokens) || 1000, MAX_TOKENS_LIMITE);
+  // Limites de entrada: so mensagens de texto, quantidade e tamanho controlados (protege a chave da IA)
+  const brutas = Array.isArray(body.messages) ? body.messages : [];
+  const messages = brutas
+    .filter(m => m && typeof m === 'object' && ['system', 'user', 'assistant'].includes(m.role) && typeof m.content === 'string')
+    .slice(-40)
+    .map(m => ({ role: m.role, content: m.content.slice(0, 20000) }));
+  const totalChars = messages.reduce((s, m) => s + m.content.length, 0);
+  if (!messages.length || totalChars > 60000) {
+    return new Response(JSON.stringify({ error: { message: 'Mensagens invalidas ou grandes demais.' } }), { status: 400, headers: corsHeaders });
+  }
+  const max_tokens = Math.max(1, Math.min(Number(body.max_tokens) || 1000, MAX_TOKENS_LIMITE));
 
   // So aceita modelos da lista (evita que alguem use a chave para modelos mais caros);
   // um modelo pedido pelo app entra na frente da fila.

@@ -74,7 +74,7 @@
     var TEMAS = { comunicacao: 'SBAR na passagem de plantão', medicamentos: 'Os 9 certos da medicação', identificacao: 'Dois identificadores', queda: 'Escala de Morse', lpp: 'Escala de Braden', cirurgia: 'Lista de verificação cirúrgica', ccih: 'Os 5 momentos da higiene das mãos' };
     for (var t = 0; t < 26; t++) {
       var sb = SUBS[t % SUBS.length]; if (sb === 'medicamentos' && t > 10) continue;
-      DB.treinamentos_nsp.push({ id: uuid(), created_at: new Date().toISOString(), hospital_id: HID, tipo: 'treinamento', subnucleo: sb, protocolo: TEMAS[sb], data: iso(diasAtras(10 + Math.floor(rnd() * 380))), participantes: 8 + Math.floor(rnd() * 30), descricao: null, responsavel: 'membro_nsp', link_gdrive: null });
+      var dTr = diasAtras(10 + Math.floor(rnd() * 380)); DB.treinamentos_nsp.push({ id: uuid(), created_at: dTr.toISOString(), hospital_id: HID, tipo: 'treinamento', subnucleo: sb, protocolo: TEMAS[sb], data: iso(dTr), participantes: 8 + Math.floor(rnd() * 30), descricao: null, responsavel: 'membro_nsp', link_gdrive: null });
     }
     for (var r = 1; r <= 6; r++) DB.treinamentos_nsp.push({ id: uuid(), hospital_id: HID, tipo: 'reuniao_mensal', subnucleo: 'nsp_pleno', data: iso(diasAtras(r * 30)), participantes: 9, descricao: 'Reunião mensal do NSP', link_gdrive: null });
     // indicadores: meses anteriores completos para alguns subnúcleos, mês passado incompleto

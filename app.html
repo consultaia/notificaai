@@ -813,7 +813,8 @@ const PALAVRAS_TELA={
   home:'visao geral painel inicio pendencias resumo hoje',
   inspecao:'inspecao preparacao checklist prontidao visita auditoria dsm anvisa evidencias o que falta',
   notificacoes:'notificacao notificacoes evento incidente ocorrencia rca analise causa raiz notivisa sentinela comunicacao ao paciente triagem ishikawa 5 porques cinco porques',
-  acoes:'plano de acao planos acoes pdca eficacia prazo responsavel execucao vencidas melhoria',
+  pdca:'pdca das notificacoes ciclo planejar fazer checar agir acompanhamento funil onde esta encerrar ciclo',
+  acoes:'plano de acao planos acoes eficacia prazo responsavel execucao vencidas melhoria continua',
   treinamentos:'treinamento treinamentos reuniao reunioes ata lista de presenca capacitacao presencial educacao setores de apoio radiologia lavanderia nutricao gases estrutura predial equipamentos',
   capacitacao_dash:'curso online capacitacao certificado questionario apostila trilha pre teste pos teste',
   protocolos:'protocolo protocolos portaria psp plano de seguranca do paciente regimento pop validade revisao documento institucional',
@@ -901,10 +902,11 @@ async function carregarProntidao(sbUrl,sbKey,h){
     q('treinamentos_nsp',`hospital_id=eq.${h.id}&data=gte.${atras(370)}&select=*`),
     q('indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${atras(400)}&select=mes`),
     q('semestres_dsm',`hospital_id=eq.${h.id}&order=ano.desc,semestre.desc&limit=4&select=*`),
-    q('notifications',`hospital_id=eq.${h.id}&is_test=neq.true&created_at=gte.${atras(370)}&select=id,notification_type,gravidade,rca_gerado,notivisa_enviado,created_at,event_date`),
+    q('notifications',`hospital_id=eq.${h.id}&is_test=neq.true&created_at=gte.${atras(370)}&select=id,notification_type,gravidade,patient_outcome,event_subtype,rca_gerado,notivisa_enviado,created_at,event_date`),
     q('plano_acoes',`hospital_id=eq.${h.id}&select=id,status,prazo,concluido_em,efetividade_verificada`),
     q('saq_respostas',`hospital_id=eq.${h.id}&created_at=gte.${atras(730)}&select=id`),
   ]);
+  const decPDCA=await carregarDecisoesPDCA(sbUrl,sbKey,h.id);
   const cfg=(cfgA&&cfgA[0])||{};
   const itens=[];const add=(grupo,titulo,st,det,view,filtro)=>itens.push({grupo,titulo,st,det,view,filtro});
   const doc=(grupo,titulo,num,link,view)=>add(grupo,titulo,link?'ok':num?'atencao':'pendente',link?(num?num+' · documento anexado':'Documento anexado'):num?num+' cadastrada, mas sem o documento anexado':'Não cadastrado',view);
@@ -947,8 +949,9 @@ async function carregarProntidao(sbUrl,sbKey,h){
       const reg=(sems||[]).find(s=>s.ano===ult.ano&&s.semestre===ult.semestre);const st=reg&&reg.status;
       add('Monitoramento','Relatório semestral da DSM ('+ult.semestre+'º sem. '+ult.ano+')',st==='enviado_dsm'?'ok':st==='finalizado'?'atencao':'pendente',st==='enviado_dsm'?'Enviado à DSM':st==='finalizado'?'Gerado, falta registrar o envio à DSM':'Ainda não gerado','relatorio_dsm');}}
   // 6. Gestao de risco
-  {const graves=(nots||[]).filter(n=>(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave')&&!n.rca_gerado);
-    add('Gestão de risco','Eventos graves com análise de causa (RCA)',graves.length?'pendente':'ok',graves.length?graves.length+' evento(s) sentinela ou grave(s) sem RCA nos últimos 12 meses':'Todos os eventos graves analisados','notificacoes','semRCA');
+  {const semAnalise=(nots||[]).filter(n=>!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa);
+    const obrig=semAnalise.filter(n=>situacaoPDCA(n,decPDCA).nivel==='obrigatorio');
+    add('Gestão de risco','Notificações com PDCA analisadas',obrig.length?'pendente':semAnalise.length?'atencao':'ok',semAnalise.length?semAnalise.length+' notificação(ões) com PDCA sem análise nos últimos 12 meses'+(obrig.length?' ('+obrig.length+' obrigatória(s): óbito, dano grave ou sentinela)':''):'Todas as notificações com PDCA foram analisadas','notificacoes','semRCA');
     const sp=(nots||[]).filter(n=>n.notification_type==='seguranca_paciente'&&(n.created_at||'')>=atras(183));const env=sp.filter(n=>n.notivisa_enviado).length;
     add('Gestão de risco','Notificações enviadas ao NOTIVISA (6 meses)',!sp.length?'ok':env===sp.length?'ok':env/sp.length>=0.7?'atencao':'pendente',!sp.length?'Sem notificações de segurança do paciente no período':env+' de '+sp.length+' enviadas','notificacoes');
     const abertas=(acoes||[]).filter(a=>!['concluido','concluida','cancelado'].includes(a.status));const venc=abertas.filter(a=>a.prazo&&a.prazo<hoje).length;
@@ -1597,7 +1600,9 @@ Use aspas duplas em todas as chaves e valores string.
 NAO use aspas duplas dentro dos textos dos valores - use aspas simples se necessario.
 
 Formato exato:
-{"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Causa raiz identificada:","resposta":"TEXTO"}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["CAUSA1","CAUSA2"]},{"categoria":"Processo","cor":"#F59E0B","causas":["CAUSA1","CAUSA2"]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["CAUSA1"]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["CAUSA1"]},{"categoria":"Gestao","cor":"#00C9B8","causas":["CAUSA1"]}],"fatores":[{"icone":"humano","tipo":"Fator humano","descricao":"TEXTO"},{"icone":"processo","tipo":"Fator de processo","descricao":"TEXTO"},{"icone":"ambiente","tipo":"Fator ambiental","descricao":"TEXTO"},{"icone":"gestao","tipo":"Fator organizacional","descricao":"TEXTO"}],"plano":[{"acao":"TEXTO","responsavel":"Coordenador NSP","prazo":"7 dias"},{"acao":"TEXTO","responsavel":"Chefia do setor","prazo":"15 dias"},{"acao":"TEXTO","responsavel":"Gestao","prazo":"30 dias"}]}`;
+{"cinco_porques":[{"pergunta":"Por que ocorreu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Por que isso aconteceu?","resposta":"TEXTO"},{"pergunta":"Causa raiz identificada:","resposta":"TEXTO"}],"ishikawa":[{"categoria":"Pessoa","cor":"#EF4444","causas":["CAUSA1","CAUSA2"]},{"categoria":"Processo","cor":"#F59E0B","causas":["CAUSA1","CAUSA2"]},{"categoria":"Equipamento","cor":"#8B5CF6","causas":["CAUSA1"]},{"categoria":"Ambiente","cor":"#1D6FE8","causas":["CAUSA1"]},{"categoria":"Gestao","cor":"#00C9B8","causas":["CAUSA1"]}],"fatores":[{"icone":"humano","tipo":"Fator humano","descricao":"TEXTO"},{"icone":"processo","tipo":"Fator de processo","descricao":"TEXTO"},{"icone":"ambiente","tipo":"Fator ambiental","descricao":"TEXTO"},{"icone":"gestao","tipo":"Fator organizacional","descricao":"TEXTO"}]}
+
+NAO sugira acoes nem plano de acao: o plano e escrito pelo NSP a partir das causas.`;
     let text='';
     try {
       text=await callWorker([{role:'user',content:prompt}],null);
@@ -1629,7 +1634,8 @@ Formato exato:
           setRca(modeloEmBranco());setLoading(false);return;
         }
       }
-      if(parsed) setRca(parsed);
+      // a IA ajuda so na analise; as acoes do plano sao escritas pelo gestor ou pelo subnucleo
+      if(parsed){parsed.plano=[{acao:'',causa:'',responsavel:'',prazo:'30 dias'}];setRca(parsed);}
       else throw new Error('Não foi possível processar a resposta da IA');
     } catch(e) { console.error('RCA parse error:',e); showToast('A IA não respondeu agora. Preencha a análise você mesmo: o modelo já está aberto.','error'); setRca(modeloEmBranco()); }
     setLoading(false);
@@ -1641,7 +1647,9 @@ Formato exato:
     try {
       // 1) acoes do plano viram acoes reais do plano de acao (antes nao eram gravadas)
       const prazoData=pz=>{const s=String(pz||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;const m=s.match(/(\d+)\s*(dia|semana|mes|mês)/i);let dias=30;if(m){const n=Number(m[1]);dias=/semana/i.test(m[2])?n*7:/m/i.test(m[2])?n*30:n;}return new Date(Date.now()+dias*864e5).toISOString().slice(0,10);};
-      const acoes=(rca&&rca.plano||[]).filter(x=>String(x.acao||'').trim());
+      const naoConfirmadas=(rca&&rca.plano||[]).filter(x=>x.sugerida&&!x.confirmada&&String(x.acao||'').trim());
+      if(naoConfirmadas.length&&!confirm(naoConfirmadas.length+' sugestão(ões) da IA não confirmada(s) NÃO vão entrar no plano de ação. Continuar?')){setSaving(false);return;}
+      const acoes=(rca&&rca.plano||[]).filter(x=>String(x.acao||'').trim()&&(!x.sugerida||x.confirmada));
       let gravadas=0,falhas=0;
       for(const x of acoes){const chave=String(x.acao).trim()+'|'+(x.responsavel||'')+'|'+(x.prazo||'');if(gravadosRef.current.acoes.has(chave)){gravadas++;continue;}
         try{await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,acao:String(x.acao).trim(),responsavel:String(x.responsavel||'').trim()||'NSP',prazo:prazoData(x.prazo),prioridade:'media',status:'pendente',created_at:new Date().toISOString()});gravadosRef.current.acoes.add(chave);gravadas++;}catch(e){console.warn('acao da RCA nao gravada',e);falhas++;}}
@@ -1653,7 +1661,7 @@ Formato exato:
         if(ish.length)linhas.push('Ishikawa: '+ish.map(x=>x.c+': '+x.v.join('; ')).join(' | '));
         const fat=(rca.fatores||[]).filter(f=>String(f.descricao||'').trim());
         if(fat.length)linhas.push('Fatores: '+fat.map(f=>f.tipo+': '+f.descricao).join(' | '));
-        if(acoes.length)linhas.push('Ações definidas: '+acoes.map(x=>x.acao).join('; '));
+        if(acoes.length)linhas.push('Ações definidas'+(USUARIO_ATUAL?' por '+USUARIO_ATUAL:'')+': '+acoes.map(x=>String(x.acao).trim()+(x.causa?' (ataca: '+String(x.causa).trim()+')':'')+(x.sugerida?' [sugestão da IA confirmada]':'')).join('; '));
         if(linhas.length>1&&!gravadosRef.current.comentario)try{await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:autor||USUARIO_ATUAL||null,texto:linhas.join('\n')});gravadosRef.current.comentario=true;}catch(e){console.warn('RCA nao registrada nas atualizacoes',e);}}
       await sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{rca_gerado:true,rca_autor:autor||USUARIO_ATUAL||'nsp',rca_concluido_em:new Date().toISOString()});
       await sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'RCA_CONCLUIDO','rca_gerado','false','true',autor||'nsp',autor||'nsp');
@@ -1764,7 +1772,7 @@ Formato exato:
           {rca.plano?.map((a,i)=>(
             <div key={i} style={{background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:12,marginBottom:8}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-                <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Ação {i+1}</div>
+                <div style={{fontSize:10,color:C.muted,fontWeight:700,textTransform:'uppercase'}}>Ação {i+1}{a.sugerida?<span style={{marginLeft:6,color:a.confirmada?C.green:'#CA8A04',textTransform:'none'}}>{a.confirmada?'· sugestão da IA confirmada':'· sugestão da IA: revise e confirme'}</span>:null}</div>
                 <button onClick={()=>setRca(r=>({...r,plano:r.plano.filter((_,k)=>k!==i)}))}
                   style={{background:'none',border:'none',color:C.muted,cursor:'pointer',fontSize:13}}>{String.fromCodePoint(10005)}</button>
               </div>
@@ -1775,6 +1783,9 @@ Formato exato:
                 placeholder="Descreva a ação corretiva..."
                 style={{width:'100%',fontSize:12,color:C.text,background:'transparent',border:'none',borderBottom:'1px solid '+C.border,resize:'vertical',outline:'none',fontFamily:'inherit',lineHeight:1.5,marginBottom:8}}
               />
+              <div style={{fontSize:9,color:C.muted,marginBottom:2}}>CAUSA QUE ESTA AÇÃO ATACA</div>
+              <input value={a.causa||''} onChange={e=>{const n=[...rca.plano];n[i]={...n[i],causa:e.target.value};setRca(r=>({...r,plano:n}));}} placeholder="Ex.: grade da cama baixada sem conferência na passagem de plantão"
+                style={{width:'100%',fontSize:11,color:C.text,background:C.surface,border:'1px solid '+C.border,borderRadius:6,padding:'4px 8px',outline:'none',marginBottom:8}}/>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                 <div>
                   <div style={{fontSize:9,color:C.muted,marginBottom:2}}>RESPONSÁVEL</div>
@@ -1793,9 +1804,14 @@ Formato exato:
                   />
                 </div>
               </div>
+              {a.sugerida&&<label style={{display:'flex',alignItems:'center',gap:6,marginTop:8,fontSize:11.5,color:C.text,fontWeight:700,cursor:'pointer'}}>
+                <input type="checkbox" checked={!!a.confirmada} onChange={e=>{const n=[...rca.plano];n[i]={...n[i],confirmada:e.target.checked};setRca(r=>({...r,plano:n}));}}/>
+                Confirmo esta ação para o plano desta notificação
+              </label>}
             </div>
           ))}
-          <button onClick={()=>setRca(r=>({...r,plano:[...(r.plano||[]),{acao:'',responsavel:'NSP',prazo:'30 dias'}]}))}
+          <div style={{fontSize:10.5,color:C.muted,lineHeight:1.5,margin:'2px 0 6px'}}>Escreva as ações que atacam as causas encontradas: o que será feito, onde e por quem. Fica registrado quem finalizou a análise.</div>
+          <button onClick={()=>setRca(r=>({...r,plano:[...(r.plano||[]),{acao:'',causa:'',responsavel:'',prazo:'30 dias'}]}))}
             style={{width:'100%',background:'none',border:'1px dashed '+C.teal+'66',borderRadius:8,padding:'6px',color:C.teal,fontSize:11,cursor:'pointer',marginTop:4}}>+ Ação</button>
           <button onClick={finalizar} disabled={saving} style={{width:'100%',background:C.green,border:'none',borderRadius:10,padding:'12px',color:'#06101F',fontWeight:800,fontSize:13,cursor:'pointer',marginTop:8}}>
             {saving?'Salvando...':String.fromCodePoint(10003)+' Finalizar e salvar Análise'}
@@ -1959,7 +1975,7 @@ td.c{text-align:center;white-space:nowrap}td.esc{height:34px}
 <table><thead><tr><th style="width:3%">Nº</th><th style="width:27%">Ação</th><th style="width:13%">Responsável</th><th style="width:8%">Prazo</th><th style="width:7%">Prioridade</th><th style="width:9%">Situação</th><th style="width:25%">Correção realizada / evidência</th><th style="width:8%">Data e rubrica</th></tr></thead><tbody>${linhas}</tbody></table>
 <div class="ret"><b>Observações do setor</b></div>
 <div class="ass"><div>Responsável pelo setor</div><div>Gestor(a) do NSP</div></div>
-<div class="rod">Depois de executar as ações, anexe este plano assinado (foto ou PDF) no NotificaAI: Planos de ação › notificação nº ${prot} › Atualizações e anexos. Impresso em ${new Date().toLocaleDateString('pt-BR')} · NotificaAI</div>
+<div class="rod">Depois de executar as ações, anexe este plano assinado (foto ou PDF) no NotificaAI: PDCA das notificações › notificação nº ${prot} › Abrir plano › Atualizações e anexos. Impresso em ${new Date().toLocaleDateString('pt-BR')} · NotificaAI</div>
 </body></html>`);
   w.document.close();
 }
@@ -1968,6 +1984,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
   const [acoes,setAcoes]=useState([]);
   const [loading,setLoading]=useState(true);
   const [concluirAcao,setConcluirAcao]=useState(null);
+  const [aprendizado,setAprendizado]=useState('');
   const [erroTabelas,setErroTabelas]=useState(false); // instrucao tecnica so aparece se o banco falhar
   const [showForm,setShowForm]=useState(false);
   const [saving,setSaving]=useState(false);
@@ -2017,16 +2034,18 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
       else showToast(concluidasSemEfet()+' acao(oes) sem verificacao de efetividade','error');
       return;
     }
-    if(!confirm('Fechar o plano de acao desta notificacao? Isso registra o encerramento formal do ciclo PDCA.'))return;
+    if(!aprendizado.trim()){showToast('Escreva o que foi padronizado e como o resultado foi divulgado antes de encerrar','error');return;}
+    if(!confirm('Encerrar o ciclo PDCA desta notificação?'))return;
     setFechando(true);
     const agora=new Date().toISOString();
-    sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{plano_fechado_em:agora,plano_fechado_por:'gestor'})
+    sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:USUARIO_ATUAL||null,texto:'Ciclo PDCA encerrado. Aprendizado: '+aprendizado.trim()})
+      .then(()=>sbPatch(sbUrl,sbKey,'notifications',`id=eq.${notification.id}`,{plano_fechado_em:agora,plano_fechado_por:USUARIO_ATUAL||'gestor'}))
       .then(()=>{
-        sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_FECHADO','plano_fechado_em','',agora,'gestor','gestor');
+        sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'PLANO_FECHADO','plano_fechado_em','',agora,USUARIO_ATUAL||'gestor','gestor');
         setFechadoEm(agora);
         showToast('Plano de acao fechado!','success');
       })
-      .catch(()=>showToast('Erro ao fechar (coluna plano_fechado_em existe?)','error'))
+      .catch(e=>showToast('Não foi possível encerrar o ciclo: '+((e&&e.message)||'tente de novo'),'error'))
       .then(()=>setFechando(false));
   };
 
@@ -2035,6 +2054,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
     setSaving(true);
     try{
       await sbInsert(sbUrl,sbKey,'plano_acoes',{notification_id:notification.id,hospital_id:notification.hospital_id,...form,status:'pendente',created_at:new Date().toISOString()});
+      sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:notification.id,hospital_id:notification.hospital_id,setor:'NSP',autor:USUARIO_ATUAL||null,texto:'Ação incluída no plano'+(USUARIO_ATUAL?' por '+USUARIO_ATUAL:'')+': '+String(form.acao).trim()}).catch(()=>{});
       await load();setShowForm(false);setForm({acao:'',responsavel:'',prazo:'',prioridade:'media'});
       showToast('OK Ação adicionada!','success');
     }catch{showToast('Erro ao salvar','error');}
@@ -2136,7 +2156,7 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
                 const reabrir=ef==='ineficaz';
                 sbPatch(sbUrl,sbKey,'plano_acoes',`id=eq.${a.id}`,reabrir?{status:'em_andamento',concluido_em:null,efetividade_verificada:null,efetividade_em:null}:{efetividade_verificada:ef,efetividade_em:new Date().toISOString()})
                   .then(()=>{if(reabrir)sbAuditLog(sbUrl,sbKey,notification.hospital_id,notification.id,'ACAO_REABERTA_INEFICAZ','status','concluido','em_andamento','gestor','gestor').catch(()=>{});showToast(reabrir?'Ação ineficaz: reaberta para nova tentativa':'Efetividade: '+ef,'success');load();}).catch(()=>showToast('Erro','error'));
-              }} style={{flex:1,fontSize:9,padding:'4px',background:ef==='efetiva'?C.green+'22':ef==='parcial'?C.yellow+'22':C.red+'22',color:ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red,border:'1px solid '+(ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red)+'44',borderRadius:4,cursor:'pointer',fontWeight:700,textTransform:'capitalize'}}>{ef}</button>))}
+              }} style={{flex:1,fontSize:9,padding:'4px',background:ef==='efetiva'?C.green+'22':ef==='parcial'?C.yellow+'22':C.red+'22',color:ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red,border:'1px solid '+(ef==='efetiva'?C.green:ef==='parcial'?C.yellow:C.red)+'44',borderRadius:4,cursor:'pointer',fontWeight:700,textTransform:'capitalize'}}>{ef==='efetiva'?'Efetiva':ef==='parcial'?'Parcial':'Não resolveu'}</button>))}
             </div>
           </div>}
           {a.efetividade_verificada&&<div style={{fontSize:10,marginTop:4,color:a.efetividade_verificada==='efetiva'?C.green:a.efetividade_verificada==='parcial'?C.yellow:C.red,fontWeight:700}}>Efetividade: {a.efetividade_verificada.toUpperCase()}{a.efetividade_em?' ('+new Date(a.efetividade_em).toLocaleDateString('pt-BR')+')':''}</div>}
@@ -2198,8 +2218,12 @@ function PlanoAcaoPanel({notification,sbUrl,sbKey,showToast,onClose,hospital}) {
         {!podeFechar&&<div style={{fontSize:10,color:C.muted,marginBottom:6,lineHeight:1.5}}>
           Para fechar o plano: {abertas()>0?abertas()+' ação(ões) precisam ser concluídas ou canceladas. ':''}{concluidasSemEfet()>0?concluidasSemEfet()+' ação(ões) concluída(s) aguardam verificação de efetividade (PDCA - Check).':''}
         </div>}
+        {podeFechar&&<React.Fragment>
+          <div style={{fontSize:11,fontWeight:800,color:C.text,marginBottom:4}}>Agir: o que foi padronizado e como foi divulgado *</div>
+          <textarea value={aprendizado} onChange={e=>setAprendizado(e.target.value)} rows={2} placeholder="Ex.: conferência da grade incluída no checklist da UTI; resultado apresentado na reunião do NSP de 12/11 e à chefia do setor" style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none',resize:'vertical',fontFamily:'inherit',marginBottom:8}}/>
+        </React.Fragment>}
         <button onClick={fecharPlano} disabled={fechando} style={{width:'100%',background:podeFechar?C.green:C.border,border:'none',borderRadius:12,padding:'13px',color:podeFechar?'#06101F':C.muted,fontSize:13,fontWeight:800,cursor:podeFechar?'pointer':'default'}}>
-          {fechando?'Fechando...':String.fromCodePoint(128274)+' Fechar plano de ação'}
+          {fechando?'Encerrando...':String.fromCodePoint(128274)+' Encerrar o ciclo PDCA'}
         </button>
       </div>}
 
@@ -2433,6 +2457,7 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
           <div style={{fontSize:10,color:C.muted,margin:'2px 0 8px'}}>{e.dica}</div>
           <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:340,overflowY:'auto'}}>
             {porEtapa[e.id].slice(0,25).map(a=>{const s=SUBNUCLEOS_HNSA.find(x=>x.id===subDaAcao(a));const v=vencida(a);return(<div key={a.id} style={{background:C.card,border:'1px solid '+(v?C.red+'88':C.border),borderLeft:'3px solid '+(s?s.color:C.muted),borderRadius:9,padding:'8px 9px'}}>
+              {(()=>{const nn=nots[a.notification_id];return nn?<div style={{fontSize:9.5,color:C.muted,marginBottom:3}}>Notificação nº <b style={{color:C.text}}>{protocoloNotif(nn)}</b> · {acentuar(nn.event_subtype||nn.occurrence_subtype||'evento')}{nn.sector?' · '+nn.sector:''}</div>:null;})()}
               <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.35}}>{a.acao}</div>
               <div style={{fontSize:10,color:v?C.red:C.muted,marginTop:3}}>{s?s.icon+' ':''}{a.responsavel||'sem responsável'} · {a.prazo?(v?'venceu ':'até ')+dt(a.prazo):'sem prazo'}</div>
               <div style={{display:'flex',gap:5,flexWrap:'wrap',marginTop:6}}>
@@ -2498,6 +2523,170 @@ function PanoramaPlanoAcao({acoes,nots,treins,busy,onIniciar,onConcluir,onVerifi
   </div>);
 }
 
+// Acoes genericas que a plataforma gravava por engano (texto padrao usado quando a IA falhava), entre 05 e 06/11/2026
+const ACOES_GENERICAS=['revisar protocolo relacionado ao evento','capacitar equipe envolvida','monitorar recorrência do evento','monitorar recorrencia do evento'];
+const ehAcaoGenerica=a=>a&&ACOES_GENERICAS.includes(String(a.acao||'').trim().toLowerCase())&&String(a.created_at||'')>='2026-11-05';
+const ETAPAS_PDCA=[
+  {id:'iniciar',letra:'!',rotulo:'A iniciar',cor:'#DC2626',dica:'A regra exige PDCA: iniciar'},
+  {id:'planejar',letra:'P',rotulo:'Planejar',cor:'#F59E0B',dica:'Analisar a causa e montar o plano de ação'},
+  {id:'fazer',letra:'D',rotulo:'Fazer',cor:'#3B82F6',dica:'Executar as ações e registrar a evidência'},
+  {id:'checar',letra:'C',rotulo:'Checar',cor:'#8B5CF6',dica:'Verificar a eficácia (30 a 90 dias depois)'},
+  {id:'agir',letra:'A',rotulo:'Agir',cor:'#0D9488',dica:'Padronizar, divulgar o aprendizado e encerrar'},
+  {id:'encerrado',letra:'✓',rotulo:'Ciclo encerrado',cor:'#16A34A',dica:'Plano encerrado'},
+];
+function etapaPDCA(n,acoesN,sit){
+  if(n.plano_fechado_em) return 'encerrado';
+  const ativas=acoesN.filter(x=>etapaDaAcao(x));
+  if(sit&&sit.precisa&&!sit.iniciado&&!n.rca_gerado&&!ativas.length) return 'iniciar';
+  if(!n.rca_gerado||!ativas.length) return 'planejar';
+  if(ativas.some(x=>['afazer','andamento'].includes(etapaDaAcao(x)))) return 'fazer';
+  if(ativas.some(x=>etapaDaAcao(x)==='eficacia')) return 'checar';
+  return 'agir';
+}
+function causaRaizDe(texto){
+  const l=String(texto||'').split('\n').find(x=>/causa raiz/i.test(x)&&/:/.test(x)&&!/^Análise de causa raiz/i.test(x));
+  return l?l.replace(/^\d+\.\s*/,'').replace(/^[^:]*causa raiz[^:]*:\s*/i,'').trim():'';
+}
+// ---------- Tela de acompanhamento do PDCA (funil por etapa, no estilo de um CRM) ----------
+// Cada cartao e uma notificacao. A etapa vem dos registros (analise, acoes, eficacia, encerramento):
+// ninguem arrasta cartao, o cartao anda quando o trabalho e registrado.
+function desdeEtapa(n,acs,etapa){
+  const datas=k=>acs.map(x=>x[k]).filter(Boolean).sort();
+  if(etapa==='encerrado') return n.plano_fechado_em;
+  if(etapa==='agir') return datas('efetividade_em').pop()||n.rca_concluido_em;
+  if(etapa==='checar') return datas('concluido_em').pop()||n.rca_concluido_em;
+  if(etapa==='fazer') return n.rca_concluido_em||datas('created_at')[0];
+  return n.created_at;
+}
+const diasDesde=s=>s?Math.max(0,Math.floor((Date.now()-new Date(s).getTime())/864e5)):null;
+function PdcaDetalhe({linha,sbUrl,sbKey,somenteLeitura,onAnalisar,onAbrirPlano,onIniciarPDCA,onFechar}){
+  const {n,sit,acs,etapa,rca}=linha;
+  const [coms,setComs]=useState(null);
+  useEffect(()=>{sbSelect(sbUrl,sbKey,'acao_comentarios',`notification_id=eq.${n.id}&order=created_at.asc`).then(d=>setComs(d||[])).catch(()=>setComs([]));},[n.id]);
+  const et=ETAPAS_PDCA.find(e=>e.id===etapa);
+  const dt=s=>s?new Date(String(s).length===10?s+'T12:00:00':s).toLocaleDateString('pt-BR'):'—';
+  const ev=[];const add=(d,cor,titulo,det)=>{if(d)ev.push({d:String(d),cor,titulo,det});};
+  add(n.created_at,C.muted,'Notificação recebida',[acentuar(n.event_subtype||n.occurrence_subtype||'Evento'),n.sector,n.patient_outcome].filter(Boolean).join(' · '));
+  if(!sit.manual) add(n.created_at,'#DC2626','A regra exige PDCA',sit.motivo);
+  (coms||[]).forEach(c=>{const t=String(c.texto||'');const quem=c.autor||c.setor||'';
+    if(/^PDCA: SIM/.test(t)) add(c.created_at,'#EA580C','PDCA iniciado'+(quem?' por '+quem:''),(t.split('Motivo: ')[1]||'').trim());
+    else if(/^PDCA: NAO/.test(t)) add(c.created_at,'#64748B','Classificado sem PDCA'+(quem?' por '+quem:''),(t.split('Motivo: ')[1]||'').trim());
+    else if(/^Análise de causa raiz/.test(t)) add(c.created_at,'#F59E0B','Análise de causa registrada'+(quem?' por '+quem:''),causaRaizDe(t)?'Causa raiz: '+causaRaizDe(t):'');
+    else if(/^Ação incluída no plano/.test(t)) add(c.created_at,'#3B82F6',t.split(':')[0],t.slice(t.indexOf(':')+1).trim());
+    else if(/^Ação concluída/.test(t)) add(c.created_at,'#3B82F6','Ação concluída'+(quem?' ('+quem+')':''),somenteLeitura?'':t.replace(/^Ação concluída:\s*/,''));
+    else if(/^Ciclo PDCA encerrado/.test(t)) add(c.created_at,'#16A34A','Ciclo encerrado'+(quem?' por '+quem:''),t.replace(/^Ciclo PDCA encerrado\.\s*Aprendizado:\s*/,'Aprendizado: '));
+    else if(/^NOTIVISA/.test(t)) add(c.created_at,'#7C3AED','Notivisa enviado',somenteLeitura?'':t.split('\n').slice(1).join(' · '));
+    else add(c.created_at,C.muted,'Atualização'+(quem?' de '+quem:''),somenteLeitura?'':t.slice(0,220));});
+  if(n.rca_gerado&&!(coms||[]).some(c=>/^Análise de causa raiz/.test(String(c.texto||'')))) add(n.rca_concluido_em,'#F59E0B','Análise de causa concluída'+(n.rca_autor&&n.rca_autor!=='nsp'?' por '+n.rca_autor:''),'');
+  acs.forEach(x=>{if(!(coms||[]).some(c=>String(c.texto||'').startsWith('Ação incluída no plano')&&String(c.texto).includes(String(x.acao||'').trim())))add(x.created_at,'#3B82F6','Ação no plano',x.acao+' · '+(x.responsavel||'sem responsável')+' · prazo '+dt(x.prazo));
+    if(x.efetividade_em) add(x.efetividade_em,'#8B5CF6','Eficácia verificada: '+(x.efetividade_verificada==='parcial'?'parcialmente efetiva':'efetiva'),x.acao);});
+  if(n.plano_fechado_em&&!(coms||[]).some(c=>/^Ciclo PDCA encerrado/.test(String(c.texto||'')))) add(n.plano_fechado_em,'#16A34A','Ciclo encerrado','');
+  ev.sort((x,y)=>y.d.localeCompare(x.d));
+  const prox=etapa==='iniciar'?['Iniciar PDCA',()=>onIniciarPDCA(n)]:etapa==='planejar'?(!n.rca_gerado?['Analisar a causa',()=>onAnalisar(n)]:['Incluir as ações no plano',()=>onAbrirPlano(n)])
+    :etapa==='fazer'?['Acompanhar as ações',()=>onAbrirPlano(n)]:etapa==='checar'?['Verificar a eficácia',()=>onAbrirPlano(n)]:etapa==='agir'?['Encerrar o ciclo',()=>onAbrirPlano(n)]:null;
+  return(<div role="dialog" aria-modal="true" onClick={onFechar} style={{position:'fixed',inset:0,background:'#0007',zIndex:250,display:'flex',justifyContent:'flex-end'}}>
+    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:520,height:'100%',overflowY:'auto',background:C.surface,borderLeft:'1px solid '+C.border,padding:'18px 16px 40px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:8}}>
+        <div>
+          <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}}><span style={{fontSize:11,fontWeight:900,color:et.cor,background:et.cor+'18',borderRadius:6,padding:'2px 8px'}}>{et.letra} · {et.rotulo}</span><PdcaSelo sit={sit}/></div>
+          <div style={{fontSize:16,fontWeight:900,color:C.text,marginTop:6}}>{acentuar(n.event_subtype||n.occurrence_subtype||'Evento')}{n.sector?' · '+n.sector:''}</div>
+          <div style={{fontSize:11.5,color:C.muted,marginTop:2}}>Notificação nº <b style={{color:C.text}}>{protocoloNotif(n)}</b> · {dt(n.event_date||n.created_at)} · desfecho: {n.patient_outcome||'não informado'}</div>
+        </div>
+        <button onClick={onFechar} aria-label="Fechar" style={{background:'none',border:'none',fontSize:20,color:C.muted,cursor:'pointer'}}>{String.fromCodePoint(10005)}</button>
+      </div>
+      <div style={{background:C.card,border:'1px solid '+et.cor+'55',borderRadius:10,padding:'10px 12px',margin:'12px 0'}}>
+        <div style={{fontSize:10,fontWeight:800,color:et.cor,textTransform:'uppercase'}}>Agora</div>
+        <div style={{fontSize:12.5,color:C.text,fontWeight:700,marginTop:2}}>{et.dica}</div>
+        <div style={{fontSize:11,color:C.muted,marginTop:3}}>{acs.length?linha.feitas+' de '+acs.length+' ação(ões) concluída(s)'+(linha.vencidas?' · '+linha.vencidas+' vencida(s)':''):'Nenhuma ação no plano'}{rca&&causaRaizDe(rca.texto)?' · causa raiz: '+causaRaizDe(rca.texto):''}</div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:8}}>
+          {prox&&!somenteLeitura&&<button onClick={prox[1]} style={{padding:'7px 12px',borderRadius:8,border:'none',background:et.cor,color:'#fff',fontSize:12,fontWeight:800,cursor:'pointer'}}>{prox[0]}</button>}
+          <button onClick={()=>onAbrirPlano(n)} style={{padding:'7px 12px',borderRadius:8,border:'1px solid '+C.border,background:C.card,color:C.text,fontSize:12,fontWeight:700,cursor:'pointer'}}>Abrir plano da notificação</button>
+        </div>
+      </div>
+      <div style={{fontSize:12,fontWeight:900,color:C.text,margin:'6px 0 8px'}}>O que aconteceu</div>
+      {coms===null&&<Dots/>}
+      {coms!==null&&ev.map((x,i)=><div key={i} style={{display:'flex',gap:10,paddingBottom:10}}>
+        <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}><span style={{width:10,height:10,borderRadius:5,background:x.cor,marginTop:4}}/>{i<ev.length-1&&<span style={{flex:1,width:2,background:C.border,marginTop:2}}/>}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:12,fontWeight:800,color:C.text}}>{x.titulo}</div>
+          {x.det&&<div style={{fontSize:11.5,color:C.muted,lineHeight:1.45,marginTop:1}}>{x.det}</div>}
+          <div style={{fontSize:10,color:C.muted,marginTop:1}}>{new Date(x.d.length===10?x.d+'T12:00:00':x.d).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:x.d.length>10?'2-digit':undefined,minute:x.d.length>10?'2-digit':undefined})}</div>
+        </div>
+      </div>)}
+    </div>
+  </div>);
+}
+function PdcaView({sbUrl,sbKey,showToast,hospital,somenteLeitura}){
+  const h=hospital||DEFAULT_HOSPITAL;
+  const [d,setD]=useState(null);
+  const [sel,setSel]=useState(null);
+  const [rcaAlvo,setRcaAlvo]=useState(null);
+  const [planoAlvo,setPlanoAlvo]=useState(null);
+  const [busca,setBusca]=useState('');
+  const [todosEnc,setTodosEnc]=useState(false);
+  const carregar=async()=>{
+    if(!sbUrl||!sbKey) return;
+    const [acs,ns,dec,rcas]=await Promise.all([
+      sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=3000&select=*`).catch(()=>[]),
+      carregarDecisoesPDCA(sbUrl,sbKey,h.id),
+      sbSelect(sbUrl,sbKey,'acao_comentarios',`hospital_id=eq.${h.id}&texto=like.${encodeURIComponent('Análise de causa raiz')}*&select=notification_id,texto,autor,created_at&order=created_at.asc`).catch(()=>[]),
+    ]);
+    const rca={};(rcas||[]).forEach(c=>{rca[c.notification_id]=c;});
+    setD({acs:acs||[],ns:ns||[],dec:dec||{},rca});
+  };
+  useEffect(()=>{carregar();},[sbUrl,sbKey]);
+  if(!d) return <div style={{display:'flex',justifyContent:'center',padding:40}}><Dots/></div>;
+  const porN={};d.acs.forEach(x=>{(porN[x.notification_id]=porN[x.notification_id]||[]).push(x);});
+  const hoje=new Date().toLocaleDateString('en-CA');
+  const linhas=d.ns.map(n=>{
+    const sit=situacaoPDCA(n,d.dec);const todas=porN[n.id]||[];const acs=todas.filter(x=>etapaDaAcao(x));
+    if(!sit.precisa&&!acs.length) return null;
+    const etapa=etapaPDCA(n,todas,sit);
+    return {n,sit,acs,etapa,rca:d.rca[n.id],desde:desdeEtapa(n,acs,etapa),
+      feitas:acs.filter(x=>['eficacia','eficaz'].includes(etapaDaAcao(x))).length,
+      vencidas:acs.filter(x=>['afazer','andamento'].includes(etapaDaAcao(x))&&x.prazo&&String(x.prazo).slice(0,10)<hoje).length};
+  }).filter(Boolean);
+  const termo=semAcento(busca).trim();
+  const filtradas=linhas.filter(l=>!termo||semAcento([protocoloNotif(l.n),l.n.event_subtype,l.n.occurrence_subtype,l.n.sector,l.n.patient_outcome].join(' ')).includes(termo));
+  const linhaSel=sel&&linhas.find(l=>l.n.id===sel);
+  const card={background:C.card,border:'1px solid '+C.border,borderRadius:14,padding:14};
+  return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1400,margin:'0 auto'}}>
+    {rcaAlvo&&<RCAPanel notification={rcaAlvo} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaAlvo(null)} onSaved={()=>{setRcaAlvo(null);carregar();}}/>}
+    {planoAlvo&&<PlanoAcaoPanel notification={planoAlvo} hospital={h} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoAlvo(null);carregar();}}/>}
+    {linhaSel&&!rcaAlvo&&!planoAlvo&&<PdcaDetalhe linha={linhaSel} sbUrl={sbUrl} sbKey={sbKey} somenteLeitura={somenteLeitura} onFechar={()=>setSel(null)} onAnalisar={n=>setRcaAlvo(n)} onAbrirPlano={n=>setPlanoAlvo(n)}
+      onIniciarPDCA={async n=>{try{await iniciarPDCA(sbUrl,sbKey,n,'NSP');showToast('PDCA iniciado','success');await carregar();}catch(e){showToast('Não foi possível iniciar: '+e.message,'error');}}}/>}
+    <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
+      <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>PDCA das notificações</div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Cada cartão é uma notificação. Ela anda sozinha de etapa quando a análise, as ações, a eficácia e o encerramento são registrados. O PDCA começa em Notificações e análises.</div></div>
+      <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar nº, evento, setor" style={{width:220,maxWidth:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}/>
+    </div>
+    <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:6,alignItems:'flex-start'}}>
+      {ETAPAS_PDCA.map(e=>{const col=filtradas.filter(l=>l.etapa===e.id);
+        const ord=col.sort((x,y)=>((y.sit.nivel==='obrigatorio')-(x.sit.nivel==='obrigatorio'))||String(x.desde||'').localeCompare(String(y.desde||'')));
+        const vis=e.id==='encerrado'&&!todosEnc?ord.slice().sort((x,y)=>String(y.desde||'').localeCompare(String(x.desde||''))).slice(0,8):ord;
+        return(<div key={e.id} style={{flex:'1 0 230px',minWidth:230,background:C.surface,border:'1px solid '+C.border,borderTop:'3px solid '+e.cor,borderRadius:12,padding:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><b style={{fontSize:12.5,color:e.cor}}>{e.letra} · {e.rotulo}</b><span style={{fontSize:11,fontWeight:900,color:C.text,background:e.cor+'22',borderRadius:10,padding:'1px 8px'}}>{col.length}</span></div>
+          <div style={{fontSize:10,color:C.muted,margin:'2px 0 8px'}}>{e.dica}</div>
+          <div style={{display:'flex',flexDirection:'column',gap:6,maxHeight:'62vh',overflowY:'auto'}}>
+            {vis.map(l=>{const n=l.n;const dias=diasDesde(l.desde);const parado=e.id!=='encerrado'&&dias!==null&&dias>30;
+              return(<button key={n.id} onClick={()=>setSel(n.id)} style={{textAlign:'left',background:C.card,border:'1px solid '+(l.vencidas||parado?C.red+'88':C.border),borderLeft:'3px solid '+(l.sit.nivel==='obrigatorio'?'#DC2626':e.cor),borderRadius:10,padding:'8px 10px',cursor:'pointer'}}>
+                <div style={{fontSize:9.5,color:C.muted}}>nº <b style={{color:C.text}}>{protocoloNotif(n)}</b> · {new Date((n.event_date||n.created_at)+(String(n.event_date||'').length===10?'T12:00:00':'')).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</div>
+                <div style={{fontSize:12,fontWeight:800,color:C.text,lineHeight:1.3,marginTop:2}}>{acentuar(n.event_subtype||n.occurrence_subtype||'Evento')}</div>
+                <div style={{fontSize:10.5,color:C.muted,marginTop:1}}>{n.sector||'—'} · {n.patient_outcome||'desfecho não informado'}</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:5}}><PdcaSelo sit={l.sit}/>
+                  {l.acs.length>0&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.blue+'18',color:C.blue,fontWeight:700}}>{l.feitas}/{l.acs.length} ações</span>}
+                  {l.vencidas>0&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'18',color:C.red,fontWeight:800}}>{l.vencidas} vencida(s)</span>}
+                </div>
+                {dias!==null&&<div style={{fontSize:9.5,color:parado?C.red:C.muted,marginTop:4,fontWeight:parado?800:400}}>{e.id==='encerrado'?'encerrado há '+dias+' dia(s)':'há '+dias+' dia(s) nesta etapa'}</div>}
+              </button>);})}
+            {!col.length&&<div style={{fontSize:11,color:C.muted,textAlign:'center',padding:'14px 0'}}>Nenhuma</div>}
+            {e.id==='encerrado'&&col.length>8&&<button onClick={()=>setTodosEnc(!todosEnc)} style={{fontSize:11,color:C.teal,background:'none',border:'none',cursor:'pointer',textDecoration:'underline'}}>{todosEnc?'Mostrar só os recentes':'Ver todos os '+col.length}</button>}
+          </div>
+        </div>);})}
+    </div>
+  </div>);
+}
 function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const h=hospital||DEFAULT_HOSPITAL;
   const [acoes,setAcoes]=useState(null);
@@ -2506,15 +2695,17 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const [busy,setBusy]=useState(null);
   const [pedirEvid,setPedirEvid]=useState(null); // concluir sempre com o que foi feito (evidencia)
   const [aba,setAba]=useState('panorama');
+  const [rcaAlvo,setRcaAlvo]=useState(null);
+  const [planoAlvo,setPlanoAlvo]=useState(null);
   const carregar=async()=>{
     try{
       const [a2,n2,t2]=await Promise.all([
         sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*&order=prazo.asc`).catch(()=>[]),
-        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&select=id,event_subtype,occurrence_subtype,notification_type,infection_topography,is_test,sector`).catch(()=>[]),
+        sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=3000&select=*`).catch(()=>[]),
         sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
       ]);
       const map={};(n2||[]).forEach(n=>{map[n.id]=n;});
-      setAcoes(a2||[]);setNots(map);setTreins(t2||[]);
+setAcoes(a2||[]);setNots(map);setTreins(t2||[]);
     }catch(e){showToast('Erro: '+e.message,'error');setAcoes([]);}
   };
   useEffect(()=>{carregar();},[sbUrl,sbKey]);
@@ -2575,16 +2766,37 @@ function AcoesPendentesView({sbUrl,sbKey,showToast,hospital,somenteLeitura}) {
   const btn=(l,cor,fn,dis)=>somenteLeitura?null:<button onClick={fn} disabled={dis} style={{padding:'6px 10px',borderRadius:8,border:'1px solid '+cor+'66',background:cor+'18',color:cor,fontSize:10,fontWeight:700,cursor:dis?'default':'pointer'}}>{l}</button>;
 
   const abas=<div style={{display:'flex',gap:4,background:C.card,border:'1px solid '+C.border,borderRadius:10,padding:4}}>
-    {[['panorama','Panorama visual'],['lista','Lista de cobrança']].map(([k,l])=><button key={k} onClick={()=>setAba(k)} style={{flex:1,padding:'9px 6px',borderRadius:7,border:'none',background:aba===k?C.teal:'transparent',color:aba===k?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>)}
+    {[['panorama','Quadro das ações'],['lista','Lista de cobrança']].map(([k,l])=><button key={k} onClick={()=>setAba(k)} style={{flex:1,padding:'9px 6px',borderRadius:7,border:'none',background:aba===k?C.teal:'transparent',color:aba===k?'#06101F':C.muted,fontSize:12,fontWeight:800,cursor:'pointer'}}>{l}</button>)}
+  </div>;
+  const apagarGenericas=async()=>{
+    const alvo=acoes.filter(x=>etapaDaAcao(x)&&ehAcaoGenerica(x));
+    if(!alvo.length) return;
+    if(!confirm('Apagar '+alvo.length+' ação(ões) genérica(s) criada(s) automaticamente por erro?\n\nAs notificações delas voltam para "Planejar", para montar ações específicas de cada evento. Fica registrado na trilha de auditoria.'))return;
+    setBusy('genericas');let ok=0;
+    for(const x of alvo){try{await sbDelete(sbUrl,sbKey,'plano_acoes',`id=eq.${x.id}`);ok++;
+      sbAuditLog(sbUrl,sbKey,x.hospital_id,x.notification_id,'ACAO_GENERICA_APAGADA','acao',x.acao+' · '+(x.responsavel||'')+' · prazo '+(x.prazo||''),'',USUARIO_ATUAL||'gestor','gestor').catch(()=>{});}catch(e){}}
+    setBusy(null);await carregar();
+    showToast(ok===alvo.length?ok+' ação(ões) genérica(s) apagada(s)':'Apagadas '+ok+' de '+alvo.length+'. Tente de novo para as restantes.',ok===alvo.length?'success':'error');
+  };
+  const modais=<React.Fragment>
+    {rcaAlvo&&<RCAPanel notification={rcaAlvo} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>setRcaAlvo(null)} onSaved={()=>{setRcaAlvo(null);carregar();}}/>}
+    {planoAlvo&&<PlanoAcaoPanel notification={planoAlvo} hospital={h} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onClose={()=>{setPlanoAlvo(null);carregar();}}/>}
+  </React.Fragment>;
+  const totGenericas=acoes.filter(x=>etapaDaAcao(x)&&ehAcaoGenerica(x)).length;
+  const cabecalho=<div><div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Melhoria contínua: as ações definidas pelo NSP para cada notificação, a execução e a verificação de eficácia</div></div>;
+  const bannerGenericas=totGenericas>0&&!somenteLeitura&&<div style={{background:C.red+'0d',border:'1px solid '+C.red+'66',borderRadius:14,padding:14}}>
+    <div style={{fontSize:13,fontWeight:800,color:C.text}}>{totGenericas} ação(ões) genérica(s) criada(s) por um erro da plataforma</div>
+    <div style={{fontSize:11.5,color:C.muted,margin:'3px 0 8px',lineHeight:1.5}}>"Revisar protocolo relacionado ao evento", "Capacitar equipe envolvida" e "Monitorar recorrência do evento" foram gravadas automaticamente quando a resposta da IA falhou. Ninguém as definiu.</div>
+    <button onClick={apagarGenericas} disabled={!!busy} style={{padding:'7px 12px',borderRadius:8,border:'none',background:'#DC2626',color:'#fff',fontSize:12,fontWeight:800,cursor:'pointer'}}>Apagar as {totGenericas} ações genéricas</button>
   </div>;
   if(aba==='panorama') return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
-    <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div><div style={{fontSize:12,color:C.muted,marginTop:2}}>Como as ações das notificações estão sendo executadas, junto com os treinamentos e as reuniões do NSP</div></div>
-    {abas}
+    {cabecalho}
+    {abas}{modais}{bannerGenericas}
     <PanoramaPlanoAcao sbUrl={sbUrl} sbKey={sbKey} acoes={acoes} nots={nots} treins={treins} busy={busy} onIniciar={somenteLeitura?null:iniciar} onConcluir={somenteLeitura?null:concluir} onVerificar={verificar} podeVerificar={!somenteLeitura} irParaLista={()=>setAba('lista')}/>
   </div>);
   return(<div style={{display:'flex',flexDirection:'column',gap:14,padding:16,maxWidth:1280,margin:'0 auto'}}>
-    <div style={{fontSize:19,fontWeight:900,color:C.text}}>Planos de ação</div>
-    {abas}
+    {cabecalho}
+    {abas}{modais}
     {pedirEvid&&<ConcluirAcaoModal acao={pedirEvid} sbUrl={sbUrl} sbKey={sbKey} onFechar={()=>setPedirEvid(null)} onConfirmar={ev=>{const x=pedirEvid;setPedirEvid(null);concluir(x,ev);}}/>}
     <div style={{fontSize:11,color:C.muted,lineHeight:1.5}}>{'Painel de cobran\u00e7a do ciclo PDCA: a\u00e7\u00f5es dos planos de a\u00e7\u00e3o de todas as notifica\u00e7\u00f5es, ordenadas por urg\u00eancia. Concluir n\u00e3o encerra o ciclo \u2014 depois vem a verifica\u00e7\u00e3o de efic\u00e1cia (30-90 dias) e s\u00f3 ent\u00e3o o fechamento do plano dentro da notifica\u00e7\u00e3o.'}</div>
     <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
@@ -3453,6 +3665,8 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
   const [notiVisaTarget,setNotiVisaTarget]=useState(null);
   const [riscoTarget,setRiscoTarget]=useState(null);
   const [planoTarget,setPlanoTarget]=useState(null);
+  const [decPDCA,setDecPDCA]=useState({}); // classificacao de PDCA feita pelo subnucleo/gestor
+  const recarregarPDCA=()=>carregarDecisoesPDCA(sbUrl,sbKey,h.id).then(setDecPDCA);
   const [busca,setBusca]=useState('');
   const [detalhe,setDetalhe]=useState(null);
   const [deletando,setDeletando]=useState(null);
@@ -3465,7 +3679,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     setLoading(true);
     try{
       const data=await sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`);
-      setNotifications(data||[]);
+      setNotifications(data||[]);recarregarPDCA();
     }catch{showToast('Erro ao carregar notificacoes','error');}
     setLoading(false);
   };
@@ -3545,7 +3759,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
     if(filtroRCA==='sim'&&!n.rca_gerado) return false;
     if(filtroRCA==='nao'&&n.rca_gerado) return false;
     if(filtroGravidade&&n.gravidade!==filtroGravidade) return false;
-    if(filtroSemRCA&&(n.rca_gerado||(n.notification_type!=='seguranca_paciente'&&n.notification_type!=='ccih'))) return false;
+    if(filtroSemRCA&&(n.rca_gerado||!situacaoPDCA(n,decPDCA).precisa)) return false;
     if(filtroTriagem&&!(n.event_subtype||'').startsWith('Outro')) return false;
     if(filtroSemComunic&&!(eventoComDano(n)&&!n.comunicado_paciente)) return false;
     if(filtroNotivisa==='sim'&&!n.notivisa_enviado) return false;
@@ -3567,7 +3781,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
 
   return(<div style={{padding:'0 0 80px',maxWidth:900,margin:'0 auto'}}>
     {(filtroGravidade||filtroSemRCA||filtroTriagem||filtroSemComunic)&&<div style={{background:C.yellow+'20',border:'1px solid '+C.yellow,borderRadius:8,padding:'8px 12px',marginBottom:12,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'Sem Analise - RCA pendente':filtroSemComunic?'Eventos com dano sem comunicação ao paciente/família (PNQSP)':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
+      <span style={{fontSize:12,color:C.yellow,fontWeight:700}}>{filtroGravidade?'Eventos Sentinela':filtroSemRCA?'PDCA: análise pendente':filtroSemComunic?'Eventos com dano sem comunicação ao paciente/família (PNQSP)':'Triagem: subtipo Outro - reclassifique pelo botao Corrigir'}</span>
       <button onClick={()=>{setFiltroGravidade('');setFiltroSemRCA(false);setFiltroTriagem(false);setFiltroSemComunic(false);}} style={{fontSize:11,background:'none',border:'none',color:C.muted,cursor:'pointer'}}>Limpar filtro</button>
     </div>}
     {/* Modal de edicao */}
@@ -3688,14 +3902,14 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
         const g=grupos[key];
         const spCount=g.items.filter(n=>n.notification_type==='seguranca_paciente'||n.notification_type==='ccih').length;
         const admCount=g.items.filter(n=>n.notification_type==='administrativa').length;
-        const semRCA=g.items.filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado).length;
+        const semRCA=g.items.filter(n=>!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa).length;
         return(<div key={key} style={{marginBottom:20}}>
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,padding:'7px 10px',background:C.surface,borderRadius:10,border:'1px solid '+C.border}}>
             <div style={{fontSize:13,fontWeight:800,color:C.text,flex:1}}>{String(g.label||'').charAt(0).toUpperCase()+String(g.label||'').slice(1)}</div>
             <span style={{fontSize:11,background:C.teal+'20',color:C.teal,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{g.items.length} total</span>
             {spCount>0&&<span style={{fontSize:11,background:C.red+'20',color:C.red,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{spCount} SP</span>}
             {admCount>0&&<span style={{fontSize:11,background:C.blue+'20',color:C.blue,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{admCount} Adm</span>}
-            {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} sem RCA</span>}
+            {semRCA>0&&<span style={{fontSize:11,background:C.yellow+'20',color:C.yellow,borderRadius:6,padding:'2px 7px',fontWeight:700}}>{semRCA} com análise pendente</span>}
           </div>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
             {g.items.map(n=>{
@@ -3719,13 +3933,15 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                   <div style={{fontSize:12,fontWeight:700,color:C.text,lineHeight:1.3,marginBottom:3}}>{(t=>t.length>34?t.slice(0,32)+'...':t)(acentuar(title))}</div>
                   {n.sector&&<div style={{fontSize:10,color:C.muted,marginBottom:4,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.sector}</div>}
                   <div style={{display:'flex',gap:3,marginBottom:5,flexWrap:'wrap'}}>
-                    {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}} title={n.rca_gerado&&n.rca_autor?'RCA por: '+n.rca_autor+(n.rca_concluido_em?' em '+new Date(n.rca_concluido_em).toLocaleDateString('pt-BR'):''):'Sem analise de causa raiz'}>{n.rca_gerado?'RCA feito':'Sem RCA'}</span>}
+                    {isSP&&<PdcaSelo sit={situacaoPDCA(n,decPDCA)}/>}
+                    {isSP&&(n.rca_gerado||situacaoPDCA(n,decPDCA).precisa)&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.rca_gerado?C.green+'20':C.yellow+'20',color:n.rca_gerado?C.green:C.yellow,fontWeight:700}} title={n.rca_gerado&&n.rca_autor?'Análise por: '+n.rca_autor+(n.rca_concluido_em?' em '+new Date(n.rca_concluido_em).toLocaleDateString('pt-BR'):''):'Sem análise de causa'}>{n.rca_gerado?'Análise feita':'Análise pendente'}</span>}
                     {isSP&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:n.notivisa_enviado?C.green+'20':C.muted+'20',color:n.notivisa_enviado?C.green:C.muted,fontWeight:700}}>{n.notivisa_enviado?'Notivisa OK':'Notivisa pendente'}</span>}
                     {isSP&&eventoComDano(n)&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:(n.comunicado_paciente?C.green:C.yellow)+'20',color:n.comunicado_paciente?C.green:C.yellow,fontWeight:700}} title='Comunicação do evento ao paciente/família (PNQSP)'>{n.comunicado_paciente?'Comunicação registrada':'Comunicar paciente'}</span>}
                     {isSentinela&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.red+'20',color:C.red,fontWeight:700}}>SENTINELA</span>}
                   </div>
                   <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
-                    {isSP&&!n.rca_gerado&&<button onClick={ev=>{ev.stopPropagation();setRcaTarget(n);}} style={{fontSize:9,padding:'4px 7px',background:C.blue+'20',color:C.blue,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Fazer RCA</button>}
+                    {isSP&&!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa&&!situacaoPDCA(n,decPDCA).iniciado&&<button onClick={async ev=>{ev.stopPropagation();try{await iniciarPDCA(sbUrl,sbKey,n,'NSP (gestor)');showToast('PDCA iniciado. Próximo passo: analisar a causa.','success');recarregarPDCA();}catch(e){showToast('Não foi possível iniciar: '+e.message,'error');}}} style={{fontSize:9,padding:'4px 7px',background:'#DC2626',color:'#fff',border:'none',borderRadius:5,cursor:'pointer',fontWeight:800}}>Iniciar PDCA</button>}
+                    {isSP&&!n.rca_gerado&&situacaoPDCA(n,decPDCA).iniciado&&<button onClick={ev=>{ev.stopPropagation();setRcaTarget(n);}} style={{fontSize:9,padding:'4px 7px',background:C.blue+'20',color:C.blue,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Analisar</button>}
                     {isSP&&<button onClick={ev=>{ev.stopPropagation();downloadNotivisa(n);}} style={{fontSize:9,padding:'4px 7px',background:'#7C3AED20',color:'#7C3AED',border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Baixar Notivisa</button>}
                     {isSP&&<button onClick={ev=>{ev.stopPropagation();setRiscoTarget(n);}} style={{fontSize:9,padding:'4px 7px',background:C.yellow+'20',color:C.yellow,border:'none',borderRadius:5,cursor:'pointer',fontWeight:700}}>Avaliar risco</button>}
                   </div>
@@ -3736,6 +3952,7 @@ function NotificacoesView({sbUrl,sbKey,showToast,hospital,onMutate,filtroInicial
                     {n.ai_summary&&<div style={{marginBottom:8,background:C.teal+'10',borderRadius:6,padding:'6px 8px'}}><div style={{fontSize:9,color:C.teal,fontWeight:700,marginBottom:2}}>Resumo IA</div><div style={{fontSize:11,color:C.text,lineHeight:1.5}}>{n.ai_summary}</div></div>}
                     {n.admission_reason&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Paciente / NIP</div><div style={{fontSize:11,color:C.text}}>{n.admission_reason}</div></div>}
                     {n.patient_admission&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Data de admissao</div><div style={{fontSize:11,color:C.text}}>{new Date(n.patient_admission+'T12:00:00').toLocaleDateString('pt-BR')}</div></div>}
+                    {isSP&&<PdcaClassificar n={n} dec={decPDCA} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} setor="NSP (gestor)" onSalvo={recarregarPDCA}/>}
                     {isSP&&<ComunicacaoPacienteBox n={n} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} onSaved={()=>setDetalhe(d=>d?{...d}:d)}/>}
                     {n.event_subtype==='Perda de AVP'&&n.avp_motivo&&<div style={{marginBottom:8}}><div style={{fontSize:9,color:C.muted,fontWeight:700,textTransform:'uppercase',marginBottom:2}}>Motivo perda AVP</div><div style={{fontSize:11,color:C.text}}>{n.avp_motivo}</div></div>}
                     <div style={{display:'flex',gap:4,marginTop:8,flexWrap:'wrap'}}>
@@ -3805,8 +4022,21 @@ function aplicarSubnucleosDoHospital(h){
   SUBS_TREINAMENTO.splice(0,SUBS_TREINAMENTO.length,...novos,...SETORES_APOIO);
 }
 
+// Membro do subnucleo pode apagar um treinamento lancado errado: so do proprio subnucleo, lancado por ele,
+// nos ultimos 7 dias (o historico mais antigo e os registros de outras pessoas so o gestor apaga).
+const DIAS_EXCLUIR_MEMBRO=7;
+const RESP_GENERICOS=['','membro_nsp','membro do subnúcleo','membro do subnucleo','membro nsp'];
+function podeMembroExcluirTrein(r,subMembro){
+  if(!r||!r.id||!subMembro||r.subnucleo!==subMembro) return false;
+  const t=r.created_at?new Date(r.created_at).getTime():NaN;
+  if(!isFinite(t)||Date.now()-t>DIAS_EXCLUIR_MEMBRO*864e5) return false;
+  const resp=String(r.responsavel||'').trim().toLowerCase();
+  const eu=String(USUARIO_ATUAL||'').trim().toLowerCase();
+  // registros antigos guardavam so o perfil ('membro_nsp'), sem o nome: valem para os membros do subnucleo
+  return (eu&&resp===eu)||RESP_GENERICOS.includes(resp);
+}
 // Editar um registro de treinamento ou reuniao (data, participantes, tema e trocar a lista de presenca)
-function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir}){
+function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir,podeMudarSetor,perfil,dicaExcluir}){
   const [f,setF]=useState({data:r.data||'',participantes:r.participantes||'',protocolo:r.protocolo||'',descricao:r.descricao||'',link_gdrive:r.link_gdrive||'',subnucleo:r.subnucleo||'',responsavel:r.responsavel||''});
   const reuniaoNSP=r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria';
   const [salvando,setSalvando]=useState(false);
@@ -3814,15 +4044,21 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
   const salvar=async()=>{
     if(!f.data||!Number(f.participantes)){showToast('Informe a data e o número de participantes','error');return;}
     setSalvando(true);
-    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null,...(podeExcluir&&!reuniaoNSP&&f.subnucleo?{subnucleo:f.subnucleo}:{}),responsavel:String(f.responsavel||'').trim()||null});
+    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null,...(podeMudarSetor&&!reuniaoNSP&&f.subnucleo?{subnucleo:f.subnucleo}:{}),...(podeMudarSetor?{responsavel:String(f.responsavel||'').trim()||null}:{})});
       showToast('Registro atualizado','success');onSalvo&&onSalvo();}
     catch(e){showToast('Erro ao salvar: '+e.message,'error');}
     setSalvando(false);
   };
   const excluir=async()=>{
-    if(!confirm('Excluir este registro? A lista de presença anexada continua guardada no armazenamento.'))return;
+    const desc=(r.protocolo||r.descricao||(r.tipo==='treinamento'?'Treinamento':'Reunião'))+(r.data?' de '+new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'');
+    if(!confirm('Apagar "'+desc+'"?\n\nO registro sai da lista e dos relatórios. Não dá para desfazer (a lista de presença anexada continua guardada no armazenamento).'))return;
     setSalvando(true);
-    try{await sbDelete(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`);showToast('Registro excluído','success');onSalvo&&onSalvo();}
+    try{await sbDelete(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`);
+      // fica na trilha de auditoria o que foi apagado e por quem
+      sbAuditLog(sbUrl,sbKey,r.hospital_id,null,'TREINAMENTO_EXCLUIDO','treinamento',
+        [r.tipo,r.data,r.protocolo||r.descricao||'',(r.participantes||0)+' participantes','subnúcleo '+(r.subnucleo||'-'),'responsável '+(r.responsavel||'-'),r.link_gdrive?'lista: '+r.link_gdrive:'sem lista'].join(' · '),
+        '',USUARIO_ATUAL||perfil||'usuario',perfil||'').catch(()=>{});
+      showToast('Registro apagado','success');onSalvo&&onSalvo();}
     catch(e){showToast('Erro ao excluir: '+e.message,'error');}
     setSalvando(false);
   };
@@ -3833,15 +4069,15 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data *</div><input type="date" value={f.data} onChange={e=>setF({...f,data:e.target.value})} style={inp}/></div>
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Participantes *</div><input type="number" min="1" value={f.participantes} onChange={e=>setF({...f,participantes:e.target.value})} style={inp}/></div>
     </div>
-    {podeExcluir&&!reuniaoNSP&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Subnúcleo ou setor de apoio</div>
+    {podeMudarSetor&&!reuniaoNSP&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Subnúcleo ou setor de apoio</div>
     <select value={f.subnucleo} onChange={e=>setF({...f,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
       <optgroup label="Subnúcleos do NSP">{SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
       <optgroup label="Setores de apoio">{SETORES_APOIO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
     </select></React.Fragment>}
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema ou protocolo</div>
     <input value={f.protocolo} onChange={e=>setF({...f,protocolo:e.target.value})} style={inp}/>
-    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Responsável</div>
-    <input value={f.responsavel} onChange={e=>setF({...f,responsavel:e.target.value})} placeholder="Nome de quem ministrou ou registrou" style={inp}/>
+    {podeMudarSetor&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Responsável</div>
+    <input value={f.responsavel} onChange={e=>setF({...f,responsavel:e.target.value})} placeholder="Nome de quem ministrou ou registrou" style={inp}/></React.Fragment>}
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Descrição ou pauta</div>
     <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}}/>
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presença / ata</div>
@@ -3851,8 +4087,9 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
         meta={{subnucleo:r.subnucleo||'nsp_pleno',data:dt,participantes:f.participantes||'',ano:dt.slice(0,4),semestre:Number(dt.slice(5,7))<=6?'1':'2'}}
         onUploaded={link=>{setF(x=>({...x,link_gdrive:link}));showToast('Lista nova anexada. Toque em Salvar.','success');}}/>
     </div>
+    {!podeExcluir&&dicaExcluir&&<div style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginBottom:8}}>{dicaExcluir}</div>}
     <div style={{display:'flex',gap:8}}>
-      {podeExcluir&&<button onClick={excluir} disabled={salvando} style={{background:'none',border:'1px solid '+C.red+'66',borderRadius:8,padding:'8px 12px',color:C.red,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>Excluir</button>}
+      {podeExcluir&&<button onClick={excluir} disabled={salvando} style={{background:'none',border:'1px solid '+C.red+'66',borderRadius:8,padding:'8px 12px',color:C.red,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>Apagar</button>}
       <div style={{flex:1}}/>
       <button onClick={onCancelar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
       <button onClick={salvar} disabled={salvando} style={{background:C.teal,border:'none',borderRadius:8,padding:'8px 16px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
@@ -3954,7 +4191,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
         {r.link_gdrive&&repetidas[r.link_gdrive]>1&&<div style={{fontSize:11,color:C.text,background:C.yellow+'1a',border:'1px solid '+C.yellow+'55',borderRadius:8,padding:'6px 9px',margin:'4px 0 6px'}}><b style={{color:C.yellow}}>Atenção:</b> a mesma lista está anexada em {repetidas[r.link_gdrive]} registros. Confira e, se não for a deste, toque em Editar e troque pela lista correta.</div>}
         {canEdit&&editandoId!==r.id&&r.id&&<button onClick={()=>setEditandoId(r.id)} style={{float:'right',marginTop:2,background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'3px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Editar</button>}
-        {editandoId===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={gestorMode||profileMode==='gestor'} onCancelar={()=>setEditandoId(null)} onSalvo={()=>{setEditandoId(null);load();}}/>}
+        {editandoId===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={gestorMode||profileMode==='gestor'} podeMudarSetor={gestorMode||profileMode==='gestor'} perfil={profileMode||'gestor'} onCancelar={()=>setEditandoId(null)} onSalvo={()=>{setEditandoId(null);load();}}/>}
         {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
       </div>);
   };
@@ -5336,6 +5573,8 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
   const MESES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
+  const [decPDCA,setDecPDCA]=useState({});
+  const [abrirPDCA,setAbrirPDCA]=useState(null);
   const carregar=()=>{
     if(!sbUrl||!sbKey) return;
     setLoading(true);
@@ -5343,8 +5582,9 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&order=created_at.desc&limit=2000&select=*`),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=*&order=data.desc`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${h.id}&select=*&order=prazo.asc`).catch(()=>[]),
-    ]).then(([nots,treins,acs])=>{
-      setNotifications(nots||[]);setAcoesAll(acs||[]);
+      carregarDecisoesPDCA(sbUrl,sbKey,h.id),
+    ]).then(([nots,treins,acs,dec])=>{
+      setNotifications(nots||[]);setAcoesAll(acs||[]);setDecPDCA(dec||{});
       setStats({...computeStats(nots||[]),treins:treins||[]});
     }).catch(()=>showToast('Erro ao carregar','error')).finally(()=>setLoading(false));
   };
@@ -5415,9 +5655,11 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
 
   // Notificacoes do subnucleo selecionado; as de seguranca do paciente sem RCA vem primeiro
   const notifDoSub=notifDoSubnucleo;
-  const semRCA=n=>!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih');
-  const notifsDoFiltro=notifications.filter(n=>notifDoSub(n,verTodasNotif?'todos':filtroSub)).sort((a,b)=>(semRCA(b)?1:0)-(semRCA(a)?1:0)).slice(0,30);
+  const semRCA=n=>!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa;
+  const aClassificar=n=>!n.rca_gerado&&situacaoPDCA(n,decPDCA).classificar;
+  const notifsDoFiltro=notifications.filter(n=>notifDoSub(n,verTodasNotif?'todos':filtroSub)).sort((a,b)=>((semRCA(b)||aClassificar(b))?1:0)-((semRCA(a)||aClassificar(a))?1:0)).slice(0,30);
   const pendNotif=notifications.filter(n=>notifDoSub(n,filtroSub)&&semRCA(n)).length;
+  const pendClassif=notifications.filter(n=>notifDoSub(n,filtroSub)&&aClassificar(n)).length;
   const subAtivo=filtroSub==='todos'?userSubnucleo:filtroSub;
   const regsSub=s.treins.filter(t=>t.subnucleo===subAtivo);
   // Treinamento: pendente se o subnucleo nao registrou nenhum no semestre atual
@@ -5434,7 +5676,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
   const acoesAbertas=acoesSub.filter(x=>!['concluido','concluida'].includes(x.status));
   const pendAcoes=acoesAbertas.filter(x=>x.prazo&&x.prazo<hojeS).length;
   // conta 1 por tarefa pendente (igual aos itens do "O que falta")
-  const totalPend=[pendInd,pendProt,pendNotif,pendTrein,treinSemestre>0?pendEvid:0,pendAcoes].filter(x=>x>0).length;
+  const totalPend=[pendInd,pendProt,pendNotif,pendClassif,pendTrein,treinSemestre>0?pendEvid:0,pendAcoes].filter(x=>x>0).length;
   const mudarAcao=async(x,status,ev)=>{
     setBusyAcao(x.id);
     try{if(status==='concluido')await registrarEvidenciaAcao(sbUrl,sbKey,x,ev,sub?sub.label:'Subnúcleo');
@@ -5456,7 +5698,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
     :mesesInd.map(x=>nomeMesInd(x.mes)+' ('+x.faltando.length+')').join(' · ');
   const ABAS=[
     {id:'resumo',label:'O que falta',badge:totalPend},
-    {id:'notificacoes',label:'Notificações',badge:pendNotif},
+    {id:'notificacoes',label:'Notificações',badge:pendNotif+pendClassif},
     {id:'acoes',label:'Plano de ação',badge:pendAcoes,info:acoesAbertas.length||null},
     {id:'treinamentos',label:'Treinamentos',badge:pendTrein+pendEvid,info:regsSub.length||null},
     {id:'protocolos',label:'Protocolos',badge:pendProt},
@@ -5495,7 +5737,10 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
             titulo:pendProt>0?(pendProt+' protocolo'+(pendProt>1?'s':'')+' vencido'+(pendProt>1?'s':'')+' ou sem cadastro'):'Protocolos em dia',
             det:pendProtItens.join(' · ')},
           {ok:pendNotif===0,aba:'notificacoes',acao:'Analisar',
-            titulo:pendNotif>0?(pendNotif+' notificaç'+(pendNotif>1?'ões':'ão')+' do seu tema sem RCA'):'Nenhuma notificação aguardando RCA',det:''},
+            titulo:pendNotif>0?(pendNotif+' notificaç'+(pendNotif>1?'ões exigem':'ão exige')+' PDCA (iniciar ou analisar)'):'Nenhuma notificação com PDCA pendente',
+            det:pendNotif>0?'Óbito, dano grave e sentinela (obrigatório), dano moderado e leve: iniciar o PDCA, analisar a causa e montar o plano':''},
+          pendClassif>0&&{ok:false,aba:'notificacoes',acao:'Classificar',
+            titulo:pendClassif+' notificaç'+(pendClassif>1?'ões':'ão')+' sem desfecho: classificar se precisa de PDCA',det:'Na aba Notificações, toque em "Classificar PDCA"'},
           {ok:pendAcoes===0,aba:'acoes',acao:'Ver ações',
             titulo:pendAcoes>0?(pendAcoes+' ação(ões) do plano com prazo vencido'):acoesAbertas.length?'Ações do plano em dia ('+acoesAbertas.length+' em aberto)':'Nenhuma ação de plano em aberto no seu tema',
             det:pendAcoes>0?'Conclua as ações (com evidência) ou combine novo prazo com o NSP':''},
@@ -5541,7 +5786,7 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
         <div>
           <div style={{fontSize:13,fontWeight:700,color:C.text}}>Notificações para análise</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{verTodasNotif?'Todas as notificações do hospital':pendNotif>0?pendNotif+' sem RCA (aparecem primeiro)':'Somente leitura'}</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:2}}>{verTodasNotif?'Todas as notificações do hospital':(pendNotif||pendClassif)?[pendNotif?pendNotif+' com PDCA e análise pendente':'',pendClassif?pendClassif+' para classificar':''].filter(Boolean).join(' · ')+' (aparecem primeiro)':'Toque em uma notificação para ver ou mudar a classificação de PDCA'}</div>
         </div>
         <div style={{display:'flex',background:C.surface,borderRadius:8,padding:3,gap:2,flexShrink:0}}>
           {[[false,filtroSub==='todos'?'Filtro':'Do meu subnúcleo'],[true,'Todas']].map(([v,l])=>(
@@ -5566,11 +5811,16 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
               <div style={{background:tag.color+'22',color:tag.color,borderRadius:5,padding:'2px 6px',fontSize:9,fontWeight:700,flexShrink:0,marginTop:1}}>{tag.label}</div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:12,fontWeight:700,color:C.text,marginBottom:2}}>{titulo}</div>
-                <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} - {data}</div>
+                <div style={{fontSize:10,color:C.muted}}>{n.sector||'-'} - {data}{n.patient_outcome?' · '+n.patient_outcome:''}</div>
+                <div style={{display:'flex',gap:4,flexWrap:'wrap',marginTop:3}}><PdcaSelo sit={situacaoPDCA(n,decPDCA)}/>{n.rca_gerado&&<span style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:C.green+'20',color:C.green,fontWeight:700}}>Análise feita</span>}</div>
                 {n.description&&<div style={{fontSize:11,color:C.muted,marginTop:3,lineHeight:1.4}}>{n.description.slice(0,120)}{n.description.length>120?'...':''}</div>}
+                {(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&(abrirPDCA===n.id
+                  ?<div style={{marginTop:6}}><PdcaClassificar n={n} dec={decPDCA} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} setor={sub?sub.label:'Subnúcleo'} onSalvo={()=>{carregar();setAbrirPDCA(null);}}/></div>
+                  :<button onClick={()=>setAbrirPDCA(n.id)} style={{marginTop:5,fontSize:10.5,background:'none',border:'none',color:C.teal,fontWeight:700,cursor:'pointer',padding:0,textDecoration:'underline'}}>{situacaoPDCA(n,decPDCA).classificar?'Classificar PDCA':'Ver ou mudar a classificação de PDCA'}</button>)}
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:4,flexShrink:0}}>
-                {!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
+                {!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa&&!situacaoPDCA(n,decPDCA).iniciado&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&<button onClick={async()=>{try{await iniciarPDCA(sbUrl,sbKey,n,sub?sub.label:'Subnúcleo');showToast('PDCA iniciado. Próximo passo: analisar a causa.','success');carregar();}catch(e){showToast('Não foi possível iniciar: '+e.message,'error');}}} style={{fontSize:12,background:'#DC2626',color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Iniciar PDCA</button>}
+                {!n.rca_gerado&&situacaoPDCA(n,decPDCA).iniciado&&(profileMode==='gestor'||notifDoSub(n,subAtivo))&&<button onClick={()=>setRcaMembro(n)} style={{fontSize:12,background:C.teal,color:'#fff',borderRadius:8,padding:'9px 12px',minHeight:36,fontWeight:800,border:'none',cursor:'pointer'}}>Analisar</button>}
                 {(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&<button onClick={()=>setNotiVisaMembro(n)} style={{fontSize:12,background:'transparent',color:C.teal,borderRadius:8,padding:'8px 12px',minHeight:36,fontWeight:700,border:'1px solid '+C.teal,cursor:'pointer'}}>Ficha Notivisa</button>}
                 {n.gravidade==='Evento sentinela'&&<div style={{fontSize:10,background:C.red+'1a',color:C.red,borderRadius:6,padding:'3px 7px',fontWeight:800,textAlign:'center'}}>Sentinela</div>}
               </div>
@@ -5683,7 +5933,8 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                 meta={{subnucleo:sub.id,data:r.data||new Date().toISOString().slice(0,10),participantes:r.participantes||'',ano:String((r.data||new Date().toISOString()).slice(0,4)),semestre:Number((r.data||new Date().toISOString()).slice(5,7))<=6?'1':'2'}}
                 onUploaded={async link=>{try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{link_gdrive:link});showToast('Lista de presença anexada','success');carregar();}catch(e){showToast('Erro ao anexar: '+e.message,'error');}}}/>}
           </div>
-          {editTrein===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={profileMode==='gestor'} onCancelar={()=>setEditTrein(null)} onSalvo={()=>{setEditTrein(null);carregar();}}/>}
+          {editTrein===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={profileMode==='gestor'||podeMembroExcluirTrein(r,userSubnucleo)} podeMudarSetor={profileMode==='gestor'} perfil={profileMode}
+            dicaExcluir={'Você pode apagar só os treinamentos do seu subnúcleo que você lançou nos últimos '+DIAS_EXCLUIR_MEMBRO+' dias. Para apagar este, peça ao gestor do NSP.'} onCancelar={()=>setEditTrein(null)} onSalvo={()=>{setEditTrein(null);carregar();}}/>}
           </React.Fragment>
         ))}
         {regs.length>3&&<button onClick={()=>setVerTodosTrein(v=>({...v,[sub.id]:!v[sub.id]}))} style={{marginTop:8,background:'none',border:'none',color:C.teal,fontSize:11.5,fontWeight:700,cursor:'pointer',padding:0}}>{verTodosTrein[sub.id]?'Mostrar menos':'Ver todos os '+regs.length+' registros'}</button>}
@@ -5858,17 +6109,18 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
     setCarregando(true);
     const mIni=faixa.ini.slice(0,7), mFim=faixa.fim.slice(0,7);
     Promise.all([
-      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&select=id,notification_type,event_subtype,occurrence_subtype,infection_topography,rca_gerado,is_test,event_date,created_at&limit=5000`).catch(()=>[]),
+      sbSelect(sbUrl,sbKey,'notifications',`hospital_id=eq.${h.id}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&select=id,notification_type,patient_outcome,gravidade,event_subtype,occurrence_subtype,infection_topography,rca_gerado,is_test,event_date,created_at&limit=5000`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${h.id}&select=nome,aprovado_em,proxima_revisao`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'indicadores_dsm',`hospital_id=eq.${h.id}&mes=gte.${faixa.ini}&mes=lte.${faixa.fim}&select=*`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'indicadores_mensais',`hospital_id=eq.${h.id}&mes_ref=gte.${mIni}&mes_ref=lte.${mFim}&select=mes_ref,pd_setores`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'treinamentos_nsp',`hospital_id=eq.${h.id}&select=subnucleo,tipo,data`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'nsp_usuarios',`hospital_id=eq.${h.id}&perfil=eq.membro_nsp&ativo=eq.true&select=subnucleo,ultimo_acesso`).catch(()=>[]),
-    ]).then(([notifs,prots,dsm,mens,treins,usuarios])=>{
+      carregarDecisoesPDCA(sbUrl,sbKey,h.id),
+    ]).then(([notifs,prots,dsm,mens,treins,usuarios,decPDCA])=>{
       const protsPorNome={};(prots||[]).forEach(p=>{protsPorNome[p.nome]=p;});
       const dsmPorMes={};(dsm||[]).forEach(r=>{if(r.mes)dsmPorMes[String(r.mes).slice(0,7)]=r;});
       const pdPorMes={};(mens||[]).forEach(r=>{const o=r.pd_setores;pdPorMes[r.mes_ref]=o?Object.values(o).reduce((a,v)=>a+(Number(v)||0),0):0;});
-      const ctx={notifs,protsPorNome,dsmPorMes,pdPorMes,treins,faixa};
+      const ctx={notifs,protsPorNome,dsmPorMes,pdPorMes,treins,faixa,decPDCA};
       const linhas=SUBNUCLEOS_HNSA.map(sn=>{
         const us=(usuarios||[]).filter(u=>u.subnucleo===sn.id);
         const ultimo=us.map(u=>u.ultimo_acesso).filter(Boolean).sort().pop()||null;
@@ -5928,7 +6180,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
             {l.total===0&&<span style={{background:C.green+'22',color:C.green,borderRadius:6,padding:'2px 8px',fontSize:10,fontWeight:700}}>{String.fromCodePoint(10003)} Em dia</span>}
             {multi?chip(l.indicadoresMeses.length,'mes'+(l.indicadoresMeses.length>1?'es':'')+' c/ indicador faltando',C.yellow):chip(l.nIndicadores,'indicador'+(l.nIndicadores>1?'es':''),C.yellow)}
             {chip(l.protocolos.length,'protocolo'+(l.protocolos.length>1?'s':''),C.red)}
-            {chip(l.semRCA,'sem RCA',C.orange)}
+            {chip(l.semRCA,'PDCA sem análise',C.orange)}
             {chip(l.semestresSemTrein.length,(l.semestresSemTrein.length>1?'semestres':'semestre')+' sem treinamento',C.purple)}
             {chip(l.semLista||0,'sem lista de presença',C.purple)}
           </div>
@@ -5939,7 +6191,7 @@ function GestorPendenciasSubnucleos({sbUrl,sbKey,hospital,onAbrirSub,showToast})
             {l.indicadoresMeses.map(x=><div key={x.mes} style={{paddingLeft:8}}>• <b style={{color:C.text}}>{rotuloMes(x.mes)}</b>: {x.todos?'nenhum lançado ('+x.faltando.length+' campos)':x.faltando.join(' · ')}</div>)}
           </div>}
           {l.protocolos.length>0&&<div><b style={{color:C.text}}>Protocolos:</b> {l.protocolos.join(' · ')}</div>}
-          {l.semRCA>0&&<div><b style={{color:C.text}}>Notificações do período sem RCA:</b> {l.semRCA}</div>}
+          {l.semRCA>0&&<div><b style={{color:C.text}}>Notificações com PDCA sem análise:</b> {l.semRCA}</div>}
           <div><b style={{color:C.text}}>Treinamentos no período:</b> {l.treinSemestre}{l.semestresSemTrein.length>0?' — sem treinamento: '+l.semestresSemTrein.join(', '):''}{l.semLista?' — '+l.semLista+' sem lista de presença':''}</div>
           {l.total===0&&<div style={{color:C.green,fontWeight:700}}>Tudo em dia neste período.</div>}
           {onAbrirSub&&<div style={{marginTop:8}}><button onClick={()=>onAbrirSub(l.sn.id)} style={{background:l.sn.color,border:'none',color:'#fff',borderRadius:8,padding:'6px 12px',fontSize:11,fontWeight:800,cursor:'pointer'}}>{l.temPin?'Abrir painel do subnúcleo':'Preencher pelo subnúcleo'}</button></div>}
@@ -5975,14 +6227,18 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       sbSelect(sbUrl,sbKey,'protocolos',`hospital_id=eq.${hid}&select=nome,proxima_revisao`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'plano_acoes',`hospital_id=eq.${hid}&select=*`).catch(()=>[]),
       sbSelect(sbUrl,sbKey,'config_dsm',`hospital_id=eq.${hid}&select=*`).catch(()=>[]),
-    ]).then(([data,prots,planos,cfgArr])=>{
+      carregarDecisoesPDCA(sbUrl,sbKey,hid),
+    ]).then(([data,prots,planos,cfgArr,decPDCA])=>{
       setStats(computeStats(data));
       const notsById={};(data||[]).forEach(n=>{notsById[n.id]=n;});
       const naoFechada=p=>{const n=notsById[p.notification_id];return !n||!n.plano_fechado_em;};
       const protsVencidos=(prots||[]).filter(p=>p.proxima_revisao&&p.proxima_revisao<hoje);
       const planosAtrasados=(planos||[]).filter(p=>p.status!=='concluido'&&p.status!=='cancelado'&&p.prazo&&p.prazo<hoje&&naoFechada(p));
       const efetPendentes=(planos||[]).filter(p=>p.status==='concluido'&&!p.efetividade_verificada&&naoFechada(p));
-      const rcaPendentes=(data||[]).filter(n=>n.notification_type==='seguranca_paciente'&&!n.rca_gerado&&(n.gravidade==='Evento sentinela'||n.gravidade==='Evento adverso grave'));
+      // notificacoes com demanda de PDCA e sem analise (obrigatorias primeiro)
+      const rcaPendentes=(data||[]).filter(n=>!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa)
+        .sort((x,y)=>(situacaoPDCA(y,decPDCA).nivel==='obrigatorio'?1:0)-(situacaoPDCA(x,decPDCA).nivel==='obrigatorio'?1:0));
+      rcaPendentes.forEach(n=>{n._pdca=situacaoPDCA(n,decPDCA);});
       const triagemPendentes=(data||[]).filter(n=>(n.event_subtype||'').startsWith('Outro'));
       const lim90=new Date(Date.now()-90*864e5).toISOString();
       const semComunicacao=(data||[]).filter(n=>(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&eventoComDano(n)&&!n.comunicado_paciente&&(n.created_at||'')>=lim90);
@@ -6004,7 +6260,11 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         }).catch(()=>setIndAno(null));
         carregarProntidao(sbUrl,sbKey,hospital||DEFAULT_HOSPITAL).then(setProntidao).catch(()=>{});
       }
-      setResumoPlano({total:validas.length,feitas:validas.filter(p=>p.status==='concluido'||p.status==='concluida').length,vencidas:planosAtrasados.length});
+      // PDCA por etapa: so as notificacoes com demanda de PDCA (ou com plano)
+      const porN={};(planos||[]).forEach(x=>{(porN[x.notification_id]=porN[x.notification_id]||[]).push(x);});
+      const et={iniciar:0,planejar:0,fazer:0,checar:0,agir:0,encerrado:0};
+      (data||[]).forEach(n=>{const acs=porN[n.id]||[];const sit=situacaoPDCA(n,decPDCA);if(!sit.precisa&&!acs.some(x=>etapaDaAcao(x)))return;et[etapaPDCA(n,acs,sit)]++;});
+      setResumoPlano({total:validas.length,feitas:validas.filter(p=>p.status==='concluido'||p.status==='concluida').length,vencidas:planosAtrasados.length,et});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
       .finally(()=>setLoading(false));
@@ -6066,16 +6326,16 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       const nDocs=prontidao?prontidao.itens.filter(x=>(x.grupo==='Documentos institucionais'||x.grupo==='Protocolos')&&x.st!=='ok').length:(alertas.docsInst||[]).length+(alertas.protsVencidos.length?1:0);
       const etapas=[
         {t:'Notificações',v:String(s.total),sub:'no mês · '+(diff>0?'+'+diff:diff)+' vs mês anterior'+(s.sentinelaMes?' · '+s.sentinelaMes+' sentinela(s)':''),st:s.sentinelaMes>0?'atencao':'ok',ir:()=>setView('notificacoes')},
-        {t:'Análise de causa',v:String(alertas.rcaPendentes.length),sub:alertas.rcaPendentes.length?'evento(s) grave(s) sem RCA'+(s.semRCA?' · '+s.semRCA+' notificação(ões) aguardando análise':''):s.semRCA?s.semRCA+' notificação(ões) aguardando análise':'eventos graves analisados',st:alertas.rcaPendentes.length?'pendente':s.semRCA?'atencao':'ok',ir:()=>{setFiltroNotif('semRCA');setView('notificacoes');}},
-        {t:'Planos de ação',v:pctPlano===null?'—':pctPlano+'%',sub:pctPlano===null?'nenhuma ação cadastrada':'executado'+(resumoPlano.vencidas?' · '+resumoPlano.vencidas+' vencida(s)':''),st:!resumoPlano||!resumoPlano.total?'ok':resumoPlano.vencidas>10?'pendente':resumoPlano.vencidas?'atencao':'ok',ir:()=>setView('acoes')},
+        {t:'Análise de causa',v:String(alertas.rcaPendentes.length),sub:alertas.rcaPendentes.length?'notificação(ões) com PDCA e análise pendente':'todas as notificações com PDCA analisadas',st:alertas.rcaPendentes.length?(alertas.rcaPendentes.some(n=>n._pdca&&n._pdca.nivel==='obrigatorio')?'pendente':'atencao'):'ok',ir:()=>{setFiltroNotif('semRCA');setView('notificacoes');}},
+        {t:'PDCA das notificações',v:resumoPlano&&resumoPlano.et?String(resumoPlano.et.iniciar+resumoPlano.et.planejar+resumoPlano.et.fazer+resumoPlano.et.checar+resumoPlano.et.agir):'—',sub:resumoPlano&&resumoPlano.et?((resumoPlano.et.iniciar?resumoPlano.et.iniciar+' a iniciar · ':'')+'P '+resumoPlano.et.planejar+' · D '+resumoPlano.et.fazer+' · C '+resumoPlano.et.checar+' · A '+resumoPlano.et.agir+' · encerrados '+resumoPlano.et.encerrado+(resumoPlano.vencidas?' · '+resumoPlano.vencidas+' ação(ões) vencida(s)':'')):'nenhuma notificação com PDCA',st:!resumoPlano||!resumoPlano.total?'ok':resumoPlano.vencidas>10?'pendente':resumoPlano.vencidas?'atencao':'ok',ir:()=>setView('pdca')},
         {t:'Eficácia',v:String(alertas.efetPendentes.length),sub:alertas.efetPendentes.length?'ação(ões) aguardando verificação':'verificações em dia',st:alertas.efetPendentes.length?'atencao':'ok',ir:()=>setView('acoes')},
         {t:'Indicadores',v:indAno&&indAno.total?indAno.na+'/'+indAno.total:'—',sub:indAno&&indAno.total?'na meta no acumulado do ano':'aguardando lançamentos',st:!indAno||!indAno.total?'atencao':indAno.na/indAno.total>=0.8?'ok':indAno.na/indAno.total>=0.5?'atencao':'pendente',ir:()=>setView('indicadores')},
         {t:'Documentos',v:nDocs?String(nDocs):'Em dia',sub:nDocs?'item(ns) de documentos ou protocolos fora do ideal':'portarias, PSP e protocolos',st:nDocs?((prontidao&&prontidao.itens.some(x=>(x.grupo==='Documentos institucionais'||x.grupo==='Protocolos')&&x.st==='pendente'))||(alertas.docsInst||[]).length?'pendente':'atencao'):'ok',ir:()=>setView('protocolos')},
       ];
       // prioridades: no maximo 5, da mais grave para a menos grave
       const prio=[];
-      alertas.rcaPendentes.slice(0,2).forEach(n=>prio.push({cor:C.red,t:(n.gravidade||'Evento grave')+' sem análise de causa',d:(n.event_subtype||'-')+' · '+(n.sector||'-'),b:'Analisar',f:()=>setRcaTarget(n)}));
-      if(alertas.rcaPendentes.length>2) prio.push({cor:C.red,t:'Mais '+(alertas.rcaPendentes.length-2)+' evento(s) grave(s) sem análise',d:'Lista filtrada em Notificações',b:'Ver',f:()=>{setFiltroNotif('semRCA');setView('notificacoes');}});
+      alertas.rcaPendentes.slice(0,2).forEach(n=>prio.push({cor:n._pdca&&n._pdca.nivel==='obrigatorio'?C.red:C.orange,t:(n.patient_outcome||n.gravidade||'Evento adverso')+': PDCA sem análise de causa',d:(n.event_subtype||'-')+' · '+(n.sector||'-'),b:'Analisar',f:()=>setRcaTarget(n)}));
+      if(alertas.rcaPendentes.length>2) prio.push({cor:C.red,t:'Mais '+(alertas.rcaPendentes.length-2)+' notificação(ões) com PDCA sem análise',d:'Lista filtrada em Notificações',b:'Ver',f:()=>{setFiltroNotif('semRCA');setView('notificacoes');}});
       (alertas.docsInst||[]).forEach(d=>prio.push({cor:C.red,t:d,d:'Documento institucional',b:'Atualizar',f:()=>setView('protocolos')}));
       if(alertas.planosAtrasados.length) prio.push({cor:C.yellow,t:alertas.planosAtrasados.length+' ação(ões) de plano com prazo vencido',d:'Replaneje o prazo ou conclua, com evidência',b:'Ver planos',f:()=>setView('acoes')});
       if(alertas.protsVencidos.length) prio.push({cor:C.yellow,t:alertas.protsVencidos.length+' protocolo(s) com revisão vencida',d:alertas.protsVencidos.slice(0,2).map(p=>p.nome).join(', ')+(alertas.protsVencidos.length>2?' e mais '+(alertas.protsVencidos.length-2):''),b:'Revisar',f:()=>setView('protocolos')});
@@ -6145,8 +6405,8 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
         </div>
         {alertas.rcaPendentes.slice(0,3).map(n=>{const p=prazo72(n);return(<div key={n.id} style={{...row,border:'1px solid '+C.red+'44'}}>
           <div style={{minWidth:0}}>
-            <div style={{fontSize:12,fontWeight:700,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(n.gravidade||'EA grave')+' · '+(n.event_subtype||'-')+' · '+(n.sector||'-')}</div>
-            <div style={{fontSize:10,color:p.cor,fontWeight:700}}>Sem análise RCA · {p.txt}</div>
+            <div style={{fontSize:12,fontWeight:700,color:C.text,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{(n.patient_outcome||n.gravidade||'Evento adverso')+' · '+(n.event_subtype||'-')+' · '+(n.sector||'-')}</div>
+            <div style={{fontSize:10,color:p.cor,fontWeight:700}}>{n._pdca&&n._pdca.nivel==='obrigatorio'?'PDCA obrigatório':'PDCA'} · análise pendente · {p.txt}</div>
           </div>
           <button onClick={()=>setRcaTarget(n)} style={btn(C.red)}>Analisar</button>
         </div>);})}
@@ -6994,6 +7254,95 @@ function saqCicloAtual(){const d=new Date();return d.getMonth()<6?`${d.getFullYe
 const PNQSP_REF='PNQSP · Portaria GM/MS nº 11.527/2026';
 const SQL_004='supabase/migrations/004_pnqsp_comunicacao_experiencia.sql';
 const semAcento=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+// ---------- PDCA das notificacoes ----------
+// Quais notificacoes entram no ciclo PDCA (analise -> plano -> execucao -> eficacia -> encerramento):
+//  obrigatorio: obito, dano grave ou evento sentinela (ANVISA cobra analise de causa raiz no Notivisa)
+//  sim: evento adverso com dano moderado ou leve
+//  nao: sem dano, near miss ou circunstancia de risco (registrar e monitorar)
+//  avaliar: desfecho nao informado (o subnucleo ou o gestor classifica)
+//  fora: notificacao administrativa
+// O subnucleo ou o gestor pode mudar a classificacao na aba de notificacoes; a decisao fica registrada
+// nas atualizacoes do plano (acao_comentarios, texto 'PDCA: SIM' ou 'PDCA: NAO'), com nome e data.
+function pdcaAutomatico(n){
+  if(!n||(n.notification_type!=='seguranca_paciente'&&n.notification_type!=='ccih')) return {nivel:'fora',motivo:'Notificação administrativa: fora do PDCA de segurança do paciente.'};
+  const s=semAcento((n.patient_outcome||'')+' | '+(n.gravidade||'')+' | '+(n.event_subtype||''));
+  if(/obito|dano grave|sentinela|evento adverso grave|never event/.test(s)) return {nivel:'obrigatorio',motivo:'Óbito, dano grave ou evento sentinela: análise de causa raiz, plano de ação e verificação de eficácia são obrigatórios.'};
+  if(/dano moderado|dano leve/.test(s)) return {nivel:'sim',motivo:'Evento adverso com dano ao paciente: análise e plano de ação.'};
+  if(/sem dano|near miss|nenhum dano|circunstancia de risco|nao atingiu/.test(s)) return {nivel:'nao',motivo:'Sem dano ao paciente: registrar e monitorar. Abra o PDCA se houver risco alto ou repetição.'};
+  return {nivel:'avaliar',motivo:'Desfecho não informado: classifique se precisa de PDCA.'};
+}
+function decisoesPDCA(comentarios){
+  const m={};
+  (comentarios||[]).forEach(c=>{const t=String(c.texto||'');const r=t.match(/^PDCA: (SIM|NAO)/);if(!r)return;
+    const ant=m[c.notification_id];if(ant&&String(ant.em)>String(c.created_at))return;
+    m[c.notification_id]={sim:r[1]==='SIM',autor:c.autor||c.setor||'',em:c.created_at,motivo:(t.split('Motivo: ')[1]||'').trim()};});
+  return m;
+}
+async function carregarDecisoesPDCA(sbUrl,sbKey,hid){
+  try{const d=await sbSelect(sbUrl,sbKey,'acao_comentarios',`hospital_id=eq.${hid}&texto=like.${encodeURIComponent('PDCA:')}*&select=notification_id,texto,autor,setor,created_at&order=created_at.asc`);return decisoesPDCA(d);}
+  catch(e){return {};}
+}
+// situacao final: classificacao manual (se houver) ou a automatica
+function situacaoPDCA(n,dec){
+  const auto=pdcaAutomatico(n);
+  if(auto.nivel==='fora') return {...auto,precisa:false,auto};
+  const d=dec&&n&&dec[n.id];
+  if(d) return {nivel:d.sim?(auto.nivel==='obrigatorio'?'obrigatorio':'sim'):'nao',precisa:d.sim,iniciado:d.sim,manual:true,autor:d.autor,em:d.em,motivo:d.motivo,auto};
+  // exigido pela regra e ainda nao iniciado: aparece sinalizado com o botao Iniciar PDCA
+  return {...auto,precisa:auto.nivel==='obrigatorio'||auto.nivel==='sim',iniciado:false,classificar:auto.nivel==='avaliar',auto};
+}
+const ROTULO_PDCA={obrigatorio:['PDCA obrigatório','#DC2626'],sim:['Precisa de PDCA','#EA580C'],nao:['Sem PDCA · monitorar','#64748B'],avaliar:['Classificar PDCA','#CA8A04']};
+async function iniciarPDCA(sbUrl,sbKey,n,setor,motivo){
+  const sit=pdcaAutomatico(n);
+  await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:n.id,hospital_id:n.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||null,
+    texto:'PDCA: SIM — precisa de análise e plano de ação. Motivo: '+(motivo||((sit.nivel==='obrigatorio'||sit.nivel==='sim')?'exigido pela regra ('+(n.patient_outcome||n.gravidade||'evento adverso')+')':'decisão do NSP'))});
+}
+function PdcaSelo({sit}){
+  if(!sit||sit.nivel==='fora') return null;
+  const nivel=sit.manual?(sit.precisa?(sit.nivel==='obrigatorio'?'obrigatorio':'sim'):'nao'):sit.nivel;
+  let [txt,cor]=ROTULO_PDCA[nivel]||ROTULO_PDCA.avaliar;
+  if(sit.precisa&&!sit.iniciado){txt=(nivel==='obrigatorio'?'PDCA obrigatório':'PDCA necessário')+' · a iniciar';cor='#DC2626';}
+  else if(sit.precisa&&sit.iniciado) txt='PDCA iniciado';
+  return <span title={sit.manual?('Classificado por '+(sit.autor||'—')+(sit.em?' em '+new Date(sit.em).toLocaleDateString('pt-BR'):'')):sit.motivo} style={{fontSize:9,borderRadius:3,padding:'1px 5px',background:cor+'1f',color:cor,fontWeight:800}}>{txt}</span>;
+}
+// Classificacao feita pelo subnucleo ou pelo gestor na aba de notificacoes
+function PdcaClassificar({n,dec,sbUrl,sbKey,showToast,setor,onSalvo}){
+  const sit=situacaoPDCA(n,dec);
+  const [motivo,setMotivo]=useState('');
+  const [salvando,setSalvando]=useState(false);
+  const [mudando,setMudando]=useState(false);
+  if(sit.nivel==='fora') return null;
+  const salvar=async(sim)=>{
+    if(!sim&&sit.auto.nivel==='obrigatorio'&&!confirm('Óbito, dano grave e evento sentinela exigem análise de causa raiz e plano de ação (ANVISA). Classificar mesmo assim como "não precisa de PDCA"?'))return;
+    if(!sim&&!motivo.trim()){showToast('Escreva o motivo para não abrir o PDCA','error');return;}
+    setSalvando(true);
+    try{if(sim) await iniciarPDCA(sbUrl,sbKey,n,setor,motivo.trim()||null);
+      else await sbInsert(sbUrl,sbKey,'acao_comentarios',{notification_id:n.id,hospital_id:n.hospital_id,setor:setor||'NSP',autor:USUARIO_ATUAL||null,
+        texto:'PDCA: NAO — não precisa de plano de ação (registrar e monitorar). Motivo: '+motivo.trim()});
+      showToast(sim?'PDCA iniciado. Acompanhe em "PDCA das notificações".':'Registrado: sem PDCA (monitorar)','success');setMudando(false);setMotivo('');onSalvo&&onSalvo();}
+    catch(e){showToast('Não foi possível salvar a classificação: '+e.message,'error');}
+    setSalvando(false);
+  };
+  const cor=sit.precisa?'#EA580C':sit.classificar?'#CA8A04':'#64748B';
+  return(<div onClick={e=>e.stopPropagation()} style={{background:cor+'10',border:'1px solid '+cor+'44',borderRadius:8,padding:'8px 10px',marginBottom:8}}>
+    <div style={{fontSize:9,color:cor,fontWeight:800,textTransform:'uppercase',marginBottom:2}}>Ciclo PDCA</div>
+    <div style={{fontSize:11.5,color:sit.precisa&&!sit.iniciado?'#DC2626':C.text,fontWeight:800}}>{sit.classificar?'Ainda não classificada':sit.precisa&&!sit.iniciado?'A regra exige PDCA: é necessário iniciar':sit.precisa?'PDCA iniciado: acompanhe em "PDCA das notificações"':'Sem PDCA: registrar e monitorar'}</div>
+    <div style={{fontSize:10.5,color:C.muted,marginTop:2,lineHeight:1.45}}>{sit.manual?('Classificado por '+(sit.autor||'—')+(sit.em?' em '+new Date(sit.em).toLocaleDateString('pt-BR'):'')+(sit.motivo?'. Motivo: '+sit.motivo:'')+'. Pela regra: '+sit.auto.motivo):'Pela regra: '+sit.motivo}</div>
+    {sit.precisa&&!sit.iniciado&&!mudando?<div style={{display:'flex',gap:6,flexWrap:'wrap',marginTop:6}}>
+      <button disabled={salvando} onClick={()=>salvar(true)} style={{fontSize:11,padding:'6px 12px',borderRadius:6,border:'none',background:'#DC2626',color:'#fff',fontWeight:800,cursor:'pointer'}}>Iniciar PDCA</button>
+      <button onClick={()=>setMudando(true)} style={{fontSize:10.5,padding:'5px 9px',borderRadius:6,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700,cursor:'pointer'}}>Não precisa de PDCA</button>
+    </div>
+    :(mudando||sit.classificar)?<div style={{marginTop:6}}>
+      <input value={motivo} onChange={e=>setMotivo(e.target.value)} placeholder="Motivo (obrigatório para não abrir o PDCA)" style={{width:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:6,padding:'6px 8px',color:C.text,fontSize:11,outline:'none',marginBottom:6}}/>
+      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+        <button disabled={salvando} onClick={()=>salvar(true)} style={{fontSize:10.5,padding:'5px 10px',borderRadius:6,border:'none',background:'#EA580C',color:'#fff',fontWeight:800,cursor:'pointer'}}>Iniciar PDCA</button>
+        <button disabled={salvando} onClick={()=>salvar(false)} style={{fontSize:10.5,padding:'5px 10px',borderRadius:6,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700,cursor:'pointer'}}>Não precisa de PDCA</button>
+        {!sit.classificar&&<button onClick={()=>setMudando(false)} style={{fontSize:10.5,padding:'5px 8px',border:'none',background:'none',color:C.muted,cursor:'pointer'}}>Cancelar</button>}
+      </div>
+    </div>
+    :<button onClick={()=>setMudando(true)} style={{marginTop:6,fontSize:10.5,padding:'4px 9px',borderRadius:6,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700,cursor:'pointer'}}>Mudar classificação</button>}
+  </div>);
+}
 function eventoComDano(n){
   return /dano leve|dano moderado|dano grave|obito|sentinela|evento adverso/.test(semAcento((n.gravidade||'')+' | '+(n.patient_outcome||'')));
 }
@@ -10403,7 +10752,8 @@ function NotificaAI() {
     {id:'home',label:'Visão geral',curto:'Início',icon:IconHome,grupo:'Início',fixo:true,desc:'O hospital em um olhar e as prioridades de hoje'},
     {id:'inspecao',label:marinha?'Preparação para a inspeção':'Preparação para auditoria',icon:IconShield,grupo:'Início',desc:marinha?'O que a DSM vai conferir e onde está cada evidência':'O que a auditoria confere e onde está cada evidência'},
     {id:'notificacoes',label:'Notificações e análises',curto:'Notificações',icon:IconMsg,grupo:'Ocorrências',fixo:true,desc:'Eventos notificados, análise de causa (RCA) e NOTIVISA'},
-    {id:'acoes',label:'Planos de ação',curto:'Ações',icon:IconAudit,grupo:'Melhoria contínua',fixo:true,desc:'Execução das ações (PDCA) e verificação de eficácia'},
+    {id:'pdca',label:'PDCA das notificações',curto:'PDCA',icon:IconAudit,grupo:'Melhoria contínua',fixo:true,desc:'Onde está o ciclo de cada notificação e o que está acontecendo'},
+    {id:'acoes',label:'Planos de ação',curto:'Ações',icon:IconAudit,grupo:'Melhoria contínua',desc:'Ações de melhoria definidas pelo NSP, execução e eficácia'},
     {id:'treinamentos',label:'Treinamentos e reuniões',curto:'Treinamentos',icon:IconBook,grupo:'Melhoria contínua',desc:'Registro com lista de presença e ata'},
     {id:'capacitacao_dash',label:'Capacitação online',icon:IconBook,grupo:'Melhoria contínua',desc:'Curso dos protocolos, resultados e certificados'},
     {id:'indicadores',label:'Indicadores',icon:IconBar,grupo:'Resultados',fixo:true,desc:'Panorama por período, lançamentos mensais e metas'},
@@ -10432,7 +10782,8 @@ function NotificaAI() {
     {id:'indicadores',label:'Indicadores',icon:IconBar,fixo:true,desc:'Panorama por período, metas e evolução mês a mês'},
     {id:'documentos_nsp',label:'Biblioteca de documentos',curto:'Documentos',icon:IconBook,fixo:true,desc:'Portarias, protocolos, atas e listas de presença'},
     {id:'treinamentos',label:'Treinamentos e reuniões',icon:IconBook,desc:'Registros com lista de presença e ata'},
-    {id:'acoes',label:'Planos de ação',icon:IconAudit,desc:'Execução das ações e verificação de eficácia (somente leitura)'},
+    {id:'pdca',label:'PDCA das notificações',icon:IconAudit,desc:'Onde está o ciclo de cada notificação e o que aconteceu (somente leitura)'},
+    {id:'acoes',label:'Planos de ação',icon:IconAudit,desc:'Ações de melhoria, execução e eficácia (somente leitura)'},
     {id:'pnqsp',label:'Política Nacional (PNQSP)',icon:IconShield,desc:'Indicadores de estrutura, processo e resultado'},
     {id:'saq_dashboard',label:'Cultura de segurança',icon:IconBar,desc:'Resultado da pesquisa de cultura'},
     {id:'auditar',label:'Dossiê de evidências',curto:'Dossiê',icon:IconAudit,fixo:true,desc:'PDF, apresentação e planilha com as evidências'},
@@ -10542,6 +10893,7 @@ function NotificaAI() {
         {view==='treinamentos'&&<TreinamentosView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} gestorMode={gestorMode}/>}
         {view==='relatorio_dsm'&&<RelatorioDSMView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital}/>}
         {view==='auditar'&&<AuditarView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} modoAuditor={profileMode==='auditor'}/>}
+        {view==='pdca'&&<PdcaView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} somenteLeitura={auditorMode}/>}
         {view==='acoes'&&<AcoesPendentesView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} somenteLeitura={auditorMode}/>}
         
         {view==='membro_nsp'&&<MembroNSPView sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} hospital={hospital} profileMode={profileMode} userSubnucleo={userSubnucleo}/>}
@@ -10901,7 +11253,7 @@ function faixaPeriodo({tipo,mes,sem,ano}){
   return {tipo,ini,fim,label,meses:meses.filter(m=>m<=limite),
     semestres:semestres.filter(sx=>{const [a,n]=sx.split('-');return `${a}-${n==='1'?'01':'07'}-01`<=hojeStr;})};
 }
-function calcPendenciasSub(subId,{notifs,protsPorNome,dsmPorMes,pdPorMes,treins,faixa}){
+function calcPendenciasSub(subId,{notifs,protsPorNome,dsmPorMes,pdPorMes,treins,faixa,decPDCA}){
   const hoje=new Date().toISOString().slice(0,10);
   const ref=faixa.fim<hoje?faixa.fim:hoje; // situacao dos protocolos ao fim do periodo
   const vazio=v=>v===''||v===null||v===undefined;
@@ -10924,7 +11276,7 @@ function calcPendenciasSub(subId,{notifs,protsPorNome,dsmPorMes,pdPorMes,treins,
     return null;
   }).filter(Boolean);
   const dataN=n=>n.event_date||(n.created_at||'').slice(0,10);
-  const semRCA=(notifs||[]).filter(n=>{const d=dataN(n);return notifDoSubnucleo(n,subId)&&!n.rca_gerado&&(n.notification_type==='seguranca_paciente'||n.notification_type==='ccih')&&d>=faixa.ini&&d<=faixa.fim;}).length;
+  const semRCA=(notifs||[]).filter(n=>{const d=dataN(n);return notifDoSubnucleo(n,subId)&&!n.rca_gerado&&situacaoPDCA(n,decPDCA).precisa&&d>=faixa.ini&&d<=faixa.fim;}).length;
   const treinsSub=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento'&&(t.data||'')>=faixa.ini&&(t.data||'')<=faixa.fim);
   // o semestre e avaliado com todos os treinamentos dele, nao so os do mes escolhido
   const treinsTodos=(treins||[]).filter(t=>t.subnucleo===subId&&t.tipo==='treinamento');

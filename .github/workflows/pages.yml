@@ -43,4 +43,6 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-        continue-on-error: true
+        with:
+          # o GitHub Pages as vezes demora mais de 10 min; com o limite padrao a publicacao era cancelada
+          timeout: 1800000

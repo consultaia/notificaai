@@ -438,7 +438,7 @@ async function montarLembrete(env, hospitalId) {
     sbGet(env, `indicadores_dsm?hospital_id=eq.${h}&mes=eq.${mes}-01&select=*`).catch(() => []),
     sbGet(env, `indicadores_mensais?hospital_id=eq.${h}&mes_ref=eq.${mes}&select=pd_setores`).catch(() => []),
     sbGet(env, `protocolos?hospital_id=eq.${h}&select=nome,aprovado_em,proxima_revisao`),
-    sbGet(env, `notifications?hospital_id=eq.${h}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&rca_gerado=not.is.true&select=id,notification_type,event_subtype,occurrence_subtype,infection_topography,patient_outcome,gravidade&limit=5000`),
+    sbGet(env, `notifications?hospital_id=eq.${h}&is_test=neq.true&notification_type=in.(seguranca_paciente,ccih)&rca_gerado=not.is.true&select=id,created_at,notification_type,event_subtype,occurrence_subtype,infection_topography,patient_outcome,gravidade&limit=5000`),
     sbGet(env, `treinamentos_nsp?hospital_id=eq.${h}&tipo=eq.treinamento&data=gte.${semIni}&data=lte.${semFim}&select=subnucleo`),
     sbGet(env, `acao_comentarios?hospital_id=eq.${h}&texto=like.PDCA%3A*&select=notification_id,texto,created_at&order=created_at.asc`).catch(() => []),
   ]);
@@ -449,6 +449,9 @@ async function montarLembrete(env, hospitalId) {
   const semAc = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const precisaPDCA = n => {
     if (n.id in decPDCA) return decPDCA[n.id];
+    // PDCA sem retroativo: antes da implantacao so entra se alguem iniciou manualmente
+    const ini = { hnsa: '2026-11-01' }[h];
+    if (ini && String(n.created_at || '').slice(0, 10) < ini) return false;
     const s = semAc((n.patient_outcome || '') + ' | ' + (n.gravidade || '') + ' | ' + (n.event_subtype || ''));
     return /obito|dano grave|sentinela|evento adverso grave|never event|dano moderado|dano leve/.test(s);
   };

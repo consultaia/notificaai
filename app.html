@@ -2641,6 +2641,7 @@ function PdcaView({sbUrl,sbKey,showToast,hospital,somenteLeitura}){
   const hoje=new Date().toLocaleDateString('en-CA');
   const linhas=d.ns.map(n=>{
     const sit=situacaoPDCA(n,d.dec);const todas=porN[n.id]||[];const acs=todas.filter(x=>etapaDaAcao(x));
+    if(sit.nivel==='anterior') return null;
     if(!sit.precisa&&!acs.length) return null;
     const etapa=etapaPDCA(n,todas,sit);
     const sitCard=etapa!=='iniciar'?{...sit,iniciado:true}:sit;
@@ -2659,7 +2660,8 @@ function PdcaView({sbUrl,sbKey,showToast,hospital,somenteLeitura}){
       onIniciarPDCA={async n=>{try{await iniciarPDCA(sbUrl,sbKey,n,'NSP');showToast('PDCA iniciado','success');await carregar();}catch(e){showToast('Não foi possível iniciar: '+e.message,'error');}}}/>}
     <div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap',alignItems:'flex-end'}}>
       <div><div style={{fontSize:19,fontWeight:900,color:C.text}}>PDCA das notificações</div>
-        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Cada cartão é uma notificação. Ela anda sozinha de etapa quando a análise, as ações, a eficácia e o encerramento são registrados. O PDCA começa em Notificações e análises.</div></div>
+        <div style={{fontSize:12,color:C.muted,marginTop:2}}>Cada cartão é uma notificação. Ela anda sozinha de etapa quando a análise, as ações, a eficácia e o encerramento são registrados. O PDCA começa em Notificações e análises.</div>
+        {hospital&&INICIO_PDCA[hospital.id]&&<div style={{fontSize:11.5,color:C.text,marginTop:4}}>PDCA implantado em {dataBR(INICIO_PDCA[hospital.id])}; notificações anteriores seguiram o fluxo anterior.</div>}</div>
       <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar nº, evento, setor" style={{width:220,maxWidth:'100%',background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',color:C.text,fontSize:12,outline:'none'}}/>
     </div>
     <div style={{display:'flex',gap:10,overflowX:'auto',paddingBottom:6,alignItems:'flex-start'}}>
@@ -6264,7 +6266,7 @@ function HomeView({setView,sbUrl,sbKey,onConfig,showToast,gestorMode,testMode,ho
       // PDCA por etapa: so as notificacoes com demanda de PDCA (ou com plano)
       const porN={};(planos||[]).forEach(x=>{(porN[x.notification_id]=porN[x.notification_id]||[]).push(x);});
       const et={iniciar:0,planejar:0,fazer:0,checar:0,agir:0,encerrado:0};
-      (data||[]).forEach(n=>{const acs=porN[n.id]||[];const sit=situacaoPDCA(n,decPDCA);if(!sit.precisa&&!acs.some(x=>etapaDaAcao(x)))return;et[etapaPDCA(n,acs,sit)]++;});
+      (data||[]).forEach(n=>{const acs=porN[n.id]||[];const sit=situacaoPDCA(n,decPDCA);if(sit.nivel==='anterior'||(!sit.precisa&&!acs.some(x=>etapaDaAcao(x))))return;et[etapaPDCA(n,acs,sit)]++;});
       setResumoPlano({total:validas.length,feitas:validas.filter(p=>p.status==='concluido'||p.status==='concluida').length,vencidas:planosAtrasados.length,et});
     })
       .catch(()=>showToast('Erro ao carregar dados','error'))
@@ -7264,6 +7266,12 @@ const semAcento=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]
 //  fora: notificacao administrativa
 // O subnucleo ou o gestor pode mudar a classificacao na aba de notificacoes; a decisao fica registrada
 // nas atualizacoes do plano (acao_comentarios, texto 'PDCA: SIM' ou 'PDCA: NAO'), com nome e data.
+// Data de implantacao do PDCA por instituicao: notificacoes anteriores nao entram no ciclo (sem retroativo),
+// salvo se alguem iniciar o PDCA manualmente.
+const INICIO_PDCA={hnsa:'2026-11-01'};
+const inicioPDCA=n=>n&&INICIO_PDCA[n.hospital_id]||null;
+const anteriorAoPDCA=n=>{const i=inicioPDCA(n);return !!(i&&String(n.created_at||'').slice(0,10)<i);};
+const dataBR=s=>s?new Date(s+'T12:00:00').toLocaleDateString('pt-BR'):'';
 function pdcaAutomatico(n){
   if(!n||(n.notification_type!=='seguranca_paciente'&&n.notification_type!=='ccih')) return {nivel:'fora',motivo:'Notificação administrativa: fora do PDCA de segurança do paciente.'};
   const s=semAcento((n.patient_outcome||'')+' | '+(n.gravidade||'')+' | '+(n.event_subtype||''));
@@ -7288,6 +7296,7 @@ function situacaoPDCA(n,dec){
   const auto=pdcaAutomatico(n);
   if(auto.nivel==='fora') return {...auto,precisa:false,auto};
   const d=dec&&n&&dec[n.id];
+  if(!d&&anteriorAoPDCA(n)) return {nivel:'anterior',precisa:false,iniciado:false,motivo:'Notificação anterior à implantação do PDCA ('+dataBR(inicioPDCA(n))+'): seguiu o fluxo anterior.',auto};
   if(d) return {nivel:d.sim?(auto.nivel==='obrigatorio'?'obrigatorio':'sim'):'nao',precisa:d.sim,iniciado:d.sim,manual:true,autor:d.autor,em:d.em,motivo:d.motivo,auto};
   // exigido pela regra e ainda nao iniciado: aparece sinalizado com o botao Iniciar PDCA
   return {...auto,precisa:auto.nivel==='obrigatorio'||auto.nivel==='sim',iniciado:!!(n&&n.rca_gerado),classificar:auto.nivel==='avaliar',auto};
@@ -7299,7 +7308,7 @@ async function iniciarPDCA(sbUrl,sbKey,n,setor,motivo){
     texto:'PDCA: SIM — precisa de análise e plano de ação. Motivo: '+(motivo||((sit.nivel==='obrigatorio'||sit.nivel==='sim')?'exigido pela regra ('+(n.patient_outcome||n.gravidade||'evento adverso')+')':'decisão do NSP'))});
 }
 function PdcaSelo({sit}){
-  if(!sit||sit.nivel==='fora') return null;
+  if(!sit||sit.nivel==='fora'||sit.nivel==='anterior') return null;
   const nivel=sit.manual?(sit.precisa?(sit.nivel==='obrigatorio'?'obrigatorio':'sim'):'nao'):sit.nivel;
   let [txt,cor]=ROTULO_PDCA[nivel]||ROTULO_PDCA.avaliar;
   if(sit.precisa&&!sit.iniciado){txt=(nivel==='obrigatorio'?'PDCA obrigatório':'PDCA necessário')+' · a iniciar';cor='#DC2626';}
@@ -7324,6 +7333,11 @@ function PdcaClassificar({n,dec,sbUrl,sbKey,showToast,setor,onSalvo}){
     catch(e){showToast('Não foi possível salvar a classificação: '+e.message,'error');}
     setSalvando(false);
   };
+  if(sit.nivel==='anterior') return(<div onClick={e=>e.stopPropagation()} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:8,padding:'8px 10px',marginBottom:8}}>
+    <div style={{fontSize:9,color:C.muted,fontWeight:800,textTransform:'uppercase',marginBottom:2}}>Ciclo PDCA</div>
+    <div style={{fontSize:11,color:C.muted,lineHeight:1.45}}>{sit.motivo}</div>
+    <button disabled={salvando} onClick={()=>salvar(true)} style={{marginTop:6,fontSize:10.5,padding:'4px 9px',borderRadius:6,border:'1px solid '+C.border,background:C.card,color:C.text,fontWeight:700,cursor:'pointer'}}>Iniciar PDCA mesmo assim</button>
+  </div>);
   const cor=sit.precisa?'#EA580C':sit.classificar?'#CA8A04':'#64748B';
   return(<div onClick={e=>e.stopPropagation()} style={{background:cor+'10',border:'1px solid '+cor+'44',borderRadius:8,padding:'8px 10px',marginBottom:8}}>
     <div style={{fontSize:9,color:cor,fontWeight:800,textTransform:'uppercase',marginBottom:2}}>Ciclo PDCA</div>

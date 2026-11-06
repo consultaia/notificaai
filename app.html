@@ -3805,8 +3805,21 @@ function aplicarSubnucleosDoHospital(h){
   SUBS_TREINAMENTO.splice(0,SUBS_TREINAMENTO.length,...novos,...SETORES_APOIO);
 }
 
+// Membro do subnucleo pode apagar um treinamento lancado errado: so do proprio subnucleo, lancado por ele,
+// nos ultimos 7 dias (o historico mais antigo e os registros de outras pessoas so o gestor apaga).
+const DIAS_EXCLUIR_MEMBRO=7;
+const RESP_GENERICOS=['','membro_nsp','membro do subnúcleo','membro do subnucleo','membro nsp'];
+function podeMembroExcluirTrein(r,subMembro){
+  if(!r||!r.id||!subMembro||r.subnucleo!==subMembro) return false;
+  const t=r.created_at?new Date(r.created_at).getTime():NaN;
+  if(!isFinite(t)||Date.now()-t>DIAS_EXCLUIR_MEMBRO*864e5) return false;
+  const resp=String(r.responsavel||'').trim().toLowerCase();
+  const eu=String(USUARIO_ATUAL||'').trim().toLowerCase();
+  // registros antigos guardavam so o perfil ('membro_nsp'), sem o nome: valem para os membros do subnucleo
+  return (eu&&resp===eu)||RESP_GENERICOS.includes(resp);
+}
 // Editar um registro de treinamento ou reuniao (data, participantes, tema e trocar a lista de presenca)
-function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir}){
+function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExcluir,podeMudarSetor,perfil,dicaExcluir}){
   const [f,setF]=useState({data:r.data||'',participantes:r.participantes||'',protocolo:r.protocolo||'',descricao:r.descricao||'',link_gdrive:r.link_gdrive||'',subnucleo:r.subnucleo||'',responsavel:r.responsavel||''});
   const reuniaoNSP=r.tipo==='reuniao_mensal'||r.tipo==='reuniao_extraordinaria';
   const [salvando,setSalvando]=useState(false);
@@ -3814,15 +3827,21 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
   const salvar=async()=>{
     if(!f.data||!Number(f.participantes)){showToast('Informe a data e o número de participantes','error');return;}
     setSalvando(true);
-    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null,...(podeExcluir&&!reuniaoNSP&&f.subnucleo?{subnucleo:f.subnucleo}:{}),responsavel:String(f.responsavel||'').trim()||null});
+    try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{data:f.data,participantes:Number(f.participantes),protocolo:f.protocolo.trim()||null,descricao:f.descricao.trim()||null,link_gdrive:f.link_gdrive||null,...(podeMudarSetor&&!reuniaoNSP&&f.subnucleo?{subnucleo:f.subnucleo}:{}),...(podeMudarSetor?{responsavel:String(f.responsavel||'').trim()||null}:{})});
       showToast('Registro atualizado','success');onSalvo&&onSalvo();}
     catch(e){showToast('Erro ao salvar: '+e.message,'error');}
     setSalvando(false);
   };
   const excluir=async()=>{
-    if(!confirm('Excluir este registro? A lista de presença anexada continua guardada no armazenamento.'))return;
+    const desc=(r.protocolo||r.descricao||(r.tipo==='treinamento'?'Treinamento':'Reunião'))+(r.data?' de '+new Date(r.data+'T12:00:00').toLocaleDateString('pt-BR'):'');
+    if(!confirm('Apagar "'+desc+'"?\n\nO registro sai da lista e dos relatórios. Não dá para desfazer (a lista de presença anexada continua guardada no armazenamento).'))return;
     setSalvando(true);
-    try{await sbDelete(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`);showToast('Registro excluído','success');onSalvo&&onSalvo();}
+    try{await sbDelete(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`);
+      // fica na trilha de auditoria o que foi apagado e por quem
+      sbAuditLog(sbUrl,sbKey,r.hospital_id,null,'TREINAMENTO_EXCLUIDO','treinamento',
+        [r.tipo,r.data,r.protocolo||r.descricao||'',(r.participantes||0)+' participantes','subnúcleo '+(r.subnucleo||'-'),'responsável '+(r.responsavel||'-'),r.link_gdrive?'lista: '+r.link_gdrive:'sem lista'].join(' · '),
+        '',USUARIO_ATUAL||perfil||'usuario',perfil||'').catch(()=>{});
+      showToast('Registro apagado','success');onSalvo&&onSalvo();}
     catch(e){showToast('Erro ao excluir: '+e.message,'error');}
     setSalvando(false);
   };
@@ -3833,15 +3852,15 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Data *</div><input type="date" value={f.data} onChange={e=>setF({...f,data:e.target.value})} style={inp}/></div>
       <div><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Participantes *</div><input type="number" min="1" value={f.participantes} onChange={e=>setF({...f,participantes:e.target.value})} style={inp}/></div>
     </div>
-    {podeExcluir&&!reuniaoNSP&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Subnúcleo ou setor de apoio</div>
+    {podeMudarSetor&&!reuniaoNSP&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Subnúcleo ou setor de apoio</div>
     <select value={f.subnucleo} onChange={e=>setF({...f,subnucleo:e.target.value})} style={{...inp,appearance:'none'}}>
       <optgroup label="Subnúcleos do NSP">{SUBNUCLEOS_HNSA.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
       <optgroup label="Setores de apoio">{SETORES_APOIO.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}</optgroup>
     </select></React.Fragment>}
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Tema ou protocolo</div>
     <input value={f.protocolo} onChange={e=>setF({...f,protocolo:e.target.value})} style={inp}/>
-    <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Responsável</div>
-    <input value={f.responsavel} onChange={e=>setF({...f,responsavel:e.target.value})} placeholder="Nome de quem ministrou ou registrou" style={inp}/>
+    {podeMudarSetor&&<React.Fragment><div style={{fontSize:10,color:C.muted,marginBottom:3}}>Responsável</div>
+    <input value={f.responsavel} onChange={e=>setF({...f,responsavel:e.target.value})} placeholder="Nome de quem ministrou ou registrou" style={inp}/></React.Fragment>}
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Descrição ou pauta</div>
     <textarea value={f.descricao} onChange={e=>setF({...f,descricao:e.target.value})} rows={2} style={{...inp,resize:'vertical',fontFamily:'inherit'}}/>
     <div style={{fontSize:10,color:C.muted,marginBottom:3}}>Lista de presença / ata</div>
@@ -3851,8 +3870,9 @@ function EditarTreinamento({r,sbUrl,sbKey,showToast,onSalvo,onCancelar,podeExclu
         meta={{subnucleo:r.subnucleo||'nsp_pleno',data:dt,participantes:f.participantes||'',ano:dt.slice(0,4),semestre:Number(dt.slice(5,7))<=6?'1':'2'}}
         onUploaded={link=>{setF(x=>({...x,link_gdrive:link}));showToast('Lista nova anexada. Toque em Salvar.','success');}}/>
     </div>
+    {!podeExcluir&&dicaExcluir&&<div style={{fontSize:10.5,color:C.muted,lineHeight:1.5,marginBottom:8}}>{dicaExcluir}</div>}
     <div style={{display:'flex',gap:8}}>
-      {podeExcluir&&<button onClick={excluir} disabled={salvando} style={{background:'none',border:'1px solid '+C.red+'66',borderRadius:8,padding:'8px 12px',color:C.red,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>Excluir</button>}
+      {podeExcluir&&<button onClick={excluir} disabled={salvando} style={{background:'none',border:'1px solid '+C.red+'66',borderRadius:8,padding:'8px 12px',color:C.red,fontSize:11.5,fontWeight:700,cursor:'pointer'}}>Apagar</button>}
       <div style={{flex:1}}/>
       <button onClick={onCancelar} style={{background:C.card,border:'1px solid '+C.border,borderRadius:8,padding:'8px 14px',color:C.muted,fontSize:12,fontWeight:700,cursor:'pointer'}}>Cancelar</button>
       <button onClick={salvar} disabled={salvando} style={{background:C.teal,border:'none',borderRadius:8,padding:'8px 16px',color:'#06101F',fontSize:12,fontWeight:800,cursor:'pointer'}}>{salvando?'Salvando...':'Salvar'}</button>
@@ -3954,7 +3974,7 @@ function TreinamentosView({sbUrl,sbKey,showToast,hospital,profileMode,gestorMode
         {r.descricao&&<div style={{fontSize:11,color:C.muted,marginBottom:4,borderLeft:'2px solid '+sub.color+'44',paddingLeft:8}}>{r.descricao}</div>}
         {r.link_gdrive&&repetidas[r.link_gdrive]>1&&<div style={{fontSize:11,color:C.text,background:C.yellow+'1a',border:'1px solid '+C.yellow+'55',borderRadius:8,padding:'6px 9px',margin:'4px 0 6px'}}><b style={{color:C.yellow}}>Atenção:</b> a mesma lista está anexada em {repetidas[r.link_gdrive]} registros. Confira e, se não for a deste, toque em Editar e troque pela lista correta.</div>}
         {canEdit&&editandoId!==r.id&&r.id&&<button onClick={()=>setEditandoId(r.id)} style={{float:'right',marginTop:2,background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'3px 10px',color:C.muted,fontSize:11,fontWeight:700,cursor:'pointer'}}>Editar</button>}
-        {editandoId===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={gestorMode||profileMode==='gestor'} onCancelar={()=>setEditandoId(null)} onSalvo={()=>{setEditandoId(null);load();}}/>}
+        {editandoId===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={gestorMode||profileMode==='gestor'} podeMudarSetor={gestorMode||profileMode==='gestor'} perfil={profileMode||'gestor'} onCancelar={()=>setEditandoId(null)} onSalvo={()=>{setEditandoId(null);load();}}/>}
         {r.link_gdrive&&<a href={r.link_gdrive} target="_blank" rel="noreferrer" style={{fontSize:11,color:C.teal,fontWeight:700,display:'inline-flex',alignItems:'center',gap:4,background:C.teal+'15',borderRadius:6,padding:'4px 10px'}}>{String.fromCodePoint(128206)} Abrir documento anexado</a>}
       </div>);
   };
@@ -5683,7 +5703,8 @@ function MembroNSPPainel({sbUrl,sbKey,showToast,hospital,profileMode,userSubnucl
                 meta={{subnucleo:sub.id,data:r.data||new Date().toISOString().slice(0,10),participantes:r.participantes||'',ano:String((r.data||new Date().toISOString()).slice(0,4)),semestre:Number((r.data||new Date().toISOString()).slice(5,7))<=6?'1':'2'}}
                 onUploaded={async link=>{try{await sbPatch(sbUrl,sbKey,'treinamentos_nsp',`id=eq.${r.id}`,{link_gdrive:link});showToast('Lista de presença anexada','success');carregar();}catch(e){showToast('Erro ao anexar: '+e.message,'error');}}}/>}
           </div>
-          {editTrein===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={profileMode==='gestor'} onCancelar={()=>setEditTrein(null)} onSalvo={()=>{setEditTrein(null);carregar();}}/>}
+          {editTrein===r.id&&<EditarTreinamento r={r} sbUrl={sbUrl} sbKey={sbKey} showToast={showToast} podeExcluir={profileMode==='gestor'||podeMembroExcluirTrein(r,userSubnucleo)} podeMudarSetor={profileMode==='gestor'} perfil={profileMode}
+            dicaExcluir={'Você pode apagar só os treinamentos do seu subnúcleo que você lançou nos últimos '+DIAS_EXCLUIR_MEMBRO+' dias. Para apagar este, peça ao gestor do NSP.'} onCancelar={()=>setEditTrein(null)} onSalvo={()=>{setEditTrein(null);carregar();}}/>}
           </React.Fragment>
         ))}
         {regs.length>3&&<button onClick={()=>setVerTodosTrein(v=>({...v,[sub.id]:!v[sub.id]}))} style={{marginTop:8,background:'none',border:'none',color:C.teal,fontSize:11.5,fontWeight:700,cursor:'pointer',padding:0}}>{verTodosTrein[sub.id]?'Mostrar menos':'Ver todos os '+regs.length+' registros'}</button>}

@@ -42,6 +42,8 @@ Seu jeito de falar (isto importa muito):
 Como conduzir:
 - Se a pessoa já disser o que quer, mostre opções logo. Senão, descubra aos poucos, conversando: compra ou aluguel, tipo de imóvel, bairro ou região, faixa de valor, número de quartos, e se vai financiar (compra).
 - Use buscar_imoveis para achar opções. Apresente no máximo 3 por vez, com o essencial: bairro, quartos, área, vagas e valor. Ofereça fotos (enviar_fotos) e detalhes.
+- Nunca comece pelo "não" nem por "infelizmente": quando o pedido não bate exatamente com a carteira, mostre as opções mais próximas destacando o que elas têm a ver com o que a pessoa quer (ex.: pediu perto da praia → destaque vista mar, acesso fácil à orla, se estiver no cadastro) e pergunte se faz sentido. Só diga que não tem nada quando realmente nenhuma opção se aproxima, e aí ofereça o corretor para procurar.
+- Não afirme distâncias, localização ou características de bairros (ex.: "fica longe da praia", "não é na orla") que não estejam no cadastro do imóvel ou nas orientações do corretor. Se não souber, não negue: pergunte o que a pessoa tem em mente (qual praia, qual região) ou diga que o corretor confirma.
 - Só fale de imóveis que vieram das ferramentas. Nunca invente imóvel, valor, característica ou condição. Se não houver nada no perfil, diga com franqueza, sugira ajustar a busca e ofereça avisar o corretor (chamar_corretor) para procurar algo fora da carteira.
 - Endereço exato só depois que a visita estiver marcada. Antes disso, fale só o bairro.
 - Lançamentos e imóveis na planta vêm agrupados por empreendimento: apresente o empreendimento e as plantas disponíveis. Se houver book, ofereça mandar (enviar_book). Se não houver preço cadastrado, diga que o corretor passa a tabela atualizada e as condições, e use chamar_corretor se a pessoa quiser os valores.
@@ -197,6 +199,7 @@ function resumoImovel(i) {
     bairro: i.bairro, cidade: i.cidade, valor: brl(i.preco), condominio: brl(i.condominio),
     quartos: i.quartos, suites: i.suites, vagas: i.vagas, area_m2: i.area_m2,
     fotos: (i.fotos || []).length,
+    ...((i.caracteristicas || []).length ? { caracteristicas: i.caracteristicas.slice(0, 15) } : {}),
     ...(i.empreendimento ? { empreendimento: i.empreendimento, situacao: i.situacao, previsao_entrega: i.previsao_entrega, programa: i.programa, tem_book: !!i.book_url } : {}),
   };
 }

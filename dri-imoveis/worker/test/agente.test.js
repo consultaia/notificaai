@@ -262,3 +262,9 @@ test("horário pedido no fim da tarde aparece (antes a lista cortava nos 12 prim
   ];
   assert.equal(await responder(ctx, ["sexta às 15h dá?"]), "ok");
 });
+
+test("markdown que escapa da IA vira formatação do WhatsApp", async () => {
+  const { dividirMensagens } = await import("../src/agente.js");
+  assert.deepEqual(dividirMensagens("O **Imbuí Class** tem vista mar\n---\n## Plantas\n*2 quartos*"),
+    ["O *Imbuí Class* tem vista mar", "Plantas\n*2 quartos*"]);
+});
